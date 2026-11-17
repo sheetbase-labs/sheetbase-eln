@@ -54,6 +54,30 @@ export function ControlColumns({
   )
 }
 
+/** The one line under the plate: what was read, and in what shape. */
+function previewLine(input: {
+  readCount: number
+  controls: number
+  samples: number
+  standards: number
+  format: PlateFormat | null
+  quantify: boolean
+}): string {
+  const { readCount, controls, samples, standards, format, quantify } = input
+
+  const counts = quantify
+    ? t('features.plateRuns.quantify.preview', {
+        wells: readCount,
+        standards,
+        samples,
+      })
+    : t('plates.form.preview', { wells: readCount, controls, samples })
+
+  return format
+    ? `${counts} · ${t('plates.form.previewFormat', { format: t(`plates.formats.${format}`) })}`
+    : counts
+}
+
 export function PlatePreview({
   readCount,
   controls,
@@ -90,20 +114,14 @@ export function PlatePreview({
       ) : (
         <>
           <span className="text-label text-fg-muted">
-            {quantify
-              ? t('features.plateRuns.quantify.preview', {
-                  wells: readCount,
-                  standards,
-                  samples,
-                })
-              : t('plates.form.preview', {
-                  wells: readCount,
-                  controls,
-                  samples,
-                })}
-            {format
-              ? ` · ${t('plates.form.previewFormat', { format: t(`plates.formats.${format}`) })}`
-              : ''}
+            {previewLine({
+              readCount,
+              controls,
+              samples,
+              standards,
+              format,
+              quantify,
+            })}
           </span>
           {preview ? <PlateStats analysis={preview} /> : null}
           {format ? (

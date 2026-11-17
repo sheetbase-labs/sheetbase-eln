@@ -553,6 +553,50 @@ function PlatePanel({
   )
 }
 
+/** The tabs an analysed run offers: a standard curve has its own. */
+function runTabItems(analysis: PlateAnalysis, curveCount: number) {
+  const quantify = analysis.quantify ?? null
+
+  if (quantify)
+    return [
+      {
+        key: 'results',
+        label: t('features.plateRuns.quantify.tabs.results'),
+        count: quantify.samples.length,
+      },
+      {
+        key: 'standards',
+        label: t('features.plateRuns.quantify.tabs.standards'),
+      },
+      { key: 'qc', label: t('plates.run.tabs.qc') },
+    ]
+
+  return [
+    {
+      key: 'hits',
+      label: t('plates.run.tabs.hits'),
+      count: analysis.samples.length,
+    },
+    {
+      key: 'curves',
+      label: t('plates.run.tabs.curves'),
+      count: curveCount,
+    },
+    { key: 'qc', label: t('plates.run.tabs.qc') },
+  ]
+}
+
+/** The button that gives a quantified run's results to its samples, when there is something to give. */
+function publishAction(
+  runId: string,
+  quantify: NonNullable<PlateAnalysis['quantify']>,
+  canWrite: boolean,
+) {
+  return canWrite && quantify.samples.some((s) => s.result !== null) ? (
+    <PublishMeasurementsButton runId={runId} />
+  ) : undefined
+}
+
 /** The analysed run's three tabs: hits, fitted curves and quality control. */
 function RunTabs({
   run,
@@ -602,44 +646,13 @@ function RunTabs({
 
             if (next) onChangeTab(next)
           }}
-          items={
-            quantify
-              ? [
-                  {
-                    key: 'results',
-                    label: t('features.plateRuns.quantify.tabs.results'),
-                    count: quantify.samples.length,
-                  },
-                  {
-                    key: 'standards',
-                    label: t('features.plateRuns.quantify.tabs.standards'),
-                  },
-                  { key: 'qc', label: t('plates.run.tabs.qc') },
-                ]
-              : [
-                  {
-                    key: 'hits',
-                    label: t('plates.run.tabs.hits'),
-                    count: analysis.samples.length,
-                  },
-                  {
-                    key: 'curves',
-                    label: t('plates.run.tabs.curves'),
-                    count: curves.length,
-                  },
-                  { key: 'qc', label: t('plates.run.tabs.qc') },
-                ]
-          }
+          items={runTabItems(analysis, curves.length)}
         />
       </div>
       {quantify && tab !== 'standards' && tab !== 'qc' ? (
         <QuantifyResultsTab
           result={quantify}
-          action={
-            canWrite && quantify.samples.some((s) => s.result !== null) ? (
-              <PublishMeasurementsButton runId={run.id} />
-            ) : undefined
-          }
+          action={publishAction(run.id, quantify, canWrite)}
         />
       ) : quantify && tab === 'standards' ? (
         <StandardCurveTab result={quantify} />

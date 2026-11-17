@@ -67,6 +67,11 @@ export function parameterDefaultFromText(
   return trimmed
 }
 
+/** A setting's default as text for a field or a cell; empty when it has none. */
+export function defaultAsText(value: Parameter['defaultValue']): string {
+  return value === undefined ? '' : JSON.stringify(value).replace(/^"|"$/g, '')
+}
+
 /** The inline draft's state and every edit it accepts. */
 export interface TemplateDraft {
   draft: NotebookTemplateConfiguration | null

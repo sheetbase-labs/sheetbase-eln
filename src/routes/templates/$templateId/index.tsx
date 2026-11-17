@@ -34,7 +34,7 @@ import type {
 import type { Parameter } from '#/lib/parameter'
 import { formatDate } from '#/lib/format-date'
 import { useRegulatedLab } from '#/lib/regulated-lab'
-import { useTemplateDraft } from '../-template-draft'
+import { defaultAsText, useTemplateDraft } from '../-template-draft'
 import type { TemplateSettingTarget } from '../-template-draft'
 import { t } from '#/copy'
 
@@ -247,9 +247,7 @@ function DefaultInput({
   disabled?: boolean
   onChange: (text: string) => void
 }) {
-  const [text, setText] = useState(
-    parameter.defaultValue === undefined ? '' : String(parameter.defaultValue),
-  )
+  const [text, setText] = useState(defaultAsText(parameter.defaultValue))
 
   return (
     <Input
@@ -370,7 +368,7 @@ function parameterColumns(options: {
         ) : row.original.defaultValue === undefined ? (
           '—'
         ) : (
-          String(row.original.defaultValue)
+          defaultAsText(row.original.defaultValue)
         ),
     },
     {
@@ -889,7 +887,7 @@ function AddParameterForm({
     setValueType(picked.parameter.type.valueType)
 
     if (picked.parameter.defaultValue !== undefined && defaultText === '')
-      setDefaultText(String(picked.parameter.defaultValue))
+      setDefaultText(defaultAsText(picked.parameter.defaultValue))
   }
 
   const trimmedKey = key.trim()

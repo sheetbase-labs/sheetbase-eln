@@ -296,12 +296,11 @@ export function updateProjectDetails(
  * name the person behind a record (schedule bookers, model/template owners). */
 export function useWorkspaceMemberNames() {
   return useQuery({
+    // The cache entry holds the raw identities every reader of this key
+    // expects; each hook shapes its own view with `select`.
     queryKey: workspaceMemberQueryKeys.identities,
-    queryFn: async () => {
-      const members = await fetchWorkspaceMemberIdentities()
-
-      return new Map(members.map((m) => [m.user_id, m.name]))
-    },
+    queryFn: fetchWorkspaceMemberIdentities,
+    select: (members) => new Map(members.map((m) => [m.user_id, m.name])),
     staleTime: 60_000,
   })
 }

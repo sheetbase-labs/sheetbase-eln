@@ -433,12 +433,35 @@ function useNotebookSubmission({
     const where =
       named || t('notebook.submitNotebookDialog.sheetNumber', { n: index + 1 })
 
-    return sheetStateWarnings(instanceId, where, state).map((warning) => ({
-      id: warning.id,
-      label: warningText(warning),
-      detail: t('notebook.submitNotebookDialog.valueWarningDetail'),
-      blocking: false,
-    }))
+    const warnings = sheetStateWarnings(instanceId, where, state)
+    const noUnit = warnings.filter((w) => w.kind === 'missing-unit')
+
+    const others = warnings
+      .filter((w) => w.kind !== 'missing-unit')
+      .map((warning) => ({
+        id: warning.id,
+        label: warningText(warning),
+        detail: t('notebook.submitNotebookDialog.valueWarningDetail'),
+        blocking: false,
+      }))
+
+    // One row per sheet for missing units, not one per column.
+    return noUnit.length === 0
+      ? others
+      : [
+          {
+            id: `units:${instanceId}`,
+            label: t('notebook.submitNotebookDialog.sheetUnitsMissing', {
+              sheet: where,
+              count: noUnit.length,
+            }),
+            detail: t('notebook.submitNotebookDialog.sheetUnitsDetail', {
+              columns: noUnit.map((w) => w.field).join(', '),
+            }),
+            blocking: false,
+          },
+          ...others,
+        ]
   })
 
   const openItems = [

@@ -1895,6 +1895,9 @@ export const notebook = {
       'Your session has expired. Sign in again, then submit; your notebook changes are kept.',
     sheetsToCheck: 'Sheets to check: {sheets}',
     sheetNumber: 'Sheet {n}',
+    sheetUnitsMissing: '{sheet}: {count} columns hold numbers with no unit',
+    sheetUnitsDetail:
+      '{columns}. Add the unit in the sheet now, or the reviewer will see it when they sign.',
     valueWarningDetail:
       'Fix it in the sheet now, or the reviewer will see it when they sign.',
     compositionBlocks: {

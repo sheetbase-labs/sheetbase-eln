@@ -286,18 +286,54 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: ./.github/actions/install
+      # Every journey job seeds the same workspace, about a minute each. The
+      # seeded database (Postgres's data directory, plus the files the seed
+      # stores) is cached under a hash of everything the seed reads, including
+      # the date it moves the design timeline to (scripts/seed-inputs.mjs).
+      # The database tests still run the real seed on every PR.
+      - name: Find the seed inputs
+        id: seed
+        run: echo "key=seeded-${{ runner.os }}-$(node scripts/seed-inputs.mjs)" >> "$GITHUB_OUTPUT"
+      - name: Restore the seeded database
+        id: seed-cache
+        uses: actions/cache/restore@v4
+        with:
+          path: ~/seeded
+          key: ${{ steps.seed.outputs.key }}
+      - name: Put the seeded database in place
+        if: steps.seed-cache.outputs.cache-hit == 'true'
+        run: |
+          docker volume create sheetbase_postgres-data
+          docker run --rm -v sheetbase_postgres-data:/var/lib/postgresql -v ~/seeded:/seeded alpine \
+            tar -xpf /seeded/postgres.tar --numeric-owner -C /var/lib/postgresql
+          storage="$(sed -n 's/^FILE_STORAGE_DIR=//p' .env.example)"
+          mkdir -p "${storage:-./.storage/objects}"
+          tar -xf ~/seeded/storage.tar -C "${storage:-./.storage/objects}"
       - uses: ./.github/actions/services
         with:
           host-tools: 'false'
       # The build does not touch the database, so it runs alongside the
       # migrate and seed instead of after them. Either failing fails the step,
-      # with its own log.
+      # with its own log. Migrations run either way: on a restored database
+      # they confirm it is current.
       - name: Migrate and seed the acceptance workspace, and build
         run: |
           pnpm build > "$RUNNER_TEMP/build.log" 2>&1 &
           build=$!
           pnpm db:migrate
-          pnpm db:seed:design
+          if [ "${{ steps.seed-cache.outputs.cache-hit }}" != 'true' ]; then
+            pnpm db:seed:design
+            # Snapshot the stopped cluster, so the copy is consistent.
+            docker compose --env-file .env.ci-compose stop postgres
+            mkdir -p ~/seeded
+            docker run --rm -v sheetbase_postgres-data:/var/lib/postgresql -v ~/seeded:/seeded alpine \
+              tar -cpf /seeded/postgres.tar --numeric-owner -C /var/lib/postgresql .
+            storage="$(sed -n 's/^FILE_STORAGE_DIR=//p' .env.example)"
+            mkdir -p "${storage:-./.storage/objects}"
+            tar -cf ~/seeded/storage.tar -C "${storage:-./.storage/objects}" .
+            docker compose --env-file .env.ci-compose start postgres
+            docker compose --env-file .env.ci-compose up -d --wait postgres
+          fi
           docker compose --env-file .env.ci-compose restart postgrest
           for attempt in $(seq 1 30); do
             if curl --fail --silent http://127.0.0.1:3002/ready; then break; fi
@@ -310,6 +346,12 @@ jobs:
             exit 1
           fi
           tail -5 "$RUNNER_TEMP/build.log"
+      - name: Save the seeded database
+        if: steps.seed-cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v4
+        with:
+          path: ~/seeded
+          key: ${{ steps.seed.outputs.key }}
       - name: Find the Playwright version
         id: playwright
         run: |

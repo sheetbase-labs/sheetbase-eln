@@ -18,23 +18,24 @@ runs:
       if: inputs.python == 'true'
       with:
         python-version: '3.12'
-    # The database image compiles pgvector, the slowest part of starting the
-    # services (about 19s). It is cached under its Dockerfile and the month, so
-    # the base image is still refreshed monthly.
-    - name: Find the database image key
+    # Building the two service images (pgvector compiled into the database
+    # image, PostgREST's apt install) was most of starting the services. Both
+    # are cached under their Dockerfiles and the month, so the base images are
+    # still refreshed monthly.
+    - name: Find the service images key
       id: db-image
       shell: bash
       run: echo "month=$(date -u +%Y-%m)" >> "$GITHUB_OUTPUT"
-    - name: Restore the database image
+    - name: Restore the service images
       id: db-image-cache
       uses: actions/cache/restore@v4
       with:
-        path: ~/sheetbase-postgres.tar
-        key: db-image-${{ runner.os }}-${{ steps.db-image.outputs.month }}-${{ hashFiles('docker/db/**') }}
-    - name: Load the database image
+        path: ~/sheetbase-images.tar
+        key: service-images-${{ runner.os }}-${{ steps.db-image.outputs.month }}-${{ hashFiles('docker/db/**', 'docker/postgrest/**') }}
+    - name: Load the service images
       if: steps.db-image-cache.outputs.cache-hit == 'true'
       shell: bash
-      run: docker load --input ~/sheetbase-postgres.tar
+      run: docker load --input ~/sheetbase-images.tar
     - name: Start the compose services
       shell: bash
       run: |
@@ -43,14 +44,17 @@ runs:
         # Build and pull while the host tools install. The services start only
         # afterwards, because installing the PostgreSQL package starts a host
         # cluster on 5432 until it is stopped.
-        docker compose --env-file .env.ci-compose build postgrest &
-        build=$!
         if [ "${{ steps.db-image-cache.outputs.cache-hit }}" = "true" ]; then
           true &
+          build=$!
+          true &
+          pull=$!
         else
+          docker compose --env-file .env.ci-compose build postgrest &
+          build=$!
           docker compose --env-file .env.ci-compose build postgres &
+          pull=$!
         fi
-        pull=$!
         if [ "${{ inputs.host-tools }}" = "true" ]; then
           sudo apt-get update
           sudo apt-get install -y postgresql-common curl ca-certificates
@@ -73,19 +77,19 @@ runs:
         fi
         wait "$build"
         wait "$pull"
-        # Both images are ready by now (built above, or the database image
-        # loaded from the cache); without --no-build Compose rebuilds an image
-        # it did not build itself.
+        # Both images are ready by now (built above, or loaded from the
+        # cache); without --no-build Compose rebuilds an image it did not
+        # build itself.
         docker compose --env-file .env.ci-compose up -d --wait --no-build postgres postgrest
         sed -i 's/@postgres:5432/@localhost:5432/' .env.local
     # Saved once the services are up, so a run that later fails still leaves it.
-    - name: Export the database image
+    - name: Export the service images
       if: steps.db-image-cache.outputs.cache-hit != 'true'
       shell: bash
-      run: docker save --output ~/sheetbase-postgres.tar sheetbase-postgres:18
-    - name: Save the database image
+      run: docker save --output ~/sheetbase-images.tar sheetbase-postgres:18 sheetbase/postgrest:v14.5
+    - name: Save the service images
       if: steps.db-image-cache.outputs.cache-hit != 'true'
       uses: actions/cache/save@v4
       with:
-        path: ~/sheetbase-postgres.tar
-        key: db-image-${{ runner.os }}-${{ steps.db-image.outputs.month }}-${{ hashFiles('docker/db/**') }}
+        path: ~/sheetbase-images.tar
+        key: service-images-${{ runner.os }}-${{ steps.db-image.outputs.month }}-${{ hashFiles('docker/db/**', 'docker/postgrest/**') }}

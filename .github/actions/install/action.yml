@@ -2,8 +2,8 @@ name: Install dependencies
 description: >-
   Install node dependencies. The @sheetbase-labs packages are built from the
   public sheetbase-components repository and linked in, because GitHub Packages
-  needs a token that the workflow token cannot always read. The pnpm store, the
-  bun cache and the built components checkout are cached between runs.
+  needs a token that the workflow token cannot always read. node_modules itself
+  and the built components checkout are cached between runs.
 inputs:
   components-ref:
     description: Branch or tag of sheetbase-components to build
@@ -17,7 +17,6 @@ runs:
     - uses: actions/setup-node@v4
       with:
         node-version-file: .node-version
-        cache: pnpm
     # Keep in step with mise.toml: bun fmt and bun check run the format and
     # type checks.
     - uses: oven-sh/setup-bun@v2
@@ -51,9 +50,28 @@ runs:
     - name: Link the component packages
       shell: bash
       run: node scripts/railway-link-components.mjs "${{ steps.components.outputs.dir }}/packages"
+    # node_modules itself, not the package store: restoring it and letting
+    # pnpm confirm it matches the lockfile is a few seconds, where installing
+    # from the store took most of the step. A partial match (an older
+    # lockfile) still restores, and pnpm installs only the difference.
+    - name: Restore node_modules
+      id: node-modules
+      uses: actions/cache/restore@v4
+      with:
+        path: node_modules
+        key: node-modules-${{ runner.os }}-${{ hashFiles('.node-version') }}-${{ steps.components.outputs.sha }}-${{ hashFiles('pnpm-lock.yaml', 'pnpm-workspace.yaml', 'package.json') }}
+        restore-keys: node-modules-${{ runner.os }}-${{ hashFiles('.node-version') }}-
     - name: Install
       shell: bash
       run: pnpm install --frozen-lockfile
+    # Saved at once rather than when the job ends, so a run cancelled by a
+    # newer push still leaves it for the next.
+    - name: Save node_modules
+      if: steps.node-modules.outputs.cache-hit != 'true'
+      uses: actions/cache/save@v4
+      with:
+        path: node_modules
+        key: node-modules-${{ runner.os }}-${{ hashFiles('.node-version') }}-${{ steps.components.outputs.sha }}-${{ hashFiles('pnpm-lock.yaml', 'pnpm-workspace.yaml', 'package.json') }}
     - name: Share one copy of React with the components
       shell: bash
       run: |

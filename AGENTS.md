@@ -211,6 +211,13 @@ For Amp orb-specific setup (system PostgreSQL, no Docker), see `docs/development
 - **API boundary:** browser data goes through the same-origin `/api/db/*` proxy, never directly to PostgREST.
 - **Auth:** Better Auth with GitHub OAuth and database-backed sessions.
 - **Testing:** Vitest for unit/integration, Playwright for E2E, real PostgreSQL for DB tests.
+- **Unit test isolation:** unit test files share one environment per worker (`isolate: false`) and run in random order, files and the tests inside them. `tests/unit/setup.ts` resets the common shared state after every test and file: rendered trees, the data client's shared reads, React Query's online and focus state, modules, mocks, stubbed globals and env, timers, web storage, the DOM and `fetch`. Anything else a test changes it puts back itself:
+  - stub globals with `vi.stubGlobal`, not by assignment (`globalThis.fetch` is the only one restored for you);
+  - module-level state that outlives a component (a `Set` or `Map` in module scope) gets an exported reset that the test calls in `afterEach`;
+  - every test sets up its own data and triggers its own effects, never relying on a test before it in the file.
+
+  A failure that appears only in some orders prints its seed: rerun with `pnpm test --sequence.seed=<seed>`, find the leftover state, and fix it at its source. Never retry, skip or widen a timeout to get past it.
+
 - **Phones:** `tests/browser/phone` opens the main pages, menus, popovers and sheets at iPhone size as the installed app, with safe areas and a simulated keyboard, and fails when anything lands off screen or under a system bar. Anything that floats keeps inside the visible area through `src/lib/visible-area.ts` (Base UI popups get it from the shared `Popover`, `DropdownMenu` and `Tooltip`; hand-placed ones use `useAnchoredPlacement`). Bottom sheets ride above the keyboard through `--kb-lift` and `--sheet-max-h`.
 - **Migrations:** create one with `pnpm db:new <name>` (a timestamp-named file, so
   parallel branches never collide) and write the SQL by hand. Never number a

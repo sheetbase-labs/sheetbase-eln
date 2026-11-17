@@ -7,6 +7,8 @@
  */
 import { z } from 'zod'
 
+import { t } from '#/copy'
+
 import type {
   CanonicalRevisionEnvelope,
   RevisionChangeArea,
@@ -362,4 +364,20 @@ export function preSignFacts(
   }
 
   return lines.join('\n')
+}
+
+/** One warning as a sentence, for the signer and for the author. */
+export function preSignWarningText(warning: PreSignWarning): string {
+  const values = {
+    count: warning.count,
+    field: warning.field,
+    where: warning.where,
+    limit: warning.limit ?? '',
+  }
+
+  return warning.kind === 'missing-unit'
+    ? t('projects.preSign.warning.missingUnit', values)
+    : warning.kind === 'out-of-spec'
+      ? t('projects.preSign.warning.outOfSpec', values)
+      : t('projects.preSign.warning.emptyRequired', values)
 }

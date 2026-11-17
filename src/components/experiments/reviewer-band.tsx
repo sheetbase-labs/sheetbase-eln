@@ -57,3 +57,44 @@ export function ReviewerBand({
     </div>
   )
 }
+
+/**
+ * The band an experiment shows while it is in review: to the reviewer, that it
+ * is waiting for them; to the author, who it is waiting for.
+ */
+export function ReviewStatusBand({
+  reviewing,
+  inReview,
+  ownerName,
+  submittedAt,
+  revisionId,
+  waitingNames,
+}: {
+  reviewing: boolean
+  inReview: boolean
+  ownerName: string
+  submittedAt?: string
+  revisionId?: string
+  waitingNames: readonly string[]
+}) {
+  if (reviewing) {
+    return (
+      <ReviewerBand
+        ownerName={ownerName}
+        submittedAt={submittedAt}
+        revisionId={revisionId}
+      />
+    )
+  }
+
+  if (!inReview || waitingNames.length === 0) return null
+
+  return (
+    <ReviewerBand
+      ownerName={ownerName}
+      submittedAt={submittedAt}
+      revisionId={revisionId}
+      waitingFor={waitingNames.join(', ')}
+    />
+  )
+}

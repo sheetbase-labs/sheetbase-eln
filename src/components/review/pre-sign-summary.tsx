@@ -4,29 +4,14 @@ import { Icon } from '#/components/icons'
 import { Button } from '#/components/ui/button'
 import { t } from '#/copy'
 import { usePageAi } from '#/lib/use-page-ai'
-import { preSignFacts } from '#/lib/pre-sign-review'
-import type { PreSignReview, PreSignWarning } from '#/lib/pre-sign-review'
+import { preSignFacts, preSignWarningText } from '#/lib/pre-sign-review'
+import type { PreSignReview } from '#/lib/pre-sign-review'
 import type { RevisionDiffResult } from '#/lib/revision-diff'
 
 /** What goes to the signing dialog: the review and the diff it came from. */
 export interface PreSignInput {
   review: PreSignReview
   diff: RevisionDiffResult | null
-}
-
-export function warningText(warning: PreSignWarning): string {
-  const values = {
-    count: warning.count,
-    field: warning.field,
-    where: warning.where,
-    limit: warning.limit ?? '',
-  }
-
-  return warning.kind === 'missing-unit'
-    ? t('projects.preSign.warning.missingUnit', values)
-    : warning.kind === 'out-of-spec'
-      ? t('projects.preSign.warning.outOfSpec', values)
-      : t('projects.preSign.warning.emptyRequired', values)
 }
 
 /**
@@ -136,7 +121,7 @@ export function PreSignSummary({ input }: { input: PreSignInput }) {
                     className="mt-0.5 shrink-0 text-warning-text"
                     aria-hidden
                   />
-                  <span>{warningText(warning)}</span>
+                  <span>{preSignWarningText(warning)}</span>
                 </li>
               ))}
             </ul>

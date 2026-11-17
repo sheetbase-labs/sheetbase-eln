@@ -18,6 +18,23 @@ runs:
       if: inputs.python == 'true'
       with:
         python-version: '3.12'
+    # The database image compiles pgvector, the slowest part of starting the
+    # services (about 19s). It is cached under its Dockerfile and the month, so
+    # the base image is still refreshed monthly.
+    - name: Find the database image key
+      id: db-image
+      shell: bash
+      run: echo "month=$(date -u +%Y-%m)" >> "$GITHUB_OUTPUT"
+    - name: Restore the database image
+      id: db-image-cache
+      uses: actions/cache/restore@v4
+      with:
+        path: ~/sheetbase-postgres.tar
+        key: db-image-${{ runner.os }}-${{ steps.db-image.outputs.month }}-${{ hashFiles('docker/db/**') }}
+    - name: Load the database image
+      if: steps.db-image-cache.outputs.cache-hit == 'true'
+      shell: bash
+      run: docker load --input ~/sheetbase-postgres.tar
     - name: Start the compose services
       shell: bash
       run: |
@@ -28,7 +45,11 @@ runs:
         # cluster on 5432 until it is stopped.
         docker compose --env-file .env.ci-compose build postgrest &
         build=$!
-        docker compose --env-file .env.ci-compose build postgres &
+        if [ "${{ steps.db-image-cache.outputs.cache-hit }}" = "true" ]; then
+          true &
+        else
+          docker compose --env-file .env.ci-compose build postgres &
+        fi
         pull=$!
         if [ "${{ inputs.host-tools }}" = "true" ]; then
           sudo apt-get update
@@ -54,3 +75,14 @@ runs:
         wait "$pull"
         docker compose --env-file .env.ci-compose up -d --wait postgres postgrest
         sed -i 's/@postgres:5432/@localhost:5432/' .env.local
+    # Saved once the services are up, so a run that later fails still leaves it.
+    - name: Export the database image
+      if: steps.db-image-cache.outputs.cache-hit != 'true'
+      shell: bash
+      run: docker save --output ~/sheetbase-postgres.tar sheetbase-postgres:18
+    - name: Save the database image
+      if: steps.db-image-cache.outputs.cache-hit != 'true'
+      uses: actions/cache/save@v4
+      with:
+        path: ~/sheetbase-postgres.tar
+        key: db-image-${{ runner.os }}-${{ steps.db-image.outputs.month }}-${{ hashFiles('docker/db/**') }}

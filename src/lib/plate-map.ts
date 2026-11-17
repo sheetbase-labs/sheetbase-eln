@@ -82,6 +82,7 @@ export const ASSIGNMENT_ROLES = [
   'positive_control',
   'negative_control',
   'blank',
+  'standard',
   'empty',
 ] as const
 
@@ -119,6 +120,11 @@ export const ROLE_STYLES: Record<AssignmentRole, RoleStyle> = {
     label: 'Blank',
     cellClass: 'bg-muted',
     badgeClass: 'bg-muted text-muted-foreground',
+  },
+  standard: {
+    label: 'Standard',
+    cellClass: 'bg-info',
+    badgeClass: 'bg-selection text-info',
   },
   empty: {
     label: 'Empty',

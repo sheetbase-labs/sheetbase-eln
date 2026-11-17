@@ -206,6 +206,21 @@ export async function analyseAndSavePlateRun(
   return { run: toRun(wire), analysis }
 }
 
+/**
+ * Write what a quantified run read for each sample to that sample, so its page
+ * shows the result. Earlier numbers this run wrote are replaced.
+ */
+export async function publishPlateRunMeasurements(
+  client: DataClient,
+  id: string,
+  name?: string,
+): Promise<{ published: number; skipped: number }> {
+  return client.rpc<{ published: number; skipped: number }>(
+    'publish_plate_run_measurements',
+    { p_plate_run_id: id, p_name: name ?? null },
+  )
+}
+
 export async function archivePlateRun(
   client: DataClient,
   id: string,

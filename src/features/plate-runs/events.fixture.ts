@@ -1,4 +1,4 @@
-/** The changes `plate_run.linked`, `plate_run.unlinked` and `plate_design.assay_setup_saved` are delivered from, pinned by the event catalogue test. */
+/** The changes `plate_run.linked`, `plate_run.unlinked`, `plate_run.measurements_published` and `plate_design.assay_setup_saved` are delivered from, pinned by the event catalogue test. */
 export const PLATE_RUN_EVENT_FIXTURES: ReadonlyArray<{
   name: string
   entityType: string
@@ -16,6 +16,12 @@ export const PLATE_RUN_EVENT_FIXTURES: ReadonlyArray<{
     entityType: 'plate_run',
     operation: 'update',
     payload: { change: 'unlinked' },
+  },
+  {
+    name: 'plate_run.measurements_published',
+    entityType: 'plate_run',
+    operation: 'update',
+    payload: { change: 'measurements_published' },
   },
   {
     name: 'plate_design.assay_setup_saved',

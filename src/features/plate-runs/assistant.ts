@@ -21,5 +21,7 @@ export const assistant = defineAssistant<
   cardWords: {
     'plate.add_to_experiment': 'features.plateRuns.cards.addToExperiment',
     'plate.remember_setup': 'features.plateRuns.cards.rememberSetup',
+    'plate.publish_measurements':
+      'features.plateRuns.cards.publishMeasurements',
   },
 })

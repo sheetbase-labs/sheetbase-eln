@@ -5,7 +5,9 @@
  */
 import type { DataClient } from '#/lib/data-client'
 import { insertBlock } from '#/lib/notebook-mutations'
-import { linkPlateRun } from '#/lib/plate-runs'
+import { recordSteps, suggestPlateStep } from '#/lib/plate-step'
+import type { PlateStepRow } from '#/lib/plate-step'
+import { fetchPlateRun, linkPlateRun } from '#/lib/plate-runs'
 import type { PlateRunRow } from '#/lib/plate-runs'
 
 export interface PlateRunPlacement {
@@ -14,6 +16,8 @@ export interface PlateRunPlacement {
   blockId: string | null
   /** The notebook already had a block for this run. */
   alreadyThere: boolean
+  /** The protocol step the run was put in, or null when it went at the end. */
+  step: PlateStepRow | null
 }
 
 interface BlockRef {
@@ -36,21 +40,68 @@ export async function findPlateRunBlock(
 }
 
 /**
- * Attach a run to an experiment and put a plate run block at the end of its
- * notebook, unless the notebook already shows that run.
+ * Attach a run to an experiment and put its plate run block in the notebook,
+ * unless the notebook already shows that run.
+ *
+ * The block goes in the protocol step the run was done for, straight after the
+ * step's own data, and the step reads "in progress". Name the step with
+ * `stepBlockId`; leave it out and the step is the one the experiment's steps
+ * suggest (the first open step that names plates); pass
+ * `null` to put the block at the end of the notebook. A run already in the
+ * notebook (at the end, say) is moved into the step.
  */
 export async function addPlateRunToExperiment(
   client: DataClient,
-  input: { runId: string; recordId: string; addBlock?: boolean },
+  input: {
+    runId: string
+    recordId: string
+    addBlock?: boolean
+    stepBlockId?: string | null
+  },
 ): Promise<PlateRunPlacement> {
+  if (input.addBlock === false) {
+    const run = await linkPlateRun(client, input.runId, input.recordId)
+
+    return { run, blockId: null, alreadyThere: false, step: null }
+  }
+
+  let step: PlateStepRow | null = null
+
+  if (input.stepBlockId !== null) {
+    // A notebook without steps (or a read that fails) just puts the block at the end.
+    const steps = await recordSteps(client, input.recordId).catch(() => [])
+
+    step = input.stepBlockId
+      ? (steps.find((s) => s.block_id === input.stepBlockId) ?? null)
+      : suggestPlateStep(steps)
+  }
+
+  if (step) {
+    const placed = await client.rpc<{
+      block_id: string
+      already_there: boolean
+    }>('add_step_plate_run', {
+      p_block_id: step.block_id,
+      p_plate_run_id: input.runId,
+    })
+
+    const run = await fetchPlateRun(client, input.runId)
+
+    if (!run) throw new Error('plate run not found')
+
+    return {
+      run,
+      blockId: placed.block_id,
+      alreadyThere: placed.already_there,
+      step,
+    }
+  }
+
   const run = await linkPlateRun(client, input.runId, input.recordId)
-
-  if (input.addBlock === false)
-    return { run, blockId: null, alreadyThere: false }
-
   const existing = await findPlateRunBlock(client, input.recordId, run.id)
 
-  if (existing) return { run, blockId: existing, alreadyThere: true }
+  if (existing)
+    return { run, blockId: existing, alreadyThere: true, step: null }
 
   const inserted = await insertBlock(client, {
     recordId: input.recordId,
@@ -58,5 +109,5 @@ export async function addPlateRunToExperiment(
     payload: { runId: run.id, view: 'hits' },
   })
 
-  return { run, blockId: inserted.block.id, alreadyThere: false }
+  return { run, blockId: inserted.block.id, alreadyThere: false, step: null }
 }

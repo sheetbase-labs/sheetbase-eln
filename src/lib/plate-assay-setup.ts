@@ -13,7 +13,11 @@ import { z } from 'zod'
 
 import type { DataClient } from '#/lib/data-client'
 import { defaultAssayConfig, normaliseAssayConfig } from '#/lib/plate-assay'
-import type { AssayWell, PlateAssayConfig } from '#/lib/plate-assay'
+import type {
+  AssayMethod,
+  AssayWell,
+  PlateAssayConfig,
+} from '#/lib/plate-assay'
 import { createPlateDesign } from '#/lib/plate-designer'
 import type { PlateFormat } from '#/lib/plate-map'
 
@@ -197,6 +201,10 @@ export interface AssayChoiceInput {
   newName: string
   /** Control columns worked out from the plate itself, used when nothing else gives them. */
   guess: { negative: string; positive: string } | null
+  /** How the person chose to read this plate, over what the design remembers. */
+  methodEdit?: AssayMethod | null
+  /** The dilution the person typed, over what the design remembers. */
+  dilutionEdit?: number | null
 }
 
 /**
@@ -220,11 +228,23 @@ export function resolveAssayChoice(input: AssayChoiceInput) {
   const guessed =
     guess !== null && input.negativeEdit === null && input.positiveEdit === null
 
-  const config: PlateAssayConfig = setup?.config ?? defaultAssayConfig()
-  const hasControls = negative.trim() !== '' || positive.trim() !== ''
+  const remembered: PlateAssayConfig = setup?.config ?? defaultAssayConfig()
+  const method = input.methodEdit ?? remembered.method
+  const dilutionFactor = input.dilutionEdit ?? remembered.dilutionFactor
+  const config: PlateAssayConfig = { ...remembered, method, dilutionFactor }
+
+  const settingsChanged =
+    method !== remembered.method || dilutionFactor !== remembered.dilutionFactor
+
+  // A plate read by a standard curve has no control columns, but it still has a
+  // setup worth remembering: how it is read and how far it is diluted.
+  const hasControls =
+    negative.trim() !== '' || positive.trim() !== '' || method === 'quantify'
 
   const controlsChanged = setup
-    ? negative !== setup.negativeColumns || positive !== setup.positiveColumns
+    ? negative !== setup.negativeColumns ||
+      positive !== setup.positiveColumns ||
+      settingsChanged
     : false
 
   /** A design with no setup yet, or with different controls, can take this plate's. */
@@ -246,6 +266,8 @@ export function resolveAssayChoice(input: AssayChoiceInput) {
     design,
     setup,
     config,
+    method,
+    dilutionFactor,
     negative,
     positive,
     /** The columns were worked out from the plate, not typed or remembered. */

@@ -94,6 +94,7 @@ export type ObjectKind =
   | 'protocol_template'
   | 'report'
   | 'review'
+  | 'plate_run'
 
 /** Record kinds shown as experiments, so a link opens the experiment page. */
 const OBJECT_KIND_ALIASES = new Map<string, ObjectKind>([
@@ -145,6 +146,8 @@ export function objectPath(kind: string, ref: string): string | null {
       return reportPath(ref)
     case 'review':
       return `/review/${key}`
+    case 'plate_run':
+      return `/plates?run=${key}`
     default:
       return null
   }

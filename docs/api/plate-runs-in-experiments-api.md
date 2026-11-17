@@ -20,6 +20,63 @@ Scope: `projects:write`.
 
 Returns the plate run. An archived run cannot be changed.
 
+### `add_step_plate_run`
+
+Puts a plate run in the protocol step it was run for. The run joins the step’s
+experiment, its `plate_run` block goes straight after the step (or after the
+step’s last piece of data), and the step reads in progress. A block the notebook
+already had for the run, at the end say, is moved into the step. A step is a
+`procedure_step` block; the block names it in `stepBlockId`, as a number added
+with `add_step_result` does. Finish the step with `set_step_done` once its last
+plate is in. Also a pipeline action.
+
+Scope: `projects:write`.
+
+| Argument           | Type |                                               |
+| ------------------ | ---- | --------------------------------------------- |
+| `p_block_id` *     | uuid | The protocol step (a `procedure_step` block). |
+| `p_plate_run_id` * | uuid | The plate run.                                |
+
+Returns `{ block_id, step_block_id, record_id, plate_run_id, already_there }`.
+Sends `step_result` (see the event catalogue) with `resultType` `plate_run`.
+`record_steps` counts the plate run in the step’s `result_count`.
+
+### `publish_plate_run_measurements`
+
+Gives a plate run’s results to its samples. For a run read by a standard curve
+(`config.method` of `quantify`), each sample that read inside the standards, and
+is linked to a sample record, gets its concentration as a sample measurement, so
+the result shows on the sample’s page. The dilution is already applied. Running
+it again replaces the measurements this run wrote earlier; measurements from
+anywhere else are left alone. Also a pipeline action.
+
+Scope: `lab:write`.
+
+| Argument           | Type |                                                                                       |
+| ------------------ | ---- | ------------------------------------------------------------------------------------- |
+| `p_plate_run_id` * | uuid | The plate run.                                                                        |
+| `p_name`           | text | What the measurement is called, such as "Capsid titre". Defaults to the assay’s name. |
+
+Returns `{ published, skipped }`. Sends `plate_run.measurements_published`.
+
+### Reading a plate by a standard curve
+
+`config.method` is `screen` (the default: Z′ and hits against the plate’s
+controls) or `quantify` (a standard curve is fitted to the wells with the role
+`standard`, and each sample is read off it). An assay’s design remembers the
+method with the rest of its setup (`save_plate_design_assay_setup`), so an
+ELISA is quantified every time and a compound screen is screened. Quantify also
+reads `config.dilutionFactor` (how far samples were diluted when a well does
+not say) and `config.qc.standardR2Min` (the curve passes at this R², default
+0.98). A well’s own `dilution` wins over the config’s.
+
+The analysis then has a `quantify` object: `curve` (the fitted parameters,
+the standards, `r2`, the range the curve covers), `failure` (`no_standards`,
+`too_few_standards` or `fit_failed`) and `samples`, one per sample with its
+`result` (concentration times dilution), `concentration`, `dilution`, `n` wells
+in range, `cv`, and a `status` of `ok`, `below_range`, `above_range`,
+`no_signal` or `no_curve`. A sample outside the standards has no number.
+
 ### `save_plate_design_assay_setup`
 
 Remembers how an assay is read on its plate design, so the next plate of the
@@ -39,7 +96,8 @@ Scope: `lab:write`.
 `config` holds `normalisation` (`percent_effect`, `percent_of_negative`,
 `z_score`, `robust_z`, `none`), `effectDirection`, `subtractBlank`, `hit`
 (`kind`, `threshold`, `direction`, `minReplicates`), `qc` (`zPrimeMin`,
-`zPrimeFail`, `signalToBackgroundMin`, `controlCvMax`) and `curveModel` (`4pl`
+`zPrimeFail`, `signalToBackgroundMin`, `controlCvMax`, `standardR2Min`),
+`method` (`screen` or `quantify`), `dilutionFactor` and `curveModel` (`4pl`
 or `5pl`). Anything missing is filled from the defaults when it is read. Other
 keys are dropped. Returns the design. An archived design or run cannot be
 changed.

@@ -10,7 +10,7 @@ import type {
   PlateExperimentAction,
   PlateExperimentActionResult,
 } from './plate-experiment'
-import { fetchPlateRun } from './plate-runs'
+import { fetchPlateRun, publishPlateRunMeasurements } from './plate-runs'
 
 /** Runs the card's action as the person who pressed the button. */
 export async function runPlateExperimentAction(
@@ -48,9 +48,20 @@ export async function runPlateExperimentAction(
     return { openHref: '/plates?run=' + run.id }
   }
 
+  if (action.kind === 'plate.publish_measurements') {
+    await publishPlateRunMeasurements(
+      client,
+      action.runId,
+      action.name ?? undefined,
+    )
+
+    return { openHref: '/plates?run=' + action.runId }
+  }
+
   await addPlateRunToExperiment(client, {
     runId: action.runId,
     recordId: action.recordId,
+    stepBlockId: action.stepBlockId,
   })
 
   return { openHref: experimentPath(action.recordId) }

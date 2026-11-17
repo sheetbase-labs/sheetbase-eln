@@ -147,6 +147,7 @@ export const plates = {
       z_prime: 'Z′ is at least {limit}.',
       signal_to_background: 'Signal to background is at least {limit}.',
       control_cv: 'Control CV is no more than {limit}%.',
+      standard_curve: 'The standard curve fits with R² of at least {limit}.',
     },
     status: {
       pass: 'Passed',
@@ -302,6 +303,7 @@ export const plates = {
       positive_control: 'Positive control',
       negative_control: 'Negative control',
       blank: 'Blank',
+      standard: 'Standard',
       empty: 'Empty',
     },
     mode: 'Transfer',

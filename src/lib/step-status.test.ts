@@ -44,6 +44,27 @@ describe('stepProgress', () => {
     expect(currentStep(steps)?.blockId).toBe('b')
   })
 
+  it('counts a plate run placed in a step as work on it', () => {
+    const steps = stepProgress([
+      step('a', { completed: false }),
+      {
+        id: 'p1',
+        type: 'plate_run',
+        payload: { runId: 'run-1', stepBlockId: 'a' },
+      },
+      {
+        id: 'p2',
+        type: 'plate_run',
+        payload: { runId: 'run-2', stepBlockId: 'a' },
+      },
+      { id: 'p3', type: 'plate_run', payload: { runId: 'run-3' } },
+    ])
+
+    expect(steps[0].status).toBe('in_progress')
+    expect(steps[0].results).toBe(2)
+    expect(steps[0].plates).toBe(2)
+  })
+
   it('has no current step once every step is done, and ignores blank steps', () => {
     const steps = stepProgress([
       step('a', { completed: true }),

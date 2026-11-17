@@ -60,7 +60,10 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
+          # Whole history for the base comparison, but file contents only on
+          # demand: a blobless clone, not a full one.
           fetch-depth: 0
+          filter: blob:none
       - uses: actions/setup-node@v4
         with:
           node-version-file: .node-version
@@ -79,7 +82,10 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
+          # Whole history for the base comparison, but file contents only on
+          # demand: a blobless clone, not a full one.
           fetch-depth: 0
+          filter: blob:none
       - uses: jdx/mise-action@v2
         with:
           install_args: gitleaks

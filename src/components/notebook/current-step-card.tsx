@@ -37,7 +37,7 @@ import type { StepBlockLike, StepProgress } from '#/lib/step-status'
 import { NewRunDialog } from '#/components/plates/new-run-dialog'
 import { addPlateRunToExperiment } from '#/lib/plate-experiment-run'
 import { plateRunReference } from '#/lib/plate-runs'
-import { expectedPlateCount } from '#/lib/plate-step'
+import { platesLine } from '#/components/notebook/step-plates-line'
 import { stepTimerQueryKeys } from '#/lib/step-timers'
 
 /**
@@ -410,18 +410,6 @@ function RunningStep({
 }
 
 /** One line on what the page already shows for the step. */
-/** "2 of 4 plates" when the step's words ask for a number of plates, else "2 plates". */
-export function platesLine(step: StepProgress): string {
-  const expected = expectedPlateCount(step.text)
-
-  return expected !== null && expected > 1
-    ? t('features.plateRuns.step.platesOf', {
-        count: step.plates,
-        expected,
-      })
-    : t('features.plateRuns.step.plates', { count: step.plates })
-}
-
 function stepEvidence(step: StepProgress, timerRunning: boolean): string {
   const parts: string[] = []
   parts.push(

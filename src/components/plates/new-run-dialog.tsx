@@ -4,10 +4,9 @@
  * before anything is saved. A run can belong to an experiment, and then lands
  * in that experiment's notebook by itself.
  */
-import { useRef, useState } from 'react'
+import { useState } from 'react'
 
 import { useRecordModelProjects } from '#/components/models/models-data'
-import { Notice } from '#/components/ui/alert'
 import { Button } from '#/components/ui/button'
 import {
   Dialog,
@@ -17,24 +16,19 @@ import {
   DialogFooter,
   DialogHeader,
 } from '#/components/ui/dialog'
-import { FileDrop } from '#/components/ui/file-drop'
-import { Field } from '#/components/ui/input'
-import { Select } from '#/components/ui/select'
 import { t } from '#/copy'
-import { parsePlateTable } from '#/lib/plate-assay'
-import { suggestControlColumns } from '#/lib/plate-controls'
 import type { PlateFormat } from '#/lib/plate-map'
 import type { PlateRunRow } from '#/lib/plate-runs'
 import { AssaySetupSection } from './assay-setup'
-import { suggestPlateStep } from '#/lib/plate-step'
 import { ControlColumns, PlatePreview } from './plate-preview'
 import { PlateTextFields } from './plate-text-fields'
 import { RunDetailsFields } from './run-details-fields'
+import { RunFileSection } from './run-file-section'
 import { PlateMapFillSection } from './plate-map-fill-section'
 import { RunStepField } from './run-step-field'
 import { useExperimentSamples } from './use-experiment-samples'
-import { useExperimentSteps } from './use-experiment-steps'
-import { usePlateFile } from './use-plate-file'
+import { useRunStep } from './use-run-step'
+import { useRunFile } from './use-run-file'
 import { useCreatePlateRun } from './use-create-plate-run'
 import { useAssaySetupChoice } from './use-assay-setup'
 import { usePlateDraft } from './use-plate-draft'
@@ -114,17 +108,17 @@ function NewRunBody({
   const [projectId, setProjectId] = useState('')
   const [pickedExperiment, setPickedExperiment] = useState('')
   const [addToNotebook, setAddToNotebook] = useState(true)
-  const guessedName = useRef('')
-  const experimentId = fixedExperimentId ?? pickedExperiment
-  const [pickedStep, setPickedStep] = useState<string | null>(null)
-  const steps = useExperimentSteps(experimentId).data ?? []
-  const experimentSamples = useExperimentSamples(experimentId).data ?? []
-  const wantsStep = (chooseStep || !fixedExperimentId) && steps.length > 0
 
-  // The step to start on: the one the Now card named, else the open step that
-  // names plates. The person can pick another, or none.
-  const step =
-    pickedStep ?? initialStep ?? suggestPlateStep(steps)?.block_id ?? ''
+  const experimentId = fixedExperimentId ?? pickedExperiment
+
+  const runStep = useRunStep({
+    experimentId,
+    experimentFixed: Boolean(fixedExperimentId),
+    chooseStep,
+    initialStep,
+  })
+
+  const experimentSamples = useExperimentSamples(experimentId).data ?? []
 
   // The assay's design brings its controls and settings with it, so a second
   // plate of the same assay needs none of them typed again.
@@ -133,29 +127,13 @@ function NewRunBody({
   const [analyseNow, setAnalyseNow] = useState(true)
   const [interacted, setInteracted] = useState(false)
 
-  const { file, candidateId, fileError, takeCandidate, readFile } =
-    usePlateFile({
-      initialFile,
-      onText: (text) => {
-        setData(text)
-        setFormatChoice('auto')
-
-        // A reader's grid has no roles: offer the first and last columns as the
-        // controls when they read like two groups far apart.
-        const guess = suggestControlColumns(parsePlateTable(text).readout)
-
-        assay.onGuess(guess)
-      },
-      onName: (guess) => {
-        // Keep a name the person typed; follow the file while it is a guess.
-        const previous = guessedName.current
-
-        guessedName.current = guess
-        setName((current) =>
-          current === '' || current === previous ? guess : current,
-        )
-      },
-    })
+  const { file, candidateId, fileError, takeCandidate, readFile } = useRunFile({
+    initialFile,
+    setData,
+    setFormatChoice,
+    setName,
+    onGuess: assay.onGuess,
+  })
 
   const { parsed, format, readCount, controls, samples, preview } =
     usePlateDraft({
@@ -186,7 +164,7 @@ function NewRunBody({
       designId: assay.designId,
       experimentId,
       experimentFixed: Boolean(fixedExperimentId),
-      stepBlockId: wantsStep ? step || null : undefined,
+      stepBlockId: runStep.saved,
       addToNotebook,
       analyseNow,
       config: assay.config,
@@ -196,7 +174,7 @@ function NewRunBody({
     },
     (run) => {
       onOpenChange(false)
-      onCreated(run, wantsStep ? step || null : null)
+      onCreated(run, runStep.saved ?? null)
     },
   )
 
@@ -211,30 +189,13 @@ function NewRunBody({
     <>
       <DialogBody>
         <div className="flex flex-col gap-3">
-          <FileDrop
-            label={t('features.plateRuns.form.drop')}
-            hint={t('features.plateRuns.form.dropHint')}
-            accept=".csv,.tsv,.txt,.xlsx"
+          <RunFileSection
+            file={file}
+            candidateId={candidateId}
+            fileError={fileError}
             onFile={readFile}
+            onCandidate={takeCandidate}
           />
-          {fileError ? <Notice tone="warn">{fileError}</Notice> : null}
-          {file && file.candidates.length > 1 ? (
-            <Field label={t('features.plateRuns.form.whichPlate')}>
-              <Select
-                value={candidateId}
-                onChange={(e) => takeCandidate(file, e.target.value)}
-              >
-                {file.candidates.map((candidate) => (
-                  <option key={candidate.id} value={candidate.id}>
-                    {t('features.plateRuns.form.candidate', {
-                      label: candidate.title ?? candidate.label,
-                      readings: candidate.readings,
-                    })}
-                  </option>
-                ))}
-              </Select>
-            </Field>
-          ) : null}
           <RunDetailsFields
             name={name}
             nameError={interacted ? nameError : null}
@@ -258,8 +219,12 @@ function NewRunBody({
             projectId={projectId}
             onProject={setProjectId}
           />
-          {wantsStep ? (
-            <RunStepField steps={steps} value={step} onChange={setPickedStep} />
+          {runStep.wants ? (
+            <RunStepField
+              steps={runStep.steps}
+              value={runStep.step}
+              onChange={runStep.onPick}
+            />
           ) : null}
           {!layout.trim() && assay.method === 'screen' ? (
             <ControlColumns

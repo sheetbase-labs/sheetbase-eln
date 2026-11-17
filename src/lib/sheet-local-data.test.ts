@@ -273,7 +273,7 @@ describe('Sheet calculation transport contracts', () => {
     { results: [{}] },
     { revision: 0 },
     { results: [{ ...resultRow(), permission: { editability: 'editable' } }] },
-    { results: [{ ...resultRow(), calculatedValue: '1' }] },
+    { results: [{ ...resultRow(), calculatedValue: { n: 1 } }] },
   ])('rejects malformed calculation responses: %j', async (patch) => {
     const fetchImpl = vi
       .fn<typeof fetch>()

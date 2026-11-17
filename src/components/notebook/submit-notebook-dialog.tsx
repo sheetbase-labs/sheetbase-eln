@@ -427,10 +427,11 @@ function useNotebookSubmission({
         sheetBlockInstanceId(b.payload) === instanceId,
     )
 
-    const named = sheetPayloadTitle(block?.payload)
+    const named =
+      sheetStates[index]?.data?.name.trim() || sheetPayloadTitle(block?.payload)
 
     const where =
-      named ?? t('notebook.submitNotebookDialog.sheetNumber', { n: index + 1 })
+      named || t('notebook.submitNotebookDialog.sheetNumber', { n: index + 1 })
 
     return sheetStateWarnings(instanceId, where, state).map((warning) => ({
       id: warning.id,

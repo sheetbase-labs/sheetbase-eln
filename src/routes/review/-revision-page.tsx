@@ -178,6 +178,7 @@ import {
   deriveReviewLifecycle,
   deriveSignatureApplicability,
 } from '#/lib/review-lifecycle'
+import { ReviewSections } from '#/routes/experiments/$expId/-review-sections'
 import { Status } from '#/components/ui/status'
 import type { Tone } from '#/components/ui/status'
 import {
@@ -999,6 +1000,18 @@ function ReviewWorkspace({ embedded = false }: { embedded?: boolean }) {
             lockedByRevisionId={record?.locked_by_revision_id ?? null}
             recordId={recordId}
           />
+
+          {embedded && expId ? (
+            <ReviewSections
+              expId={expId}
+              revisionId={revisionId}
+              view={
+                search.tab === 'comments' || search.tab === 'checks'
+                  ? search.tab
+                  : 'diff'
+              }
+            />
+          ) : null}
 
           <div className="flex min-h-0 flex-1 flex-col gap-3 p-4 md:p-6">
             {submission ? (

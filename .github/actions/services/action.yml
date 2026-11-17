@@ -73,7 +73,10 @@ runs:
         fi
         wait "$build"
         wait "$pull"
-        docker compose --env-file .env.ci-compose up -d --wait postgres postgrest
+        # Both images are ready by now (built above, or the database image
+        # loaded from the cache); without --no-build Compose rebuilds an image
+        # it did not build itself.
+        docker compose --env-file .env.ci-compose up -d --wait --no-build postgres postgrest
         sed -i 's/@postgres:5432/@localhost:5432/' .env.local
     # Saved once the services are up, so a run that later fails still leaves it.
     - name: Export the database image

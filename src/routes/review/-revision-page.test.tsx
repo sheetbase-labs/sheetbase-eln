@@ -514,7 +514,7 @@ describe('ActionButtons — permission guards', () => {
     expect(isDisabled('Reject')).toBe(false)
   })
 
-  it('disables review actions for a terminal / non-active review', () => {
+  it('offers no review actions for a terminal / non-active review', () => {
     renderActionButtons({
       permission: makePermission({
         canReview: false,
@@ -522,12 +522,12 @@ describe('ActionButtons — permission guards', () => {
         reviewBlockedReason: 'not_active',
       }),
     })
-    expect(isDisabled('Approve')).toBe(true)
-    expect(isDisabled('Request changes')).toBe(true)
-    expect(isDisabled('Reject')).toBe(true)
+    expect(screen.queryByRole('button', { name: 'Approve' })).toBeNull()
+    expect(screen.queryByRole('button', { name: 'Request changes' })).toBeNull()
+    expect(screen.queryByRole('button', { name: 'Reject' })).toBeNull()
   })
 
-  it('disables review actions when the revision is superseded', () => {
+  it('offers no review actions when the revision is superseded', () => {
     renderActionButtons({
       permission: makePermission({
         canReview: false,
@@ -535,10 +535,10 @@ describe('ActionButtons — permission guards', () => {
         reviewBlockedReason: 'superseded',
       }),
     })
-    expect(isDisabled('Approve')).toBe(true)
+    expect(screen.queryByRole('button', { name: 'Approve' })).toBeNull()
   })
 
-  it('disables review actions for a non-assigned reviewer (permission loss)', () => {
+  it('offers no review actions to a non-assigned reviewer (permission loss)', () => {
     renderActionButtons({
       permission: makePermission({
         canReview: false,
@@ -546,7 +546,7 @@ describe('ActionButtons — permission guards', () => {
         reviewBlockedReason: 'not_assigned_reviewer',
       }),
     })
-    expect(isDisabled('Request changes')).toBe(true)
+    expect(screen.queryByRole('button', { name: 'Request changes' })).toBeNull()
   })
 
   it('enables withdraw for the submitter on an active review', () => {
@@ -556,7 +556,7 @@ describe('ActionButtons — permission guards', () => {
     expect(isDisabled('Withdraw')).toBe(false)
   })
 
-  it('disables withdraw for a non-submitter', () => {
+  it('offers no withdraw to a non-submitter', () => {
     renderActionButtons({
       permission: makePermission({
         canReview: true,
@@ -564,7 +564,7 @@ describe('ActionButtons — permission guards', () => {
         withdrawBlockedReason: 'not_submitter',
       }),
     })
-    expect(isDisabled('Withdraw')).toBe(true)
+    expect(screen.queryByRole('button', { name: 'Withdraw' })).toBeNull()
   })
 
   it('disables all actions when the integrity digest is missing', () => {

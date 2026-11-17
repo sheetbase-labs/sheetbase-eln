@@ -6,7 +6,7 @@ import type { Zippable } from 'fflate'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { z } from 'zod'
 
-import { OfficeFileBlock } from './office-file-block'
+import { OfficeFileBlock, closeExpandedFiles } from './office-file-block'
 import { OfficeEditButton } from '../office-editor'
 import { fileVersionsKey } from './use-file-versions'
 import type { StoredFileVersion } from './use-file-versions'
@@ -71,6 +71,9 @@ function serveWorkbook(sheets: PreviewSheet[]) {
 
 afterEach(() => {
   cleanup()
+  // The full-size view stays open across remounts by design, so a case that
+  // opened it would otherwise leave it open for the next.
+  closeExpandedFiles()
   vi.unstubAllGlobals()
   vi.restoreAllMocks()
   vi.clearAllMocks()

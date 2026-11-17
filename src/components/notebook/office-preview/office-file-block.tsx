@@ -47,6 +47,13 @@ const PdfView = React.lazy(() => import('./pdf-view'))
 const expandedFiles = new Set<string>()
 const expandedListeners = new Set<() => void>()
 
+/** Close every full-size view. It outlives a component, so tests start each case from closed. */
+export function closeExpandedFiles(): void {
+  expandedFiles.clear()
+
+  for (const listener of expandedListeners) listener()
+}
+
 function useExpanded(fileRecordId: string): [boolean, (open: boolean) => void] {
   const open = React.useSyncExternalStore(
     (listener) => {

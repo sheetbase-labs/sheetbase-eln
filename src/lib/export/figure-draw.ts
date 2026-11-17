@@ -13,8 +13,55 @@ interface Box {
   height: number
 }
 
-const ink = rgb(0.2, 0.22, 0.26)
-const grid = rgb(0.88, 0.89, 0.91)
+const ink = rgb(0.12, 0.14, 0.19)
+
+/** The notebook figure's quiet tokens: fine gridlines, a soft axis, muted labels. */
+const grid = rgb(0.933, 0.941, 0.953)
+const axis = rgb(0.612, 0.639, 0.682)
+const muted = rgb(0.365, 0.392, 0.435)
+
+/** The notebook's series colours and markers, which cycle together by index. */
+const SERIES = ['#00A3BB', '#006EDC', '#5D646F']
+const MARKERS = ['circle', 'square', 'triangle'] as const
+
+const seriesColour = (index: number) =>
+  colourOf(SERIES[index % SERIES.length] ?? '#006EDC')
+
+function drawMarker(
+  page: PDFPage,
+  symbol: (typeof MARKERS)[number],
+  x: number,
+  y: number,
+  r: number,
+  color: ReturnType<typeof rgb>,
+): void {
+  if (symbol === 'square') {
+    page.drawRectangle({
+      x: x - r,
+      y: y - r,
+      width: r * 2,
+      height: r * 2,
+      color,
+    })
+
+    return
+  }
+
+  if (symbol === 'triangle') {
+    page.drawSvgPath(
+      `M 0 ${-r * 1.15} L ${r * 1.1} ${r * 0.85} L ${-r * 1.1} ${r * 0.85} Z`,
+      {
+        x,
+        y,
+        color,
+      },
+    )
+
+    return
+  }
+
+  page.drawCircle({ x, y, size: r, color })
+}
 
 function colourOf(hex: string) {
   const m = /^#?([0-9a-f]{6})$/i.exec(hex)
@@ -25,11 +72,16 @@ function colourOf(hex: string) {
   return rgb(((n >> 16) & 255) / 255, ((n >> 8) & 255) / 255, (n & 255) / 255)
 }
 
-function niceTicks(lo: number, hi: number, count = 5): number[] {
+function niceStep(lo: number, hi: number, count: number): number {
   const span = hi - lo || Math.abs(hi) || 1
   const raw = span / count
   const pow = 10 ** Math.floor(Math.log10(raw))
-  const step = [1, 2, 5, 10].map((m) => m * pow).find((s) => s >= raw) ?? pow
+
+  return [1, 2, 2.5, 5, 10].map((m) => m * pow).find((s) => s >= raw) ?? pow
+}
+
+function niceTicks(lo: number, hi: number, count = 4): number[] {
+  const step = niceStep(lo, hi, count)
   const first = Math.ceil(lo / step) * step
   const ticks: number[] = []
 
@@ -186,7 +238,7 @@ export function drawFigure(
   }
 
   const left = 46
-  const bottom = 34
+  const bottom = 50
   const top = 8
   const right = 10
 
@@ -197,29 +249,38 @@ export function drawFigure(
     height: box.height - bottom - top - 12,
   }
 
-  const text = (value: string, x: number, y: number, size = 7) =>
-    page.drawText(safeText(value), { x, y, size, font, color: ink })
+  const text = (value: string, x: number, y: number, size = 7, color = muted) =>
+    page.drawText(safeText(value), { x, y, size, font, color })
 
   const frame = () => {
     page.drawLine({
       start: { x: plot.x, y: plot.y },
       end: { x: plot.x + plot.width, y: plot.y },
       thickness: 0.6,
-      color: ink,
+      color: axis,
     })
     page.drawLine({
       start: { x: plot.x, y: plot.y },
       end: { x: plot.x, y: plot.y + plot.height },
       thickness: 0.6,
-      color: ink,
+      color: axis,
     })
   }
 
   const labels = () => {
-    text(figure.xLabel, plot.x + plot.width / 2 - 20, box.y + 4, 8)
-    page.drawText(safeText(figure.yLabel), {
+    const xTitle = safeText(figure.xLabel)
+    const yTitle = safeText(figure.yLabel)
+
+    text(
+      xTitle,
+      plot.x + plot.width / 2 - font.widthOfTextAtSize(xTitle, 8) / 2,
+      box.y + 17,
+      8,
+      ink,
+    )
+    page.drawText(yTitle, {
       x: box.x + 10,
-      y: plot.y + plot.height / 2 - 20,
+      y: plot.y + plot.height / 2 - font.widthOfTextAtSize(yTitle, 8) / 2,
       size: 8,
       font,
       color: ink,
@@ -250,9 +311,15 @@ export function drawFigure(
   const zeroBased = figure.kind === 'bar' || figure.kind === 'hist'
   const yMin = Math.min(zeroBased ? 0 : Infinity, ...ys, ...refs)
   const yMax = Math.max(...ys, ...refs)
-  const yTicks = niceTicks(yMin, yMax)
-  const y0 = Math.min(yMin, yTicks[0] ?? yMin)
-  const y1 = Math.max(yMax, yTicks.at(-1) ?? yMax)
+
+  const yStep = niceStep(yMin, yMax, 4)
+  const y0 = Math.floor(yMin / yStep) * yStep
+  const y1 = Math.max(Math.ceil(yMax / yStep) * yStep, y0 + yStep)
+
+  const yTicks = Array.from(
+    { length: Math.round((y1 - y0) / yStep) + 1 },
+    (_, i) => Number((y0 + i * yStep).toPrecision(12)),
+  )
 
   const xs =
     figure.kind === 'hist'
@@ -265,8 +332,8 @@ export function drawFigure(
   const xMin = Math.min(...xs)
   const xMax = Math.max(...xs)
   const xTicks = numericX ? niceTicks(xMin, xMax) : []
-  const x0 = Math.min(xMin, xTicks[0] ?? xMin)
-  const x1 = Math.max(xMax, xTicks.at(-1) ?? xMax)
+  const x0 = xMin
+  const x1 = xMax
 
   const py = (v: number) => plot.y + ((v - y0) / (y1 - y0 || 1)) * plot.height
 
@@ -317,14 +384,14 @@ export function drawFigure(
           y: py(Math.min(0, p.y)),
           width: barWidth,
           height: Math.abs(py(p.y) - py(0)),
-          color: colourOf(s.color),
+          color: seriesColour(si),
         })
       }
     })
   }
 
   if (figure.kind === 'hist') {
-    figure.series.forEach((s) => {
+    figure.series.forEach((s, si) => {
       for (const p of s.points) {
         const binStart = p.x ?? 0
         const next = edges.find((e) => e > binStart) ?? binStart
@@ -334,7 +401,7 @@ export function drawFigure(
           y: py(0),
           width: Math.max(px(next) - px(binStart) - 0.5, 0.5),
           height: py(p.y) - py(0),
-          color: colourOf(s.color),
+          color: seriesColour(si),
           opacity: figure.series.length > 1 ? 0.55 : 0.9,
         })
       }
@@ -343,7 +410,7 @@ export function drawFigure(
 
   if (byCategory) {
     figure.series.forEach((s, i) => {
-      const colour = colourOf(s.color)
+      const colour = seriesColour(i)
       const cx = plot.x + i * slot + slot / 2
       const half = slot * 0.3
 
@@ -404,8 +471,9 @@ export function drawFigure(
   }
 
   if (figure.kind === 'xy') {
-    for (const s of figure.series) {
-      const colour = colourOf(s.color)
+    figure.series.forEach((s, si) => {
+      const colour = seriesColour(si)
+      const symbol = MARKERS[si % MARKERS.length] ?? 'circle'
       const pts = s.points.flatMap((p) => (p.x === null ? [] : [p]))
 
       if (figure.connect) {
@@ -417,20 +485,15 @@ export function drawFigure(
           page.drawLine({
             start: { x: px(a.x ?? 0), y: py(a.y) },
             end: { x: px(p.x ?? 0), y: py(p.y) },
-            thickness: 1.2,
+            thickness: 1.6,
             color: colour,
           })
         })
       }
 
       for (const p of pts)
-        page.drawCircle({
-          x: px(p.x ?? 0),
-          y: py(p.y),
-          size: 2.2,
-          color: colour,
-        })
-    }
+        drawMarker(page, symbol, px(p.x ?? 0), py(p.y), 2.6, colour)
+    })
   }
 
   for (const h of figure.hlines) {
@@ -438,10 +501,10 @@ export function drawFigure(
       start: { x: plot.x, y: py(h.value) },
       end: { x: plot.x + plot.width, y: py(h.value) },
       thickness: 0.8,
-      color: rgb(0.45, 0.45, 0.5),
+      color: muted,
       dashArray: [4, 3],
     })
-    const label = safeText(h.label)
+    const label = safeText(`${h.label} ${tickText(h.value)}`)
 
     text(
       label,
@@ -452,17 +515,19 @@ export function drawFigure(
 
   labels()
 
-  // Legend along the top of the plot.
+  // The legend sits under the axis title, with each series' own marker.
   let lx = plot.x
 
-  for (const s of figure.series) {
-    page.drawCircle({
-      x: lx + 3,
-      y: box.y + box.height - 4,
-      size: 3,
-      color: colourOf(s.color),
-    })
-    text(s.label, lx + 9, box.y + box.height - 7)
-    lx += 18 + font.widthOfTextAtSize(safeText(s.label), 7)
-  }
+  figure.series.forEach((s, si) => {
+    drawMarker(
+      page,
+      MARKERS[si % MARKERS.length] ?? 'circle',
+      lx + 4,
+      box.y + 6,
+      3,
+      seriesColour(si),
+    )
+    text(s.label, lx + 11, box.y + 3, 7.5, ink)
+    lx += 22 + font.widthOfTextAtSize(safeText(s.label), 7.5)
+  })
 }

@@ -49,6 +49,11 @@ export interface PdfFigure {
   note: string | null
 }
 
+/** The notebook's axis title: the label, then the unit in brackets. */
+function axisTitle(label: string, unit: string | undefined): string {
+  return unit ? `${label} (${unit})` : label
+}
+
 const KIND_BY_TYPE = new Map<string, PdfFigure['kind']>([
   ['bar', 'bar'],
   ['grouped_bar', 'bar'],
@@ -112,8 +117,8 @@ export function figureFromChart(
     title,
     kind,
     connect: LINE_TYPES.has(type),
-    xLabel: [chart.xLabel, chart.xUnit].filter(Boolean).join(' '),
-    yLabel: [chart.yLabel, chart.yUnit].filter(Boolean).join(' '),
+    xLabel: axisTitle(chart.xLabel, chart.xUnit),
+    yLabel: axisTitle(chart.yLabel, chart.yUnit),
     series: kind === 'heat' ? [] : series,
     hlines: (spec.overlays.references ?? []).flatMap((r) =>
       r.kind === 'hline' ? [{ value: r.value, label: r.label }] : [],

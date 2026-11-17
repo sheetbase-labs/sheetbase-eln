@@ -3427,6 +3427,13 @@ export const library = {
       eGSampleId: 'e.g. sample_id',
       eGSample: 'e.g. Sample',
       addParameter: 'Add parameter',
+      defaultValue: 'Default',
+      defaultValueHint: 'Used when nobody changes it',
+      feeds: 'Feeds',
+      feedsNothing: 'No sheet setting',
+      feedsHint: 'The sheet setting this one sets for every new notebook',
+      feedsTarget: '{sheet} · {setting}',
+      feedsNone: '—',
     },
     update: {
       notebook: 'Notebook',

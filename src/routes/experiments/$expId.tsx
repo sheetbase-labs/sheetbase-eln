@@ -181,6 +181,12 @@ function ExperimentLayout() {
       : userLabel(e.reviewer_user_id)
     : null
 
+  const waitingNames = (
+    review.data?.submission?.assigned_reviewer_user_ids ?? []
+  )
+    .filter((id) => id !== userId)
+    .map((id) => userLabel(id))
+
   return (
     <RecordActionsProvider
       reviewing={nextStep.reviewing}
@@ -216,6 +222,16 @@ function ExperimentLayout() {
             ownerName={userLabel(e.created_by_user_id)}
             submittedAt={review.data?.submission?.submitted_at}
             revisionId={reviewRevisionId}
+          />
+        ) : null}
+        {e.status === 'in_review' &&
+        !nextStep.reviewing &&
+        waitingNames.length > 0 ? (
+          <ReviewerBand
+            ownerName={userLabel(e.created_by_user_id)}
+            submittedAt={review.data?.submission?.submitted_at}
+            revisionId={reviewRevisionId}
+            waitingFor={waitingNames.join(', ')}
           />
         ) : null}
         <div className="flex min-h-0 flex-1">

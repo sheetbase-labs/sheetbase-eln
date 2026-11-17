@@ -154,25 +154,24 @@ export async function buildRecordFigures(
   blockSnapshot: z.infer<typeof z.json>,
   token: string,
 ): Promise<Map<string, PdfFigure>> {
-  const figures = new Map<string, PdfFigure>()
-
   const blocks = z.array(block).catch([]).parse(blockSnapshot)
 
-  for (const b of blocks) {
-    if (!b.id || (b.type !== 'analysis' && b.type !== 'chart')) continue
+  const found = await Promise.all(
+    blocks.map(async (b) => {
+      if (!b.id || (b.type !== 'analysis' && b.type !== 'chart')) return null
+      const title = z.string().catch('').parse(b.payload.title)
 
-    const title = z.string().catch('').parse(b.payload.title)
+      const figure = await (
+        b.type === 'analysis'
+          ? analysisFigure(title, b.payload, token)
+          : Promise.resolve(chartBlockFigure(title, b.payload))
+      ).catch(() => null)
 
-    const figure = await (
-      b.type === 'analysis'
-        ? analysisFigure(title, b.payload, token)
-        : Promise.resolve(chartBlockFigure(title, b.payload))
-    ).catch(() => null)
+      return figure ? ([b.id, figure] as const) : null
+    }),
+  )
 
-    if (figure) figures.set(b.id, figure)
-  }
-
-  return figures
+  return new Map(found.flatMap((entry) => (entry ? [entry] : [])))
 }
 
 export type { PdfFigure }

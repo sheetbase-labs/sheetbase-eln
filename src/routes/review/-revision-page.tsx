@@ -156,6 +156,7 @@ import {
   isExpiredSigningSession,
 } from '#/lib/signatures'
 import { useSignaturePolicy } from '#/lib/use-signature-policy'
+import { useApproveAndSign } from './-use-approve-and-sign'
 import type {
   PostSubmissionSignatureMeaning,
   SignatureMeaning,
@@ -1807,6 +1808,87 @@ function ChecksPanel({
 // Inspector — revision identity, integrity, approval stepper, actions.
 // ---------------------------------------------------------------------------
 
+function InspectorReviewers({
+  reviewerIds,
+  names,
+  currentUserId,
+}: {
+  reviewerIds: readonly string[]
+  names: Record<string, string>
+  currentUserId: string
+}) {
+  return (
+    <section>
+      <h2 className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+        {t('projects.revisionPage.inspector.reviewers')}
+      </h2>
+      {reviewerIds.length > 0 ? (
+        <ul className="space-y-1">
+          {reviewerIds.map((userId) => {
+            const name =
+              names[userId] ??
+              t('projects.revisionPage.inspector.unknownMember')
+
+            return (
+              <li
+                key={userId}
+                className="flex items-center gap-2 text-xs text-muted-foreground"
+              >
+                <span className="flex size-5 items-center justify-center rounded-full bg-primary text-xs font-semibold text-primary-foreground">
+                  {name.slice(0, 2).toUpperCase()}
+                </span>
+                <span>{name}</span>
+                {userId === currentUserId ? (
+                  <span className="text-xs font-medium text-link">
+                    {t('projects.revisionPage.inspector.you')}
+                  </span>
+                ) : null}
+              </li>
+            )
+          })}
+        </ul>
+      ) : (
+        <p className="text-xs text-muted-foreground">
+          {t('projects.revisionPage.inspector.noAssignees')}
+        </p>
+      )}
+    </section>
+  )
+}
+
+function InspectorHeader({
+  identifier,
+  state,
+}: {
+  identifier: string
+  state: string | null
+}) {
+  return (
+    <div className="shrink-0 space-y-2 border-b p-3">
+      <div className="flex items-center gap-2">
+        <Icon name="lock" size={16} className="text-fg-muted" aria-hidden />
+        <span className="text-sm font-semibold">
+          {t('projects.revisionPage.inspector.title')}
+        </span>
+      </div>
+      <p className="truncate font-mono text-xs text-muted-foreground">
+        {identifier}
+      </p>
+      {state ? (
+        <StatusBadge
+          status={state}
+          vocabulary={workspaceStatusVocabulary}
+          size="sm"
+        />
+      ) : (
+        <Badge variant="kind">
+          {t('projects.revisionPage.inspector.noSubmission')}
+        </Badge>
+      )}
+    </div>
+  )
+}
+
 // react-doctor-disable-next-line react-doctor/no-high-complexity-react-function -- the inspector shows each review facet in one scrollable panel so they read in order.
 function ReviewInspector({
   revision,
@@ -1875,12 +1957,6 @@ function ReviewInspector({
     [onSigningOpenChange],
   )
 
-  // Approving and signing are one step for a reviewer who may sign: the one
-  // dialog records the decision and then the signature. Without it (no
-  // certified signature, or the policy switches the meaning off) Approve keeps
-  // its own confirmation.
-  const [approveAndSign, setApproveAndSign] = useState(false)
-
   const signingNow = useSigningMeanings({
     submission,
     revision,
@@ -1889,25 +1965,19 @@ function ReviewInspector({
     currentUserId,
   })
 
-  const mayApproveAndSign =
-    permission?.canReview === true &&
-    submission?.state === 'submitted' &&
-    signingNow.meanings.length > 0 &&
-    signatureMeaningEnabled(signingNow.policy, 'reviewed-and-approved')
-
-  const handleSigningOpenChange = useCallback(
-    (next: boolean) => {
-      onSigningOpenChange(next)
-
-      if (!next) setApproveAndSign(false)
+  const approveAndSign = useApproveAndSign({
+    canReview: permission?.canReview === true,
+    state: submission?.state,
+    meanings: signingNow.meanings,
+    policy: signingNow.policy,
+    submissionId: submission?.id,
+    revisionId: revision?.id,
+    digest: integrityDigest,
+    onSigningOpenChange,
+    approve: async (input) => {
+      await runDecision('approve', input)
     },
-    [onSigningOpenChange],
-  )
-
-  const startApproveAndSign = useCallback(() => {
-    setApproveAndSign(true)
-    onSigningOpenChange(true)
-  }, [onSigningOpenChange])
+  })
 
   // QA-180: an assigned reviewer is a person, not a UUID. Resolve them to names
   // the way the rest of the app does; initials come from the name.
@@ -1957,28 +2027,10 @@ function ReviewInspector({
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
-      <div className="shrink-0 space-y-2 border-b p-3">
-        <div className="flex items-center gap-2">
-          <Icon name="lock" size={16} className="text-fg-muted" aria-hidden />
-          <span className="text-sm font-semibold">
-            {t('projects.revisionPage.inspector.title')}
-          </span>
-        </div>
-        <p className="truncate font-mono text-xs text-muted-foreground">
-          {record?.identifier ?? revision.id}
-        </p>
-        {submission ? (
-          <StatusBadge
-            status={submission.state}
-            vocabulary={workspaceStatusVocabulary}
-            size="sm"
-          />
-        ) : (
-          <Badge variant="kind">
-            {t('projects.revisionPage.inspector.noSubmission')}
-          </Badge>
-        )}
-      </div>
+      <InspectorHeader
+        identifier={record?.identifier ?? revision.id}
+        state={submission?.state ?? null}
+      />
 
       <div className="min-h-0 flex-1 space-y-4 overflow-y-auto p-3 text-sm">
         <dl className="space-y-1.5">
@@ -2013,41 +2065,11 @@ function ReviewInspector({
           <ApprovalStepper steps={steps} reviewState={reviewState} />
         </section>
 
-        <section>
-          <h2 className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-            {t('projects.revisionPage.inspector.reviewers')}
-          </h2>
-          {submission && submission.assigned_reviewer_user_ids.length > 0 ? (
-            <ul className="space-y-1">
-              {submission.assigned_reviewer_user_ids.map((userId) => {
-                const name =
-                  reviewerNames.names[userId] ??
-                  t('projects.revisionPage.inspector.unknownMember')
-
-                return (
-                  <li
-                    key={userId}
-                    className="flex items-center gap-2 text-xs text-muted-foreground"
-                  >
-                    <span className="flex size-5 items-center justify-center rounded-full bg-primary text-xs font-semibold text-primary-foreground">
-                      {name.slice(0, 2).toUpperCase()}
-                    </span>
-                    <span>{name}</span>
-                    {userId === currentUserId ? (
-                      <span className="text-xs font-medium text-link">
-                        {t('projects.revisionPage.inspector.you')}
-                      </span>
-                    ) : null}
-                  </li>
-                )
-              })}
-            </ul>
-          ) : (
-            <p className="text-xs text-muted-foreground">
-              {t('projects.revisionPage.inspector.noAssignees')}
-            </p>
-          )}
-        </section>
+        <InspectorReviewers
+          reviewerIds={submission?.assigned_reviewer_user_ids ?? []}
+          names={reviewerNames.names}
+          currentUserId={currentUserId}
+        />
 
         {submission ? (
           <SignaturePanel
@@ -2060,31 +2082,8 @@ function ReviewInspector({
             currentUserId={currentUserId}
             currentUserName={currentUserName}
             open={signingOpen}
-            onOpenChange={handleSigningOpenChange}
-            approveFirst={
-              approveAndSign && mayApproveAndSign
-                ? {
-                    run: async () => {
-                      await runDecision('approve', {
-                        submissionId: submission.id,
-                        expectedRevisionDigest: integrityDigest ?? '',
-                      })
-                      await queryClient.invalidateQueries({
-                        queryKey: reviewWorkspaceQueryKeys.decisions(
-                          submission.id,
-                        ),
-                      })
-                      await queryClient.invalidateQueries({
-                        queryKey:
-                          reviewWorkspaceQueryKeys.submissionForRevision(
-                            revision.id,
-                          ),
-                      })
-                    },
-                    done: () => setApproveAndSign(false),
-                  }
-                : null
-            }
+            onOpenChange={approveAndSign.onOpenChange}
+            approveFirst={approveAndSign.approveFirst}
           />
         ) : null}
 
@@ -2128,9 +2127,7 @@ function ReviewInspector({
             draftCommentCount={commentDrafts.count}
             approveBlockedReason={checksGateReason(checksGate)}
             onApprovedForSigning={openSigningAfterApproval}
-            onApproveAndSign={
-              mayApproveAndSign ? startApproveAndSign : undefined
-            }
+            onApproveAndSign={approveAndSign.onApproveAndSign}
             openDecision={decideOnArrival}
             onAfterDecision={async (kind, input) => {
               // REV-01.3: returning carries the reviewer's private drafts —

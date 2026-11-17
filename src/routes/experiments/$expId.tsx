@@ -4,7 +4,7 @@ import { useQuery } from '@tanstack/react-query'
 
 import { PageHeader } from '#/components/ui/layout'
 import { experimentNextStep } from '#/components/experiments/next-step'
-import { ReviewerBand } from '#/components/experiments/reviewer-band'
+import { ReviewStatusBand } from '#/components/experiments/reviewer-band'
 import { useIsSeriesHead } from '#/lib/experiment-series'
 import { useRegulatedLab } from '#/lib/regulated-lab'
 import { useRecordParts } from '#/components/notebook/use-record-parts'
@@ -217,23 +217,14 @@ function ExperimentLayout() {
           }
           workspaceId={context.workspace?.id ?? ''}
         />
-        {nextStep.reviewing ? (
-          <ReviewerBand
-            ownerName={userLabel(e.created_by_user_id)}
-            submittedAt={review.data?.submission?.submitted_at}
-            revisionId={reviewRevisionId}
-          />
-        ) : null}
-        {e.status === 'in_review' &&
-        !nextStep.reviewing &&
-        waitingNames.length > 0 ? (
-          <ReviewerBand
-            ownerName={userLabel(e.created_by_user_id)}
-            submittedAt={review.data?.submission?.submitted_at}
-            revisionId={reviewRevisionId}
-            waitingFor={waitingNames.join(', ')}
-          />
-        ) : null}
+        <ReviewStatusBand
+          reviewing={nextStep.reviewing}
+          inReview={e.status === 'in_review'}
+          ownerName={userLabel(e.created_by_user_id)}
+          submittedAt={review.data?.submission?.submitted_at}
+          revisionId={reviewRevisionId}
+          waitingNames={waitingNames}
+        />
         <div className="flex min-h-0 flex-1">
           <Outlet />
         </div>

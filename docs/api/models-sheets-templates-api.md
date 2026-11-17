@@ -181,6 +181,50 @@ The same calls work for a token, the assistant, MCP or a pipeline:
    editing), 200 rows to a window, from the definition's calculations. The
    results are readable with `read_sheet_instance_calculation_results`.
 
+### Formulas that compare and decide
+
+A calculation of a sheet definition can do more than arithmetic. It can compare
+(`=`, `<>`, `<`, `<=`, `>`, `>=`), decide with `IF`, `AND`, `OR`, `NOT` and `XOR`,
+and answer with text or a boolean as well as a number. The output column's
+`logicalType` says which (`decimal`, `integer`, `text` or `boolean`).
+
+```json
+{
+  "id": "<calculation uuid>",
+  "key": "meets_criteria",
+  "label": "Meets criteria",
+  "outputColumnId": "<text column uuid>",
+  "inputColumnIds": ["<step yield column uuid>"],
+  "inputParameterIds": ["<yield threshold parameter uuid>"],
+  "expression": {
+    "language": "sheetbase-formula-v1",
+    "source": "=IF(A1>=B1,\"Pass\",\"Fail\")"
+  }
+}
+```
+
+- **Slots.** `A1`, `B1`, … name the formula's inputs in order: the columns of
+  `inputColumnIds`, then the parameters of `inputParameterIds`.
+- **Units.** Like units compare with each other, and a quantity compares with
+  a plain number or a parameter. Two different units do not compare. The two
+  answers of an `IF` must carry the same unit.
+- **Settings.** `inputParameterIds` names scalar parameters of the same
+  definition (a pass threshold, say). The value a sheet reads is the one its
+  notebook resolved for the parameter (`state.parameterValues`), else the
+  parameter's own `defaultValue`. A template can feed it: a template parameter
+  with a `defaultValue` and a sheet placement's `parameterMappings` entry
+  (`templateParameterId` → `definitionParameterId`) set it for every notebook
+  made from that template version, unless a value is supplied when the notebook
+  is made.
+- **Results.** `read_sheet_instance_calculation_results` answers
+  `calculatedValue` with the number, text or boolean, and `dependencies` lists
+  `{ "kind": "parameter", "id": … }` next to the columns it read.
+  `dependencyProvenance` records the setting's value source (`supplied` or
+  `default`).
+- **Sheet-level calculations.** A calculation added to one sheet (rather than
+  its definition) may also answer with text or a boolean; it cannot read a
+  parameter.
+
 ## Actions
 
 ### `create_model_record`

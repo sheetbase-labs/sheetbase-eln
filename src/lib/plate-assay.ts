@@ -22,6 +22,8 @@ import {
   wellCode,
 } from './plate-map'
 import type { AssignmentRole, PlateFormat } from './plate-map'
+import { quantifyPlate } from './plate-quantify'
+import type { QuantifyResult } from './plate-quantify'
 import { summaryStats, tCritical95 } from './stats'
 
 export const PLATE_ASSAY_METHOD_VERSION = 1 as const
@@ -69,10 +71,26 @@ export interface QcLimits {
   signalToBackgroundMin: number | null
   /** Optional maximum CV% of either control; null to skip. */
   controlCvMax: number | null
+  /** A quantification's standard curve passes at this R² or above. */
+  standardR2Min: number
 }
+
+/**
+ * How the plate is read. A screen calls hits against its own controls; a
+ * quantification reads each sample off a standard curve fitted to the plate's
+ * standards. An assay's design remembers which, so an ELISA is quantified every
+ * time and a compound screen is screened, with nothing to choose on the plate.
+ */
+export const ASSAY_METHODS = ['screen', 'quantify'] as const
+
+export type AssayMethod = (typeof ASSAY_METHODS)[number]
 
 export interface PlateAssayConfig {
   version: typeof PLATE_ASSAY_METHOD_VERSION
+  /** Screen for hits (the default), or quantify against a standard curve. */
+  method: AssayMethod
+  /** How far samples were diluted, when a well does not say (1 = neat). */
+  dilutionFactor: number
   normalisation: Normalisation
   /** Label only: what a high normalised value means. */
   effectDirection: 'inhibition' | 'activation'
@@ -86,6 +104,8 @@ export interface PlateAssayConfig {
 export function defaultAssayConfig(): PlateAssayConfig {
   return {
     version: PLATE_ASSAY_METHOD_VERSION,
+    method: 'screen',
+    dilutionFactor: 1,
     normalisation: 'percent_effect',
     effectDirection: 'inhibition',
     subtractBlank: false,
@@ -100,6 +120,7 @@ export function defaultAssayConfig(): PlateAssayConfig {
       zPrimeFail: 0,
       signalToBackgroundMin: null,
       controlCvMax: null,
+      standardR2Min: 0.98,
     },
     curveModel: '4pl',
   }
@@ -118,6 +139,8 @@ const configInput = z.custom<{
   effectDirection?: unknown
   subtractBlank?: unknown
   curveModel?: unknown
+  method?: unknown
+  dilutionFactor?: unknown
 }>((value) => objectInput.safeParse(value).success)
 
 const hitInput = z.custom<{
@@ -132,6 +155,7 @@ const qcInput = z.custom<{
   zPrimeFail?: unknown
   signalToBackgroundMin?: unknown
   controlCvMax?: unknown
+  standardR2Min?: unknown
 }>((value) => objectInput.safeParse(value).success)
 
 const finiteNumberInput = z.number()
@@ -170,6 +194,11 @@ export function normaliseAssayConfig<Value>(raw: Value): PlateAssayConfig {
 
   return {
     version: PLATE_ASSAY_METHOD_VERSION,
+    method: raw.method === 'quantify' ? 'quantify' : 'screen',
+    dilutionFactor: finiteNumberInput
+      .refine((n) => n > 0)
+      .catch(base.dilutionFactor)
+      .parse(raw.dilutionFactor),
     normalisation: isInput(normalisationInput, raw.normalisation)
       ? raw.normalisation
       : base.normalisation,
@@ -201,6 +230,9 @@ export function normaliseAssayConfig<Value>(raw: Value): PlateAssayConfig {
         .nullable()
         .catch(base.qc.controlCvMax)
         .parse(qcRaw?.controlCvMax),
+      standardR2Min: finiteNumberInput
+        .catch(base.qc.standardR2Min)
+        .parse(qcRaw?.standardR2Min),
     },
     curveModel: raw.curveModel === '5pl' ? '5pl' : '4pl',
   }
@@ -219,6 +251,8 @@ export interface AssayWell {
   sampleLabel?: string | null
   concentration?: number | null
   concentrationUnit?: string | null
+  /** How far this well's sample was diluted (1 = neat); the config's factor when absent. */
+  dilution?: number | null
   /** Volume to move into this well, in µL (used by worklists). */
   volumeUl?: number | null
 }
@@ -258,7 +292,12 @@ export interface PlateQc {
   status: QcStatus
   /** One entry per metric that was judged. */
   checks: Array<{
-    id: 'z_prime' | 'signal_to_background' | 'control_cv' | 'controls_present'
+    id:
+      | 'z_prime'
+      | 'signal_to_background'
+      | 'control_cv'
+      | 'controls_present'
+      | 'standard_curve'
     status: QcStatus
     value: number | null
     limit: number | null
@@ -321,6 +360,8 @@ export interface PlateAnalysis {
   edge: EdgeEffect
   samples: SampleGroupResult[]
   curves: SampleCurve[]
+  /** The plate read by its standard curve, when the assay quantifies. */
+  quantify: QuantifyResult | null
   /** Samples that had doses but too few to fit, with the reason. */
   unfitted: Array<{
     key: string
@@ -533,6 +574,42 @@ function judgeQc(
   }
 }
 
+/**
+ * A quantification is judged by its standard curve: did it fit, and how well.
+ * Z′ and hits mean nothing here, so they are not asked for.
+ */
+function judgeQuantifyQc(
+  config: PlateAssayConfig,
+  result: QuantifyResult,
+  positive: ControlStats,
+  negative: ControlStats,
+  blank: ControlStats,
+): PlateQc {
+  const r2 = result.curve?.r2 ?? null
+  const min = config.qc.standardR2Min
+
+  const status: QcStatus =
+    r2 === null || !result.curve?.converged
+      ? 'fail'
+      : r2 >= min
+        ? 'pass'
+        : r2 >= min - 0.03
+          ? 'warn'
+          : 'fail'
+
+  return {
+    positive,
+    negative,
+    blank,
+    zPrime: null,
+    ssmd: null,
+    signalToBackground: null,
+    signalToNoise: null,
+    status,
+    checks: [{ id: 'standard_curve', status, value: r2, limit: min }],
+  }
+}
+
 function meetsRule(
   value: number,
   rule: HitRule,
@@ -567,7 +644,12 @@ export function analysePlate<Config>(
   readout: PlateReadout,
   inputConfig?: Config,
 ): PlateAnalysis {
-  const config = normaliseAssayConfig(inputConfig)
+  const given = normaliseAssayConfig(inputConfig)
+
+  // A quantification reads readings, not percentages of controls it does not have.
+  const config: PlateAssayConfig =
+    given.method === 'quantify' ? { ...given, normalisation: 'none' } : given
+
   const format = inferPlateFormat(wells.map((w) => w.wellCode))
   const dims = format ? FORMAT_DIMENSIONS[format] : { rows: 0, cols: 0 }
 
@@ -607,7 +689,17 @@ export function analysePlate<Config>(
       .filter((v): v is number => v !== null),
   )
 
-  const qc = judgeQc(config, positive, negative, blank)
+  const quantify =
+    config.method === 'quantify'
+      ? quantifyPlate(wells, corrected, {
+          model: config.curveModel,
+          dilutionFactor: config.dilutionFactor,
+        })
+      : null
+
+  const qc = quantify
+    ? judgeQuantifyQc(config, quantify, positive, negative, blank)
+    : judgeQc(config, positive, negative, blank)
 
   // Normalisation.
   const sampleCorrected = byRole('sample')
@@ -807,6 +899,7 @@ export function analysePlate<Config>(
     edge,
     samples,
     curves,
+    quantify,
     unfitted,
     summary: {
       wells: wells.length,
@@ -1135,6 +1228,10 @@ const ROLE_ALIASES = z
     min: 'negative_control',
     blank: 'blank',
     bl: 'blank',
+    standard: 'standard',
+    std: 'standard',
+    calibrator: 'standard',
+    cal: 'standard',
     empty: 'empty',
   })
 
@@ -1283,6 +1380,7 @@ export function parsePlateTable(text: string): ParsedPlateTable {
 
   const concCol = col('concentration', 'conc', 'dose')
   const unitCol = col('unit', 'concentrationunit', 'concunit', 'units')
+  const dilutionCol = col('dilution', 'dilutionfactor', 'df')
   const wells: AssayWell[] = []
   const readout: PlateReadout = {}
   const seen = new Set<string>()
@@ -1312,7 +1410,9 @@ export function parsePlateTable(text: string): ParsedPlateTable {
     }
 
     const label = sampleCol >= 0 ? (r[sampleCol] ?? '').trim() : ''
-    wells.push({
+    const dilution = dilutionCol >= 0 ? toNumber(r[dilutionCol]) : null
+
+    const well: AssayWell = {
       wellCode: code,
       role,
       sampleLabel: role === 'sample' && label !== '' ? label : null,
@@ -1321,7 +1421,10 @@ export function parsePlateTable(text: string): ParsedPlateTable {
         unitCol >= 0 && (r[unitCol] ?? '').trim() !== ''
           ? r[unitCol].trim()
           : null,
-    })
+    }
+
+    if (dilution !== null && dilution > 0) well.dilution = dilution
+    wells.push(well)
 
     if (valueCol >= 0) readout[code] = toNumber(r[valueCol])
   }

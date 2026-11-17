@@ -12,9 +12,12 @@ export const PLATE_ADD_TOOL = 'sheetbase.plate.add_to_experiment'
 
 export const PLATE_REMEMBER_TOOL = 'sheetbase.plate.remember_setup'
 
+export const PLATE_PUBLISH_TOOL = 'sheetbase.plate.publish_measurements'
+
 export const PLATE_EXPERIMENT_PROPOSE_TOOL_NAMES = [
   PLATE_ADD_TOOL,
   PLATE_REMEMBER_TOOL,
+  PLATE_PUBLISH_TOOL,
 ] as const
 
 export type PlateExperimentProposeToolName =
@@ -34,6 +37,34 @@ export const proposePlateAddSchema = z.strictObject({
     .max(200)
     .describe(
       'The experiment by identifier (EXP-0042) or words from its title.',
+    ),
+  step: z
+    .string()
+    .min(1)
+    .max(200)
+    .optional()
+    .describe(
+      'The protocol step the plate was run for, by words from it (such as "ELISA"). Leave it out and the plate goes in the first open step that names plates, else at the end of the notebook.',
+    ),
+})
+
+export const proposePlatePublishSchema = z.strictObject({
+  title: z.string().min(1).max(120),
+  summary: z.string().min(1).max(400),
+  run: z
+    .string()
+    .min(1)
+    .max(200)
+    .describe(
+      'The plate run, read by a standard curve, by number (PLR-0012) or words from its name.',
+    ),
+  name: z
+    .string()
+    .min(1)
+    .max(200)
+    .optional()
+    .describe(
+      'What the result is called on each sample, such as "Capsid titre". Leave it out to use the assay’s name.',
     ),
 })
 
@@ -63,6 +94,13 @@ export type PlateExperimentAction =
       kind: 'plate.add_to_experiment'
       runId: string
       recordId: string
+      /** The protocol step to put the run in; null puts it at the end of the notebook. */
+      stepBlockId?: string | null
+    }
+  | {
+      kind: 'plate.publish_measurements'
+      runId: string
+      name: string | null
     }
   | {
       kind: 'plate.remember_setup'
@@ -78,7 +116,8 @@ export function isPlateExperimentAction(action: {
 }): action is PlateExperimentAction {
   return (
     action.kind === 'plate.add_to_experiment' ||
-    action.kind === 'plate.remember_setup'
+    action.kind === 'plate.remember_setup' ||
+    action.kind === 'plate.publish_measurements'
   )
 }
 

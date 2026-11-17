@@ -49,6 +49,8 @@ export interface StepProgress {
   current: boolean
   note: string | null
   results: number
+  /** How many of the results are plate runs (a plate run counts as one result). */
+  plates: number
   completedAt: string | null
   completedByUserId: string | null
   durationSeconds: number | null
@@ -87,12 +89,17 @@ export function stepProgress(
 
   const placed = new Map<string, number>()
   const results = new Map<string, number>()
+  const plates = new Map<string, number>()
 
+  // Any data placed in a step counts as work on it: a number, or a plate run.
   for (const block of blocks) {
-    if (block.type !== 'metric') continue
+    if (block.type !== 'metric' && block.type !== 'plate_run') continue
     const step = textMember.parse(block.payload.stepBlockId)
 
     if (step) results.set(step, (results.get(step) ?? 0) + 1)
+
+    if (step && block.type === 'plate_run')
+      plates.set(step, (plates.get(step) ?? 0) + 1)
   }
 
   const steps: StepProgress[] = []
@@ -138,6 +145,7 @@ export function stepProgress(
       current,
       note,
       results: resultCount,
+      plates: plates.get(block.id) ?? 0,
       completedAt: done ? textMember.parse(payload.completedAt) || null : null,
       completedByUserId: done
         ? textMember.parse(payload.completedByUserId) || null

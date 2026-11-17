@@ -341,6 +341,8 @@ describe('asymmetric assay boundary controls', () => {
 
     expect(normaliseAssayConfig(raw)).toEqual({
       version: 1,
+      method: 'screen',
+      dilutionFactor: 1,
       normalisation: 'z_score',
       effectDirection: 'activation',
       subtractBlank: false,
@@ -355,6 +357,7 @@ describe('asymmetric assay boundary controls', () => {
         zPrimeFail: 0,
         signalToBackgroundMin: null,
         controlCvMax: null,
+        standardR2Min: 0.98,
       },
       curveModel: '5pl',
     })

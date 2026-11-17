@@ -91,4 +91,54 @@ export const PLATE_RUN_OPERATIONS = defineOperations([
       },
     ],
   },
+  {
+    name: 'add_step_plate_run',
+    label: 'Put a plate run in a protocol step',
+    summary: 'Put a plate run in a protocol step',
+    description:
+      'Puts a plate run in the protocol step it was run for. The run joins the step’s experiment, its plate run block goes straight after the step (or after the step’s last piece of data), and the step reads in progress. A block the notebook already had for the run is moved into the step. Finish the step with `set_step_done` once its last plate is in. Returns `{ block_id, step_block_id, record_id, plate_run_id, already_there }`. Sends `step_result` with `resultType` `plate_run`.',
+    kind: 'write',
+    inputs: [
+      {
+        ...input('p_block_id', 'uuid'),
+        description: 'The protocol step (a `procedure_step` block).',
+      },
+      input('p_plate_run_id', 'uuid'),
+    ],
+    result: 'json',
+    pipeline: {},
+  },
+  {
+    name: 'publish_plate_run_measurements',
+    label: 'Give a plate run’s results to its samples',
+    summary: 'Give a plate run’s results to its samples',
+    description:
+      'Writes what a quantified plate run read for each sample (its concentration, dilution already applied) to that sample as a measurement, so the result shows on the sample page. Only samples that read inside the standard curve get one. Running it again replaces the measurements this run wrote earlier; measurements from anywhere else are left alone. Returns `{ published, skipped }`. Sends `plate_run.measurements_published`.',
+    kind: 'write',
+    inputs: [
+      input('p_plate_run_id', 'uuid'),
+      {
+        ...input('p_name', 'text', false, true),
+        description:
+          'What the measurement is called on the sample, such as "Capsid titre". Defaults to the assay design’s name, else the run’s.',
+      },
+    ],
+    result: 'json',
+    assistant: { tool: 'sheetbase.plate.publish_measurements' },
+    pipeline: {},
+    events: [
+      {
+        name: 'plate_run.measurements_published',
+        family: 'inventory',
+        summary: 'A plate run’s results were written to its samples.',
+        producer: {
+          entityType: 'plate_run',
+          operation: 'update',
+          when: { key: 'change', equals: 'measurements_published' },
+        },
+        notes:
+          'Payload carries plateRunId, reference, name, recordId (the experiment), published and skipped.',
+      },
+    ],
+  },
 ])

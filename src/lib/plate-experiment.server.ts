@@ -14,11 +14,15 @@ import { controlColumnsOfWells } from './plate-assay-setup'
 import {
   PLATE_ADD_TOOL,
   PLATE_EXPERIMENT_PROPOSE_TOOL_NAMES,
+  PLATE_PUBLISH_TOOL,
   PLATE_REMEMBER_TOOL,
   proposePlateAddSchema,
+  proposePlatePublishSchema,
   proposePlateRememberSchema,
 } from './plate-experiment'
 import { plateRunReference } from './plate-runs'
+import { suggestPlateStep } from './plate-step'
+import type { PlateStepRow } from './plate-step'
 
 /** The server half of `plate-experiment.ts`: the card that puts a plate run in an experiment. */
 
@@ -34,6 +38,11 @@ interface RunRow {
   design_id: string | null
   config: unknown
   wells: AssayWell[]
+  results?: {
+    quantify?: {
+      samples?: Array<{ sampleId?: string | null; result?: number | null }>
+    }
+  } | null
 }
 
 interface DesignRow {
@@ -45,8 +54,13 @@ export function plateExperimentProposalDefs(): ProviderToolDef[] {
   return [
     toolDef(
       PLATE_ADD_TOOL,
-      'Propose putting a plate run in an experiment: the run is attached to it and a plate run block, with the plate map, Z′ and hits, is added to the end of its notebook. The person sees a card and presses a button; nothing changes until they do.',
+      'Propose putting a plate run in an experiment: the run is attached to it and a plate run block, with the plate map and its result, is added to the protocol step it was run for (the first open step that names plates, or the step you name), else the end of the notebook. The person sees a card and presses a button; nothing changes until they do.',
       proposePlateAddSchema,
+    ),
+    toolDef(
+      PLATE_PUBLISH_TOOL,
+      'Propose giving a plate run’s results to its samples: for a run read by a standard curve, each sample that read inside the standards gets its concentration as a measurement, so the result shows on the sample page. The person sees a card and presses a button; nothing changes until they do.',
+      proposePlatePublishSchema,
     ),
     toolDef(
       PLATE_REMEMBER_TOOL,
@@ -71,7 +85,7 @@ async function findRun(
       number
         ? `number=eq.${Number(number[1])}`
         : `name=ilike.${likeValue(text)}`
-    }&status=neq.archived&select=id,number,name,status,record_id,design_id,config,wells&order=number.desc&limit=6`,
+    }&status=neq.archived&select=id,number,name,status,record_id,design_id,config,wells,results&order=number.desc&limit=6`,
   )
 
   if (rows.length === 0) return { message: `No plate run matches "${text}".` }
@@ -205,6 +219,8 @@ export async function buildPlateExperimentProposal(
 ): Promise<Outcome> {
   if (name === PLATE_REMEMBER_TOOL) return buildRememberProposal(args, context)
 
+  if (name === PLATE_PUBLISH_TOOL) return buildPublishProposal(args, context)
+
   if (name !== PLATE_ADD_TOOL) return { ok: false, message: 'Unknown tool.' }
   const parsed = proposePlateAddSchema.safeParse(args)
 
@@ -218,7 +234,33 @@ export async function buildPlateExperimentProposal(
   if ('message' in experiment) return { ok: false, message: experiment.message }
   const run = found.run
 
-  if (run.record_id === experiment.id)
+  // Which step it goes in: the one the person names, else the first open step
+  // that names plates, else the end of the notebook.
+  const steps = await context.client
+    .rpc<PlateStepRow[]>('record_steps', { p_record_id: experiment.id })
+    .catch((): PlateStepRow[] => [])
+
+  const words = (input.step ?? '').toLowerCase().split(/\s+/).filter(Boolean)
+
+  let step: PlateStepRow | null = null
+
+  if (words.length > 0) {
+    const matches = steps.filter((s) =>
+      words.every((w) => (s.step_text ?? '').toLowerCase().includes(w)),
+    )
+
+    if (matches.length !== 1)
+      return {
+        ok: false,
+        message:
+          matches.length === 0
+            ? `${experiment.identifier} has no step matching "${input.step}". Steps: ${steps.map((s) => `${s.step_number ?? '·'}. ${s.step_text ?? ''}`).join('; ') || 'none'}. Ask the person which.`
+            : `More than one step of ${experiment.identifier} matches "${input.step}". Ask the person which.`,
+      }
+    step = matches[0]
+  } else step = suggestPlateStep(steps)
+
+  if (run.record_id === experiment.id && !step)
     return {
       ok: false,
       message: `${plateRunReference(run.number)} is already in ${experiment.identifier}.`,
@@ -248,14 +290,77 @@ export async function buildPlateExperimentProposal(
         {
           label: 'Adds',
           before: null,
-          after:
-            'A plate run block at the end of the notebook, with the plate map, Z′ and hits',
+          after: step
+            ? `A plate run block in step ${step.step_number ?? ''} (${(step.step_text ?? '').slice(0, 80)}), and the step reads in progress`
+            : 'A plate run block at the end of the notebook, with the plate map and its result',
         },
       ],
       action: {
         kind: 'plate.add_to_experiment',
         runId: run.id,
         recordId: experiment.id,
+        stepBlockId: step?.block_id ?? null,
+      },
+    },
+  }
+}
+
+async function buildPublishProposal(
+  // oxlint-disable-next-line anti-slop/no-unknown-parameters -- The model's tool call arrives as JSON; proposePlatePublishSchema decodes it below.
+  args: unknown,
+  context: LabToolContext,
+): Promise<Outcome> {
+  const parsed = proposePlatePublishSchema.safeParse(args)
+
+  if (!parsed.success) return { ok: false, message: invalid(parsed.error) }
+  const input = parsed.data
+  const found = await findRun(context, input.run)
+
+  if ('message' in found) return { ok: false, message: found.message }
+  const run = found.run
+  const reference = plateRunReference(run.number)
+  const samples = run.results?.quantify?.samples
+
+  if (!samples)
+    return {
+      ok: false,
+      message: `${reference} has not been read by a standard curve, so it has no sample results to give. Tell the person: its assay needs to be set to quantify and the plate analysed.`,
+    }
+
+  const readable = samples.filter(
+    (s) => s.sampleId && s.result !== null && Number.isFinite(s.result),
+  ).length
+
+  if (readable === 0)
+    return {
+      ok: false,
+      message: `No sample on ${reference} read inside the standard curve and is linked to a sample record, so there is nothing to give. Tell the person.`,
+    }
+
+  return {
+    ok: true,
+    proposal: {
+      tool: PLATE_PUBLISH_TOOL,
+      title: input.title,
+      summary: input.summary,
+      target: `${reference} · Samples`,
+      deepLink: `/plates?run=${run.id}`,
+      changes: [
+        {
+          label: 'Plate run',
+          before: null,
+          after: `${reference} ${run.name}`,
+        },
+        {
+          label: 'Measurement',
+          before: null,
+          after: `${readable} sample${readable === 1 ? '' : 's'} get ${input.name ? `“${input.name}”` : 'a measurement'} from the standard curve, replacing what this run gave before`,
+        },
+      ],
+      action: {
+        kind: 'plate.publish_measurements',
+        runId: run.id,
+        name: input.name ?? null,
       },
     },
   }

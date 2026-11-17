@@ -1191,6 +1191,31 @@ export async function fetchSampleMeasurements(
   return rows ?? []
 }
 
+export interface SamplePlateResult {
+  id: string
+  name: string
+  value: number | null
+  unit: string | null
+  method: string | null
+  notes: string | null
+  measured_at: string
+  plate_run_id: string
+}
+
+export const samplePlateResultsQueryKey = (recordId: string) =>
+  ['sample-plate-results', recordId] as const
+
+/** What plate runs read for this sample, newest first. */
+export async function fetchSamplePlateResults(
+  client: DataClient,
+  sampleRecordId: string,
+): Promise<SamplePlateResult[]> {
+  return client.list<SamplePlateResult>(
+    'sample_measurements',
+    `?sample_record_id=eq.${encodeURIComponent(sampleRecordId)}&plate_run_id=not.is.null&select=id,name,value,unit,method,notes,measured_at,plate_run_id&order=measured_at.desc&limit=100`,
+  )
+}
+
 /**
  * Linked experiments: incoming `record_links` with link_type='sample' whose
  * target is this sample. Returns the source records (experiments) summarised.

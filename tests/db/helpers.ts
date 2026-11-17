@@ -13,14 +13,6 @@ import type { SandboxConnection } from '#/lib/pipeline-sandbox.server'
 
 config({ path: ['.env.local', '.env'] })
 
-/**
- * Time limit for a test that runs the full design seed, often several times.
- * One seed takes about a minute alone; CI runs four workers on a four-core
- * runner, and several seeds at once share it, so each takes longer. The limit
- * is there to catch a hang, not to time the seed.
- */
-export const FULL_SEED_TIMEOUT = 420_000
-
 export const TEST_DATABASE = 'sheetbase_test'
 
 function required(name: string): string {

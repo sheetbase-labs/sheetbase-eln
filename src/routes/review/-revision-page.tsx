@@ -17,10 +17,10 @@
  */
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import {
-  getRouteApi,
   Link,
   useNavigate,
   useParams,
+  useRouteContext,
   useSearch,
 } from '@tanstack/react-router'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
@@ -199,7 +199,10 @@ import { reviewNextStep } from '#/lib/review-next-step'
 import { ReviewNextStepPanel } from '#/components/review/review-next-step'
 
 import { useRegulatedLab } from '#/lib/regulated-lab'
-import { workspaceSearchSchema } from './-workspace-search'
+import {
+  embeddedWorkspaceSearchSchema,
+  workspaceSearchSchema,
+} from './-workspace-search'
 import type { WorkspaceSearch } from './-workspace-search'
 
 /** What a saved revision's recorded reason means to a scientist. */
@@ -281,7 +284,27 @@ export function commentTargetLabel(target: ReviewCommentTarget): string {
   return t(`projects.revisionPage.commentTargets.${target.targetKind}`)
 }
 
-const Route = getRouteApi('/review/$revisionId')
+/**
+ * The workspace mounts in two places: the stand-alone `/review/$revisionId`
+ * page (non-experiment records) and the experiment's Review tab. It reads the
+ * revision and the deep-link search from whichever route it sits under.
+ */
+function useWorkspaceLocation() {
+  const { revisionId, expId } = useParams({ strict: false })
+  const rawSearch = useSearch({ strict: false })
+
+  // The experiment page's own list search owns `tab`, so the panel travels as
+  // `view` there; the workspace reads either as `tab`.
+  const search = useMemo(() => {
+    if (!expId) return workspaceSearchSchema.parse(rawSearch)
+
+    const { view, ...rest } = embeddedWorkspaceSearchSchema.parse(rawSearch)
+
+    return { ...rest, tab: view }
+  }, [expId, rawSearch])
+
+  return { revisionId: revisionId ?? '', search, expId }
+}
 
 // ---------------------------------------------------------------------------
 // Workspace status vocabulary (mirrors the inbox).
@@ -412,17 +435,27 @@ export function canCommentOnRevision({
 // Route component.
 // ---------------------------------------------------------------------------
 
+export function ReviewWorkspaceRoute() {
+  return <ReviewWorkspace />
+}
+
+/** The Review tab of an experiment: the same workspace, inside the experiment page. */
+export function ExperimentReviewRoute() {
+  return <ReviewWorkspace embedded />
+}
+
 // react-doctor-disable-next-line react-doctor/no-giant-component -- the review workspace is one screen: document, diff, checks, comments and inspector share one revision selection.
 // react-doctor-disable-next-line react-doctor/no-high-complexity-react-function -- the route resolves the revision, its submission and the reader’s permission before it can draw anything; the branches are those states.
-export function ReviewWorkspaceRoute() {
-  const { context } = Route.useRouteContext()
+function ReviewWorkspace({ embedded = false }: { embedded?: boolean }) {
+  // Both routes require a session; the root context carries it.
+  const auth = useRouteContext({ from: '__root__', select: (c) => c.auth })
+
   const navigate = useNavigate()
   const queryClient = useQueryClient()
-  const { revisionId } = useParams({ from: '/review/$revisionId' })
-  const search = useSearch({ from: '/review/$revisionId' })
+  const { revisionId, search, expId } = useWorkspaceLocation()
 
-  const currentUserId = context.user.id
-  const currentUserName = context.user.name
+  const currentUserId = auth?.user.id ?? ''
+  const currentUserName = auth?.user.name ?? ''
   const activeTab = search.tab ?? 'diff'
   const commentsPanelRef = useRef<HTMLDivElement>(null)
 
@@ -484,7 +517,7 @@ export function ReviewWorkspaceRoute() {
   const collaborationEnabled = useCollaborationEnabled()
 
   const collaborationRoomId = collaborationEnabled
-    ? safeBuildRoomId(context.workspace?.id, 'record', recordId)
+    ? safeBuildRoomId(auth?.workspace?.id, 'record', recordId)
     : null
 
   const revisionOptionsQuery = useQuery({
@@ -760,28 +793,54 @@ export function ReviewWorkspaceRoute() {
 
   // --- Tab navigation (URL is source of truth) ---------------------------
 
-  function navigateTab(tab: WorkspaceSearch['tab']) {
-    // react-doctor-disable-next-line react-doctor/tanstack-start-no-navigate-in-render -- navigateTab runs from tab events, never during render.
+  // Search changes stay on whichever route the workspace is mounted under.
+  function stayOnPage(patch: Partial<WorkspaceSearch>) {
+    const { tab, ...rest } = { ...search, ...patch }
+
+    if (expId) {
+      // react-doctor-disable-next-line react-doctor/tanstack-start-no-navigate-in-render -- stayOnPage runs from tab, comparison and comment events, never during render.
+      void navigate({
+        to: '/experiments/$expId/review/$revisionId',
+        params: { expId, revisionId },
+        search: { ...rest, view: tab },
+        replace: true,
+      })
+
+      return
+    }
+
+    // react-doctor-disable-next-line react-doctor/tanstack-start-no-navigate-in-render -- stayOnPage runs from tab, comparison and comment events, never during render.
     void navigate({
       to: '/review/$revisionId',
       params: { revisionId },
-      search: { ...search, tab },
+      search: { ...rest, tab },
       replace: true,
     })
   }
 
+  function navigateTab(tab: WorkspaceSearch['tab']) {
+    stayOnPage({ tab })
+  }
+
   function navigateComparison(id: string | null) {
-    // react-doctor-disable-next-line react-doctor/tanstack-start-no-navigate-in-render -- navigateComparison runs from the comparison picker, never during render.
+    stayOnPage({ comparisonRevisionId: id ?? undefined })
+  }
+
+  // An experiment's review lives on the experiment page, so a link to the
+  // stand-alone page lands on the Review tab.
+  const experimentToOpen =
+    !embedded && record?.kind === 'experiment' && recordId ? recordId : null
+
+  useEffect(() => {
+    if (!experimentToOpen) return
+
     void navigate({
-      to: '/review/$revisionId',
-      params: { revisionId },
-      search: {
-        ...search,
-        comparisonRevisionId: id ?? undefined,
-      },
+      to: '/experiments/$expId/review/$revisionId',
+      params: { expId: experimentToOpen, revisionId },
+      search: (({ tab, ...rest }) => ({ ...rest, view: tab }))(search),
       replace: true,
     })
-  }
+  }, [experimentToOpen, navigate, revisionId, search])
 
   // --- Render -------------------------------------------------------------
 
@@ -825,6 +884,14 @@ export function ReviewWorkspaceRoute() {
 
   // --- Inspector content --------------------------------------------------
 
+  const headerLifecycle = deriveReviewLifecycle({
+    submissionState: submission?.state ?? null,
+    lockedAt: record?.locked_at ?? null,
+    lockedByRevisionId: record?.locked_by_revision_id ?? null,
+    viewedRevisionId: revision?.id ?? null,
+    supersededByRevisionId: revision?.superseded_by_revision_id ?? null,
+  })
+
   const inspector = (
     <ReviewInspector
       revision={revision}
@@ -844,6 +911,7 @@ export function ReviewWorkspaceRoute() {
       checksGate={checksGate}
       signingOpen={signingOpen}
       preSign={preSign}
+      lifecycleStatus={headerLifecycle.status}
       onSigningOpenChange={setSigningOpen}
       onCommentsChanged={async () => {
         await queryClient.invalidateQueries({
@@ -869,6 +937,35 @@ export function ReviewWorkspaceRoute() {
     />
   )
 
+  const workspaceTabs = (
+    <Tabs
+      mode="state"
+      variant={embedded ? 'segment' : 'strip'}
+      label={t('projects.revisionPage.panels')}
+      value={activeTab}
+      onValueChange={(value) => {
+        const tab = workspaceSearchSchema.shape.tab.safeParse(value)
+
+        if (tab.success) navigateTab(tab.data)
+      }}
+      items={[
+        { key: 'diff', label: t('projects.revisionPage.tabs.diff') },
+        {
+          key: 'comments',
+          label: t('projects.revisionPage.tabs.comments'),
+        },
+        {
+          key: 'checks',
+          label: t('projects.revisionPage.tabs.checks'),
+        },
+        {
+          key: 'history',
+          label: t('projects.revisionPage.tabs.history'),
+        },
+      ]}
+    />
+  )
+
   // COLLAB-04: the whole workspace shares the record's collaboration room;
   // CollaborationRoom renders children unchanged until the provider is
   // mounted, so SSR markup is unaffected.
@@ -890,33 +987,8 @@ export function ReviewWorkspaceRoute() {
       >
         <div className="flex h-full min-w-0 flex-col">
           <WorkspaceHeader
-            tabs={
-              <Tabs
-                mode="state"
-                label={t('projects.revisionPage.panels')}
-                value={activeTab}
-                onValueChange={(value) => {
-                  const tab = workspaceSearchSchema.shape.tab.safeParse(value)
-
-                  if (tab.success) navigateTab(tab.data)
-                }}
-                items={[
-                  { key: 'diff', label: t('projects.revisionPage.tabs.diff') },
-                  {
-                    key: 'comments',
-                    label: t('projects.revisionPage.tabs.comments'),
-                  },
-                  {
-                    key: 'checks',
-                    label: t('projects.revisionPage.tabs.checks'),
-                  },
-                  {
-                    key: 'history',
-                    label: t('projects.revisionPage.tabs.history'),
-                  },
-                ]}
-              />
-            }
+            tabs={workspaceTabs}
+            embedded={embedded}
             submission={submission}
             record={record}
             projectTitle={project?.title ?? null}
@@ -927,6 +999,10 @@ export function ReviewWorkspaceRoute() {
             lockedByRevisionId={record?.locked_by_revision_id ?? null}
             recordId={recordId}
           />
+
+          {embedded ? (
+            <div className="px-4 pt-3 md:px-8">{workspaceTabs}</div>
+          ) : null}
 
           <div className="flex min-h-0 flex-1 flex-col gap-3 p-4 md:p-6">
             {submission ? (
@@ -957,15 +1033,9 @@ export function ReviewWorkspaceRoute() {
                     commentsQuery.data ?? [],
                   ).find((thread) => threadState(thread) === 'open')
 
-                  void navigate({
-                    to: '/review/$revisionId',
-                    params: { revisionId },
-                    search: {
-                      ...search,
-                      tab: 'comments',
-                      commentId: firstOpen?.root.id,
-                    },
-                    replace: true,
+                  stayOnPage({
+                    tab: 'comments',
+                    commentId: firstOpen?.root.id,
                   })
                 }}
               />
@@ -995,12 +1065,7 @@ export function ReviewWorkspaceRoute() {
                   revisionComments={commentsQuery.data ?? []}
                   focusCommentId={search.commentId}
                   onOpenComment={(commentId) =>
-                    void navigate({
-                      to: '/review/$revisionId',
-                      params: { revisionId },
-                      search: { ...search, tab: 'comments', commentId },
-                      replace: true,
-                    })
+                    stayOnPage({ tab: 'comments', commentId })
                   }
                   onCommentTarget={
                     permission?.canReview === true ||
@@ -1137,8 +1202,11 @@ export function WorkspaceHeader({
   lockedByRevisionId,
   recordId,
   tabs,
+  embedded = false,
 }: {
   tabs?: React.ReactNode
+  /** Inside the experiment page, which already owns the title and tabs. */
+  embedded?: boolean
   submission: ReviewSubmissionWire | null
   record: { identifier?: string; title?: string; kind?: string } | null
   projectTitle: string | null
@@ -1181,64 +1249,68 @@ export function WorkspaceHeader({
 
   return (
     <>
-      <PageHeader
-        compact
-        trail={[
-          {
-            label: t('projects.revisionPage.breadcrumbs.inbox'),
-            link: { to: '/inbox' },
-          },
-          { label: record?.identifier ?? revision?.id ?? '', mono: true },
-        ]}
-        title={record?.title ?? t('projects.revisionPage.header.untitled')}
-        meta={
-          <>
-            <span className="text-fg">
-              <Status tone={toneByLifecycle[lifecycle.status]}>
-                {lifecycleVocabulary[lifecycle.status].label}
-              </Status>
-            </span>
-            {projectTitle ? <span>{projectTitle}</span> : null}
-            {recordId && record?.identifier ? (
-              <span className="max-md:hidden">
-                <ObjectLink
-                  kind={record.kind === 'experiment' ? 'experiment' : 'record'}
-                  id={recordId}
-                  identifier={record.identifier}
-                />
+      {embedded ? null : (
+        <PageHeader
+          compact
+          trail={[
+            {
+              label: t('projects.revisionPage.breadcrumbs.inbox'),
+              link: { to: '/inbox' },
+            },
+            { label: record?.identifier ?? revision?.id ?? '', mono: true },
+          ]}
+          title={record?.title ?? t('projects.revisionPage.header.untitled')}
+          meta={
+            <>
+              <span className="text-fg">
+                <Status tone={toneByLifecycle[lifecycle.status]}>
+                  {lifecycleVocabulary[lifecycle.status].label}
+                </Status>
               </span>
-            ) : null}
-          </>
-        }
-        actions={
-          <>
-            {/* COLLAB-04: who else is reviewing right now. */}
-            <PresenceStack className="justify-end" />
-            {/* NOTE-04: from the submit flow's success state, the working
+              {projectTitle ? <span>{projectTitle}</span> : null}
+              {recordId && record?.identifier ? (
+                <span className="max-md:hidden">
+                  <ObjectLink
+                    kind={
+                      record.kind === 'experiment' ? 'experiment' : 'record'
+                    }
+                    id={recordId}
+                    identifier={record.identifier}
+                  />
+                </span>
+              ) : null}
+            </>
+          }
+          actions={
+            <>
+              {/* COLLAB-04: who else is reviewing right now. */}
+              <PresenceStack className="justify-end" />
+              {/* NOTE-04: from the submit flow's success state, the working
                 Notebook and the frozen evidence view must both stay reachable —
                 audit history (this review) is not the same as the snapshot. */}
-            {recordId && revision ? (
-              <>
-                <Link
-                  to="/records/$recordId"
-                  params={{ recordId }}
-                  className="text-body font-medium text-fg hover:underline"
-                >
-                  {t('projects.revisionPage.header.openNotebook')}
-                </Link>
-                <Link
-                  to="/evidence/$revisionId"
-                  params={{ revisionId: revision.id }}
-                  className="text-body text-fg-muted hover:underline"
-                >
-                  {t('projects.revisionPage.header.viewEvidence')}
-                </Link>
-              </>
-            ) : null}
-          </>
-        }
-        tabs={tabs}
-      />
+              {recordId && revision ? (
+                <>
+                  <Link
+                    to="/records/$recordId"
+                    params={{ recordId }}
+                    className="text-body font-medium text-fg hover:underline"
+                  >
+                    {t('projects.revisionPage.header.openNotebook')}
+                  </Link>
+                  <Link
+                    to="/evidence/$revisionId"
+                    params={{ revisionId: revision.id }}
+                    className="text-body text-fg-muted hover:underline"
+                  >
+                    {t('projects.revisionPage.header.viewEvidence')}
+                  </Link>
+                </>
+              ) : null}
+            </>
+          }
+          tabs={tabs}
+        />
+      )}
       {hasNotices || noPermission ? (
         <div className="space-y-2 px-4 pt-3 md:px-6">
           {isLocked && !submission ? (
@@ -1843,6 +1915,55 @@ function ChecksPanel({
 // Inspector — revision identity, integrity, approval stepper, actions.
 // ---------------------------------------------------------------------------
 
+/** The Properties rows: status, record, when it was submitted and why. */
+function reviewPropertyItems({
+  statusNode,
+  identifier,
+  submittedAt,
+  integrityDigest,
+  reason,
+}: {
+  statusNode: ReactNode
+  identifier: string | undefined
+  submittedAt: string | null
+  integrityDigest: string | null
+  reason: string
+}): [ReactNode, ReactNode][] {
+  const items: [ReactNode, ReactNode][] = [
+    [t('projects.revisionPage.inspector.status'), statusNode],
+  ]
+
+  if (identifier) {
+    items.push([
+      t('projects.revisionPage.inspector.record'),
+      <span key="id" className="mono">
+        {identifier}
+      </span>,
+    ])
+  }
+
+  items.push(
+    [
+      t('projects.revisionPage.inspector.submitted'),
+      <span
+        key="submitted"
+        title={
+          integrityDigest
+            ? t('projects.revisionPage.inspector.fingerprintTooltip', {
+                digest: integrityDigest.slice(0, 16),
+              })
+            : undefined
+        }
+      >
+        {submittedAt ? formatDate(submittedAt) : '—'}
+      </span>,
+    ],
+    [t('projects.revisionPage.inspector.reason'), revisionReasonLabel(reason)],
+  )
+
+  return items
+}
+
 function ReviewInspector({
   revision,
   submission,
@@ -1864,8 +1985,11 @@ function ReviewInspector({
   onSigningOpenChange,
   onCommentsChanged,
   preSign,
+  lifecycleStatus,
 }: {
   preSign?: PreSignInput | null
+  /** The derived review lifecycle, shown as the Status property. */
+  lifecycleStatus: keyof typeof toneByLifecycle
   revision: RevisionWire | null
   submission: ReviewSubmissionWire | null
   record: {
@@ -1895,7 +2019,7 @@ function ReviewInspector({
   /** REV-01.3: refresh the comment list after drafts are published. */
   onCommentsChanged: () => Promise<void>
 }) {
-  const decideOnArrival = useSearch({ from: '/review/$revisionId' }).decide
+  const decideOnArrival = useWorkspaceLocation().search.decide
 
   const queryClient = useQueryClient()
 
@@ -1970,6 +2094,12 @@ function ReviewInspector({
     )
   }
 
+  const statusNode = (
+    <Status tone={toneByLifecycle[lifecycleStatus]}>
+      {lifecycleVocabulary[lifecycleStatus].label}
+    </Status>
+  )
+
   const steps = buildApprovalSteps(submission)
 
   const reviewState = buildStepperState(submission, decisions, actorLabel, {
@@ -2002,37 +2132,19 @@ function ReviewInspector({
     }),
   )
 
+  const propertyItems = reviewPropertyItems({
+    statusNode,
+    identifier: record?.identifier,
+    submittedAt: submission?.submitted_at ?? null,
+    integrityDigest,
+    reason: revision.reason,
+  })
+
   return (
     <div className="flex min-h-0 flex-1 flex-col">
       <div className="min-h-0 flex-1 space-y-5 overflow-y-auto p-4 text-label">
         <InspectorSection title={t('projects.revisionPage.inspector.title')}>
-          <DescriptionList
-            labelWidth={112}
-            items={[
-              [
-                t('projects.revisionPage.inspector.submitted'),
-                <span
-                  key="submitted"
-                  title={
-                    integrityDigest
-                      ? t(
-                          'projects.revisionPage.inspector.fingerprintTooltip',
-                          {
-                            digest: integrityDigest.slice(0, 16),
-                          },
-                        )
-                      : undefined
-                  }
-                >
-                  {submission ? formatDate(submission.submitted_at) : '—'}
-                </span>,
-              ],
-              [
-                t('projects.revisionPage.inspector.reason'),
-                revisionReasonLabel(revision.reason),
-              ],
-            ]}
-          />
+          <DescriptionList labelWidth={112} items={propertyItems} />
         </InspectorSection>
 
         <ReviewProgress steps={progressSteps} />
@@ -2886,9 +2998,8 @@ export function SignaturePanel({
   const [signing, setSigning] = useState(false)
   const [witnessUserId, setWitnessUserId] = useState('')
   const [requestingWitness, setRequestingWitness] = useState(false)
-  const search = useSearch({ from: '/review/$revisionId' })
+  const { revisionId, search } = useWorkspaceLocation()
   const navigate = useNavigate()
-  const { revisionId } = useParams({ from: '/review/$revisionId' })
 
   const {
     authorMaySign,

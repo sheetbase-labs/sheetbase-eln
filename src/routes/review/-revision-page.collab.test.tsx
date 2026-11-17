@@ -79,6 +79,11 @@ vi.mock('@tanstack/react-router', () => ({
     useRouteContext: () => ({ context: h.routeContext }),
   }),
   redirect: <TOptions,>(options: TOptions) => options,
+  useRouteContext: <T,>({
+    select,
+  }: {
+    select: (context: { auth: RouteContextStub | null }) => T
+  }) => select({ auth: h.routeContext }),
   useNavigate: () => vi.fn(),
   useParams: () => ({ revisionId: REVISION_ID }),
   useSearch: () => ({ tab: h.tab }),

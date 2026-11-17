@@ -673,6 +673,33 @@ function ParametersSection({
   )
 }
 
+/** The settings table for the version shown, or for the draft being edited. */
+function TemplateSettings({
+  version,
+  draft,
+}: {
+  version: NotebookTemplateVersion
+  draft: ReturnType<typeof useTemplateDraft>
+}) {
+  const sheets = useSheetDefinitions([version])
+  const shown = draft.draft ?? version.configuration
+  const placements = draft.draft ? draft.draft.placements : draft.placements
+
+  return (
+    <ParametersSection
+      draft={Boolean(draft.draft)}
+      parameters={shown.parameters}
+      placements={placements}
+      targets={sheetSettingTargets(placements, sheets.versionsById)}
+      saving={draft.saving}
+      onRemove={draft.removeParameter}
+      onAdd={draft.addParameter}
+      onSetDefault={draft.setParameterDefault}
+      onSetFeeds={draft.setParameterFeeds}
+    />
+  )
+}
+
 function TemplateSections() {
   const { templateId } = Route.useParams()
   const { context } = Route.useRouteContext()
@@ -682,7 +709,6 @@ function TemplateSections() {
   const version = shownVersion(versions.data ?? [])
 
   const draft = useTemplateDraft(templateId, version)
-  const sheets = useSheetDefinitions(version ? [version] : [])
 
   if (!version) {
     return (
@@ -758,20 +784,7 @@ function TemplateSections() {
           onChange={draft.setParts}
         />
 
-        <ParametersSection
-          draft={Boolean(draft.draft)}
-          parameters={draft.draft ? draft.draft.parameters : config.parameters}
-          placements={draft.draft ? draft.draft.placements : draft.placements}
-          targets={sheetSettingTargets(
-            draft.draft ? draft.draft.placements : draft.placements,
-            sheets.versionsById,
-          )}
-          saving={draft.saving}
-          onRemove={draft.removeParameter}
-          onAdd={draft.addParameter}
-          onSetDefault={draft.setParameterDefault}
-          onSetFeeds={draft.setParameterFeeds}
-        />
+        <TemplateSettings version={version} draft={draft} />
       </div>
     </div>
   )

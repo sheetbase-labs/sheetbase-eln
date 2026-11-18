@@ -3800,6 +3800,9 @@ export const notebook = {
       seconds: '{count} s',
     },
     editor: {
+      itemTimerLabel: 'Timer for item {i}',
+      itemTimerLength: 'Timer length (minutes)',
+      itemTimerRemove: 'Remove timer',
       textLabel: 'Step',
       durationLabel: 'Timer length (minutes)',
       durationHelp: 'Leave empty if this step has no set time.',

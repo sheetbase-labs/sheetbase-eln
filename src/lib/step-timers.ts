@@ -24,6 +24,7 @@ export interface StepTimerWire {
   id: string
   record_id: string
   block_id: string
+  item_id: string | null
   label: string
   duration_seconds: number
   started_at: string
@@ -35,6 +36,8 @@ export interface StepTimer {
   id: string
   recordId: string
   blockId: string
+  /** Set when the timer belongs to one item of a checklist. */
+  itemId: string | null
   label: string
   durationSeconds: number
   /** Epoch milliseconds, in the server's clock. */
@@ -55,6 +58,7 @@ export function toStepTimer(
     id: row.id,
     recordId: row.record_id,
     blockId: row.block_id,
+    itemId: row.item_id ?? null,
     label: row.label,
     durationSeconds: row.duration_seconds,
     endsAtMs: Date.parse(row.ends_at),
@@ -67,7 +71,7 @@ export async function fetchMyStepTimers(
 ): Promise<StepTimer[]> {
   const rows = await client.list<StepTimerWire>(
     'my_step_timers',
-    '?select=id,record_id,block_id,label,duration_seconds,started_at,ends_at,server_now&order=ends_at.asc',
+    '?select=id,record_id,block_id,item_id,label,duration_seconds,started_at,ends_at,server_now&order=ends_at.asc',
   )
 
   const receivedAt = Date.now()
@@ -79,10 +83,12 @@ export function startStepTimer(
   blockId: string,
   seconds?: number,
   client: DataClient = notebookDataClient,
+  itemId?: string,
 ): Promise<StepTimerWire> {
   return client.rpc<StepTimerWire>('start_step_timer', {
     p_block_id: blockId,
     p_seconds: seconds ?? null,
+    p_item_id: itemId ?? null,
   })
 }
 

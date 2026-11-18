@@ -91,6 +91,11 @@ import { SIGNATURE_MEANING_LABEL } from '#/lib/signatures'
 import { SaveStatus } from './save-status'
 import { StepDeviation } from './step-deviation'
 import { StepTimerControl } from './step-timer'
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from '#/components/ui/popover'
 import { OfficeFileBlock } from './office-preview/office-file-block'
 import { isSequenceFileName } from '#/lib/sequence'
 import { stepDurationSeconds } from '#/lib/step-timers'
@@ -608,6 +613,9 @@ function RichTextEditor({
 interface ChecklistItem {
   text: string
   checked: boolean
+  /** Set once the item has a timer; names the item for the timer. */
+  id?: string
+  durationSeconds?: number
 }
 
 interface ChecklistDraft {
@@ -616,7 +624,14 @@ interface ChecklistDraft {
 
 const checklistDraft: z.ZodType<ChecklistDraft> = z.object({
   items: z
-    .array(z.looseObject({ text: z.string(), checked: z.boolean() }))
+    .array(
+      z.looseObject({
+        text: z.string(),
+        checked: z.boolean(),
+        id: z.string().optional(),
+        durationSeconds: z.number().optional(),
+      }),
+    )
     .default([]),
 })
 
@@ -1274,6 +1289,100 @@ function MetricEditor({
   )
 }
 
+/**
+ * A clock on a checklist row: set how long the item takes, then start the
+ * countdown from the row. The length lives in the item (`durationSeconds`)
+ * beside an `id` the timer uses to find it.
+ */
+function ChecklistItemTimer({
+  blockId,
+  index,
+  item,
+  readOnly,
+  onChange,
+}: {
+  blockId: string
+  index: number
+  item: ChecklistItem
+  readOnly: boolean
+  onChange: (patch: Partial<ChecklistItem>) => void
+}) {
+  const seconds = stepDurationSeconds(item)
+  const [open, setOpen] = React.useState(false)
+
+  const [minutes, setMinutes] = React.useState(
+    seconds === null ? '' : String(seconds / 60),
+  )
+
+  function commit(value: string) {
+    const n = Number(value)
+    const { durationSeconds: _removed, ...rest } = item
+
+    if (value.trim() === '' || !Number.isFinite(n) || n <= 0) {
+      onChange({ durationSeconds: undefined })
+
+      return
+    }
+    onChange({
+      ...rest,
+      id: item.id ?? crypto.randomUUID(),
+      durationSeconds: Math.max(1, Math.round(n * 60)),
+    })
+  }
+
+  return (
+    <div className="flex shrink-0 items-center gap-1.5">
+      {seconds !== null && item.id ? (
+        <StepTimerControl
+          blockId={blockId}
+          itemId={item.id}
+          durationSeconds={seconds}
+        />
+      ) : null}
+      {readOnly ? null : (
+        <Popover open={open} onOpenChange={setOpen}>
+          <PopoverTrigger
+            render={
+              <Button
+                type="button"
+                variant="quiet"
+                size="icon"
+                aria-label={t('notebook.stepTimers.editor.itemTimerLabel', {
+                  i: index + 1,
+                })}
+              >
+                <Icon name="clock" />
+              </Button>
+            }
+          />
+          <PopoverContent className="w-60 space-y-2 p-3">
+            <Field
+              label={t('notebook.stepTimers.editor.itemTimerLength')}
+              htmlFor={`item-timer-${blockId}-${index}`}
+            >
+              <Input
+                id={`item-timer-${blockId}-${index}`}
+                type="text"
+                inputMode="decimal"
+                value={minutes}
+                autoFocus
+                onChange={(event) => setMinutes(event.target.value)}
+                onBlur={() => commit(minutes)}
+                onKeyDown={(event) => {
+                  if (event.key === 'Enter') {
+                    commit(minutes)
+                    setOpen(false)
+                  }
+                }}
+              />
+            </Field>
+          </PopoverContent>
+        </Popover>
+      )}
+    </div>
+  )
+}
+
 function ChecklistEditor({
   block,
   save,
@@ -1409,6 +1518,15 @@ function ChecklistEditor({
                 'h-7 min-w-0 flex-1 border-0 bg-transparent px-1 shadow-none focus-visible:ring-1 focus-visible:ring-ring/40 focus-visible:ring-offset-0',
                 item.checked && 'text-fg-muted line-through',
               )}
+            />
+            <ChecklistItemTimer
+              blockId={block.id}
+              index={i}
+              item={item}
+              readOnly={Boolean(readOnly)}
+              onChange={(patch) => {
+                update(key, patch)
+              }}
             />
             <Button
               type="button"

@@ -406,7 +406,7 @@ function renderChecklist(
               </span>
               {blockId &&
               !checked &&
-              typeof item.id === 'string' &&
+              item.id !== undefined &&
               stepDurationSeconds(item) !== null ? (
                 <StepTimerControl
                   blockId={blockId}

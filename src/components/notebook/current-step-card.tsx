@@ -78,7 +78,8 @@ export function CurrentStepCard({
   const timers = useStepTimers()
 
   const timerBlockIds = React.useMemo(
-    () => new Set(
+    () =>
+      new Set(
         (timers.data ?? [])
           .filter((timer) => timer.itemId === null)
           .map((timer) => timer.blockId),

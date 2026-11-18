@@ -1323,6 +1323,7 @@ function ChecklistItemTimer({
 
       return
     }
+
     onChange({
       ...rest,
       id: item.id ?? crypto.randomUUID(),

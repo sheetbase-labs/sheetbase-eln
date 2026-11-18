@@ -1332,12 +1332,13 @@ function ChecklistItemTimer({
   }
 
   return (
-    <div className="flex shrink-0 items-center gap-1.5">
+    <>
       {seconds !== null && item.id ? (
         <StepTimerControl
           blockId={blockId}
           itemId={item.id}
           durationSeconds={seconds}
+          className="order-last basis-full pl-7"
         />
       ) : null}
       {readOnly ? null : (
@@ -1380,7 +1381,7 @@ function ChecklistItemTimer({
           </PopoverContent>
         </Popover>
       )}
-    </div>
+    </>
   )
 }
 
@@ -1485,9 +1486,10 @@ function ChecklistEditor({
 
   return (
     <div className={cn('space-y-1.5', className)}>
-      <ul className="space-y-1.5">
+      {/* The block toolbar floats over the first row's right edge; keep the row controls clear of it. */}
+      <ul className="space-y-1.5 pr-16">
         {editor.rows.map(({ key, item }, i) => (
-          <li key={key} className="flex items-center gap-2.5">
+          <li key={key} className="flex flex-wrap items-center gap-2.5">
             <label className="sr-only" htmlFor={`check-${block.id}-${key}`}>
               {t('notebook.blockEditor.itemIChecked', { i: i + 1 })}
             </label>

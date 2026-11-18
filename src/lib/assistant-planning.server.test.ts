@@ -382,6 +382,47 @@ describe('step timer', () => {
     expect(built.ok && built.proposal.action).toEqual({
       kind: 'timer.start',
       blockId: 'b2',
+      itemId: null,
+      seconds: null,
+    })
+  })
+
+  it('times a checklist item that has its own length', async () => {
+    const built = await buildPlanningProposal(
+      'sheetbase.timer.start',
+      {
+        title: 't',
+        summary: 's',
+        record: 'EXP-12',
+        step: 'buffer',
+      },
+      context(
+        fakeClient({
+          blocks: [
+            {
+              id: 'c1',
+              type: 'checklist',
+              payload: {
+                items: [
+                  {
+                    text: 'Prepare buffer',
+                    checked: false,
+                    id: 'i1',
+                    durationSeconds: 120,
+                  },
+                  { text: 'Label tubes', checked: false },
+                ],
+              },
+            },
+          ],
+        }),
+      ),
+    )
+
+    expect(built.ok && built.proposal.action).toEqual({
+      kind: 'timer.start',
+      blockId: 'c1',
+      itemId: 'i1',
       seconds: null,
     })
   })

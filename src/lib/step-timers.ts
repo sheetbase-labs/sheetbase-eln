@@ -85,10 +85,13 @@ export function startStepTimer(
   client: DataClient = notebookDataClient,
   itemId?: string,
 ): Promise<StepTimerWire> {
+  const args = { p_block_id: blockId, p_seconds: seconds ?? null }
+
+  if (!itemId) return client.rpc<StepTimerWire>('start_step_timer', args)
+
   return client.rpc<StepTimerWire>('start_step_timer', {
-    p_block_id: blockId,
-    p_seconds: seconds ?? null,
-    p_item_id: itemId ?? null,
+    ...args,
+    p_item_id: itemId,
   })
 }
 

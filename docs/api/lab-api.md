@@ -98,7 +98,7 @@ curl -X POST -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/jso
 | `experiment_part_signoffs`     | A signature on a part of an experiment. `meaning` is `signed` (the person who did the part) or `witnessed` (a countersign of that signature, named in `countersigns_id`). `snapshot` is the part as it was frozen when signed, and `snapshot_digest` its SHA-256. Rows are never changed or removed.                                            |
 | `experiment_part_requests`     | A request to sign a finished part (`kind` is `sign`) or to countersign a signed one (`countersign`). `fulfilled_at` is set when it was done or no longer applies.                                                                                                                                                                               |
 | `experiment_part_amendments`   | A signed part was reopened to amend it. `signoff_id` is the signature set aside, which stays on record. Rows are never changed or removed.                                                                                                                                                                                                      |
-| `step_timers`                  | A timer started on a protocol step or a checklist item. Personal tokens only: you see your own timers.                                                                                                                                                                                                                                                              |
+| `step_timers`                  | A timer started on a protocol step or a checklist item. Personal tokens only: you see your own timers.                                                                                                                                                                                                                                          |
 | `material_safety`              | Chemical safety information for a material: hazard pictograms, signal word, hazard statements and the safety data sheet file.                                                                                                                                                                                                                   |
 | `material_ingredients`         | What went into a prepared solution: one row per ingredient lot, with quantity and unit.                                                                                                                                                                                                                                                         |
 | `stocktakes`                   | A stocktake of a freezer, shelf or box. `status` is in_progress, completed or cancelled.                                                                                                                                                                                                                                                        |
@@ -421,10 +421,10 @@ Start a step timer. Starts a countdown on a protocol step, or on one item of a c
 
 Scope: `lab:write`.
 
-| Argument       | Type |                                                           |
-| -------------- | ---- | --------------------------------------------------------- |
-| `p_block_id` * | uuid | The protocol step block (a `procedure_step` block).       |
-| `p_seconds`    | int  | Duration in seconds. Omit to use the step's own duration. |
+| Argument       | Type |                                                                          |
+| -------------- | ---- | ------------------------------------------------------------------------ |
+| `p_block_id` * | uuid | The protocol step block (a `procedure_step` block).                      |
+| `p_seconds`    | int  | Duration in seconds. Omit to use the step's own duration.                |
 | `p_item_id`    | text | The checklist item's id, for a timer on one item of a `checklist` block. |
 
 ### `end_step_timer`

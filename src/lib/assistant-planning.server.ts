@@ -1150,6 +1150,16 @@ async function repeatProposal(
 /** The one procedure-step payload member this reader matches a step on. */
 const procedureStepText = z.looseObject({ text: z.string() })
 
+const checklistTimerItems = z.looseObject({
+  items: z.array(
+    z.looseObject({
+      text: z.string(),
+      id: z.string().optional(),
+      durationSeconds: z.number().optional(),
+    }),
+  ),
+})
+
 export async function buildPlanningProposal(
   name: PlanningProposeToolName,
   // oxlint-disable-next-line anti-slop/no-unknown-parameters -- Raw tool arguments from the assistant; each case in the switch below parses them with its own proposal schema before use.
@@ -1330,12 +1340,45 @@ export async function buildPlanningProposal(
 
       if (!record.ok) return record
 
-      const blocks = await client.list<{
+      const rows = await client.list<{
         id: string
+        type: string
         payload: z.core.util.JSONType
       }>(
         'blocks',
-        `?record_id=eq.${encodeURIComponent(record.value.id)}&type=eq.procedure_step&order=order.asc&select=id,payload&limit=200`,
+        `?record_id=eq.${encodeURIComponent(record.value.id)}&type=in.(procedure_step,checklist)&order=order.asc&select=id,type,payload&limit=200`,
+      )
+
+      // A checklist item can be timed once it has its own length in the notebook.
+      const blocks: {
+        id: string
+        itemId?: string
+        payload: z.core.util.JSONType
+      }[] = rows.flatMap(
+        (
+          row,
+        ): { id: string; itemId?: string; payload: z.core.util.JSONType }[] => {
+          if (row.type !== 'checklist')
+            return [{ id: row.id, payload: row.payload }]
+          const items = checklistTimerItems.safeParse(row.payload)
+
+          return items.success
+            ? items.data.items.flatMap((item) =>
+                item.id && item.durationSeconds
+                  ? [
+                      {
+                        id: row.id,
+                        itemId: item.id,
+                        payload: {
+                          text: item.text,
+                          durationSeconds: item.durationSeconds,
+                        },
+                      },
+                    ]
+                  : [],
+              )
+            : []
+        },
       )
 
       const words = (input.step ?? '')
@@ -1408,7 +1451,12 @@ export async function buildPlanningProposal(
             },
             { label: 'Timer', before: null, after: formatDuration(length) },
           ],
-          action: { kind: 'timer.start', blockId: step.id, seconds },
+          action: {
+            kind: 'timer.start',
+            blockId: step.id,
+            itemId: step.itemId ?? null,
+            seconds,
+          },
         },
       }
     }

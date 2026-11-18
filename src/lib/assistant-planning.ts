@@ -427,7 +427,13 @@ export type PlanningAction =
       mentions: string[]
     }
   | { kind: 'booking.repeat'; input: CreateRepeatInput }
-  | { kind: 'timer.start'; blockId: string; seconds: number | null }
+  | {
+      kind: 'timer.start'
+      blockId: string
+      /** Set when the timer is on one item of a checklist. */
+      itemId?: string | null
+      seconds: number | null
+    }
   | { kind: 'step.done'; blockId: string; done: boolean; note: string | null }
   | {
       kind: 'part.add'

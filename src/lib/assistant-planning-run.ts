@@ -71,7 +71,12 @@ export async function runPlanningAction(
     case 'timer.start':
       // A browser only allows asking for alerts from the press itself.
       await prepareTimerAlerts()
-      await startStepTimer(action.blockId, action.seconds ?? undefined, client)
+      await startStepTimer(
+        action.blockId,
+        action.seconds ?? undefined,
+        client,
+        action.itemId ?? undefined,
+      )
 
       return undefined
     case 'step.done':

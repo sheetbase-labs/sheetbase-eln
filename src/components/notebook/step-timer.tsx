@@ -113,10 +113,13 @@ export function StepTimerControl({
 }) {
   const timers = useStepTimers()
   const { start, end } = useTimerActions()
+
   const timer = timers.data?.find(
     (candidate) =>
-      candidate.blockId === blockId && (candidate.itemId ?? '') === (itemId ?? ''),
+      candidate.blockId === blockId &&
+      (candidate.itemId ?? '') === (itemId ?? ''),
   )
+
   const now = useNow(Boolean(timer))
   const length = formatDuration(durationSeconds)
   const left = timer ? remainingMs(timer, now) : 0

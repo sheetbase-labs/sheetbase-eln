@@ -928,7 +928,7 @@ export const LAB_TABLES: LabTableIndex = {
   },
   step_timers: {
     summary:
-      'A timer started on a protocol step. Personal tokens only: you see your own timers.',
+      'A timer started on a protocol step or a checklist item. Personal tokens only: you see your own timers.',
     personal: true,
     columns: [
       ['id', 'uuid', 1],
@@ -936,6 +936,7 @@ export const LAB_TABLES: LabTableIndex = {
       ['user_id', 'text', 1],
       ['record_id', 'uuid', 1],
       ['block_id', 'uuid', 1],
+      ['item_id', 'text', 0],
       ['label', 'text', 1],
       ['duration_seconds', 'int', 1],
       ['started_at', 'ts', 1],
@@ -2533,11 +2534,12 @@ const LAB_RPCS_HAND_WRITTEN: LabRpcIndex = {
   start_step_timer: {
     summary: 'Start a step timer',
     description:
-      'Starts a countdown on a protocol step for the person the token belongs to (needs a personal token).',
+      'Starts a countdown on a protocol step, or on one item of a checklist (pass its item id), for the person the token belongs to (needs a personal token).',
     scope: 'lab:write',
     params: [
       ['p_block_id', 'uuid', 1],
       ['p_seconds', 'int', 0],
+      ['p_item_id', 'text', 0],
     ],
     result: 'row:step_timers',
   },

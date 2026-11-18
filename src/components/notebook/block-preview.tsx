@@ -203,6 +203,8 @@ const checklistItems = z
     z.object({
       text: z.string().catch(''),
       checked: z.boolean().catch(false),
+      id: z.string().optional().catch(undefined),
+      durationSeconds: z.number().optional().catch(undefined),
     }),
   )
   .nullable()
@@ -283,7 +285,7 @@ function renderPayload(
     case 'rich_text':
       return renderRichText(payload, anchorPrefix, hiddenNodeIndexes)
     case 'checklist':
-      return renderChecklist(payload)
+      return renderChecklist(payload, blockId)
     case 'callout':
       return renderCallout(payload)
     case 'conclusion':
@@ -361,7 +363,10 @@ function renderRichText(
   ) : null
 }
 
-function renderChecklist(payload: NotebookBlock['payload']): React.ReactNode {
+function renderChecklist(
+  payload: NotebookBlock['payload'],
+  blockId?: string,
+): React.ReactNode {
   const obj = asObject(payload)
 
   if (!obj) return null
@@ -399,6 +404,17 @@ function renderChecklist(payload: NotebookBlock['payload']): React.ReactNode {
               >
                 {text}
               </span>
+              {blockId &&
+              !checked &&
+              typeof item.id === 'string' &&
+              stepDurationSeconds(item) !== null ? (
+                <StepTimerControl
+                  blockId={blockId}
+                  itemId={item.id}
+                  durationSeconds={stepDurationSeconds(item) ?? 0}
+                  className="ml-auto"
+                />
+              ) : null}
             </li>
           )
         },

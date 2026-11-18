@@ -69,11 +69,17 @@ function useTimerActions() {
     queryClient.invalidateQueries({ queryKey: stepTimerQueryKeys.all })
 
   const start = useMutation({
-    mutationFn: async (blockId: string) => {
+    mutationFn: async ({
+      blockId,
+      itemId,
+    }: {
+      blockId: string
+      itemId?: string
+    }) => {
       // Asked from this tap, which is the only time a browser allows it.
       await prepareTimerAlerts()
 
-      return startStepTimer(blockId)
+      return startStepTimer(blockId, undefined, undefined, itemId)
     },
     onSuccess: refresh,
     onError: () => toast.error(t('notebook.stepTimers.couldNotStart')),
@@ -95,16 +101,22 @@ function useTimerActions() {
  */
 export function StepTimerControl({
   blockId,
+  itemId,
   durationSeconds,
   className,
 }: {
   blockId: string
+  /** Set for one item of a checklist; leave out for a procedure step. */
+  itemId?: string
   durationSeconds: number
   className?: string
 }) {
   const timers = useStepTimers()
   const { start, end } = useTimerActions()
-  const timer = timers.data?.find((candidate) => candidate.blockId === blockId)
+  const timer = timers.data?.find(
+    (candidate) =>
+      candidate.blockId === blockId && (candidate.itemId ?? '') === (itemId ?? ''),
+  )
   const now = useNow(Boolean(timer))
   const length = formatDuration(durationSeconds)
   const left = timer ? remainingMs(timer, now) : 0
@@ -125,7 +137,7 @@ export function StepTimerControl({
           size="sm"
           icon="clock"
           disabled={start.isPending}
-          onClick={() => start.mutate(blockId)}
+          onClick={() => start.mutate({ blockId, itemId })}
         >
           {t('notebook.stepTimers.startFor', { length })}
         </Button>
@@ -141,7 +153,7 @@ export function StepTimerControl({
           <Button
             size="sm"
             disabled={start.isPending}
-            onClick={() => start.mutate(blockId)}
+            onClick={() => start.mutate({ blockId, itemId })}
           >
             {t('notebook.stepTimers.restart')}
           </Button>

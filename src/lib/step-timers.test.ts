@@ -17,12 +17,20 @@ const wire: StepTimerWire = {
   id: 't1',
   record_id: 'r1',
   block_id: 'b1',
+  item_id: null,
   label: 'Incubate',
   duration_seconds: 600,
   started_at: '2026-11-04T10:00:00Z',
   ends_at: '2026-11-04T10:10:00Z',
   server_now: '2026-11-04T10:02:00Z',
 }
+
+describe('checklist item timers', () => {
+  it('carries the item a timer belongs to', () => {
+    expect(toStepTimer({ ...wire, item_id: 'i1' }).itemId).toBe('i1')
+    expect(toStepTimer(wire).itemId).toBeNull()
+  })
+})
 
 describe('step timer maths', () => {
   it('counts down from the server clock even when this device is wrong', () => {

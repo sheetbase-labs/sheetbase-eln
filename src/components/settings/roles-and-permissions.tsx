@@ -147,7 +147,7 @@ export function RolesAndPermissions({
       accessorFn: (r) => SETTINGS_AREA_LABELS[r.area],
     },
     {
-      id: 'admin',
+      id: 'workspace-admin',
       header: t('settings.rolesAndPermissions.workspaceAdmin'),
       enableSorting: false,
       cell: () => (
@@ -204,7 +204,7 @@ export function RolesAndPermissions({
       ),
     },
     {
-      id: 'admin',
+      id: 'workspace-admin',
       header: t('settings.rolesAndPermissions.workspaceAdmin'),
       enableSorting: false,
       cell: () => (

@@ -12,6 +12,7 @@ import { and, eq, isNull, sql } from 'drizzle-orm'
 import { z } from 'zod'
 import * as schema from '../schema'
 import { PIPELINE_CONFIG_VERSION } from '#/lib/pipelines/config'
+import { parseProviderProfiles } from '#/lib/ai-providers/profiles'
 import { configFromView } from '#/lib/pipelines/config-view'
 import type { PipelineViewStep } from '#/lib/pipelines/config-view'
 import type { SeedStep } from './run'
@@ -241,6 +242,23 @@ export const designSteps: Array<SeedStep> = [
           }
         },
       )
+    },
+  },
+  {
+    // Reseeding builds a fresh database, which empties the workspace's AI
+    // choice. When the deployment names a provider profile, select the first
+    // one again so the assistant works straight after a reseed.
+    name: 'design ai settings',
+    run: async (db) => {
+      const profile = parseProviderProfiles(process.env.AI_PROVIDER_PROFILES)[0]
+      if (!profile) return
+      await db.execute(sql`
+        update api.workspace_settings
+           set ai_enabled = true,
+               ai_provider_profile = ${profile.id},
+               ai_cloud_egress_enabled = true
+         where workspace_id = ${PROCESS}
+           and ai_provider_profile is null`)
     },
   },
   {

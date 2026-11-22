@@ -615,7 +615,9 @@ function AiBudget({
   onChange: (patch: Partial<FormState>) => void
   canManage: boolean
 }) {
+  // react-doctor-disable-next-line react-doctor/no-derived-useState -- The caller keys this component by the saved values, so a save or an Undo remounts it with fresh text; typing is held here until the field is left.
   const [tokens, setTokens] = useState(maxTokens)
+  // react-doctor-disable-next-line react-doctor/no-derived-useState -- Same as above.
   const [cost, setCost] = useState(maxCost)
 
   const tokensOk = tokensValid(tokens)

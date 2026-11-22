@@ -160,7 +160,10 @@ function AuditActions({
       </Button>
       <Button onClick={onTimestamps}>{t('settings.timestamps.button')}</Button>
       {regulated ? (
-        <Button render={<Link to="/settings/workspace/validation" />}>
+        <Button
+          nativeButton={false}
+          render={<Link to="/settings/workspace/validation" />}
+        >
           {t('settings.validation.button')}
         </Button>
       ) : null}

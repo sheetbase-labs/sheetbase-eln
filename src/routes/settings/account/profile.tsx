@@ -107,12 +107,13 @@ function useProfileAutoSave({
   save: () => Promise<void>
   restore: (value: ProfileValues) => void
 }) {
-  const zone = values.timeZone.trim()
+  const { name, timeZone, initials, jobTitle } = values
+  const zone = timeZone.trim()
 
+  // The four fields are the identity of the draft.
   const draft = useMemo<ProfileValues>(
-    () => values,
-    // The four fields are the identity of the draft.
-    [values.name, values.timeZone, values.initials, values.jobTitle],
+    () => ({ name, timeZone, initials, jobTitle }),
+    [name, timeZone, initials, jobTitle],
   )
 
   useAutoSave({
@@ -127,9 +128,9 @@ function useProfileAutoSave({
       : undefined,
     equal: sameProfile,
     valid:
-      Boolean(values.name.trim()) &&
+      Boolean(name.trim()) &&
       !(zone && !isUsableTimeZone(zone)) &&
-      values.initials.trim().length <= 4,
+      initials.trim().length <= 4,
     save,
     restore,
     message: t('settings.profile.changesSavedToast'),

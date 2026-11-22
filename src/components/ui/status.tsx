@@ -1,6 +1,7 @@
 import { cn } from '#/lib/utils'
 
-// Status: colour sits in the dot, the text stays in text colour (design system, Status card).
+// Status: a tinted pill. The tone colours the dot, a soft wash behind it and the
+// text, so a column of statuses can be read at a glance down the list.
 const tones = {
   progress: 'bg-link',
   review: 'bg-review',
@@ -29,6 +30,21 @@ export function Dot({ tone, className }: { tone: Tone; className?: string }) {
   )
 }
 
+// Each tone sets `--tone`; the pill derives its wash and text from it, so the
+// same rule works in light and dark and for every tone.
+const pillTones: Record<Tone, string> = {
+  progress: '[--tone:var(--color-link)]',
+  review: '[--tone:var(--color-review)]',
+  ok: '[--tone:var(--color-success)]',
+  warn: '[--tone:var(--color-warning)]',
+  bad: '[--tone:var(--color-danger)]',
+  draft: '[--tone:var(--color-neutral-dot)]',
+  stored: '[--tone:var(--color-fg-muted)]',
+  none: '[--tone:var(--color-neutral-dot)]',
+  analysis: '[--tone:var(--color-analysis)]',
+  lab: '[--tone:var(--color-lab)]',
+}
+
 export function Status({
   tone,
   children,
@@ -42,7 +58,9 @@ export function Status({
     <span
       data-slot="status"
       className={cn(
-        'inline-flex items-center gap-1.5 whitespace-nowrap',
+        'inline-flex items-center gap-1.5 whitespace-nowrap rounded-full px-2 py-px text-[12px] font-medium leading-5',
+        'bg-[color-mix(in_oklab,var(--tone)_14%,transparent)] text-[color-mix(in_oklab,var(--tone)_45%,var(--color-fg))]',
+        pillTones[tone],
         className,
       )}
     >

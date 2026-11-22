@@ -79,7 +79,7 @@ const ITEM: Record<TabVariant, string> = {
   // The focus outline is drawn inside the item (`-outline-offset-2`): a strip
   // scrolls sideways in its rail, and an outer ring would be clipped by it.
   strip:
-    'inline-flex h-9 shrink-0 cursor-pointer items-center gap-1.5 border-0 border-b-2 border-transparent bg-transparent px-0.5 text-body font-medium text-fg-muted no-underline hover:text-fg hover:no-underline focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-focus max-md:h-11',
+    'group/tab inline-flex h-10 shrink-0 cursor-pointer items-center gap-1.5 border-0 border-b-[3px] border-transparent bg-transparent px-0.5 text-body font-medium text-fg-muted no-underline hover:text-fg hover:no-underline focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-focus max-md:h-11',
   segment:
     'inline-flex h-6 shrink-0 cursor-pointer items-center gap-1.5 rounded-sm px-2 text-label font-medium text-fg-muted no-underline hover:text-fg hover:no-underline focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-focus max-md:h-8',
   chip: 'inline-flex h-8 shrink-0 cursor-pointer items-center gap-1.5 whitespace-nowrap rounded-full border border-border px-3 text-label text-fg no-underline hover:bg-surface-hover hover:text-fg hover:no-underline focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-focus max-md:h-9',
@@ -98,14 +98,16 @@ const ITEM: Record<TabVariant, string> = {
  * composed at runtime (`data-active:${token}`) is a name it never generates.
  */
 const ACTIVE_LINK: Record<TabVariant, string> = {
-  strip: 'aria-[current=page]:border-link aria-[current=page]:text-fg',
+  strip:
+    'aria-[current=page]:border-link aria-[current=page]:font-semibold aria-[current=page]:text-fg',
   segment:
     'aria-[current=page]:bg-surface aria-[current=page]:text-fg aria-[current=page]:shadow-[0_0_0_1px_var(--border)]',
   chip: 'aria-[current=page]:border-selection-border aria-[current=page]:bg-selection aria-[current=page]:font-medium aria-[current=page]:hover:bg-selection',
 }
 
 const ACTIVE_DATA: Record<TabVariant, string> = {
-  strip: 'data-active:border-link data-active:text-fg',
+  strip:
+    'data-active:border-link data-active:font-semibold data-active:text-fg',
   segment:
     'data-active:bg-surface data-active:text-fg data-active:shadow-[0_0_0_1px_var(--border)]',
   chip: 'data-active:border-selection-border data-active:bg-selection data-active:font-medium data-active:hover:bg-selection',
@@ -128,7 +130,9 @@ function TabCount({ count }: { count?: React.ReactNode }) {
   return (
     <>
       {' '}
-      <span className="num text-label font-normal text-fg-muted">{count}</span>
+      <span className="num rounded-full bg-surface-muted px-1.5 text-[11px] font-medium leading-[18px] text-fg-muted group-data-active/tab:bg-primary/10 group-data-active/tab:text-primary-text group-aria-[current=page]/tab:bg-primary/10 group-aria-[current=page]/tab:text-primary-text">
+        {count}
+      </span>
     </>
   )
 }

@@ -48,23 +48,25 @@ export function EmptyState({
   return (
     <div
       className={cn(
-        'mx-auto flex max-w-[72ch] flex-col items-center gap-2 py-10 text-center',
+        'mx-auto flex max-w-[72ch] flex-col items-center gap-2 px-6 py-16 text-center',
         className,
       )}
     >
       {media ? (
         media
       ) : icon ? (
-        <span className="text-fg-muted">
-          <Icon name={icon} size={20} />
+        <span className="mb-2 flex size-12 items-center justify-center rounded-xl bg-primary/10 text-primary-text ring-1 ring-primary/15">
+          <Icon name={icon} size={24} />
         </span>
       ) : null}
-      <h2 className="text-section">{title}</h2>
+      <h2 className="text-[17px] font-semibold leading-6 text-fg">{title}</h2>
       {description ? (
-        <p className="m-0 text-body leading-5 text-fg-muted">{description}</p>
+        <p className="m-0 max-w-[52ch] text-body leading-5 text-fg-muted">
+          {description}
+        </p>
       ) : null}
       {action || children ? (
-        <div className="mt-1 flex flex-wrap items-center gap-2">
+        <div className="mt-3 flex flex-wrap items-center justify-center gap-2">
           {action}
           {children}
         </div>

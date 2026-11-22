@@ -52,7 +52,7 @@ export function PageHeader({
       data-compact={compact || undefined}
       data-collapsed={collapsed || undefined}
       className={cn(
-        'group/header flex flex-col gap-1.5 border-b border-border bg-surface px-4 pt-3 md:px-6 md:pt-3.5',
+        'group/header flex flex-col gap-1.5 border-b border-border bg-gradient-to-b from-primary/[0.06] to-surface px-4 pt-3 md:px-6 md:pt-3.5',
         !tabs && 'pb-3',
         compact && 'max-md:data-[collapsed]:py-2',
         className,
@@ -358,7 +358,7 @@ export function Inspector({
         aria-label={label}
         style={width === undefined ? undefined : { width }}
         className={cn(
-          'hidden w-inspector shrink-0 flex-col gap-5 overflow-auto border-l border-border bg-surface p-4 xl:flex',
+          'hidden w-inspector shrink-0 flex-col gap-4 overflow-auto border-l border-border bg-surface-muted p-4 xl:flex',
           className,
         )}
         {...props}
@@ -399,13 +399,15 @@ export function InspectorSection({
   children: React.ReactNode
 }) {
   return (
-    <section>
+    <section className="border-t border-border pt-4 first:border-t-0 first:pt-0">
       {title ? (
         // Inspector sections sit beside the page's `Section`s, not inside one:
         // they are the page's top-level sections, so they take the same H2
         // level. An H3 here made inspector-only pages (e.g. /protocols) jump
         // straight from the page H1 to H3.
-        <h2 className="mb-1.5 font-sans text-label font-semibold">{title}</h2>
+        <h2 className="mb-2 font-sans text-[11px] font-semibold uppercase tracking-[0.06em] text-fg-muted">
+          {title}
+        </h2>
       ) : null}
       {children}
     </section>
@@ -430,7 +432,9 @@ export function Section({
       <div className="flex flex-wrap items-baseline gap-x-2 gap-y-1.5">
         <h2 className="text-section">{title}</h2>
         {count != null ? (
-          <span className="num text-label text-fg-muted">{count}</span>
+          <span className="num rounded-full bg-primary/10 px-2 text-[11px] font-medium leading-[18px] text-primary-text">
+            {count}
+          </span>
         ) : null}
         {/* Actions wrap beneath the heading when the pane is too narrow for
             both, rather than running off its edge. */}
@@ -463,7 +467,7 @@ export function DescriptionList({
         // react-doctor-disable-next-line react-doctor/no-array-index-as-key -- Each row's identity is its position in the caller's fixed label/value table; labels are display text and need not be unique, so a row can only be identified by where the caller placed it.
         <div key={i} className="contents">
           <dt className="text-fg-muted">{k}</dt>
-          <dd className="m-0">{v}</dd>
+          <dd className="m-0 font-medium">{v}</dd>
         </div>
       ))}
     </dl>

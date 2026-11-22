@@ -463,16 +463,19 @@ export function RegistryGrid<T extends RowData>({
 
           const right = index === allColumns.length - 1 ? '-mr-6' : '-mr-2.5'
 
-          const paint = `block h-[33px] bg-surface-muted ${left} ${right}`
+          const paint = `block h-[33px] border-y border-border bg-primary/[0.06] ${left} ${right}`
 
           if (index === labelIndex) {
             return (
               <span
-                className={`${paint} flex items-center text-label font-medium text-fg-muted`}
+                data-band=""
+                className={`${paint} relative z-[1] flex w-max min-w-full items-center gap-2 whitespace-nowrap font-sans text-label font-semibold text-fg`}
               >
                 {original.__band}
                 {original.__count !== undefined ? (
-                  <span className="ml-1 font-normal">{original.__count}</span>
+                  <span className="rounded-full bg-primary/10 px-1.5 text-[11px] font-medium leading-[18px] text-primary-text">
+                    {original.__count}
+                  </span>
                 ) : null}
               </span>
             )
@@ -657,11 +660,11 @@ function RegistryTable<T extends RowData>({
           // `text-fg-muted`, as the v3 table head renders.
           // The columns menu floats over the end of the header, so the last
           // header keeps clear of it instead of being drawn under it.
-          header: `[&_th]:h-[31px] [&_th]:px-2.5 [&_th:first-child]:pl-6 [&_th:last-child]:pr-6 [&_th]:text-label [&_th]:text-fg-muted [&_th]:border-border${
+          header: `[&_th]:h-[31px] [&_th]:px-2.5 [&_th:first-child]:pl-6 [&_th:last-child]:pr-6 [&_th]:text-[11px] [&_th]:font-semibold [&_th]:uppercase [&_th]:tracking-[0.05em] [&_th]:text-fg-muted [&_th]:border-border-strong${
             menu ? ' [&_th:last-child]:pr-11' : ''
           }`,
           body:
-            '[&_td_a.mono]:text-fg [&_td]:border-border-subtle [&_tr:hover_td]:bg-row-hover [&_td]:h-[var(--grid-row-h,33px)] [&_td]:py-0 [&_td]:px-2.5 [&_td:first-child]:pl-6 [&_td:last-child]:pr-6' +
+            '[&_td:has([data-band])]:z-40! [&_td:has([data-band])]:contain-none! [&_td:has([data-band])]:overflow-visible [&_td_a.mono]:text-primary-text [&_td_a.mono]:font-medium [&_td]:border-border-subtle [&_tr:hover_td]:bg-row-hover [&_td]:h-[var(--grid-row-h,33px)] [&_td]:py-0 [&_td]:px-2.5 [&_td:first-child]:pl-6 [&_td:last-child]:pr-6' +
             (stableWidths
               ? ' [&_td]:overflow-hidden [&_td]:text-ellipsis'
               : ''),

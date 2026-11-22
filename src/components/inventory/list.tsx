@@ -63,13 +63,13 @@ export function ListHeader({
   tabs?: React.ReactNode
 }) {
   return (
-    <header className="flex flex-col gap-1 border-b border-border bg-surface px-4 pt-3 md:px-6 md:pt-4">
-      <div className="flex min-h-7 flex-wrap items-center gap-2">
-        <h1 className="text-title max-md:text-[18px] max-md:leading-6 md:sr-only">
+    <header className="flex flex-col gap-1 border-b border-border bg-gradient-to-b from-primary/[0.06] to-surface px-4 pt-3 md:px-6 md:pt-5">
+      <div className="flex min-h-9 flex-wrap items-center gap-x-3 gap-y-1">
+        <h1 className="text-[22px] font-semibold leading-7 tracking-[-0.01em] text-fg max-md:text-[18px] max-md:leading-6">
           {title}
         </h1>
         {total != null ? (
-          <span className="num text-body text-fg-muted">
+          <span className="num rounded-full bg-primary/10 px-2.5 py-0.5 text-label font-medium text-primary-text max-md:bg-transparent max-md:p-0 max-md:text-body max-md:font-normal max-md:text-fg-muted">
             <span className="md:hidden">{total.toLocaleString('en-GB')}</span>
             <span className="max-md:hidden">
               {countNoun ??
@@ -151,7 +151,7 @@ export function ViewControls({
         <DropdownMenu>
           <DropdownMenuTrigger
             render={
-              <Button size="sm" variant="quiet" className="max-md:hidden" />
+              <Button size="sm" icon="filter" className="max-md:hidden" />
             }
           >
             {t('common.actions.filter')}
@@ -173,7 +173,7 @@ export function ViewControls({
         <DropdownMenu>
           <DropdownMenuTrigger
             render={
-              <Button size="sm" variant="quiet" className="max-md:hidden" />
+              <Button size="sm" icon="arrowUpDown" className="max-md:hidden" />
             }
           >
             {showSortValue
@@ -214,7 +214,7 @@ export function FieldsButton({
   return (
     <DropdownMenu>
       <DropdownMenuTrigger
-        render={<Button size="sm" variant="quiet" className="max-lg:hidden" />}
+        render={<Button size="sm" className="max-lg:hidden" />}
       >
         {t('library.inventory.list.fields')}
       </DropdownMenuTrigger>
@@ -270,7 +270,7 @@ export function ListToolbar({
   )
 
   return (
-    <div className="flex flex-wrap items-center gap-1 border-b border-border-subtle px-4 py-2 md:px-6">
+    <div className="flex flex-wrap items-center gap-1.5 border-b border-border bg-surface-muted px-4 py-2.5 md:px-6 [&_[data-variant=quiet]]:border-border [&_[data-variant=quiet]]:bg-surface [&_[data-variant=quiet]:hover]:bg-surface-hover">
       {lead ? <div className={PHONE_SCROLL_ROW}>{lead}</div> : null}
       <form
         role="search"

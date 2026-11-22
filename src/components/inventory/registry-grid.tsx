@@ -468,7 +468,8 @@ export function RegistryGrid<T extends RowData>({
           if (index === labelIndex) {
             return (
               <span
-                className={`${paint} flex items-center text-label font-medium text-fg-muted`}
+                data-band=""
+                className={`${paint} relative flex w-max min-w-full items-center whitespace-nowrap text-label font-medium text-fg-muted`}
               >
                 {original.__band}
                 {original.__count !== undefined ? (
@@ -661,7 +662,7 @@ function RegistryTable<T extends RowData>({
             menu ? ' [&_th:last-child]:pr-11' : ''
           }`,
           body:
-            '[&_td_a.mono]:text-fg [&_td]:border-border-subtle [&_tr:hover_td]:bg-row-hover [&_td]:h-[var(--grid-row-h,33px)] [&_td]:py-0 [&_td]:px-2.5 [&_td:first-child]:pl-6 [&_td:last-child]:pr-6' +
+            '[&_td:has([data-band])]:z-40! [&_td:has([data-band])]:contain-none! [&_td:has([data-band])]:overflow-visible [&_td_a.mono]:text-fg [&_td]:border-border-subtle [&_tr:hover_td]:bg-row-hover [&_td]:h-[var(--grid-row-h,33px)] [&_td]:py-0 [&_td]:px-2.5 [&_td:first-child]:pl-6 [&_td:last-child]:pr-6' +
             (stableWidths
               ? ' [&_td]:overflow-hidden [&_td]:text-ellipsis'
               : ''),

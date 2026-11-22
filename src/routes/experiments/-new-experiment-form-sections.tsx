@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useSyncExternalStore } from 'react'
 import { Link } from '@tanstack/react-router'
 
 import { Button } from '#/components/ui/button'
@@ -69,17 +69,23 @@ export function ProjectFieldSection({ form }: { form: Form }) {
   )
 }
 
+/** Nothing changes after the page loads; the snapshot differs only between the server and the browser. */
+function noSubscription(): () => void {
+  return () => undefined
+}
+
 /** The title: what is being tested, first among the details. */
 export function TitleFieldSection({ form }: { form: Form }) {
   const input = useRef<HTMLInputElement>(null)
-  const [live, setLive] = useState(false)
+
+  const live = useSyncExternalStore(
+    noSubscription,
+    () => true,
+    () => false,
+  )
 
   // The page is drawn by the server first, and typing into that copy is lost
   // when the live page takes over. The box stays closed until then.
-  useEffect(() => {
-    setLive(true)
-  }, [])
-
   useEffect(() => {
     if (live) input.current?.focus()
   }, [live])

@@ -662,6 +662,22 @@ describe('what a call runs with', () => {
     })
   })
 
+  it('does not double the full stop when the installer’s reason already ends in one', async () => {
+    const { promise } = call({
+      loadRuntime: async () =>
+        runtimeRow({
+          requirements: ['nope'],
+          environmentId: 'pe-0123456789abcdef',
+          environmentState: 'failed',
+          environmentError: 'Python execution is not configured.',
+        }),
+    })
+
+    await expect(promise).rejects.toMatchObject({
+      message: expect.stringContaining('not configured. An administrator'),
+    })
+  })
+
   it('asks for the packages again when the runner has lost them', async () => {
     const settle = vi.fn<
       NonNullable<ExtensionRuntimeDeps['settleEnvironment']>

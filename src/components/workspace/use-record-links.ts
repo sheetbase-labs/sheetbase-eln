@@ -50,6 +50,12 @@ export const LONG_PRESS_MS = 450
 
 export const LINK_MIME = 'application/x-sheetbase-link'
 
+/** Set on a drag that carries a page (a list, a new-record form), not a record. */
+export const PAGE_MIME = 'application/x-sheetbase-page'
+
+/** Marks a shell link (the New menu, the sidebar) that can be dragged into a pane. */
+export const PANE_LINK_ATTRIBUTE = 'data-pane-link'
+
 /**
  * Everything that happens to a record link before it becomes a pane: the
  * hover hint after 400 ms, the peek card, and dragging it to a pane edge or
@@ -124,11 +130,16 @@ export function useRecordLinks(
       const anchor =
         event.target instanceof Element ? event.target.closest('a[href]') : null
 
-      if (!(anchor instanceof HTMLAnchorElement) || !inside(anchor)) return
+      if (!(anchor instanceof HTMLAnchorElement)) return
+      const fromShell = anchor.hasAttribute(PANE_LINK_ATTRIBUTE)
+
+      if (!fromShell && !inside(anchor)) return
       const href = workspaceHref(anchor.href, location.origin)
 
       if (!href || !event.dataTransfer) return
       event.dataTransfer.setData(LINK_MIME, href)
+
+      if (!paneKind(href).record) event.dataTransfer.setData(PAGE_MIME, '1')
       event.dataTransfer.setData(
         'text/x-sheetbase-title',
         anchor.textContent.trim(),

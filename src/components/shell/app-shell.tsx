@@ -87,7 +87,10 @@ import { listDemoPersonasFn } from '#/lib/demo-persona-data'
 import { writeViewAsCookie } from '#/lib/demo-persona'
 import { WORKSPACE_ROLE_LABELS } from '#/lib/workspace-admin'
 import { useBuiltInPlugins } from '#/lib/extensions/use-built-in-plugins'
-import { requestWorkspaceLeave } from '#/components/workspace/workspace-navigation'
+import {
+  openAnchorBesideOnAlt,
+  requestWorkspaceLeave,
+} from '#/components/workspace/workspace-navigation'
 import {
   applyAppBadge,
   disablePush,
@@ -960,8 +963,16 @@ function NewMenu({
       >
         <span className="max-md:hidden">{t('common.actions.new')}</span>
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" className="w-[240px]">
+      <DropdownMenuContent
+        align="end"
+        className="w-[240px]"
+        // The open menu blocks the panes underneath, so a drag out of it
+        // closes it (after the drag has started) to leave them to drop on.
+        onDragStart={() => window.setTimeout(() => onOpenChange(false), 0)}
+      >
         <DropdownMenuLinkItem
+          data-pane-link=""
+          onClick={openAnchorBesideOnAlt}
           icon="flask"
           hint="E"
           render={<Link to="/experiments/new" search={search.experiment} />}
@@ -969,6 +980,8 @@ function NewMenu({
           {t('settings.shell.appShell.experiment')}
         </DropdownMenuLinkItem>
         <DropdownMenuLinkItem
+          data-pane-link=""
+          onClick={openAnchorBesideOnAlt}
           icon="tube"
           hint="S"
           render={<Link to="/samples" search={search.sample} />}
@@ -976,18 +989,24 @@ function NewMenu({
           {t('settings.shell.appShell.sample')}
         </DropdownMenuLinkItem>
         <DropdownMenuLinkItem
+          data-pane-link=""
+          onClick={openAnchorBesideOnAlt}
           icon="folder"
           render={<Link to="/projects" search={{ new: true }} />}
         >
           {t('settings.shell.appShell.project')}
         </DropdownMenuLinkItem>
         <DropdownMenuLinkItem
+          data-pane-link=""
+          onClick={openAnchorBesideOnAlt}
           icon="table"
           render={<Link to="/sheets/new" search={search.sheet} />}
         >
           {t('settings.shell.appShell.workingSheet')}
         </DropdownMenuLinkItem>
         <DropdownMenuLinkItem
+          data-pane-link=""
+          onClick={openAnchorBesideOnAlt}
           icon="chart"
           render={<Link to="/analysis/new" search={{ mode: 'chart' }} />}
         >
@@ -995,6 +1014,8 @@ function NewMenu({
         </DropdownMenuLinkItem>
         <DropdownMenuSeparator />
         <DropdownMenuLinkItem
+          data-pane-link=""
+          onClick={openAnchorBesideOnAlt}
           icon="upload"
           hint="I"
           render={<Link to="/import" search={search.import} />}
@@ -1007,36 +1028,48 @@ function NewMenu({
             {t('settings.shell.appShell.labLibrary')}
           </DropdownMenuLabel>
           <DropdownMenuLinkItem
+            data-pane-link=""
+            onClick={openAnchorBesideOnAlt}
             icon="box"
             render={<Link to="/materials" search={{ new: true }} />}
           >
             {t('settings.shell.appShell.materialLot')}
           </DropdownMenuLinkItem>
           <DropdownMenuLinkItem
+            data-pane-link=""
+            onClick={openAnchorBesideOnAlt}
             icon="plug"
             render={<Link to="/instruments" search={{ new: true }} />}
           >
             {t('settings.shell.appShell.instrument')}
           </DropdownMenuLinkItem>
           <DropdownMenuLinkItem
+            data-pane-link=""
+            onClick={openAnchorBesideOnAlt}
             icon="template"
             render={<Link to="/templates" search={{ new: true }} />}
           >
             {t('settings.shell.appShell.template')}
           </DropdownMenuLinkItem>
           <DropdownMenuLinkItem
+            data-pane-link=""
+            onClick={openAnchorBesideOnAlt}
             icon="protocol"
             render={<Link to="/protocols" search={{ new: true }} />}
           >
             {t('settings.shell.appShell.protocol')}
           </DropdownMenuLinkItem>
           <DropdownMenuLinkItem
+            data-pane-link=""
+            onClick={openAnchorBesideOnAlt}
             icon="pipeline"
             render={<Link to="/pipelines" search={{ new: true }} />}
           >
             {t('settings.shell.appShell.pipeline')}
           </DropdownMenuLinkItem>
           <DropdownMenuLinkItem
+            data-pane-link=""
+            onClick={openAnchorBesideOnAlt}
             icon="schema"
             render={<Link to="/models" search={{ create: true }} />}
           >
@@ -1490,6 +1523,8 @@ function NavLink({ item }: { item: NavItem }) {
   return (
     <Link
       {...item.link}
+      data-pane-link=""
+      onClick={openAnchorBesideOnAlt}
       activeOptions={{ exact: item.label === 'Home' }}
       className="flex h-[30px] shrink-0 items-center gap-2 rounded-md px-2 text-body leading-[normal] text-fg no-underline hover:bg-surface-hover active:bg-surface-hover hover:text-fg hover:no-underline [&_svg]:text-fg-muted"
       activeProps={selectedProps}
@@ -1555,6 +1590,8 @@ function NavEntry({
             <li key={`${pin.kind}:${pin.id}`} className="flex">
               <Link
                 to={pin.to}
+                data-pane-link=""
+                onClick={openAnchorBesideOnAlt}
                 title={pin.name}
                 className="flex h-[28px] min-w-0 flex-1 items-center rounded-md px-2 text-body leading-[normal] text-fg-muted no-underline hover:bg-surface-hover active:bg-surface-hover hover:text-fg hover:no-underline"
                 activeProps={{
@@ -1662,6 +1699,8 @@ function SideNav({
       <hr className="mx-2 my-2 h-px shrink-0 border-0 bg-border" />
       <Link
         to={settingsTo}
+        data-pane-link=""
+        onClick={openAnchorBesideOnAlt}
         className="flex h-[30px] shrink-0 items-center gap-2 rounded-md px-2 text-body leading-[normal] text-fg no-underline hover:bg-surface-hover hover:text-fg hover:no-underline [&_svg]:text-fg-muted"
         activeProps={{
           className: 'bg-nav-selected font-medium hover:bg-nav-selected',

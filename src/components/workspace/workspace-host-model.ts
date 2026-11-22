@@ -1,6 +1,6 @@
 import { paneKind } from '#/lib/workspace-state'
 import type { WorkspaceTab } from '#/lib/workspace-state'
-import { LINK_MIME } from './use-record-links'
+import { PAGE_MIME, LINK_MIME } from './use-record-links'
 
 /** The row selected in the pane that drives this one, when this one follows. */
 export function followedSelectionFor(
@@ -41,4 +41,9 @@ export function carriesRecordLink(transfer: DataTransfer): boolean {
 /** The name a page gives itself when it is kept without a title. */
 export function pageTitleFor(href: string) {
   return paneKind(href).label
+}
+
+/** Whether a drag carries a page (not a record) from the shell. */
+export function carriesPageLink(transfer: DataTransfer): boolean {
+  return transfer.types.includes(PAGE_MIME)
 }

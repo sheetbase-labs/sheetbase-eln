@@ -74,6 +74,7 @@ import {
   sampleListQueryKeys,
   toSampleListRow,
   useProjectNames,
+  useWritableProjectNames,
   useSampleList,
   useSampleTabCounts,
   useStorageLocations,
@@ -782,9 +783,11 @@ function SamplesList() {
   const addedFields = useBuiltInModelFields('sample')
   const printable = visible.flatMap((r) => recordsById.get(r.uuid) ?? [])
 
-  const projectOptions = [...(projects.data ?? new Map()).entries()].map(
-    ([id, title]) => ({ id, title }),
-  )
+  const writableProjects = useWritableProjectNames()
+
+  const projectOptions = [
+    ...(writableProjects.data ?? new Map()).entries(),
+  ].map(([id, title]) => ({ id, title }))
 
   const locationsQuery = useStorageLocations()
   const locations = locationsQuery.data ?? []
@@ -834,6 +837,14 @@ function SamplesList() {
   const create = useMutation({
     mutationFn: (input: RegisterSampleInput) =>
       registerSample(input, search.experiment),
+    onError: (error) => {
+      const message = error instanceof Error ? error.message : ''
+      toast.error(
+        /row-level security|permission denied/i.test(message)
+          ? t('library.samples.list.noPermission')
+          : message || t('library.samples.list.registerFailed'),
+      )
+    },
     onSuccess: (result) =>
       reportRegisteredSample(result, {
         queryClient,
@@ -908,7 +919,6 @@ function SamplesList() {
         selectedSample={sel ? recordsById.get(sel.uuid) : undefined}
         search={search}
         navigate={navigate}
-        projects={projects.data}
         projectOptions={projectOptions}
         defaultProjectId={defaultProjectId}
         locations={locations}
@@ -1057,7 +1067,6 @@ function SamplesOverlays({
   selectedSample,
   search,
   navigate,
-  projects,
   projectOptions,
   defaultProjectId,
   locations,
@@ -1073,7 +1082,6 @@ function SamplesOverlays({
   selectedSample: SampleRecordValue | undefined
   search: SamplesSearchValue
   navigate: SamplesNavigate
-  projects: ProjectNames | undefined
   projectOptions: { id: string; title: string }[]
   defaultProjectId: string | undefined
   locations: readonly string[]
@@ -1093,10 +1101,7 @@ function SamplesOverlays({
       <RegisterSampleDialog
         open={Boolean(search.new)}
         busy={busy}
-        projects={[...(projects ?? new Map()).entries()].map(([id, title]) => ({
-          id,
-          title,
-        }))}
+        projects={projectOptions}
         initialProjectId={defaultProjectId}
         locations={locations}
         canManageStorage={canManageSettings(workspace, 'storage')}

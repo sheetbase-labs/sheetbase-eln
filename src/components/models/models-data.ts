@@ -22,6 +22,7 @@ import {
 } from '#/lib/model-fields'
 import type { ModelFieldDefinition } from '#/lib/model-fields'
 import { fetchModelRules } from '#/lib/model-rules'
+import { fetchMyProjectAssignments } from '#/lib/workspace-access'
 import type { ModelRule } from '#/lib/model-rules'
 import { fetchRecordTimeline } from '#/lib/sign-002'
 import type { TimelineEventWire } from '#/lib/sign-002'
@@ -824,17 +825,31 @@ export function useModelRules(
   })
 }
 
-/** Projects a new record can be filed under. */
+/**
+ * Projects a new record can be filed under: editable and not archived.
+ * `api.projects` lists every project the person can open, and a create call on
+ * a view-only one fails with a raw row-level-security error.
+ */
 export function useRecordModelProjects(
   client: DataClient = notebookDataClient,
 ) {
   return useQuery({
     queryKey: recordModelDetailQueryKeys.projects,
-    queryFn: () =>
-      client.list<RecordModelProject>(
-        'projects',
-        '?select=id,key,title&order=created_at.asc',
-      ),
+    queryFn: async () => {
+      const [rows, assignments] = await Promise.all([
+        client.list<RecordModelProject>(
+          'projects',
+          '?select=id,key,title&archived_at=is.null&order=created_at.asc',
+        ),
+        fetchMyProjectAssignments(client),
+      ])
+
+      const writable = new Set(
+        assignments.filter((a) => a.can_edit).map((a) => a.project_id),
+      )
+
+      return rows.filter((row) => writable.has(row.id))
+    },
     staleTime: 60_000,
   })
 }

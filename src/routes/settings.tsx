@@ -107,7 +107,7 @@ function SettingsLayout() {
         aria-current={on ? 'page' : undefined}
         className={cn(
           'block rounded-md px-2.5 py-1.5 text-body text-fg no-underline hover:bg-surface-hover hover:text-fg hover:no-underline',
-          on && 'bg-selection font-medium hover:bg-selection',
+          on && 'bg-nav-selected font-medium hover:bg-nav-selected',
         )}
       >
         {i.label}

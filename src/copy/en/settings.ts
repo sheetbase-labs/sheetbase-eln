@@ -818,7 +818,6 @@ export const settings = {
     chooseWhereEach: 'Choose where each kind of event reaches you',
     notifications: 'Notifications',
     notificationSettingsSavedToast: 'Notification settings saved',
-    couldSaveNotification: 'Couldn’t save your notification settings.',
     notificationChannelsAria: 'Notification channels',
     event: 'Event',
     app: 'In app',

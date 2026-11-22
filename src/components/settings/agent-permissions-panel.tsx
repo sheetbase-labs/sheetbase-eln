@@ -405,7 +405,7 @@ export const AgentPermissionsPanel = memo(function AgentPermissionsPanel({
           <Button
             size="sm"
             variant="danger"
-            disabled={saving}
+            disabled={save.isPending}
             onClick={() =>
               save.mutate({
                 actionKey: row.original.action_key,

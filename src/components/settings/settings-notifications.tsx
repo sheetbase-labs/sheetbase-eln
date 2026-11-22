@@ -239,14 +239,6 @@ export function SettingsNotifications() {
 
   return (
     <div className="flex flex-col gap-6">
-      {save.isError ? (
-        <Notice tone="bad">
-          {save.error instanceof Error
-            ? save.error.message
-            : t('settings.notifications.couldSaveNotification')}
-        </Notice>
-      ) : null}
-
       {emailStatus.data && !emailStatus.data.configured ? (
         <Notice tone="warn">{t('settings.notifications.emailNotSetUp')}</Notice>
       ) : null}

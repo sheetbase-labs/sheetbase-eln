@@ -590,7 +590,7 @@ const AiAccessFlags = memo(function AiAccessFlags({
                   key={flag.key}
                   title={flag.label}
                   body={flag.description}
-                  checked={flags[flag.key] ?? flag.defaultValue}
+                  checked={flags[flag.key]}
                   onCheckedChange={(enabled) => onChange(flag.key, enabled)}
                   disabled={!canManage}
                 />

@@ -218,13 +218,11 @@ export const SemanticSearchSection = memo(function SemanticSearchSection({
         onCheckedChange={(enabled) => {
           // Turning it on with no model chosen picks the first one that runs
           // here, or the first one offered, so it is one step.
-          const profile =
-            form.profile ??
-            (
-              view.profiles.find((entry) => entry.dataClass !== 'cloud') ??
-              view.profiles[0]
-            )?.id ??
-            null
+          const fallback =
+            view.profiles.find((entry) => entry.dataClass !== 'cloud') ??
+            view.profiles.at(0)
+
+          const profile = form.profile ?? fallback?.id ?? null
 
           void commit(enabled ? { enabled, profile } : { enabled })
         }}

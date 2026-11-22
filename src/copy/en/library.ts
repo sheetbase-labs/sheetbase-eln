@@ -2790,6 +2790,9 @@ export const library = {
       printLabels: 'Print labels',
       registerFromList: 'Register from list',
       registerSample: 'Register sample',
+      noPermission:
+        'Only members who can edit a project can register samples in it.',
+      registerFailed: 'Couldn’t register the sample.',
       sampleLists: 'Sample lists',
       searchSamples: 'Search samples',
       searchByIdNameLocation: 'Search by ID, name, location',

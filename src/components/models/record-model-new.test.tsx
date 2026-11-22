@@ -143,9 +143,29 @@ async function renderForm(
                 ],
           ),
         )
+      case '/api/db/rpc/my_project_permissions':
+        return Promise.resolve(
+          Response.json([
+            {
+              project_id: '00000000-0000-4000-8000-000000000321',
+              access_level: 'editor',
+              can_view: true,
+              can_edit: true,
+              can_review: false,
+              client_portal: false,
+              can_manage: false,
+            },
+          ]),
+        )
       case '/api/db/projects':
         return Promise.resolve(
-          Response.json([{ id: 'p1', key: 'project_a', title: 'Project A' }]),
+          Response.json([
+            {
+              id: '00000000-0000-4000-8000-000000000321',
+              key: 'project_a',
+              title: 'Project A',
+            },
+          ]),
         )
       default:
         return Promise.resolve(Response.json([]))

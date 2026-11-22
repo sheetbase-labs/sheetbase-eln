@@ -102,7 +102,24 @@ vi.mock('#/components/ui/sonner', () => ({
 // oxlint-disable-next-line anti-slop/no-module-mocking -- The project list needs a database; the double answers the one project the dialog's select renders.
 vi.mock('#/lib/notebook-data', () => ({
   notebookDataClient: {
-    list: async () => [{ id: 'p-1', title: 'Project A', project_id: 'p-1' }],
+    list: async () => [
+      {
+        id: '00000000-0000-4000-8000-000000000321',
+        title: 'Project A',
+        project_id: '00000000-0000-4000-8000-000000000321',
+      },
+    ],
+    rpc: async () => [
+      {
+        project_id: '00000000-0000-4000-8000-000000000321',
+        access_level: 'editor',
+        can_view: true,
+        can_edit: true,
+        can_review: false,
+        client_portal: false,
+        can_manage: false,
+      },
+    ],
   },
 }))
 
@@ -420,7 +437,7 @@ describe('registering a first lot', () => {
       expect(createReagent).toHaveBeenCalledWith(
         expect.anything(),
         expect.objectContaining({
-          projectId: 'p-1',
+          projectId: '00000000-0000-4000-8000-000000000321',
           title: 'Sodium acetate',
           properties: expect.objectContaining({ quantity: 250, unit: 'g' }),
         }),

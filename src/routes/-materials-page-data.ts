@@ -9,7 +9,7 @@ import { useQuery, useMutation } from '@tanstack/react-query'
 import type { QueryClient } from '@tanstack/react-query'
 
 import { useHasCapability } from '#/lib/use-capability'
-import { useProjectNames } from '#/components/samples/samples-data'
+import { useWritableProjectNames } from '#/components/samples/samples-data'
 import { useHasProjectAccess } from '#/components/projects/project-access'
 import {
   fetchAllMaterialSafety,
@@ -88,7 +88,7 @@ export function useMaterialsReads(tab: MaterialTab | undefined) {
   const archivedCount = useArchivedReagentCount()
   const view = useListView('materials')
   const bulk = useBulkSelection()
-  const projects = useProjectNames()
+  const projects = useWritableProjectNames()
   const hasProjectAccess = useHasProjectAccess()
 
   const safetyByLot = useQuery({

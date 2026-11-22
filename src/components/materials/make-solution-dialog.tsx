@@ -20,7 +20,7 @@ import {
 } from '#/components/ui/dialog'
 import { Textarea } from '#/components/inventory/list'
 import { materialListQueryKeys } from '#/components/materials/materials-data'
-import { useProjectNames } from '#/components/samples/samples-data'
+import { useWritableProjectNames } from '#/components/samples/samples-data'
 import { formatDate } from '#/lib/format-date'
 import { notebookDataClient } from '#/lib/notebook-data'
 import type { Reagent } from '#/lib/reagent-data'
@@ -81,7 +81,7 @@ export function MakeSolutionDialog({
   onMade?: (solution: PreparedSolution) => void
 }) {
   const queryClient = useQueryClient()
-  const projects = useProjectNames()
+  const projects = useWritableProjectNames()
 
   const mutation = useMutation({
     mutationFn: (input: PrepareSolutionInput) =>

@@ -9,6 +9,7 @@ import { toSampleRecord } from '#/lib/samples'
 import type { SampleRecord } from '#/lib/samples'
 import type { RecordWire } from '#/lib/notebook-data'
 import { containsPattern } from '#/lib/postgrest-contains'
+import { fetchMyProjectAssignments } from '#/lib/workspace-access'
 
 /** UI port (roadmap-4/ui-app3): the sample registry, mapped from real sample
  * records onto the app-3 list shape. */
@@ -132,6 +133,7 @@ export const sampleListQueryKeys = {
    * refreshes the rows and the tab numbers together. */
   page: ['ui-port', 'samples', 'page'] as const,
   projects: ['ui-port', 'samples', 'projects'] as const,
+  writableProjects: ['ui-port', 'samples', 'projects', 'writable'] as const,
 }
 
 export const SAMPLE_TABS = [
@@ -291,6 +293,40 @@ export function useProjectNames(client: DataClient = notebookDataClient) {
       )
 
       return new Map(rows.map((r) => [r.id, r.title]))
+    },
+    staleTime: 60_000,
+  })
+}
+
+/**
+ * The projects the signed-in person can file a new record under: editable and
+ * not archived. `api.projects` returns every project they can open, and the
+ * create calls fail on a view-only one with a raw row-level-security error, so
+ * creation pickers use this instead of `useProjectNames`.
+ */
+export function useWritableProjectNames(
+  client: DataClient = notebookDataClient,
+) {
+  return useQuery({
+    queryKey: sampleListQueryKeys.writableProjects,
+    queryFn: async () => {
+      const [rows, assignments] = await Promise.all([
+        client.list<{ id: string; title: string; archived_at: string | null }>(
+          'projects',
+          '?select=id,title,archived_at&order=title.asc',
+        ),
+        fetchMyProjectAssignments(client),
+      ])
+
+      const writable = new Set(
+        assignments.filter((a) => a.can_edit).map((a) => a.project_id),
+      )
+
+      return new Map(
+        rows
+          .filter((r) => writable.has(r.id) && !r.archived_at)
+          .map((r) => [r.id, r.title] as const),
+      )
     },
     staleTime: 60_000,
   })

@@ -7,6 +7,7 @@ import { expect, test } from 'playwright/test'
 import {
   action,
   createExperiment,
+  expectCited,
   createProject,
   open,
   pickRecord,
@@ -90,7 +91,7 @@ test('ANA-05 a chart is cited into an experiment notebook and shows there', asyn
   await dialog.getByRole('combobox').fill(title)
   await dialog.getByText(title).first().click()
   await dialog.getByRole('button', { name: 'Cite', exact: true }).click()
-  await expect(page.getByText('Cited in a notebook').first()).toBeVisible()
+  await expectCited(page)
   await open(page, `/experiments/${id}/notebook`)
   await expect(page.getByText(caption).first()).toBeVisible()
   await open(page, `/experiments/${id}/data/results`)

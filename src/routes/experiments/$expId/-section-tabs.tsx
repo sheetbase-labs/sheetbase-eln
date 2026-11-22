@@ -15,7 +15,13 @@ export function SectionTabs({
 }) {
   return (
     <div className="px-4 pt-3 md:px-8">
-      <Tabs mode="url" variant="segment" label={label} items={[...items]} />
+      <Tabs
+        mode="url"
+        variant="segment"
+        label={label}
+        phoneKeep={4}
+        items={[...items]}
+      />
     </div>
   )
 }

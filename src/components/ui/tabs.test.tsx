@@ -198,6 +198,43 @@ describe('Tabs — url mode is a nav of links', () => {
     ])
   })
 
+  it('tucks the tabs past phoneKeep into a More menu, keeping the current one in the row', () => {
+    render(
+      <Tabs
+        mode="url"
+        label="Dataset lists"
+        value="locked"
+        phoneKeep={1}
+        items={items}
+      />,
+    )
+
+    // Every link stays in the page for a wide screen; on a phone the CSS hides
+    // the tucked ones, and the current tab is never one of them.
+    const hiddenOnPhone = screen
+      .getAllByRole('link')
+      .filter((link) => link.className.includes('max-md:hidden'))
+      .map((link) => link.textContent)
+
+    expect(hiddenOnPhone).toEqual(['Mine 1'])
+
+    expect(screen.getByRole('button', { name: 'More tabs' })).toBeTruthy()
+  })
+
+  it('shows no More menu when every tab is kept', () => {
+    render(
+      <Tabs
+        mode="url"
+        label="Dataset lists"
+        value="all"
+        phoneKeep={3}
+        items={items}
+      />,
+    )
+
+    expect(screen.queryByRole('button', { name: 'More tabs' })).toBeNull()
+  })
+
   it('styles the current tab from aria-current, so it beats the resting tokens', () => {
     render(<Tabs mode="url" label="Dataset lists" value="mine" items={items} />)
 

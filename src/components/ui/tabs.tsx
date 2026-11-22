@@ -101,14 +101,14 @@ const ACTIVE_LINK: Record<TabVariant, string> = {
   strip: 'aria-[current=page]:border-link aria-[current=page]:text-fg',
   segment:
     'aria-[current=page]:bg-surface aria-[current=page]:text-fg aria-[current=page]:shadow-[0_0_0_1px_var(--border)]',
-  chip: 'aria-[current=page]:border-selection-border aria-[current=page]:bg-selection aria-[current=page]:font-medium aria-[current=page]:hover:bg-selection',
+  chip: 'aria-[current=page]:border-border-strong aria-[current=page]:bg-nav-selected aria-[current=page]:font-medium aria-[current=page]:hover:bg-nav-selected',
 }
 
 const ACTIVE_DATA: Record<TabVariant, string> = {
   strip: 'data-active:border-link data-active:text-fg',
   segment:
     'data-active:bg-surface data-active:text-fg data-active:shadow-[0_0_0_1px_var(--border)]',
-  chip: 'data-active:border-selection-border data-active:bg-selection data-active:font-medium data-active:hover:bg-selection',
+  chip: 'data-active:border-border-strong data-active:bg-nav-selected data-active:font-medium data-active:hover:bg-nav-selected',
 }
 
 /** The strip's own container: the rail for `strip` and `chip`, the control body for `segment`. */

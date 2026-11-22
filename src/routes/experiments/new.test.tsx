@@ -219,6 +219,16 @@ afterEach(() => {
 })
 
 describe('new experiment', () => {
+  it('opens the title box for typing, with the cursor in it, once the page is live', async () => {
+    renderForm()
+    const title = await screen.findByRole<HTMLInputElement>('textbox', {
+      name: /^Title/,
+    })
+
+    await waitFor(() => expect(title.disabled).toBe(false))
+    expect(document.activeElement).toBe(title)
+  })
+
   it('links the sample handed over by the page that opened the form', async () => {
     search.current = { sample: 'smp-1' }
     const base = dataClient.list.getMockImplementation()!

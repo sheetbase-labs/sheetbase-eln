@@ -1,3 +1,4 @@
+import { useEffect, useRef, useState } from 'react'
 import { Link } from '@tanstack/react-router'
 
 import { Button } from '#/components/ui/button'
@@ -70,6 +71,19 @@ export function ProjectFieldSection({ form }: { form: Form }) {
 
 /** The title: what is being tested, first among the details. */
 export function TitleFieldSection({ form }: { form: Form }) {
+  const input = useRef<HTMLInputElement>(null)
+  const [live, setLive] = useState(false)
+
+  // The page is drawn by the server first, and typing into that copy is lost
+  // when the live page takes over. The box stays closed until then.
+  useEffect(() => {
+    setLive(true)
+  }, [])
+
+  useEffect(() => {
+    if (live) input.current?.focus()
+  }, [live])
+
   return (
     <div className="md:col-span-2">
       <Field
@@ -79,9 +93,10 @@ export function TitleFieldSection({ form }: { form: Form }) {
         hint={t('projects.newExperiment.titleHint')}
       >
         <Input
+          ref={input}
           value={form.title}
           onChange={(e) => form.setTitle(e.target.value)}
-          autoFocus
+          disabled={!live}
           aria-invalid={Boolean(form.titleError) || undefined}
         />
       </Field>

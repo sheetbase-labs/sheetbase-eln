@@ -6,6 +6,7 @@ import { activeMention, insertMention, matchMentions } from '#/lib/mentions'
 import type { MentionCandidate } from '#/lib/mentions'
 import { Person } from '#/components/ui/person'
 import { cn } from '#/lib/utils'
+import { useAnchoredPlacement } from '#/lib/use-anchored-placement'
 
 /**
  * A comment box that offers workspace members when the caret is in an `@word`.
@@ -53,38 +54,21 @@ export function MentionTextarea({
   }
 
   // The list floats over the page (a portal with fixed placement), so a panel
-  // that clips its overflow cannot cut it off. It opens below the box, or
-  // above it when there is more room there.
-  const [place, setPlace] = React.useState<React.CSSProperties | null>(null)
-  React.useLayoutEffect(() => {
-    if (!open) return
+  // that clips its overflow cannot cut it off. The shared placement hook opens
+  // it below the box, or above when there is more room there, inside the
+  // visible area (so it also clears the phone keyboard).
+  const listRef = React.useRef<HTMLUListElement>(null)
 
-    const update = () => {
+  const placement = useAnchoredPlacement({
+    open,
+    ref: listRef,
+    maxHeight: 192,
+    getAnchor: () => {
       const box = ref.current?.getBoundingClientRect()
 
-      if (!box) return
-      const below = window.innerHeight - box.bottom
-      const flip = below < 200 && box.top > below
-      const width = Math.min(256, window.innerWidth - 16)
-      setPlace({
-        left: Math.max(8, Math.min(box.left, window.innerWidth - width - 8)),
-        width,
-        maxHeight: Math.max(96, Math.min(192, (flip ? box.top : below) - 12)),
-        ...(flip
-          ? { bottom: window.innerHeight - box.top + 4 }
-          : { top: box.bottom + 4 }),
-      })
-    }
-
-    update()
-    window.addEventListener('resize', update)
-    window.addEventListener('scroll', update, true)
-
-    return () => {
-      window.removeEventListener('resize', update)
-      window.removeEventListener('scroll', update, true)
-    }
-  }, [open, value])
+      return box ? { top: box.top, bottom: box.bottom, left: box.left } : null
+    },
+  })
 
   // Apply the caret after React has rendered the inserted mention. A
   // requestAnimationFrame here let a fast typist (and userEvent) type at the
@@ -141,16 +125,17 @@ export function MentionTextarea({
           }
         }}
       />
-      {open && place
+      {open
         ? createPortal(
             <ul
+              ref={listRef}
               id={listId}
               role="listbox"
               aria-label={t('notebook.mentionTextarea.ariaLabel')}
               className={cn(
-                'fixed z-[100] overflow-auto rounded-md border bg-surface p-1 shadow-md',
+                'z-[100] w-64 max-w-[calc(100vw-16px)] animate-dialog-in overflow-auto overscroll-contain rounded-lg border bg-popover p-1 shadow-overlay',
               )}
-              style={place}
+              style={placement.style}
             >
               {options.map((candidate, position) => (
                 <li

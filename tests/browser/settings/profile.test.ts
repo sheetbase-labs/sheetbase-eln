@@ -69,7 +69,6 @@ test('shows a read-only username and saves initials and job title', async ({
     page.getByRole('textbox', { name: /Username/ }),
   ).toHaveJSProperty('readOnly', true)
   await page.getByRole('textbox', { name: /Job title/ }).fill('Chemist')
-  await page.getByRole('button', { name: 'Save changes' }).click()
   await expect(page.getByText('Changes saved', { exact: true })).toBeVisible()
   expect(transport.writes).toEqual([
     { p_initials: 'GP', p_job_title: 'Chemist' },
@@ -81,7 +80,6 @@ test('saves the name and re-resolves the shell context', async ({ page }) => {
   const transport = await profile(page)
   await expect(page.locator('html')).toHaveAttribute('data-context-reads', '1')
   await page.getByRole('textbox', { name: /Full name/ }).fill('Gareth P. QA3')
-  await page.getByRole('button', { name: 'Save changes' }).click()
   await expect(page.getByText('Changes saved', { exact: true })).toBeVisible()
 
   const call = transport.calls.find(
@@ -103,10 +101,6 @@ test('states why a refused save did not happen without refreshing context', asyn
   )
 
   await page.getByRole('textbox', { name: /Full name/ }).fill('Gareth P. QA3')
-  await page.getByRole('button', { name: 'Save changes' }).click()
-  await expect(
-    page.getByText('Couldn’t save your profile', { exact: true }),
-  ).toBeVisible()
   await expect(
     page.getByText(
       'Your session has ended. Sign in again to change your name.',
@@ -122,7 +116,6 @@ test('saves the time zone to the person’s own profile', async ({ page }) => {
   const zone = page.getByRole('combobox', { name: /Time zone/ })
   await expect(zone).toHaveValue('Europe/London')
   await zone.fill('America/New_York')
-  await page.getByRole('button', { name: 'Save changes' }).click()
   await expect(page.getByText('Changes saved', { exact: true })).toBeVisible()
   expect(transport.writes).toEqual([{ p_timezone: 'America/New_York' }])
   transport.assertExpected()
@@ -132,9 +125,7 @@ test('refuses a time zone name that does not exist', async ({ page }) => {
   const transport = await profile(page)
   await page.getByRole('combobox', { name: /Time zone/ }).fill('Mars/Olympus')
   await expect(page.getByText(/Use a time zone name such as/)).toBeVisible()
-  await expect(
-    page.getByRole('button', { name: 'Save changes' }),
-  ).toBeDisabled()
+  await page.waitForTimeout(1500)
   expect(transport.writes).toEqual([])
   expect(
     transport.calls.filter((call) => call.name === 'updateProfileNameFn'),

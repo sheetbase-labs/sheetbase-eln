@@ -5,9 +5,13 @@ import { serverFixtures } from './transport'
 import type { MySession } from '../../../src/components/settings/settings-sessions-data'
 import type { TwoFactorStatus } from '../../../src/components/settings/settings-two-factor-data'
 
-async function openComponent(page: Page, view: 'sessions' | 'two-factor' | 'notifications' | 'passkeys') {
-  await page.routeWebSocket(/^ws:\/\/(?:127\.0\.0\.1|localhost):3100\/\?token=/, (socket) =>
-    socket.send(JSON.stringify({ type: 'connected' })),
+async function openComponent(
+  page: Page,
+  view: 'sessions' | 'two-factor' | 'notifications' | 'passkeys',
+) {
+  await page.routeWebSocket(
+    /^ws:\/\/(?:127\.0\.0\.1|localhost):3100\/\?token=/,
+    (socket) => socket.send(JSON.stringify({ type: 'connected' })),
   )
   await page.route('**/settings-component-fixture?*', (route) =>
     route.fulfill({
@@ -19,7 +23,9 @@ async function openComponent(page: Page, view: 'sessions' | 'two-factor' | 'noti
     </body></html>`,
     }),
   )
-  await page.goto(`${view === 'passkeys' ? 'http://localhost:3100' : ''}/settings-component-fixture?view=${view}`)
+  await page.goto(
+    `${view === 'passkeys' ? 'http://localhost:3100' : ''}/settings-component-fixture?view=${view}`,
+  )
 }
 
 const sessions: MySession[] = [
@@ -280,11 +286,27 @@ const timingSchema = z.strictObject({
 
 async function notifications(page: Page, configured = true, refusal = false) {
   const preferences = [
-    { event_type: 'review_requested', in_app: true, email: true, digest: false, push: true },
-    { event_type: 'material_expiring', in_app: true, email: true, digest: false, push: false },
+    {
+      event_type: 'review_requested',
+      in_app: true,
+      email: true,
+      digest: false,
+      push: true,
+    },
+    {
+      event_type: 'material_expiring',
+      in_app: true,
+      email: true,
+      digest: false,
+      push: false,
+    },
   ]
 
-  const timing = { quiet_hours_start: '22:00', quiet_hours_end: '07:00', digest_time: '08:00' }
+  const timing = {
+    quiet_hours_start: '22:00',
+    quiet_hours_end: '07:00',
+    digest_time: '08:00',
+  }
   const writes: z.infer<typeof preferenceSchema>[] = []
   const timingWrites: z.infer<typeof timingSchema>[] = []
   const unexpected: string[] = []
@@ -310,9 +332,17 @@ async function notifications(page: Page, configured = true, refusal = false) {
         case '/api/db/rpc/save_notification_preference': {
           const write = preferenceSchema.parse(request.postDataJSON())
           writes.push(write)
-          const saved = preferences.find((row) => row.event_type === write.p_event_type)
+          const saved = preferences.find(
+            (row) => row.event_type === write.p_event_type,
+          )
 
-          if (saved) Object.assign(saved, { in_app: write.p_in_app, email: write.p_email, digest: write.p_digest, push: write.p_push })
+          if (saved)
+            Object.assign(saved, {
+              in_app: write.p_in_app,
+              email: write.p_email,
+              digest: write.p_digest,
+              push: write.p_push,
+            })
           await route.fulfill({ json: null })
 
           return
@@ -321,7 +351,16 @@ async function notifications(page: Page, configured = true, refusal = false) {
         case '/api/db/rpc/set_notification_timing':
           timingWrites.push(timingSchema.parse(request.postDataJSON()))
 
-          if (refusal) await route.fulfill({ status: 403, json: { error: { code: 'denied', message: 'Could not save the digest time.' } } })
+          if (refusal)
+            await route.fulfill({
+              status: 403,
+              json: {
+                error: {
+                  code: 'denied',
+                  message: 'Could not save the digest time.',
+                },
+              },
+            })
           else await route.fulfill({ json: null })
 
           return
@@ -332,76 +371,155 @@ async function notifications(page: Page, configured = true, refusal = false) {
     await route.abort('blockedbyclient')
   })
 
-  const transport = await serverFixtures(page, [{ file: 'lib/email-status.ts', name: 'fetchEmailStatusFn', method: 'GET', result: { configured } }])
+  const transport = await serverFixtures(page, [
+    {
+      file: 'lib/email-status.ts',
+      name: 'fetchEmailStatusFn',
+      method: 'GET',
+      result: { configured },
+    },
+  ])
   await openComponent(page, 'notifications')
   await expect(page.getByLabel('Digest time')).toHaveValue('08:00')
 
-  return { writes, timingWrites, assertRequests: () => { transport.assertExpected(); expect(unexpected).toEqual([]); expect(transport.calls.map((call) => call.name)).toEqual(['fetchEmailStatusFn']) } }
+  return {
+    writes,
+    timingWrites,
+    assertRequests: () => {
+      transport.assertExpected()
+      expect(unexpected).toEqual([])
+      expect(transport.calls.map((call) => call.name)).toEqual([
+        'fetchEmailStatusFn',
+      ])
+    },
+  }
 }
 
-test('notifications saves a changed preference and timing with visible confirmation', async ({ page }) => {
+test('notifications saves a changed preference and timing with visible confirmation', async ({
+  page,
+}) => {
   const transport = await notifications(page)
-  await expect(page.getByRole('button', { name: 'Save changes' })).toHaveCount(0)
-  await page.getByRole('checkbox', { name: 'Review requested from you email', exact: true }).click()
-  await page.getByRole('button', { name: 'Save changes' }).click()
-  await expect(page.getByText('Notification settings saved', { exact: true })).toBeVisible()
-  expect(transport.writes).toEqual([{ p_event_type: 'review_requested', p_in_app: true, p_email: false, p_digest: false, p_push: true }])
-  expect(transport.timingWrites).toEqual([{ p_quiet_start: '22:00', p_quiet_end: '07:00', p_digest_time: '08:00' }])
+  await page
+    .getByRole('checkbox', {
+      name: 'Review requested from you email',
+      exact: true,
+    })
+    .click()
+  await expect(
+    page.getByText('Notification settings saved', { exact: true }),
+  ).toBeVisible()
+  expect(transport.writes).toEqual([
+    {
+      p_event_type: 'review_requested',
+      p_in_app: true,
+      p_email: false,
+      p_digest: false,
+      p_push: true,
+    },
+  ])
+  expect(transport.timingWrites).toEqual([
+    { p_quiet_start: '22:00', p_quiet_end: '07:00', p_digest_time: '08:00' },
+  ])
   transport.assertRequests()
 })
 
-test('notifications does not confirm a failed timing save', async ({ page }) => {
+test('notifications does not confirm a failed timing save', async ({
+  page,
+}) => {
   const transport = await notifications(page, true, true)
-  await page.getByRole('checkbox', { name: 'Review requested from you email', exact: true }).click()
-  await page.getByRole('button', { name: 'Save changes' }).click()
-  await expect(page.getByText('Could not save the digest time.', { exact: true })).toBeVisible()
-  await expect(page.getByText('Notification settings saved', { exact: true })).toHaveCount(0)
+  await page
+    .getByRole('checkbox', {
+      name: 'Review requested from you email',
+      exact: true,
+    })
+    .click()
+  await expect(
+    page.getByText('Could not save the digest time.', { exact: true }),
+  ).toBeVisible()
+  await expect(
+    page.getByText('Notification settings saved', { exact: true }),
+  ).toHaveCount(0)
   transport.assertRequests()
 })
 
-test('notifications treats changed timing alone as unsaved work', async ({ page }) => {
+test('notifications saves changed timing on its own', async ({ page }) => {
   const transport = await notifications(page)
   await page.getByLabel('Quiet hours end').fill('06:30')
-  await expect(page.getByRole('button', { name: 'Save changes' })).toBeVisible()
+  await expect
+    .poll(() => transport.timingWrites)
+    .toEqual([
+      { p_quiet_start: '22:00', p_quiet_end: '06:30', p_digest_time: '08:00' },
+    ])
   expect(transport.writes).toEqual([])
   transport.assertRequests()
 })
 
 test('notifications writes only the changed row', async ({ page }) => {
   const transport = await notifications(page)
-  await page.getByRole('checkbox', { name: 'Review requested from you email', exact: true }).click()
-  await page.getByRole('button', { name: 'Save changes' }).click()
-  await expect(page.getByText('Notification settings saved', { exact: true })).toBeVisible()
+  await page
+    .getByRole('checkbox', {
+      name: 'Review requested from you email',
+      exact: true,
+    })
+    .click()
+  await expect(
+    page.getByText('Notification settings saved', { exact: true }),
+  ).toBeVisible()
   expect(transport.writes).toHaveLength(1)
   expect(transport.writes[0]?.p_event_type).toBe('review_requested')
   transport.assertRequests()
 })
 
-test('notifications groups every event including Inbox-only events', async ({ page }) => {
+test('notifications groups every event including Inbox-only events', async ({
+  page,
+}) => {
   const transport = await notifications(page)
-  await expect(page.getByText('Reviews and signatures', { exact: true })).toBeVisible()
-  await expect(page.getByText('Samples, materials and instruments', { exact: true })).toBeVisible()
-  await expect(page.getByRole('checkbox', { name: 'An instrument run fails email', exact: true })).toHaveAttribute('aria-checked', 'false')
+  await expect(
+    page.getByText('Reviews and signatures', { exact: true }),
+  ).toBeVisible()
+  await expect(
+    page.getByText('Samples, materials and instruments', { exact: true }),
+  ).toBeVisible()
+  await expect(
+    page.getByRole('checkbox', {
+      name: 'An instrument run fails email',
+      exact: true,
+    }),
+  ).toHaveAttribute('aria-checked', 'false')
   transport.assertRequests()
 })
 
 test('notifications allows digest for Inbox-only events', async ({ page }) => {
   const transport = await notifications(page)
-  await expect(page.getByRole('checkbox', { name: 'An instrument run fails digest', exact: true })).toBeEnabled()
+  await expect(
+    page.getByRole('checkbox', {
+      name: 'An instrument run fails digest',
+      exact: true,
+    }),
+  ).toBeEnabled()
   transport.assertRequests()
 })
 
-test('notifications explains when email is not configured', async ({ page }) => {
+test('notifications explains when email is not configured', async ({
+  page,
+}) => {
   const transport = await notifications(page, false)
-  await expect(page.getByText(/Email isn’t set up on this server yet/)).toBeVisible()
+  await expect(
+    page.getByText(/Email isn’t set up on this server yet/),
+  ).toBeVisible()
   transport.assertRequests()
 })
 
 const passkeyRegistrationSchema = z.object({
   name: z.string(),
   response: z.object({
-    id: z.string(), rawId: z.string(), type: z.literal('public-key'),
-    response: z.object({ clientDataJSON: z.string(), attestationObject: z.string() }),
+    id: z.string(),
+    rawId: z.string(),
+    type: z.literal('public-key'),
+    response: z.object({
+      clientDataJSON: z.string(),
+      attestationObject: z.string(),
+    }),
   }),
 })
 
@@ -414,22 +532,48 @@ async function passkeys(page: Page, existing = false) {
   await page.route('http://localhost:3100/**', async (route) => {
     const path = new URL(route.request().url()).pathname
 
-    if (route.request().method() !== 'GET' || !['/@', '/src/', '/tests/browser/settings/', '/node_modules/'].some((prefix) => path.startsWith(prefix))) {
+    if (
+      route.request().method() !== 'GET' ||
+      !['/@', '/src/', '/tests/browser/settings/', '/node_modules/'].some(
+        (prefix) => path.startsWith(prefix),
+      )
+    ) {
       unexpected.push(`${route.request().method()} ${path}`)
       await route.abort('blockedbyclient')
 
       return
     }
 
-    const response = await route.fetch({ url: route.request().url().replace('http://localhost:3100', 'http://127.0.0.1:3100') })
+    const response = await route.fetch({
+      url: route
+        .request()
+        .url()
+        .replace('http://localhost:3100', 'http://127.0.0.1:3100'),
+    })
     await route.fulfill({ response })
   })
   const cdp = await page.context().newCDPSession(page)
   await cdp.send('WebAuthn.enable')
   await cdp.send('WebAuthn.addVirtualAuthenticator', {
-    options: { protocol: 'ctap2', transport: 'internal', hasResidentKey: true, hasUserVerification: true, isUserVerified: true, automaticPresenceSimulation: true },
+    options: {
+      protocol: 'ctap2',
+      transport: 'internal',
+      hasResidentKey: true,
+      hasUserVerification: true,
+      isUserVerified: true,
+      automaticPresenceSimulation: true,
+    },
   })
-  let keys = existing ? [{ id: 'pk1', name: 'Phone', backedUp: true, createdAt: '2026-11-01T09:00:00Z' }] : []
+  let keys = existing
+    ? [
+        {
+          id: 'pk1',
+          name: 'Phone',
+          backedUp: true,
+          createdAt: '2026-11-01T09:00:00Z',
+        },
+      ]
+    : []
   const registrations: z.infer<typeof passkeyRegistrationSchema>[] = []
   const removals: z.infer<typeof deletePasskeySchema>[] = []
   const optionNames: (string | null)[] = []
@@ -437,36 +581,68 @@ async function passkeys(page: Page, existing = false) {
     const request = route.request()
     const url = new URL(request.url())
 
-    if (request.method() === 'GET' && url.pathname === '/api/auth/passkey/list-user-passkeys') {
+    if (
+      request.method() === 'GET' &&
+      url.pathname === '/api/auth/passkey/list-user-passkeys'
+    ) {
       await route.fulfill({ json: keys })
 
       return
     }
 
-    if (request.method() === 'GET' && url.pathname === '/api/auth/passkey/generate-register-options') {
+    if (
+      request.method() === 'GET' &&
+      url.pathname === '/api/auth/passkey/generate-register-options'
+    ) {
       optionNames.push(url.searchParams.get('name'))
-      await route.fulfill({ json: {
-        challenge: 'dGVzdC1jaGFsbGVuZ2UtMzItYnl0ZXMtc2V0dGluZ3M',
-        rp: { name: 'Sheetbase' },
-        user: { id: 'Zml4dHVyZS11c2Vy', name: 'fixture@example.test', displayName: 'Fixture user' },
-        pubKeyCredParams: [{ type: 'public-key', alg: -7 }],
-        authenticatorSelection: { residentKey: 'required', userVerification: 'required' },
-        timeout: 60000, attestation: 'none', excludeCredentials: [],
-      } })
+      await route.fulfill({
+        json: {
+          challenge: 'dGVzdC1jaGFsbGVuZ2UtMzItYnl0ZXMtc2V0dGluZ3M',
+          rp: { name: 'Sheetbase' },
+          user: {
+            id: 'Zml4dHVyZS11c2Vy',
+            name: 'fixture@example.test',
+            displayName: 'Fixture user',
+          },
+          pubKeyCredParams: [{ type: 'public-key', alg: -7 }],
+          authenticatorSelection: {
+            residentKey: 'required',
+            userVerification: 'required',
+          },
+          timeout: 60000,
+          attestation: 'none',
+          excludeCredentials: [],
+        },
+      })
 
       return
     }
 
-    if (request.method() === 'POST' && url.pathname === '/api/auth/passkey/verify-registration') {
-      const registration = passkeyRegistrationSchema.parse(request.postDataJSON())
+    if (
+      request.method() === 'POST' &&
+      url.pathname === '/api/auth/passkey/verify-registration'
+    ) {
+      const registration = passkeyRegistrationSchema.parse(
+        request.postDataJSON(),
+      )
       registrations.push(registration)
-      keys = [{ id: registration.response.id, name: registration.name, backedUp: false, createdAt: '2026-11-01T09:00:00Z' }]
+      keys = [
+        {
+          id: registration.response.id,
+          name: registration.name,
+          backedUp: false,
+          createdAt: '2026-11-01T09:00:00Z',
+        },
+      ]
       await route.fulfill({ json: keys[0] })
 
       return
     }
 
-    if (request.method() === 'POST' && url.pathname === '/api/auth/passkey/delete-passkey') {
+    if (
+      request.method() === 'POST' &&
+      url.pathname === '/api/auth/passkey/delete-passkey'
+    ) {
       const removal = deletePasskeySchema.parse(request.postDataJSON())
       removals.push(removal)
       keys = keys.filter((key) => key.id !== removal.id)
@@ -480,16 +656,25 @@ async function passkeys(page: Page, existing = false) {
   })
   await openComponent(page, 'passkeys')
 
-  return { registrations, removals, optionNames, assertRequests: () => expect(unexpected).toEqual([]) }
+  return {
+    registrations,
+    removals,
+    optionNames,
+    assertRequests: () => expect(unexpected).toEqual([]),
+  }
 }
 
 test('passkeys explains an empty account', async ({ page }) => {
   const transport = await passkeys(page)
-  await expect(page.getByText('You have not added a passkey yet.', { exact: true })).toBeVisible()
+  await expect(
+    page.getByText('You have not added a passkey yet.', { exact: true }),
+  ).toBeVisible()
   transport.assertRequests()
 })
 
-test('passkeys creates a credential under the chosen name through native WebAuthn', async ({ page }) => {
+test('passkeys creates a credential under the chosen name through native WebAuthn', async ({
+  page,
+}) => {
   const transport = await passkeys(page)
   await page.getByPlaceholder('For example, Work laptop').fill('Work laptop')
   await page.getByRole('button', { name: 'Add a passkey' }).click()
@@ -497,7 +682,19 @@ test('passkeys creates a credential under the chosen name through native WebAuth
   expect(transport.optionNames).toEqual(['Work laptop'])
   expect(transport.registrations).toHaveLength(1)
   expect(transport.registrations[0]?.name).toBe('Work laptop')
-  const clientData = z.object({ type: z.literal('webauthn.create'), origin: z.literal('http://localhost:3100') }).parse(JSON.parse(Buffer.from(transport.registrations[0]?.response.response.clientDataJSON ?? '', 'base64url').toString('utf8')))
+  const clientData = z
+    .object({
+      type: z.literal('webauthn.create'),
+      origin: z.literal('http://localhost:3100'),
+    })
+    .parse(
+      JSON.parse(
+        Buffer.from(
+          transport.registrations[0]?.response.response.clientDataJSON ?? '',
+          'base64url',
+        ).toString('utf8'),
+      ),
+    )
   expect(clientData.type).toBe('webauthn.create')
   transport.assertRequests()
 })
@@ -505,9 +702,13 @@ test('passkeys creates a credential under the chosen name through native WebAuth
 test('passkeys lists a synced credential and removes it', async ({ page }) => {
   const transport = await passkeys(page, true)
   await expect(page.getByText('Phone', { exact: true })).toBeVisible()
-  await expect(page.getByText('Synced across your devices', { exact: true })).toBeVisible()
+  await expect(
+    page.getByText('Synced across your devices', { exact: true }),
+  ).toBeVisible()
   await page.getByRole('button', { name: 'Remove', exact: true }).click()
-  await expect(page.getByText('You have not added a passkey yet.', { exact: true })).toBeVisible()
+  await expect(
+    page.getByText('You have not added a passkey yet.', { exact: true }),
+  ).toBeVisible()
   expect(transport.removals).toEqual([{ id: 'pk1' }])
   transport.assertRequests()
 })

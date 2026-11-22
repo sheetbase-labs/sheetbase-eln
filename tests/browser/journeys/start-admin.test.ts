@@ -353,7 +353,6 @@ test.describe('as the seeded workspace admin', () => {
     try {
       await open(page, '/settings/account/profile')
       await page.getByLabel('Time zone').fill('America/New_York')
-      await page.getByRole('button', { name: 'Save changes' }).click()
       await expect.poll(savedZone).toBe('America/New_York')
       await page.reload()
       await expect(page.getByLabel('Time zone')).toHaveValue('America/New_York')

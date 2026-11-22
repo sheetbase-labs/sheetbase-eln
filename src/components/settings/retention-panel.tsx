@@ -12,6 +12,7 @@ import { RegistryGrid } from '#/components/inventory/registry-grid'
 import type { RegistryColumn } from '#/components/inventory/registry-grid'
 import { Notice } from '#/components/ui/alert'
 import { Button } from '#/components/ui/button'
+import { ConfirmPrompt } from '#/components/ui/confirm-prompt'
 import {
   Dialog,
   DialogBody,
@@ -148,6 +149,7 @@ export function RetentionPanel({
 
   const [editing, setEditing] = useState<string | null>(null)
   const [placing, setPlacing] = useState(false)
+  const [confirmingArchive, setConfirmingArchive] = useState(false)
   const [releasing, setReleasing] = useState<LegalHold | null>(null)
 
   const refresh = () =>
@@ -261,11 +263,7 @@ export function RetentionPanel({
           {canManage && dueRows.length > 0 ? (
             <Button
               disabled={archive.isPending}
-              onClick={() => {
-                if (window.confirm(t('quality.retention.due.confirm'))) {
-                  archive.mutate()
-                }
-              }}
+              onClick={() => setConfirmingArchive(true)}
             >
               {archive.isPending
                 ? t('quality.retention.due.archiving')
@@ -329,6 +327,16 @@ export function RetentionPanel({
           projects={projects}
           onClose={() => setPlacing(false)}
           onSaved={() => void refresh()}
+        />
+      ) : null}
+      {confirmingArchive ? (
+        <ConfirmPrompt
+          message={t('quality.retention.due.confirm')}
+          confirmLabel={t('quality.retention.due.archive', {
+            count: dueRows.length,
+          })}
+          onConfirm={() => archive.mutate()}
+          onClose={() => setConfirmingArchive(false)}
         />
       ) : null}
       {releasing ? (

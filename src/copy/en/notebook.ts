@@ -1769,6 +1769,7 @@ export const notebook = {
     typeForBlocksOr: 'Type / for blocks, or just start writing',
     textContent: 'Text content',
     linkUrl: 'Link URL',
+    addLink: 'Add link',
   },
   saveStatus: {
     label: 'Editing…',

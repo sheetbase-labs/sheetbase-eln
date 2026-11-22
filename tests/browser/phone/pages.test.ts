@@ -189,6 +189,13 @@ async function popupProblems(page: Page, what: string): Promise<string[]> {
   const popup = page.locator(POPUP).filter({ visible: true }).last()
   if ((await popup.count()) === 0) return []
   await page.waitForTimeout(300) // open animation
+  // Sheets slide in over 250ms and a loaded runner can start late: measure
+  // where the popup settles, not where it is part-way.
+  await page.evaluate(() =>
+    Promise.all(
+      document.getAnimations().map((a) => a.finished.catch(() => {})),
+    ),
+  )
   const area = await visibleArea(page)
   const found = await popup.evaluate((el, a) => {
     const out: string[] = []

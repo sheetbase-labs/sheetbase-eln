@@ -97,6 +97,25 @@ function richText(text: string): RichTextPayload {
   }
 }
 
+/**
+ * Select all of a focused rich-text editor's text, then wait until the editor
+ * has taken the selection in. ProseMirror reads the page's selection when the
+ * browser reports it changed, a moment after the key press, so a Backspace or a
+ * toolbar click sent straight after Ctrl+A can act on the old caret on a slow
+ * machine and leave the text where it was.
+ */
+async function selectAllText(
+  user: ReturnType<typeof userEvent.setup>,
+  editor: HTMLElement,
+) {
+  await waitFor(() => expect(document.activeElement).toBe(editor))
+  await user.keyboard('{Control>}a{/Control}')
+  await waitFor(() =>
+    expect(window.getSelection()?.toString()).toBe(editor.textContent),
+  )
+  await new Promise((resolve) => setTimeout(resolve, 0))
+}
+
 describe('BlockEditor — rich_text', () => {
   it('saves canonical structured JSON on blur', async () => {
     const user = userEvent.setup()
@@ -109,7 +128,8 @@ describe('BlockEditor — rich_text', () => {
     )
     const editor = await screen.findByRole('textbox', { name: 'Text content' })
     editor.focus()
-    await user.keyboard('{Control>}a{/Control}{Backspace}')
+    await selectAllText(user, editor)
+    await user.keyboard('{Backspace}')
     await user.paste('new body')
     await user.tab()
     expect(save).toHaveBeenCalledWith(richText('new body'))
@@ -127,7 +147,7 @@ describe('BlockEditor — rich_text', () => {
     const editor = await screen.findByRole('textbox', { name: 'Text content' })
     editor.focus()
     await user.paste('result')
-    await user.keyboard('{Control>}a{/Control}')
+    await selectAllText(user, editor)
 
     // The floating BubbleMenu toolbar appears when text is selected.
     for (const name of [
@@ -176,7 +196,7 @@ describe('BlockEditor — rich_text', () => {
     )
     const editor = await screen.findByRole('textbox', { name: 'Text content' })
     editor.focus()
-    await user.keyboard('{Control>}a{/Control}')
+    await selectAllText(user, editor)
     await user.click(screen.getByRole('button', { name: 'Heading 2' }))
     await user.tab()
     expect(save).toHaveBeenCalledWith({
@@ -881,7 +901,8 @@ describe('BlockEditor — conflict surface', () => {
     )
     const editor = await screen.findByRole('textbox', { name: 'Text content' })
     editor.focus()
-    await user.keyboard('{Control>}a{/Control}{Backspace}')
+    await selectAllText(user, editor)
+    await user.keyboard('{Backspace}')
     await user.paste('my changed objective')
     await user.tab()
 

@@ -315,6 +315,7 @@
   content: '';
   position: absolute;
   background: var(--border);
+  transition: background-color 150ms ease-out;
 }
 .mx-div.is-row {
   width: 9px;
@@ -676,6 +677,7 @@
   border: 2px dashed var(--mx-accent);
   border-radius: 2px;
   pointer-events: none;
+  animation: sb-fade-in 100ms cubic-bezier(0.23, 1, 0.32, 1);
 }
 .mx-drop::before {
   content: '';
@@ -924,6 +926,10 @@
   line-height: 17px;
   color: var(--mx-muted);
   text-align: center;
+  transition:
+    background-color 150ms ease-out,
+    border-color 150ms ease-out,
+    color 150ms ease-out;
 }
 .mx-shelf-drop.is-active {
   border: 2px dashed var(--mx-accent);

@@ -796,14 +796,44 @@
   }
 }
 
+/* Reduced motion means fewer and gentler, not none: fades and colour changes
+   stay because they explain a change, while anything that travels or scales
+   (popups, sheets, dialogs) drops to a plain fade, and loops stop. */
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,
   *::after {
     scroll-behavior: auto !important;
-    animation-duration: 0.01ms !important;
     animation-iteration-count: 1 !important;
-    transition-duration: 0.01ms !important;
+  }
+  [data-starting-style],
+  [data-ending-style] {
+    translate: none !important;
+    scale: none !important;
+  }
+  .animate-accordion-down,
+  .animate-accordion-up {
+    animation-duration: 0.01ms !important;
+  }
+  @keyframes sb-dialog-in {
+    from {
+      opacity: 0;
+    }
+  }
+  @keyframes sb-slide-up {
+    from {
+      opacity: 0;
+    }
+  }
+  @keyframes sb-slide-left {
+    from {
+      opacity: 0;
+    }
+  }
+  @keyframes sb-slide-right {
+    from {
+      opacity: 0;
+    }
   }
 }
 

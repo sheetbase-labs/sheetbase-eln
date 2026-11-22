@@ -52,7 +52,7 @@ describe('AI readiness', () => {
     ).toEqual({ ready: false, reason: 'feature_disabled' })
     expect(
       aiReadinessMessage({ ready: false, reason: 'feature_disabled' }),
-    ).toContain('access flag')
+    ).toContain('switched off')
   })
 
   it('uses the built-in model when no provider profile is selected', () => {

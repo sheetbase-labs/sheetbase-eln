@@ -169,22 +169,24 @@ export function aiReadiness(
 export function aiReadinessMessage(readiness: AiReadiness): string {
   if (readiness.ready) {
     return readiness.mode === 'built-in'
-      ? 'Built-in deterministic model. No external provider is configured.'
-      : `Using provider profile '${readiness.profileId}' (${readiness.dataClass}).`
+      ? 'Using the built-in assistant. Nothing leaves your lab.'
+      : readiness.dataClass === 'cloud'
+        ? 'Using an outside AI service you have allowed.'
+        : 'Using an AI that runs on your own server.'
   }
 
   switch (readiness.reason) {
     case 'disabled':
-      return 'AI is off for this workspace. A workspace owner can enable it in Settings → AI.'
+      return 'AI is off. An owner can turn it on in Settings → AI.'
     case 'feature_disabled':
-      return 'The assistant is disabled by a workspace access flag. A workspace owner can enable it in Settings → AI.'
+      return 'The assistant is switched off under “What connected agents may do” in Settings → AI.'
     case 'profile_missing':
-      return 'The selected provider profile is no longer configured on this deployment.'
+      return 'The AI you chose is no longer set up. Pick another in Settings → AI.'
     case 'key_missing':
-      return 'The selected provider profile has no API key on this deployment.'
+      return 'The AI you chose has no access key yet. Ask your admin to add one.'
     case 'consent_required':
-      return 'This profile sends data to a cloud provider. An owner must record cloud-egress consent first.'
+      return 'This AI is an outside service. An owner needs to allow sending data to it in Settings → AI.'
     case 'provider_config_invalid':
-      return 'The deployment AI provider configuration is invalid.'
+      return 'The AI set-up on this server is not valid. Ask your admin to check it.'
   }
 }

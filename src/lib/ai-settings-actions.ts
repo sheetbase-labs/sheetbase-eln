@@ -172,7 +172,7 @@ export const updateAiSettingsFn = createServerFn({ method: 'POST' })
       !data.cloudEgressEnabled
     ) {
       throw new Error(
-        'Cloud-egress consent is required before enabling a cloud provider.',
+        'Allow sending data to outside AI services before turning on an outside AI.',
       )
     }
 

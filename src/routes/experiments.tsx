@@ -957,6 +957,7 @@ function ExperimentsHeader({
           mode="url"
           value={tab}
           label={t('projects.experimentsList.views')}
+          phoneKeep={3}
           items={tabs.map((name) => ({
             key: name,
             label: tabLabel[name],

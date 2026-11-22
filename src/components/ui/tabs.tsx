@@ -1,6 +1,14 @@
 import { Tabs as TabsPrimitive } from '@base-ui/react/tabs'
 import { Link } from '@tanstack/react-router'
 import type { LinkProps } from '@tanstack/react-router'
+import { Icon } from '#/components/icons'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuLinkItem,
+  DropdownMenuTrigger,
+} from '#/components/ui/dropdown-menu'
+import { t } from '#/copy'
 import { cn } from '#/lib/utils'
 
 /**
@@ -187,6 +195,12 @@ export type TabsProps =
       label: string
       variant?: TabVariant
       className?: string
+      /**
+       * A long strip on a phone: keep this many tabs in the row (and whichever
+       * tab is current) and move the rest into a More menu, so ten views are
+       * one row instead of three. Desktop shows every tab.
+       */
+      phoneKeep?: number
     }
 
 /** The tab strip: `mode="state"` for in-page tabs, `mode="url"` for tabs that are routes. */
@@ -230,7 +244,17 @@ function UrlTabs({
   value,
   variant = 'strip',
   className,
+  phoneKeep,
 }: Extract<TabsProps, { mode: 'url' }>) {
+  // The tabs a phone moves into the More menu: those past `phoneKeep`, except
+  // the one you are on, which stays in the row so you can see where you are.
+  const tucked = items.filter(
+    (item, index) =>
+      phoneKeep !== undefined &&
+      index >= phoneKeep &&
+      (value === undefined || item.key !== value),
+  )
+
   return (
     <nav aria-label={label} className={cn(LIST[variant], className)}>
       {items.map((item, index) => {
@@ -242,7 +266,11 @@ function UrlTabs({
             key={item.key ?? item.link.to ?? index}
             {...item.link}
             aria-current={current ? 'page' : undefined}
-            className={cn(ITEM[variant], ACTIVE_LINK[variant])}
+            className={cn(
+              ITEM[variant],
+              ACTIVE_LINK[variant],
+              tucked.includes(item) && 'max-md:hidden',
+            )}
             // Where the caller names the current key, only that key is current:
             // the router's own match is narrowed to the same URL, so its
             // `aria-current` can never disagree with the key. Without a key the
@@ -263,6 +291,29 @@ function UrlTabs({
           </Link>
         )
       })}
+      {tucked.length > 0 ? (
+        <DropdownMenu>
+          <DropdownMenuTrigger
+            aria-label={t('notebook.inspector.moreTabsAriaLabel')}
+            className={cn(ITEM[variant], 'md:hidden')}
+          >
+            {t('notebook.inspector.moreTabs')}
+            <Icon name="chevronDown" size={12} />
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="min-w-[180px]">
+            {tucked.map((item, index) => (
+              <DropdownMenuLinkItem
+                // react-doctor-disable-next-line react-doctor/no-array-index-as-key -- an item without a key or link target is identified by its fixed position.
+                key={item.key ?? item.link.to ?? index}
+                render={<Link {...item.link} />}
+              >
+                {item.label}
+                <TabCount count={item.count} />
+              </DropdownMenuLinkItem>
+            ))}
+          </DropdownMenuContent>
+        </DropdownMenu>
+      ) : null}
     </nav>
   )
 }

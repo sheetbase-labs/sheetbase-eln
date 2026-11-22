@@ -664,7 +664,7 @@ function RegistryTable<T extends RowData>({
             menu ? ' [&_th:last-child]:pr-11' : ''
           }`,
           body:
-            '[&_td:has([data-band])]:overflow-visible [&_td_a.mono]:text-primary-text [&_td_a.mono]:font-medium [&_td]:border-border-subtle [&_tr:hover_td]:bg-row-hover [&_td]:h-[var(--grid-row-h,33px)] [&_td]:py-0 [&_td]:px-2.5 [&_td:first-child]:pl-6 [&_td:last-child]:pr-6' +
+            '[&_td:has([data-band])]:z-40! [&_td:has([data-band])]:contain-none! [&_td:has([data-band])]:overflow-visible [&_td_a.mono]:text-primary-text [&_td_a.mono]:font-medium [&_td]:border-border-subtle [&_tr:hover_td]:bg-row-hover [&_td]:h-[var(--grid-row-h,33px)] [&_td]:py-0 [&_td]:px-2.5 [&_td:first-child]:pl-6 [&_td:last-child]:pr-6' +
             (stableWidths
               ? ' [&_td]:overflow-hidden [&_td]:text-ellipsis'
               : ''),

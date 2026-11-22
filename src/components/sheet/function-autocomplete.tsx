@@ -219,7 +219,7 @@ export function FunctionAutocompleteDropdown({
     <div
       ref={listRef}
       role="listbox"
-      className="absolute z-50 mt-1 max-h-64 w-72 overflow-auto rounded-md border border-border bg-popover p-1 text-popover-foreground shadow-md"
+      className="absolute z-50 mt-1 max-h-64 w-72 overflow-auto origin-top-left animate-dialog-in rounded-lg border border-border bg-popover p-1 text-popover-foreground shadow-overlay"
     >
       {suggestions.map((s, i) => (
         <button

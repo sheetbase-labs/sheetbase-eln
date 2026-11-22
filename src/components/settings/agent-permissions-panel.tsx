@@ -77,6 +77,183 @@ function titleCase(value: string): string {
   return value.charAt(0).toUpperCase() + value.slice(1)
 }
 
+/** Every action an agent can take, searched and paged: the list is long. */
+function ActionsTable({
+  everyone,
+  canManage,
+  onChange,
+}: {
+  everyone: ReadonlyMap<string, AgentActionLevel>
+  canManage: boolean
+  onChange: (actionKey: string, level: AgentActionLevel) => void
+}) {
+  const [search, setSearch] = useState('')
+  const [area, setArea] = useState('')
+  const [page, setPage] = useState(0)
+
+  const matching = useMemo(() => {
+    const needle = search.trim().toLowerCase()
+
+    return PANEL_ENTRIES.filter(
+      (entry) =>
+        (area === '' || entry.area === area) &&
+        (needle === '' ||
+          entry.label.toLowerCase().includes(needle) ||
+          entry.area.toLowerCase().includes(needle)),
+    )
+  }, [search, area])
+
+  const pageCount = Math.max(1, Math.ceil(matching.length / PAGE_SIZE))
+  const shown = Math.min(page, pageCount - 1)
+  const start = shown * PAGE_SIZE
+
+  const actionRows: RegistryRow<ActionRow>[] = matching
+    .slice(start, start + PAGE_SIZE)
+    .map((entry) => ({
+      id: entry.key,
+      entry,
+      level: everyone.get(entry.key) ?? AGENT_ACTION_DEFAULT_LEVEL,
+    }))
+
+  const actionColumns = useMemo<RegistryColumn<ActionRow>[]>(
+    () => [
+      {
+        id: 'action',
+        header: t('agents.permissions.action'),
+        enableSorting: false,
+        cell: ({ row }) => {
+          const entry = row.original.entry
+
+          return (
+            <Tooltip
+              content={
+                agentActionAlwaysAsk(entry.key)
+                  ? `${entry.description} ${t('agents.permissions.alwaysAsk')}`
+                  : entry.description
+              }
+            >
+              <span className="block max-w-[40rem] truncate font-medium text-fg">
+                {entry.label}
+              </span>
+            </Tooltip>
+          )
+        },
+      },
+      {
+        id: 'area',
+        header: t('agents.permissions.area'),
+        size: 140,
+        enableSorting: false,
+        cell: ({ row }) => (
+          <span className="text-fg-muted">{row.original.entry.area}</span>
+        ),
+      },
+      {
+        id: 'level',
+        header: t('agents.permissions.level'),
+        size: 160,
+        enableSorting: false,
+        cell: ({ row }) => {
+          const { entry, level } = row.original
+
+          return (
+            <Select
+              size="sm"
+              aria-label={`${entry.label}: ${t('agents.permissions.level')}`}
+              value={level}
+              disabled={!canManage}
+              onChange={(event) => {
+                const selectedLevel = agentActionLevelsFor(entry.key).find(
+                  (value) => value === event.target.value,
+                )
+
+                if (!selectedLevel) return
+                onChange(entry.key, selectedLevel)
+              }}
+            >
+              {agentActionLevelsFor(entry.key).map((value) => (
+                <option key={value} value={value}>
+                  {agentLevelWord(entry.key, value)}
+                </option>
+              ))}
+            </Select>
+          )
+        },
+      },
+    ],
+    [canManage, onChange],
+  )
+
+  return (
+    <>
+      <div className="flex flex-wrap items-center gap-2">
+        <Input
+          type="search"
+          value={search}
+          onChange={(event) => {
+            setSearch(event.target.value)
+            setPage(0)
+          }}
+          placeholder={t('agents.permissions.searchPlaceholder')}
+          aria-label={t('agents.permissions.searchPlaceholder')}
+          className="max-w-64 min-w-40 flex-1"
+        />
+        <Select
+          size="sm"
+          value={area}
+          onChange={(event) => {
+            setArea(event.target.value)
+            setPage(0)
+          }}
+          aria-label={t('agents.permissions.area')}
+          className="w-auto"
+        >
+          <option value="">{t('agents.permissions.allAreas')}</option>
+          {PANEL_AREAS.map((name) => (
+            <option key={name} value={name}>
+              {name}
+            </option>
+          ))}
+        </Select>
+      </div>
+      <TableBox>
+        <RegistryGrid
+          label={t('agents.permissions.tableLabel')}
+          rows={actionRows}
+          columns={actionColumns}
+          getRowId={(row) => row.id}
+          selectable={false}
+          sortable={false}
+          empty={t('agents.permissions.noMatches')}
+        />
+      </TableBox>
+      <div className="flex flex-wrap items-center gap-3 text-label text-fg-muted">
+        <span>
+          {t('agents.permissions.showing', {
+            start: matching.length === 0 ? 0 : start + 1,
+            end: Math.min(start + PAGE_SIZE, matching.length),
+            total: matching.length,
+          })}
+        </span>
+        <Button
+          size="sm"
+          disabled={shown === 0}
+          onClick={() => setPage(shown - 1)}
+        >
+          {t('common.actions.previous')}
+        </Button>
+        <Button
+          size="sm"
+          disabled={shown >= pageCount - 1}
+          onClick={() => setPage(shown + 1)}
+        >
+          {t('common.actions.next')}
+        </Button>
+      </div>
+    </>
+  )
+}
+
 export const AgentPermissionsPanel = memo(function AgentPermissionsPanel({
   workspaceId,
   canManage,
@@ -192,106 +369,6 @@ export const AgentPermissionsPanel = memo(function AgentPermissionsPanel({
     credentials.data?.find((credential) => credential.id === id)?.name ??
     'Service credential'
 
-  const [search, setSearch] = useState('')
-  const [area, setArea] = useState('')
-  const [page, setPage] = useState(0)
-
-  const matching = useMemo(() => {
-    const needle = search.trim().toLowerCase()
-
-    return PANEL_ENTRIES.filter(
-      (entry) =>
-        (area === '' || entry.area === area) &&
-        (needle === '' ||
-          entry.label.toLowerCase().includes(needle) ||
-          entry.area.toLowerCase().includes(needle)),
-    )
-  }, [search, area])
-
-  const pageCount = Math.max(1, Math.ceil(matching.length / PAGE_SIZE))
-  const shown = Math.min(page, pageCount - 1)
-  const start = shown * PAGE_SIZE
-
-  const actionRows: RegistryRow<ActionRow>[] = matching
-    .slice(start, start + PAGE_SIZE)
-    .map((entry) => ({
-      id: entry.key,
-      entry,
-      level: everyone.get(entry.key) ?? AGENT_ACTION_DEFAULT_LEVEL,
-    }))
-
-  const mutate = save.mutate
-  const saving = save.isPending
-
-  const actionColumns = useMemo<RegistryColumn<ActionRow>[]>(
-    () => [
-      {
-        id: 'action',
-        header: t('agents.permissions.action'),
-        enableSorting: false,
-        cell: ({ row }) => {
-          const entry = row.original.entry
-
-          return (
-            <Tooltip
-              content={
-                agentActionAlwaysAsk(entry.key)
-                  ? `${entry.description} ${t('agents.permissions.alwaysAsk')}`
-                  : entry.description
-              }
-            >
-              <span className="block max-w-[40rem] truncate font-medium text-fg">
-                {entry.label}
-              </span>
-            </Tooltip>
-          )
-        },
-      },
-      {
-        id: 'area',
-        header: t('agents.permissions.area'),
-        size: 140,
-        enableSorting: false,
-        cell: ({ row }) => (
-          <span className="text-fg-muted">{row.original.entry.area}</span>
-        ),
-      },
-      {
-        id: 'level',
-        header: t('agents.permissions.level'),
-        size: 160,
-        enableSorting: false,
-        cell: ({ row }) => {
-          const { entry, level } = row.original
-
-          return (
-            <Select
-              size="sm"
-              aria-label={`${entry.label}: ${t('agents.permissions.level')}`}
-              value={level}
-              disabled={!canManage}
-              onChange={(event) => {
-                const selectedLevel = agentActionLevelsFor(entry.key).find(
-                  (value) => value === event.target.value,
-                )
-
-                if (!selectedLevel) return
-                mutate({ actionKey: entry.key, level: selectedLevel })
-              }}
-            >
-              {agentActionLevelsFor(entry.key).map((value) => (
-                <option key={value} value={value}>
-                  {agentLevelWord(entry.key, value)}
-                </option>
-              ))}
-            </Select>
-          )
-        },
-      },
-    ],
-    [canManage, mutate],
-  )
-
   const exceptionColumns: RegistryColumn<AgentActionPolicyRow>[] = [
     {
       id: 'action',
@@ -354,70 +431,11 @@ export const AgentPermissionsPanel = memo(function AgentPermissionsPanel({
         <Skeleton className="h-40 w-full" />
       ) : (
         <>
-          <div className="flex flex-wrap items-center gap-2">
-            <Input
-              type="search"
-              value={search}
-              onChange={(event) => {
-                setSearch(event.target.value)
-                setPage(0)
-              }}
-              placeholder={t('agents.permissions.searchPlaceholder')}
-              aria-label={t('agents.permissions.searchPlaceholder')}
-              className="max-w-64 min-w-40 flex-1"
-            />
-            <Select
-              size="sm"
-              value={area}
-              onChange={(event) => {
-                setArea(event.target.value)
-                setPage(0)
-              }}
-              aria-label={t('agents.permissions.area')}
-              className="w-auto"
-            >
-              <option value="">{t('agents.permissions.allAreas')}</option>
-              {PANEL_AREAS.map((name) => (
-                <option key={name} value={name}>
-                  {name}
-                </option>
-              ))}
-            </Select>
-          </div>
-          <TableBox>
-            <RegistryGrid
-              label={t('agents.permissions.tableLabel')}
-              rows={actionRows}
-              columns={actionColumns}
-              getRowId={(row) => row.id}
-              selectable={false}
-              sortable={false}
-              empty={t('agents.permissions.noMatches')}
-            />
-          </TableBox>
-          <div className="flex flex-wrap items-center gap-3 text-label text-fg-muted">
-            <span>
-              {t('agents.permissions.showing', {
-                start: matching.length === 0 ? 0 : start + 1,
-                end: Math.min(start + PAGE_SIZE, matching.length),
-                total: matching.length,
-              })}
-            </span>
-            <Button
-              size="sm"
-              disabled={shown === 0}
-              onClick={() => setPage(shown - 1)}
-            >
-              {t('common.actions.previous')}
-            </Button>
-            <Button
-              size="sm"
-              disabled={shown >= pageCount - 1}
-              onClick={() => setPage(shown + 1)}
-            >
-              {t('common.actions.next')}
-            </Button>
-          </div>
+          <ActionsTable
+            everyone={everyone}
+            canManage={canManage}
+            onChange={(actionKey, level) => save.mutate({ actionKey, level })}
+          />
 
           <div className="flex flex-wrap items-end justify-between gap-2">
             <div className="flex flex-col gap-1">

@@ -196,6 +196,7 @@ export const SemanticSearchSection = memo(function SemanticSearchSection({
   if (!view) return null
 
   const form = toForm(view)
+
   const blocked =
     form.enabled && blockedByConsent(view, form.profile, cloudAllowed)
 

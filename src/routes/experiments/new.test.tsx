@@ -221,6 +221,7 @@ afterEach(() => {
 describe('new experiment', () => {
   it('opens the title box for typing, with the cursor in it, once the page is live', async () => {
     renderForm()
+
     const title = await screen.findByRole<HTMLInputElement>('textbox', {
       name: /^Title/,
     })

@@ -155,10 +155,13 @@ test('CORE-08 a column in a sheet can be promoted to a model', async ({
 test('CORE-09 a dataset snapshot can be referenced from the notebook', async ({
   page,
 }) => {
+  await page.setViewportSize({ width: 1600, height: 900 })
   const projectPath = await createProject(page, uniqueName('Journey project'))
   const title = uniqueName('Snapshot run')
   const expId = await createExperiment(page, projectPath, title)
   await open(page, `/datasets/${ELISA_DATASET}/snapshots`)
+  // The newest snapshot is chosen on arrival, and its details sit in a side
+  // panel that needs a wide window.
   await action(page, /cite in (a )?notebook/i).click()
   const dialog = page.getByRole('dialog')
   await expect(dialog).toBeVisible()

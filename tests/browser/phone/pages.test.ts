@@ -192,8 +192,12 @@ async function popupProblems(page: Page, what: string): Promise<string[]> {
   // Sheets slide in over 250ms and a loaded runner can start late: measure
   // where the popup settles, not where it is part-way.
   await page.evaluate(() =>
+    // Only finite ones: a spinner or skeleton pulse repeats forever.
     Promise.all(
-      document.getAnimations().map((a) => a.finished.catch(() => {})),
+      document
+        .getAnimations()
+        .filter((a) => a.effect?.getComputedTiming().iterations !== Infinity)
+        .map((a) => a.finished.catch(() => {})),
     ),
   )
   const area = await visibleArea(page)

@@ -317,10 +317,14 @@ describe('evidence page — package export (DATA-02)', () => {
 
     fireEvent.click(screen.getByRole('button', { name: 'Export data (zip)' }))
 
-    expect(await screen.findByText('Couldn’t export the evidence')).toBeTruthy()
+    // A toast outlives the tree that raised it, so on a slow run the previous
+    // test's refusal can still be on screen beside this one's.
     expect(
-      screen.getByText('This revision has nothing to export.'),
-    ).toBeTruthy()
+      (await screen.findAllByText('Couldn’t export the evidence')).length,
+    ).toBeGreaterThan(0)
+    expect(
+      screen.getAllByText('This revision has nothing to export.').length,
+    ).toBeGreaterThan(0)
     expect(fetchSeam).toHaveBeenCalledWith(
       '/api/export/revision/rev-0001/package',
     )
@@ -343,7 +347,11 @@ describe('evidence page — PDF export', () => {
         '/api/export/revision/rev-0001/pdf',
       ),
     )
-    expect(await screen.findByText('Couldn’t export the evidence')).toBeTruthy()
+    // A toast outlives the tree that raised it, so on a slow run the previous
+    // test's refusal can still be on screen beside this one's.
+    expect(
+      (await screen.findAllByText('Couldn’t export the evidence')).length,
+    ).toBeGreaterThan(0)
   })
 })
 

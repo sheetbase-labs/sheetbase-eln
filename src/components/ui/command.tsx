@@ -528,7 +528,11 @@ export function CommandDialog({
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
-        className={cn('top-20 w-[min(560px,calc(100vw-32px))]', className)}
+        // Opened from the keyboard, often: it appears and goes at once.
+        className={cn(
+          'top-20 w-[min(560px,calc(100vw-32px))] transition-none',
+          className,
+        )}
       >
         <DialogPrimitive.Title className="sr-only">
           {title}

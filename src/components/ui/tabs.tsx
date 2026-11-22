@@ -71,10 +71,10 @@ const ITEM: Record<TabVariant, string> = {
   // The focus outline is drawn inside the item (`-outline-offset-2`): a strip
   // scrolls sideways in its rail, and an outer ring would be clipped by it.
   strip:
-    'inline-flex h-9 shrink-0 cursor-pointer items-center gap-1.5 border-0 border-b-2 border-transparent bg-transparent px-0.5 text-body font-medium text-fg-muted no-underline hover:text-fg hover:no-underline focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-focus max-md:h-11',
+    'inline-flex h-9 shrink-0 cursor-pointer items-center gap-1.5 border-0 border-b-2 border-transparent bg-transparent px-0.5 text-body font-medium text-fg-muted no-underline transition-[color,background-color,border-color] duration-150 ease-out hover:text-fg hover:no-underline focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-focus max-md:h-11',
   segment:
-    'inline-flex h-6 shrink-0 cursor-pointer items-center gap-1.5 rounded-sm px-2 text-label font-medium text-fg-muted no-underline hover:text-fg hover:no-underline focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-focus max-md:h-8',
-  chip: 'inline-flex h-8 shrink-0 cursor-pointer items-center gap-1.5 whitespace-nowrap rounded-full border border-border px-3 text-label text-fg no-underline hover:bg-surface-hover hover:text-fg hover:no-underline focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-focus max-md:h-9',
+    'inline-flex h-6 shrink-0 cursor-pointer items-center gap-1.5 rounded-sm px-2 text-label font-medium text-fg-muted no-underline transition-[color,background-color,border-color] duration-150 ease-out hover:text-fg hover:no-underline focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-focus max-md:h-8',
+  chip: 'inline-flex h-8 shrink-0 cursor-pointer items-center gap-1.5 whitespace-nowrap rounded-full border border-border px-3 text-label text-fg no-underline transition-[color,background-color,border-color] duration-150 ease-out hover:bg-surface-hover hover:text-fg hover:no-underline focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-focus max-md:h-9',
 }
 
 /**

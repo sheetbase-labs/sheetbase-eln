@@ -8,7 +8,7 @@ import { cn } from '#/lib/utils'
 // Sheetbase button: 28px, border before shadow, one decisive blue for the primary action.
 // react-doctor-disable-next-line react-doctor/only-export-components -- `buttonVariants` is an immutable class-name table that `Button` and its callers read; the file holds one component and no hot state, so Fast Refresh keeps the real component.
 export const buttonVariants = cva(
-  'inline-flex shrink-0 cursor-pointer items-center justify-center gap-1.5 whitespace-nowrap rounded-md border font-medium no-underline transition-colors hover:no-underline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-focus disabled:cursor-default disabled:border-border disabled:bg-surface-disabled disabled:text-fg-faint aria-disabled:cursor-default aria-disabled:border-border aria-disabled:bg-surface-disabled aria-disabled:text-fg-faint aria-expanded:border-border-strong aria-expanded:bg-surface-hover',
+  'inline-flex shrink-0 cursor-pointer items-center justify-center gap-1.5 whitespace-nowrap rounded-md border font-medium no-underline transition-[color,background-color,border-color,scale] duration-150 ease-out hover:no-underline active:scale-[.97] disabled:active:scale-100 aria-disabled:active:scale-100 focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-focus disabled:cursor-default disabled:border-border disabled:bg-surface-disabled disabled:text-fg-faint aria-disabled:cursor-default aria-disabled:border-border aria-disabled:bg-surface-disabled aria-disabled:text-fg-faint aria-expanded:border-border-strong aria-expanded:bg-surface-hover',
   {
     variants: {
       variant: {

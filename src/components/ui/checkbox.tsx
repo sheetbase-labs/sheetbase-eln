@@ -34,7 +34,7 @@ export function Checkbox({
       nativeButton
       render={<button type="button" />}
       className={cn(
-        'inline-flex size-4 shrink-0 cursor-pointer items-center justify-center rounded-[4px] border border-border-strong bg-surface text-on-accent data-checked:border-primary data-checked:bg-primary data-indeterminate:border-primary data-indeterminate:bg-primary data-disabled:cursor-default data-disabled:bg-surface-disabled data-disabled:data-checked:border-primary data-disabled:data-checked:bg-primary data-disabled:data-indeterminate:border-primary data-disabled:data-indeterminate:bg-primary focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-focus',
+        'inline-flex size-4 shrink-0 cursor-pointer items-center justify-center rounded-[4px] border border-border-strong bg-surface text-on-accent transition-[background-color,border-color,scale] duration-150 ease-out active:scale-90 data-checked:border-primary data-checked:bg-primary data-indeterminate:border-primary data-indeterminate:bg-primary data-disabled:cursor-default data-disabled:bg-surface-disabled data-disabled:data-checked:border-primary data-disabled:data-checked:bg-primary data-disabled:data-indeterminate:border-primary data-disabled:data-indeterminate:bg-primary focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-focus',
         className,
       )}
       {...props}

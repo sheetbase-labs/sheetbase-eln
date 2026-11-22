@@ -18,7 +18,7 @@ export function Tooltip({
         <TooltipPositioner>
           <TooltipPrimitive.Popup
             className={cn(
-              'rounded-sm bg-inverse px-2 py-1 text-label text-inverse-foreground transition-opacity data-ending-style:opacity-0 data-starting-style:opacity-0',
+              'rounded-sm bg-inverse px-2 py-1 text-label text-inverse-foreground origin-(--transform-origin) transition-[opacity,scale] duration-125 ease-out data-instant:duration-0 data-ending-style:scale-[.97] data-ending-style:opacity-0 data-starting-style:scale-[.97] data-starting-style:opacity-0',
             )}
           >
             {content}

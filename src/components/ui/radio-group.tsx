@@ -20,7 +20,7 @@ export function Radio({ className, ...props }: RadioPrimitive.Root.Props) {
     <RadioPrimitive.Root
       data-slot="radio"
       className={cn(
-        'inline-flex size-4 shrink-0 cursor-pointer items-center justify-center rounded-full border border-border-strong bg-surface data-checked:border-primary data-disabled:cursor-default data-disabled:bg-surface-disabled focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-focus',
+        'inline-flex size-4 shrink-0 cursor-pointer items-center justify-center rounded-full border border-border-strong bg-surface transition-[border-color,scale] duration-150 ease-out active:scale-90 data-checked:border-primary data-disabled:cursor-default data-disabled:bg-surface-disabled focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-focus',
         className,
       )}
       {...props}

@@ -384,6 +384,25 @@
 }
 
 @theme inline {
+  /* Motion curves. The built-in CSS easings are too gentle: these start fast,
+   * so a response is visible in the first frame. `ease-out` for anything that
+   * enters or exits, `ease-in-out` for movement already on screen, `ease-drawer`
+   * for panels that slide in from an edge. Never ease-in on UI. */
+  --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
+  --ease-in-out: cubic-bezier(0.77, 0, 0.175, 1);
+  --ease-drawer: cubic-bezier(0.32, 0.72, 0, 1);
+
+  /* Entrances that run on mount. Many dialogs here are rendered open (`<Dialog
+   * open>` inside a conditional), and a mounted-open popup never gets Base
+   * UI's starting style, so a transition alone left them appearing from
+   * nothing. A keyframe runs either way; the exit stays a transition. */
+  --animate-dialog-in: sb-dialog-in 200ms cubic-bezier(0.23, 1, 0.32, 1);
+  --animate-dialog-sheet-in: sb-slide-up 250ms cubic-bezier(0.32, 0.72, 0, 1);
+  --animate-sheet-up: sb-slide-up 250ms cubic-bezier(0.32, 0.72, 0, 1);
+  --animate-sheet-left: sb-slide-left 250ms cubic-bezier(0.32, 0.72, 0, 1);
+  --animate-sheet-right: sb-slide-right 250ms cubic-bezier(0.32, 0.72, 0, 1);
+  --animate-fade-in: sb-fade-in 200ms cubic-bezier(0.23, 1, 0.32, 1);
+
   --font-sans: 'Inter Variable', ui-sans-serif, system-ui, sans-serif;
   --font-display:
     'Instrument Sans Variable', 'Inter Variable', ui-sans-serif, system-ui,
@@ -700,6 +719,33 @@
   background: transparent;
   color: inherit;
   font: inherit;
+}
+
+@keyframes sb-fade-in {
+  from {
+    opacity: 0;
+  }
+}
+@keyframes sb-dialog-in {
+  from {
+    opacity: 0;
+    scale: 0.97;
+  }
+}
+@keyframes sb-slide-up {
+  from {
+    translate: 0 100%;
+  }
+}
+@keyframes sb-slide-left {
+  from {
+    translate: -100% 0;
+  }
+}
+@keyframes sb-slide-right {
+  from {
+    translate: 100% 0;
+  }
 }
 
 @keyframes accordion-down {

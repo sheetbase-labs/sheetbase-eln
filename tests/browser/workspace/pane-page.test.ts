@@ -47,6 +47,19 @@ async function setup(page: Page, blockers = false) {
     const url = new URL(route.request().url())
     const resource = url.pathname.slice('/api/db/'.length)
 
+    if (
+      route.request().method() === 'POST' &&
+      resource === 'rpc/my_project_permissions'
+    ) {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: '[]',
+      })
+
+      return
+    }
+
     if (route.request().method() !== 'GET') {
       unexpected.push(`${route.request().method()} ${url.pathname}`)
       await route.abort('blockedbyclient')

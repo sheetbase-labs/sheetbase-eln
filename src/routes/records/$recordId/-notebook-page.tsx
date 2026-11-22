@@ -2728,6 +2728,24 @@ function useEditableNotebook({
     withResolver: true,
   })
 
+  // Each structural change (insert, move, delete...) sends the structure
+  // version it read from the cache. Two keystrokes in quick succession, a move
+  // then an insert, would both read the old version and the second would be
+  // refused as stale, so they run one after another and each reads the version
+  // the one before it left.
+  const structureQueue = useRef<Promise<unknown> | null>(null)
+
+  function inStructureOrder<T>(change: () => Promise<T>): Promise<T> {
+    const run = (structureQueue.current ?? Promise.resolve()).then(
+      change,
+      change,
+    )
+
+    structureQueue.current = run.catch(() => undefined)
+
+    return run
+  }
+
   const proceedRef = useRef<(() => void) | null>(null)
   const resetRef = useRef<(() => void) | null>(null)
   useEffect(() => {
@@ -3145,11 +3163,13 @@ function useEditableNotebook({
       return undefined
     }
 
-    const res = await insertMutation.mutateAsync({
-      type,
-      afterBlockId,
-      options,
-    })
+    const res = await inStructureOrder(() =>
+      insertMutation.mutateAsync({
+        type,
+        afterBlockId,
+        options,
+      }),
+    )
 
     return res.block.id
   }
@@ -3314,13 +3334,15 @@ function useEditableNotebook({
   }
 
   async function handleDuplicate(block: NotebookBlockDomain) {
-    const duplicated = await duplicateMutation.mutateAsync(block)
+    const duplicated = await inStructureOrder(() =>
+      duplicateMutation.mutateAsync(block),
+    )
 
     return duplicated.block.id
   }
 
   async function handleDelete(block: NotebookBlockDomain) {
-    await deleteMutation.mutateAsync(block)
+    await inStructureOrder(() => deleteMutation.mutateAsync(block))
   }
 
   /**
@@ -3339,7 +3361,7 @@ function useEditableNotebook({
     },
   ): Promise<string | undefined> {
     const newId = await handleInsert(type, block.id, options)
-    await deleteMutation.mutateAsync(block)
+    await inStructureOrder(() => deleteMutation.mutateAsync(block))
 
     return newId
   }
@@ -3352,11 +3374,13 @@ function useEditableNotebook({
       beforeBlockId: string | null
     },
   ) {
-    const restored = await undoDeleteMutation.mutateAsync({
-      type,
-      payload,
-      destination,
-    })
+    const restored = await inStructureOrder(() =>
+      undoDeleteMutation.mutateAsync({
+        type,
+        payload,
+        destination,
+      }),
+    )
 
     return { id: restored.block.id, moved: true }
   }
@@ -3365,7 +3389,9 @@ function useEditableNotebook({
     block: NotebookBlockDomain,
     destination: { afterBlockId: string | null; beforeBlockId: string | null },
   ) {
-    await moveMutation.mutateAsync({ block, destination })
+    await inStructureOrder(() =>
+      moveMutation.mutateAsync({ block, destination }),
+    )
   }
 
   /** Add drafted steps after the last block, one procedure step each. */

@@ -42,6 +42,7 @@ import {
 import { PLUGIN_BLOCK_PREFIX } from './add-block-menu'
 import { usePluginPoints } from '#/components/extensions/use-plugin-points'
 import { AiComposer } from './ai-composer'
+import { LinkDialog } from './link-dialog'
 import { usePageAi } from '#/lib/use-page-ai'
 import { useAnchoredPlacement } from '#/lib/use-anchored-placement'
 import { fingerprint, liveFieldName, useLiveRichText } from './live-rich-text'
@@ -990,6 +991,8 @@ export function RichTextEditor(props: RichTextEditorProps) {
     null,
   )
 
+  const [linkOpen, setLinkOpen] = React.useState(false)
+
   const mountEditor = React.useCallback((node: HTMLDivElement | null) => {
     setPortalTarget(node?.ownerDocument.body ?? null)
   }, [])
@@ -1053,9 +1056,7 @@ export function RichTextEditor(props: RichTextEditorProps) {
       return
     }
 
-    const href = window.prompt(t('notebook.richTextEditor.linkUrl'), 'https://')
-
-    if (href) editor.chain().focus().setLink({ href }).run()
+    setLinkOpen(true)
   }
 
   const controls = [
@@ -1160,6 +1161,12 @@ export function RichTextEditor(props: RichTextEditorProps) {
   return (
     <div className={className} ref={mountEditor}>
       <EditorContent editor={editor} />
+      {linkOpen ? (
+        <LinkDialog
+          onSubmit={(href) => editor.chain().focus().setLink({ href }).run()}
+          onClose={() => setLinkOpen(false)}
+        />
+      ) : null}
       {aiComposer && ai.live ? (
         <AiComposer
           editor={editor}

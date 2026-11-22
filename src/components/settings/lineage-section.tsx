@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 
 import { Button } from '#/components/ui/button'
+import { ConfirmPrompt } from '#/components/ui/confirm-prompt'
 import { Notice } from '#/components/ui/alert'
 import { Checkbox } from '#/components/ui/checkbox'
 import { Field, Input } from '#/components/ui/input'
@@ -59,6 +60,7 @@ export function LineageSection({
 
   const refresh = useRefreshLineage(workspaceId)
   const [editing, setEditing] = useState<LineageTargetWire | 'new' | null>(null)
+  const [removing, setRemoving] = useState<string | null>(null)
 
   const [notice, setNotice] = useState<{ ok: boolean; text: string } | null>(
     null,
@@ -210,15 +212,20 @@ export function LineageSection({
           onClose={() => setEditing(null)}
           onSaved={refresh}
           onRemove={
-            editing !== 'new'
-              ? () => {
-                  if (window.confirm(t('settings.lineage.removeConfirm'))) {
-                    remove.mutate(editing.id)
-                    setEditing(null)
-                  }
-                }
-              : undefined
+            editing !== 'new' ? () => setRemoving(editing.id) : undefined
           }
+        />
+      ) : null}
+      {removing ? (
+        <ConfirmPrompt
+          message={t('settings.lineage.removeConfirm')}
+          confirmLabel={t('settings.lineage.remove')}
+          variant="danger-fill"
+          onConfirm={() => {
+            remove.mutate(removing)
+            setEditing(null)
+          }}
+          onClose={() => setRemoving(null)}
         />
       ) : null}
     </>

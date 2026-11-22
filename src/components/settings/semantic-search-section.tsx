@@ -3,6 +3,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 
 import { Notice } from '#/components/ui/alert'
 import { Button } from '#/components/ui/button'
+import { ConfirmPrompt } from '#/components/ui/confirm-prompt'
 import { Field } from '#/components/ui/input'
 import { Muted, Section } from '#/components/ui/layout'
 import { Select } from '#/components/ui/select'
@@ -187,6 +188,8 @@ export function SemanticSearchSection({
   const { query, form, setForm, save, reread } =
     useSemanticSettings(workspaceId)
 
+  const [confirmingReread, setConfirmingReread] = useState(false)
+
   const view = query.data
 
   if (query.isPending) return <Skeleton className="h-24 w-full" />
@@ -202,6 +205,14 @@ export function SemanticSearchSection({
   return (
     <Section title={t('settings.semanticSearch.title')}>
       <Muted>{t('settings.semanticSearch.intro')}</Muted>
+      {confirmingReread ? (
+        <ConfirmPrompt
+          message={t('settings.semanticSearch.rereadConfirm')}
+          confirmLabel={t('settings.semanticSearch.reread')}
+          onConfirm={() => reread.mutate()}
+          onClose={() => setConfirmingReread(false)}
+        />
+      ) : null}
 
       <CheckRow
         title={t('settings.semanticSearch.enable')}
@@ -246,11 +257,7 @@ export function SemanticSearchSection({
         <SemanticProgress settings={view.settings} />
         {view.canManage && view.settings.enabled ? (
           <Button
-            onClick={() => {
-              if (window.confirm(t('settings.semanticSearch.rereadConfirm'))) {
-                reread.mutate()
-              }
-            }}
+            onClick={() => setConfirmingReread(true)}
             disabled={reread.isPending}
           >
             {t('settings.semanticSearch.reread')}

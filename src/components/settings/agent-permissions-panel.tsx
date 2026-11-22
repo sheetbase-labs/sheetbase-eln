@@ -3,10 +3,10 @@
  * lab, Auto (runs straight away), Ask (waits for a person) or Never. One
  * setting for everyone, with exceptions for a role or a service credential.
  */
-import { useState } from 'react'
+import { memo, useMemo, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 
-import { RegistryGrid, bandRow } from '#/components/inventory/registry-grid'
+import { RegistryGrid } from '#/components/inventory/registry-grid'
 import type {
   RegistryColumn,
   RegistryRow,
@@ -21,7 +21,7 @@ import {
   DialogFooter,
   DialogHeader,
 } from '#/components/ui/dialog'
-import { Field } from '#/components/ui/input'
+import { Field, Input } from '#/components/ui/input'
 import { Muted, Section } from '#/components/ui/layout'
 import { Select } from '#/components/ui/select'
 import { Skeleton } from '#/components/ui/skeleton'
@@ -67,13 +67,17 @@ interface ActionRow {
 
 /** The plan rules first, then every lab action by area. */
 const PANEL_ENTRIES: readonly PanelEntry[] = [...PLAN_RULES, ...AGENT_ACTIONS]
+
+/** Rows shown at a time: the list is long, so it is searched and paged. */
+const PAGE_SIZE = 12
+
 const PANEL_AREAS: readonly string[] = ['Plans', ...AGENT_ACTION_AREAS]
 
 function titleCase(value: string): string {
   return value.charAt(0).toUpperCase() + value.slice(1)
 }
 
-export function AgentPermissionsPanel({
+export const AgentPermissionsPanel = memo(function AgentPermissionsPanel({
   workspaceId,
   canManage,
 }: {
@@ -109,16 +113,69 @@ export function AgentPermissionsPanel({
       role?: string | null
       credentialId?: string | null
     }) => setAgentActionPolicy(client, { workspaceId, ...input }),
+    // The level changes on screen at once; a failure puts it back.
+    onMutate: async (input) => {
+      if (input.role || input.credentialId) return undefined
+
+      await queryClient.cancelQueries({ queryKey: agentActionKeys.policies })
+
+      const before = queryClient.getQueryData<AgentActionPolicyRow[]>(
+        agentActionKeys.policies,
+      )
+
+      queryClient.setQueryData<AgentActionPolicyRow[]>(
+        agentActionKeys.policies,
+        (rows = []) => {
+          const others = rows.filter(
+            (row) =>
+              !(
+                row.subject_kind === 'everyone' &&
+                row.action_key === input.actionKey
+              ),
+          )
+
+          if (input.level === 'default') return others
+
+          const existing = rows.find(
+            (row) =>
+              row.subject_kind === 'everyone' &&
+              row.action_key === input.actionKey,
+          )
+
+          return [
+            ...others,
+            {
+              id: existing?.id ?? `pending-${input.actionKey}`,
+              workspace_id: workspaceId,
+              action_key: input.actionKey,
+              subject_kind: 'everyone' as const,
+              role: null,
+              credential_id: null,
+              level: input.level,
+              updated_by_user_id: null,
+              created_at: existing?.created_at ?? '',
+              updated_at: '',
+            },
+          ]
+        },
+      )
+
+      return { before }
+    },
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: agentActionKeys.policies })
       toast(t('agents.permissions.saved'))
     },
-    onError: (error) =>
+    onError: (error, _input, context) => {
+      if (context?.before)
+        queryClient.setQueryData(agentActionKeys.policies, context.before)
+
       toast.error(
         error instanceof Error
           ? error.message
           : t('agents.permissions.couldNotSave'),
-      ),
+      )
+    },
   })
 
   const rows = policies.data ?? []
@@ -135,77 +192,105 @@ export function AgentPermissionsPanel({
     credentials.data?.find((credential) => credential.id === id)?.name ??
     'Service credential'
 
-  const actionRows: RegistryRow<ActionRow>[] = PANEL_AREAS.flatMap((area) => {
-    const inArea = PANEL_ENTRIES.filter((entry) => entry.area === area)
+  const [search, setSearch] = useState('')
+  const [area, setArea] = useState('')
+  const [page, setPage] = useState(0)
 
-    if (inArea.length === 0) return []
+  const matching = useMemo(() => {
+    const needle = search.trim().toLowerCase()
 
-    return [
-      bandRow(area),
-      ...inArea.map((entry) => ({
-        id: entry.key,
-        entry,
-        level: everyone.get(entry.key) ?? AGENT_ACTION_DEFAULT_LEVEL,
-      })),
-    ]
-  })
+    return PANEL_ENTRIES.filter(
+      (entry) =>
+        (area === '' || entry.area === area) &&
+        (needle === '' ||
+          entry.label.toLowerCase().includes(needle) ||
+          entry.area.toLowerCase().includes(needle)),
+    )
+  }, [search, area])
 
-  const actionColumns: RegistryColumn<ActionRow>[] = [
-    {
-      id: 'action',
-      header: t('agents.permissions.action'),
-      enableSorting: false,
-      cell: ({ row }) => {
-        const entry = row.original.entry
+  const pageCount = Math.max(1, Math.ceil(matching.length / PAGE_SIZE))
+  const shown = Math.min(page, pageCount - 1)
+  const start = shown * PAGE_SIZE
 
-        return (
-          <Tooltip
-            content={
-              agentActionAlwaysAsk(entry.key)
-                ? `${entry.description} ${t('agents.permissions.alwaysAsk')}`
-                : entry.description
-            }
-          >
-            <span className="block max-w-[40rem] truncate font-medium text-fg">
-              {entry.label}
-            </span>
-          </Tooltip>
-        )
+  const actionRows: RegistryRow<ActionRow>[] = matching
+    .slice(start, start + PAGE_SIZE)
+    .map((entry) => ({
+      id: entry.key,
+      entry,
+      level: everyone.get(entry.key) ?? AGENT_ACTION_DEFAULT_LEVEL,
+    }))
+
+  const mutate = save.mutate
+  const saving = save.isPending
+
+  const actionColumns = useMemo<RegistryColumn<ActionRow>[]>(
+    () => [
+      {
+        id: 'action',
+        header: t('agents.permissions.action'),
+        enableSorting: false,
+        cell: ({ row }) => {
+          const entry = row.original.entry
+
+          return (
+            <Tooltip
+              content={
+                agentActionAlwaysAsk(entry.key)
+                  ? `${entry.description} ${t('agents.permissions.alwaysAsk')}`
+                  : entry.description
+              }
+            >
+              <span className="block max-w-[40rem] truncate font-medium text-fg">
+                {entry.label}
+              </span>
+            </Tooltip>
+          )
+        },
       },
-    },
-    {
-      id: 'level',
-      header: t('agents.permissions.level'),
-      size: 160,
-      enableSorting: false,
-      cell: ({ row }) => {
-        const { entry, level } = row.original
-
-        return (
-          <Select
-            size="sm"
-            aria-label={`${entry.label}: ${t('agents.permissions.level')}`}
-            value={level}
-            disabled={!canManage || save.isPending}
-            onChange={(event) => {
-              const selectedLevel = agentActionLevelsFor(entry.key).find(
-                (value) => value === event.target.value,
-              )
-
-              if (!selectedLevel) return
-              save.mutate({ actionKey: entry.key, level: selectedLevel })
-            }}
-          >
-            {agentActionLevelsFor(entry.key).map((value) => (
-              <option key={value} value={value}>
-                {agentLevelWord(entry.key, value)}
-              </option>
-            ))}
-          </Select>
-        )
+      {
+        id: 'area',
+        header: t('agents.permissions.area'),
+        size: 140,
+        enableSorting: false,
+        cell: ({ row }) => (
+          <span className="text-fg-muted">{row.original.entry.area}</span>
+        ),
       },
-    },
-  ]
+      {
+        id: 'level',
+        header: t('agents.permissions.level'),
+        size: 160,
+        enableSorting: false,
+        cell: ({ row }) => {
+          const { entry, level } = row.original
+
+          return (
+            <Select
+              size="sm"
+              aria-label={`${entry.label}: ${t('agents.permissions.level')}`}
+              value={level}
+              disabled={!canManage}
+              onChange={(event) => {
+                const selectedLevel = agentActionLevelsFor(entry.key).find(
+                  (value) => value === event.target.value,
+                )
+
+                if (!selectedLevel) return
+                mutate({ actionKey: entry.key, level: selectedLevel })
+              }}
+            >
+              {agentActionLevelsFor(entry.key).map((value) => (
+                <option key={value} value={value}>
+                  {agentLevelWord(entry.key, value)}
+                </option>
+              ))}
+            </Select>
+          )
+        },
+      },
+    ],
+    [canManage, mutate],
+  )
 
   const exceptionColumns: RegistryColumn<AgentActionPolicyRow>[] = [
     {
@@ -243,7 +328,7 @@ export function AgentPermissionsPanel({
           <Button
             size="sm"
             variant="danger"
-            disabled={save.isPending}
+            disabled={saving}
             onClick={() =>
               save.mutate({
                 actionKey: row.original.action_key,
@@ -269,6 +354,36 @@ export function AgentPermissionsPanel({
         <Skeleton className="h-40 w-full" />
       ) : (
         <>
+          <div className="flex flex-wrap items-center gap-2">
+            <Input
+              type="search"
+              value={search}
+              onChange={(event) => {
+                setSearch(event.target.value)
+                setPage(0)
+              }}
+              placeholder={t('agents.permissions.searchPlaceholder')}
+              aria-label={t('agents.permissions.searchPlaceholder')}
+              className="max-w-64 min-w-40 flex-1"
+            />
+            <Select
+              size="sm"
+              value={area}
+              onChange={(event) => {
+                setArea(event.target.value)
+                setPage(0)
+              }}
+              aria-label={t('agents.permissions.area')}
+              className="w-auto"
+            >
+              <option value="">{t('agents.permissions.allAreas')}</option>
+              {PANEL_AREAS.map((name) => (
+                <option key={name} value={name}>
+                  {name}
+                </option>
+              ))}
+            </Select>
+          </div>
           <TableBox>
             <RegistryGrid
               label={t('agents.permissions.tableLabel')}
@@ -276,8 +391,33 @@ export function AgentPermissionsPanel({
               columns={actionColumns}
               getRowId={(row) => row.id}
               selectable={false}
+              sortable={false}
+              empty={t('agents.permissions.noMatches')}
             />
           </TableBox>
+          <div className="flex flex-wrap items-center gap-3 text-label text-fg-muted">
+            <span>
+              {t('agents.permissions.showing', {
+                start: matching.length === 0 ? 0 : start + 1,
+                end: Math.min(start + PAGE_SIZE, matching.length),
+                total: matching.length,
+              })}
+            </span>
+            <Button
+              size="sm"
+              disabled={shown === 0}
+              onClick={() => setPage(shown - 1)}
+            >
+              {t('common.actions.previous')}
+            </Button>
+            <Button
+              size="sm"
+              disabled={shown >= pageCount - 1}
+              onClick={() => setPage(shown + 1)}
+            >
+              {t('common.actions.next')}
+            </Button>
+          </div>
 
           <div className="flex flex-wrap items-end justify-between gap-2">
             <div className="flex flex-col gap-1">
@@ -338,7 +478,7 @@ export function AgentPermissionsPanel({
       ) : null}
     </Section>
   )
-}
+})
 
 function AddException({
   credentials,

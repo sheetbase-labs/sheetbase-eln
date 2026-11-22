@@ -329,7 +329,7 @@ function TreeBranch({
         aria-expanded={children.length ? isOpen : undefined}
         className={cn(
           'flex h-8 cursor-pointer items-center gap-1.5 border-b border-border-subtle pr-3 text-body hover:bg-surface-hover',
-          selected && 'bg-selection hover:bg-selection',
+          selected && 'bg-nav-selected hover:bg-nav-selected',
           node.archivedAt && 'text-fg-muted',
         )}
         style={{ paddingLeft: 8 + depth * 18 }}

@@ -276,6 +276,47 @@ function useCollapsedOnScroll(
 }
 
 /**
+ * True while the person is reading down a page. The floating Details button
+ * folds away then, so it never sits over the text or table they are reading,
+ * and comes back as soon as they scroll up or stop at the top.
+ */
+function useTuckedAwayWhileScrollingDown(enabled: boolean): boolean {
+  const [tucked, setTucked] = useState(false)
+
+  useEffect(() => {
+    if (!enabled) return
+
+    const last = new WeakMap<EventTarget, number>()
+
+    const onScroll = (event: Event) => {
+      const target = event.target
+
+      const y =
+        target instanceof HTMLElement ? target.scrollTop : window.scrollY
+
+      const before = last.get(target ?? window) ?? 0
+
+      if (Math.abs(y - before) < 8) return
+
+      last.set(target ?? window, y)
+      setTucked(y > before && y > 80)
+    }
+
+    // Scroll does not bubble: listen in the capture phase to hear the page's
+    // own scroller, wherever it is.
+    window.addEventListener('scroll', onScroll, {
+      capture: true,
+      passive: true,
+    })
+
+    return () =>
+      window.removeEventListener('scroll', onScroll, { capture: true })
+  }, [enabled])
+
+  return tucked
+}
+
+/**
  * Right-hand panel for properties and provenance. Inline when its pane is at least 1100px wide; below that it folds away
  * behind a "Details" button and opens as a side panel on laptops and a bottom sheet on tablets and phones.
  *
@@ -300,6 +341,10 @@ export function Inspector({
 }) {
   const [internalOpen, setInternalOpen] = useState(false)
   const open = controlledOpen ?? internalOpen
+
+  const tuckedAway = useTuckedAwayWhileScrollingDown(
+    controlledOpen === undefined,
+  )
 
   function setOpen(next: boolean) {
     setInternalOpen(next)
@@ -330,7 +375,8 @@ export function Inspector({
           aria-haspopup="dialog"
           aria-label={label}
           title={label}
-          className="fixed bottom-[calc(16px+env(safe-area-inset-bottom))] right-4 z-30 rounded-full shadow-overlay xl:hidden print:hidden"
+          data-tucked={tuckedAway || undefined}
+          className="fixed bottom-[calc(16px+env(safe-area-inset-bottom))] right-4 z-30 rounded-full shadow-overlay transition-[opacity,translate] duration-200 data-[tucked]:pointer-events-none data-[tucked]:translate-y-24 data-[tucked]:opacity-0 data-[tucked]:focus-visible:pointer-events-auto data-[tucked]:focus-visible:translate-y-0 data-[tucked]:focus-visible:opacity-100 xl:hidden print:hidden"
         >
           <Icon name="info" size={14} />
           {label}

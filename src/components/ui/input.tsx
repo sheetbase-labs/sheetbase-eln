@@ -6,7 +6,7 @@ export function Input({ className, ...props }: InputPrimitive.Props) {
     <InputPrimitive
       data-slot="input"
       className={cn(
-        'h-[30px] w-full rounded-md border border-border bg-surface px-2 text-body text-fg placeholder:text-fg-faint focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-focus aria-invalid:border-danger aria-invalid:shadow-[0_0_0_1px_var(--danger)]',
+        'h-[30px] w-full rounded-md border border-border bg-surface px-2 text-body text-fg transition-[border-color,box-shadow] duration-150 ease-out placeholder:text-fg-faint focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-focus aria-invalid:border-danger aria-invalid:shadow-[0_0_0_1px_var(--danger)]',
         className,
       )}
       {...props}

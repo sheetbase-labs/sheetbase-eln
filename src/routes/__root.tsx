@@ -28,6 +28,7 @@ import { WorkspaceHost } from '#/components/workspace/workspace-host'
 import { SessionExpiredBanner } from '#/components/shell/session-expired-banner'
 import { AccessBlocked } from '#/components/shell/access-blocked'
 import { Toaster } from '#/components/ui/sonner'
+import { TooltipProvider } from '#/components/ui/tooltip'
 import { ChangeReasonDialog } from '#/components/shell/change-reason-dialog'
 import { DevToolbar } from '#/components/dev-toolbar/dev-toolbar'
 
@@ -448,24 +449,27 @@ function AppRoot() {
 
   return (
     <ThemeProvider authenticated={Boolean(auth)}>
-      <LiveEventProvider>
-        <CollaborationEnabledContext.Provider
-          value={auth?.collaborationEnabled ?? false}
-        >
-          <DemoSigningContext.Provider value={auth?.authFree ?? false}>
-            {auth && !auth.authFree && !bareRoute ? (
-              <SessionExpiredBanner />
-            ) : null}
-            <AppRootBody
-              auth={auth}
-              bareRoute={bareRoute}
-              legacyShell={legacyShell}
-              appShellData={shellDataFor(auth, resolvedRootContext)}
-              rootContext={resolvedRootContext}
-            />
-          </DemoSigningContext.Provider>
-        </CollaborationEnabledContext.Provider>
-      </LiveEventProvider>
+      {/* One group for every tooltip: the first waits a beat, the ones next to it open at once. */}
+      <TooltipProvider delay={500} closeDelay={0}>
+        <LiveEventProvider>
+          <CollaborationEnabledContext.Provider
+            value={auth?.collaborationEnabled ?? false}
+          >
+            <DemoSigningContext.Provider value={auth?.authFree ?? false}>
+              {auth && !auth.authFree && !bareRoute ? (
+                <SessionExpiredBanner />
+              ) : null}
+              <AppRootBody
+                auth={auth}
+                bareRoute={bareRoute}
+                legacyShell={legacyShell}
+                appShellData={shellDataFor(auth, resolvedRootContext)}
+                rootContext={resolvedRootContext}
+              />
+            </DemoSigningContext.Provider>
+          </CollaborationEnabledContext.Provider>
+        </LiveEventProvider>
+      </TooltipProvider>
     </ThemeProvider>
   )
 }

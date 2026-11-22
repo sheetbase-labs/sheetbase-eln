@@ -53,7 +53,7 @@ export function CollapsibleTrigger({
       <Icon
         name="chevronRight"
         size={12}
-        className="shrink-0 text-fg-muted transition-transform group-data-[panel-open]:rotate-90 motion-reduce:transition-none"
+        className="shrink-0 text-fg-muted transition-transform duration-150 ease-out group-data-[panel-open]:rotate-90 motion-reduce:transition-none"
       />
       {children}
     </CollapsiblePrimitive.Trigger>
@@ -68,7 +68,10 @@ export function CollapsiblePanel({
   return (
     <CollapsiblePrimitive.Panel
       data-slot="collapsible-panel"
-      className={cn(className)}
+      className={cn(
+        'transition-opacity duration-150 ease-out data-ending-style:opacity-0 data-starting-style:opacity-0 motion-reduce:transition-none',
+        className,
+      )}
       {...props}
     >
       {children}

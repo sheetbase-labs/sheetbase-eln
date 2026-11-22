@@ -19,7 +19,7 @@ export function PopoverContent({
         <PopoverPrimitive.Popup
           data-slot="popover-content"
           className={cn(
-            'max-h-(--available-height) overflow-y-auto overscroll-contain rounded-lg border border-border bg-popover text-popover-foreground shadow-overlay outline-none transition-opacity duration-100 data-ending-style:opacity-0 data-starting-style:opacity-0',
+            'max-h-(--available-height) overflow-y-auto overscroll-contain rounded-lg border border-border bg-popover text-popover-foreground shadow-overlay outline-none origin-(--transform-origin) transition-[opacity,scale] duration-150 ease-out data-ending-style:scale-[.97] data-ending-style:opacity-0 data-ending-style:duration-100 data-starting-style:scale-[.97] data-starting-style:opacity-0',
             className,
           )}
           {...props}

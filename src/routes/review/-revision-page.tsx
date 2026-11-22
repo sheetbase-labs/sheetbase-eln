@@ -2360,12 +2360,23 @@ export function ActionButtons({
     )
       return
     openedFor.current = openDecision
+
+    // Where approving goes straight on to signing there is no approve dialog
+    // to open: Approve from the experiment's header lands here and carries on
+    // into the signing step, as the Approve and sign button does.
+    if (openDecision === 'approve' && onApproveAndSign) {
+      onApproveAndSign()
+
+      return
+    }
+
     setPendingKind(openDecision)
   }, [
     openDecision,
     permission.canReview,
     integrityDigest,
     approveBlockedReason,
+    onApproveAndSign,
   ])
 
   // QA-182: the decision RPC is awaited, so the dialog must not close under a

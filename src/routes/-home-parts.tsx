@@ -26,6 +26,7 @@ import {
   auditLinkFor,
   collapseActivity,
   ENTITY_LABELS,
+  isStructuredChangeValue,
 } from '#/lib/audit-history'
 import { homeMaterialExpiryLabel } from '#/lib/home-data'
 import type {
@@ -699,16 +700,21 @@ export function ActivityRow({
         </div>
         {(described.count > 1 ? [] : described.changes).map((change) => (
           <div key={`${change.label}:${change.kind}`} className="text-fg-muted">
-            {t('projects.home.activity.change', {
-              label: change.label,
-              value:
-                change.kind === 'changed'
-                  ? t('projects.home.activity.changed', {
-                      from: change.from ?? '—',
-                      to: change.to ?? '—',
-                    })
-                  : (change.to ?? change.from ?? change.kind),
-            })}
+            {isStructuredChangeValue(change.from) ||
+            isStructuredChangeValue(change.to)
+              ? // A block's captured payload is data, not a sentence: the
+                // audit log keeps it, Home only says that it changed.
+                t('projects.home.activity.edited')
+              : t('projects.home.activity.change', {
+                  label: change.label,
+                  value:
+                    change.kind === 'changed'
+                      ? t('projects.home.activity.changed', {
+                          from: change.from ?? '—',
+                          to: change.to ?? '—',
+                        })
+                      : (change.to ?? change.from ?? change.kind),
+                })}
           </div>
         ))}
       </div>

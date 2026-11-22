@@ -522,6 +522,11 @@ export function formatChangeValue<Value>(value: Value): string {
   return String(value)
 }
 
+/** A captured value that is a JSON object or list: data to keep, not text to read. */
+export function isStructuredChangeValue(value: string | undefined): boolean {
+  return value !== undefined && /^\s*[[{]/.test(value)
+}
+
 const UUID_PATTERN =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 

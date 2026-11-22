@@ -11,6 +11,7 @@ import {
   auditKnockOnEvents,
   describeAuditEvent,
   formatChangeValue,
+  isStructuredChangeValue,
   fetchAuditEvents,
   fetchAllAuditEvents,
   fetchRecordAuditHistory,
@@ -871,5 +872,15 @@ describe('isRoutineAuditCheck', () => {
     expect(isRoutineAuditCheck(check(true))).toBe(true)
     expect(isRoutineAuditCheck(check(false))).toBe(false)
     expect(isRoutineAuditCheck(event({}))).toBe(false)
+  })
+})
+
+describe('isStructuredChangeValue', () => {
+  it('flags captured JSON objects and lists, not sentences', () => {
+    expect(isStructuredChangeValue('{"items":[{"text":"a"}]}')).toBe(true)
+    expect(isStructuredChangeValue(' [1, 2]')).toBe(true)
+    expect(isStructuredChangeValue('Draft')).toBe(false)
+    expect(isStructuredChangeValue('Run [2] of the assay')).toBe(false)
+    expect(isStructuredChangeValue(undefined)).toBe(false)
   })
 })

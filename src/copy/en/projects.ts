@@ -3209,6 +3209,7 @@ export const projects = {
       andMore: ' and {count} more',
       change: '{label}: {value}',
       changed: '{from} → {to}',
+      edited: 'Content changed',
       none: 'No activity recorded yet.',
       subjectHistory: 'History of {subject}',
     },

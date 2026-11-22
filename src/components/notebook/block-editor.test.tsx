@@ -364,6 +364,27 @@ describe('BlockEditor — checklist', () => {
     await user.click(screen.getByRole('button', { name: /Add item/ }))
     expect(screen.getAllByRole('checkbox')).toHaveLength(2)
   })
+
+  it('starts the next item, with the caret in it, on Enter', async () => {
+    const user = userEvent.setup()
+    const save = vi.fn(async () => ({ ok: true }))
+    renderWithQuery(
+      <BlockEditor
+        block={block({
+          type: 'checklist',
+          payload: { items: [{ text: 'first', checked: false }] },
+        })}
+        save={save}
+      />,
+    )
+    await user.click(screen.getByDisplayValue('first'))
+    await user.keyboard('{Enter}')
+
+    expect(screen.getAllByRole('checkbox')).toHaveLength(2)
+
+    const second = screen.getAllByRole('textbox')[1]
+    expect(document.activeElement).toBe(second)
+  })
 })
 
 describe('BlockEditor — linked_record', () => {

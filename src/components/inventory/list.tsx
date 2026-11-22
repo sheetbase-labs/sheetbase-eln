@@ -151,11 +151,7 @@ export function ViewControls({
         <DropdownMenu>
           <DropdownMenuTrigger
             render={
-              <Button
-                size="sm"
-                icon="filter"
-                className="max-md:hidden"
-              />
+              <Button size="sm" icon="filter" className="max-md:hidden" />
             }
           >
             {t('common.actions.filter')}
@@ -177,11 +173,7 @@ export function ViewControls({
         <DropdownMenu>
           <DropdownMenuTrigger
             render={
-              <Button
-                size="sm"
-                icon="arrowUpDown"
-                className="max-md:hidden"
-              />
+              <Button size="sm" icon="arrowUpDown" className="max-md:hidden" />
             }
           >
             {showSortValue

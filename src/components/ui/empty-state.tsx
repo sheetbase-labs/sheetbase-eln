@@ -61,7 +61,9 @@ export function EmptyState({
       ) : null}
       <h2 className="text-[17px] font-semibold leading-6 text-fg">{title}</h2>
       {description ? (
-        <p className="m-0 max-w-[52ch] text-body leading-5 text-fg-muted">{description}</p>
+        <p className="m-0 max-w-[52ch] text-body leading-5 text-fg-muted">
+          {description}
+        </p>
       ) : null}
       {action || children ? (
         <div className="mt-3 flex flex-wrap items-center justify-center gap-2">

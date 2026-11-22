@@ -90,14 +90,16 @@ const ITEM: Record<TabVariant, string> = {
  * composed at runtime (`data-active:${token}`) is a name it never generates.
  */
 const ACTIVE_LINK: Record<TabVariant, string> = {
-  strip: 'aria-[current=page]:border-link aria-[current=page]:font-semibold aria-[current=page]:text-fg',
+  strip:
+    'aria-[current=page]:border-link aria-[current=page]:font-semibold aria-[current=page]:text-fg',
   segment:
     'aria-[current=page]:bg-surface aria-[current=page]:text-fg aria-[current=page]:shadow-[0_0_0_1px_var(--border)]',
   chip: 'aria-[current=page]:border-selection-border aria-[current=page]:bg-selection aria-[current=page]:font-medium aria-[current=page]:hover:bg-selection',
 }
 
 const ACTIVE_DATA: Record<TabVariant, string> = {
-  strip: 'data-active:border-link data-active:font-semibold data-active:text-fg',
+  strip:
+    'data-active:border-link data-active:font-semibold data-active:text-fg',
   segment:
     'data-active:bg-surface data-active:text-fg data-active:shadow-[0_0_0_1px_var(--border)]',
   chip: 'data-active:border-selection-border data-active:bg-selection data-active:font-medium data-active:hover:bg-selection',

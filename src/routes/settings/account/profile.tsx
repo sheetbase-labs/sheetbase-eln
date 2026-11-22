@@ -112,7 +112,6 @@ function useProfileAutoSave({
   const draft = useMemo<ProfileValues>(
     () => values,
     // The four fields are the identity of the draft.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
     [values.name, values.timeZone, values.initials, values.jobTitle],
   )
 

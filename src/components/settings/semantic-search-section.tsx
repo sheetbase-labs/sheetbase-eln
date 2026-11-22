@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { memo, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 
 import { Notice } from '#/components/ui/alert'
@@ -39,37 +39,24 @@ function toForm(view: SemanticSettingsView): FormState {
   }
 }
 
-function semanticDraftState(
+/** Whether the chosen model is an outside service that has not been allowed. */
+function blockedByConsent(
   view: SemanticSettingsView,
-  form: FormState,
+  profile: string | null,
   cloudAllowed: boolean,
 ) {
-  const chosen = view.profiles.find((profile) => profile.id === form.profile)
+  const chosen = view.profiles.find((entry) => entry.id === profile)
 
-  const dirty =
-    form.enabled !== view.settings.enabled ||
-    form.profile !== view.settings.profile ||
-    form.literatureEnabled !== view.settings.literatureEnabled
-
-  const blockedByConsent =
-    form.enabled && chosen?.dataClass === 'cloud' && !cloudAllowed
-
-  return {
-    blockedByConsent,
-    canSave:
-      view.canManage &&
-      dirty &&
-      !blockedByConsent &&
-      (!form.enabled || form.profile !== null),
-  }
+  return chosen?.dataClass === 'cloud' && !cloudAllowed
 }
 
-/** Keep the server snapshot, local draft and mutation receipts in sync. */
+/** Keep the server snapshot and mutation receipts in sync. */
 function useSemanticSettings(workspaceId: string) {
   const queryClient = useQueryClient()
+  const key = semanticKey(workspaceId)
 
   const query = useQuery({
-    queryKey: semanticKey(workspaceId),
+    queryKey: key,
     queryFn: () => getSemanticSettingsFn({ data: { workspaceId } }),
     enabled: Boolean(workspaceId),
     // Progress moves while the page is open.
@@ -77,49 +64,62 @@ function useSemanticSettings(workspaceId: string) {
       state.state.data?.settings.enabled ? 15_000 : false,
   })
 
-  const view = query.data
-  const [form, setForm] = useState<FormState | null>(null)
-  useEffect(() => {
-    if (view && form === null) setForm(toForm(view))
-  }, [view, form])
+  /** Show the change at once, save it, and put the screen back on a failure.
+   * The toast offers Undo for a saved change. */
+  const commit = async (patch: Partial<FormState>, undo = true) => {
+    const current = queryClient.getQueryData<SemanticSettingsView>(key)
 
-  const apply = (next: SemanticSettingsView) => {
-    queryClient.setQueryData(semanticKey(workspaceId), next)
-    setForm(toForm(next))
-  }
+    if (!current) return
 
-  const save = useMutation({
-    mutationFn: (next: FormState) =>
-      updateSemanticSettingsFn({
+    const before = toForm(current)
+    const next = { ...before, ...patch }
+
+    queryClient.setQueryData<SemanticSettingsView>(key, {
+      ...current,
+      settings: { ...current.settings, ...next },
+    })
+
+    try {
+      const saved = await updateSemanticSettingsFn({
         data: {
           workspaceId,
           enabled: next.enabled,
           profile: next.profile,
           literatureEnabled: next.literatureEnabled,
         },
-      }),
-    onSuccess: (next) => {
-      apply(next)
-      toast(t('settings.semanticSearch.saved'))
-    },
-    onError: (error) =>
+      })
+
+      queryClient.setQueryData(key, saved)
+
+      toast(t('settings.semanticSearch.saved'), {
+        action: undo
+          ? {
+              label: t('common.actions.undo'),
+              onClick: () => void commit(before, false),
+            }
+          : undefined,
+      })
+    } catch (error) {
+      queryClient.setQueryData(key, current)
+
       toast.error(
         error instanceof Error
           ? error.message
           : t('settings.semanticSearch.couldNotSave'),
-      ),
-  })
+      )
+    }
+  }
 
   const reread = useMutation({
     mutationFn: () => reindexEmbeddingsFn({ data: { workspaceId } }),
     onSuccess: (next) => {
-      apply(next)
+      queryClient.setQueryData(key, next)
       toast(t('settings.semanticSearch.rereadDone'))
     },
     onError: () => toast.error(t('settings.semanticSearch.rereadFailed')),
   })
 
-  return { query, form, setForm, save, reread }
+  return { query, commit, reread }
 }
 
 /** What keeps search by meaning off, in one banner; an owner gets a link to
@@ -174,7 +174,7 @@ function SemanticNotices({
   )
 }
 
-export function SemanticSearchSection({
+export const SemanticSearchSection = memo(function SemanticSearchSection({
   workspaceId,
   cloudAllowed,
   assistantOn,
@@ -185,8 +185,7 @@ export function SemanticSearchSection({
   /** The assistant switch above: search by meaning follows it. */
   assistantOn: boolean
 }) {
-  const { query, form, setForm, save, reread } =
-    useSemanticSettings(workspaceId)
+  const { query, commit, reread } = useSemanticSettings(workspaceId)
 
   const [confirmingReread, setConfirmingReread] = useState(false)
 
@@ -194,13 +193,11 @@ export function SemanticSearchSection({
 
   if (query.isPending) return <Skeleton className="h-24 w-full" />
 
-  if (!view || !form) return null
+  if (!view) return null
 
-  const { blockedByConsent, canSave } = semanticDraftState(
-    view,
-    form,
-    cloudAllowed,
-  )
+  const form = toForm(view)
+  const blocked =
+    form.enabled && blockedByConsent(view, form.profile, cloudAllowed)
 
   return (
     <Section title={t('settings.semanticSearch.title')}>
@@ -217,20 +214,32 @@ export function SemanticSearchSection({
       <CheckRow
         title={t('settings.semanticSearch.enable')}
         checked={form.enabled}
-        onCheckedChange={(enabled) => setForm({ ...form, enabled })}
+        onCheckedChange={(enabled) => {
+          // Turning it on with no model chosen picks the first one that runs
+          // here, or the first one offered, so it is one step.
+          const profile =
+            form.profile ??
+            (
+              view.profiles.find((entry) => entry.dataClass !== 'cloud') ??
+              view.profiles[0]
+            )?.id ??
+            null
+
+          void commit(enabled ? { enabled, profile } : { enabled })
+        }}
         disabled={!view.canManage || view.profiles.length === 0}
       />
 
       <SemanticModelPicker
         view={view}
         profile={form.profile}
-        onChange={(profile) => setForm({ ...form, profile })}
+        onChange={(profile) => void commit({ profile })}
       />
 
       <SemanticNotices
         noModels={view.profiles.length === 0}
         assistantOff={!assistantOn}
-        needsConsent={blockedByConsent}
+        needsConsent={blocked}
         canFix={view.canManage}
       />
 
@@ -239,21 +248,12 @@ export function SemanticSearchSection({
         body={t('settings.semanticSearch.literatureBody')}
         checked={form.literatureEnabled}
         onCheckedChange={(literatureEnabled) =>
-          setForm({ ...form, literatureEnabled })
+          void commit({ literatureEnabled })
         }
         disabled={!view.canManage}
       />
 
       <div className="flex flex-wrap items-center gap-3">
-        <Button
-          variant="primary"
-          onClick={() => save.mutate(form)}
-          disabled={!canSave || save.isPending}
-        >
-          {save.isPending
-            ? t('common.states.saving')
-            : t('settings.semanticSearch.save')}
-        </Button>
         <SemanticProgress settings={view.settings} />
         {view.canManage && view.settings.enabled ? (
           <Button
@@ -266,7 +266,7 @@ export function SemanticSearchSection({
       </div>
     </Section>
   )
-}
+})
 
 function SemanticModelPicker({
   view,

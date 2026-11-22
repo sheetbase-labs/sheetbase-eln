@@ -1,12 +1,19 @@
-import { useLeaveGuard } from '#/components/settings/use-leave-guard'
-import { useEffect, useState } from 'react'
+import { memo, useState } from 'react'
 import { z } from 'zod'
 import { formatDate } from '#/lib/format-date'
 import { Link, createFileRoute } from '@tanstack/react-router'
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 
 import { Notice } from '#/components/ui/alert'
 import { Button } from '#/components/ui/button'
+import {
+  Dialog,
+  DialogBody,
+  DialogClose,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+} from '#/components/ui/dialog'
 import { Field, Input } from '#/components/ui/input'
 import { Muted, Section } from '#/components/ui/layout'
 import { Select } from '#/components/ui/select'
@@ -24,7 +31,7 @@ import {
   updateAiFeatureFlagsFn,
   updateAiSettingsFn,
 } from '#/lib/ai-settings-actions'
-import { AI_FEATURE_FLAGS, AI_FEATURE_FLAG_KEYS } from '#/lib/ai-feature-flags'
+import { AI_FEATURE_FLAGS } from '#/lib/ai-feature-flags'
 import type { AiFeatureFlags } from '#/lib/ai-feature-flags'
 import {
   AI_SETTINGS_MAX_COST_CEILING,
@@ -43,10 +50,12 @@ import { t } from '#/copy'
 /**
  * AI-04 — workspace AI policy.
  *
- * One page owns the kill switch, the provider profile, cloud-egress consent
- * and the per-call budget. Provider keys never appear here: a profile names a
- * server environment variable, and the page only shows whether that key is
- * present.
+ * One page owns the on/off switch, which AI the lab uses, the consent to send
+ * data to an outside AI service, and the per-request budget. Every control
+ * saves the moment it changes (the screen updates at once and a toast offers
+ * Undo); nothing here has a Save button. Provider keys never appear here: a
+ * profile names a server environment variable, and the page only shows
+ * whether that key is present.
  */
 export const Route = createFileRoute('/settings/workspace/ai')({
   component: AiSettingsPage,
@@ -75,17 +84,6 @@ function toForm(settings: WorkspaceAiSettings): FormState {
     maxTokensPerCall: settings.maxTokensPerCall,
     maxCostMicrousdPerCall: settings.maxCostMicrousdPerCall,
   }
-}
-
-function sameForm(a: FormState, b: WorkspaceAiSettings): boolean {
-  return (
-    a.enabled === b.enabled &&
-    a.providerProfile === b.providerProfile &&
-    a.model === b.model &&
-    a.cloudEgressEnabled === b.cloudEgressEnabled &&
-    a.maxTokensPerCall === b.maxTokensPerCall &&
-    a.maxCostMicrousdPerCall === b.maxCostMicrousdPerCall
-  )
 }
 
 const aiSettingsKey = (workspaceId: string) => ['ai-settings', workspaceId]
@@ -126,20 +124,20 @@ function DollarInput({
   )
 }
 
-function budgetValidity(form: FormState | null) {
-  const maxTokensValid =
-    form !== null &&
-    Number.isInteger(form.maxTokensPerCall) &&
-    form.maxTokensPerCall >= 1 &&
-    form.maxTokensPerCall <= AI_SETTINGS_MAX_TOKENS_CEILING
+function tokensValid(value: number) {
+  return (
+    Number.isInteger(value) &&
+    value >= 1 &&
+    value <= AI_SETTINGS_MAX_TOKENS_CEILING
+  )
+}
 
-  const maxCostValid =
-    form !== null &&
-    Number.isInteger(form.maxCostMicrousdPerCall) &&
-    form.maxCostMicrousdPerCall >= 0 &&
-    form.maxCostMicrousdPerCall <= AI_SETTINGS_MAX_COST_CEILING
-
-  return { maxTokensValid, maxCostValid, valid: maxTokensValid && maxCostValid }
+function costValid(value: number) {
+  return (
+    Number.isInteger(value) &&
+    value >= 0 &&
+    value <= AI_SETTINGS_MAX_COST_CEILING
+  )
 }
 
 function AiSettingsPage() {
@@ -149,82 +147,102 @@ function AiSettingsPage() {
   return <WorkspaceAiSettingsForm key={workspaceId} workspaceId={workspaceId} />
 }
 
+/** What the person is about to switch on while consent is still missing. */
+type ConsentIntent = Partial<Pick<FormState, 'enabled' | 'providerProfile'>>
+
 function WorkspaceAiSettingsForm({ workspaceId }: { workspaceId: string }) {
   const queryClient = useQueryClient()
+  const key = aiSettingsKey(workspaceId)
 
-  const { query, ...accessDraft } = useAiFeatureFlagDraft(workspaceId)
+  const query = useQuery({
+    queryKey: key,
+    queryFn: () => getAiSettingsFn({ data: { workspaceId } }),
+    enabled: Boolean(workspaceId),
+  })
 
-  const [form, setForm] = useState<FormState | null>(null)
+  const [asking, setAsking] = useState<ConsentIntent | null>(null)
 
-  useEffect(() => {
-    if (query.data && form === null) setForm(toForm(query.data.settings))
-  }, [query.data, form])
+  const view = query.data
+  const settings = view?.settings
+  const canManage = view?.canManage ?? false
 
-  const save = useMutation({
-    mutationFn: async (next: FormState) => {
-      return updateAiSettingsFn({
-        data: { workspaceId, ...next },
+  /** Apply a change on screen at once, save it, and put the screen back with
+   * an error if the save fails. The toast offers Undo for a saved change. */
+  const commit = async (patch: Partial<FormState>, undo = true) => {
+    const current = queryClient.getQueryData<AiSettingsView>(key)
+
+    if (!current) return
+
+    const before = toForm(current.settings)
+    const next = { ...before, ...patch }
+
+    queryClient.setQueryData<AiSettingsView>(key, {
+      ...current,
+      settings: { ...current.settings, ...next },
+    })
+
+    try {
+      const saved = await updateAiSettingsFn({ data: { workspaceId, ...next } })
+
+      queryClient.setQueryData(key, saved)
+
+      toast(t('settings.ai.aiSettingsSavedToast'), {
+        action: undo
+          ? {
+              label: t('common.actions.undo'),
+              onClick: () => void commit(before, false),
+            }
+          : undefined,
       })
-    },
-    onSuccess: (view: AiSettingsView) => {
-      queryClient.setQueryData(aiSettingsKey(workspaceId), view)
-      setForm(toForm(view.settings))
-      toast(t('settings.ai.aiSettingsSavedToast'))
-    },
-    onError: (error) => {
+    } catch (error) {
+      queryClient.setQueryData(key, current)
+
       toast.error(
         error instanceof Error
           ? error.message
           : t('settings.ai.aiSettingsCould2'),
       )
-    },
-  })
+    }
+  }
 
-  const view = query.data
+  const commitFlag = async (flag: keyof AiFeatureFlags, on: boolean) => {
+    const current = queryClient.getQueryData<AiSettingsView>(key)
 
-  const settings = view?.settings
-  const dirty = Boolean(form && settings && !sameForm(form, settings))
+    if (!current) return
 
-  const { valid } = budgetValidity(form)
+    const before = current.featureFlags
+    const next = { ...before, [flag]: on }
 
-  const canManage = view?.canManage ?? false
+    queryClient.setQueryData<AiSettingsView>(key, {
+      ...current,
+      featureFlags: next,
+    })
 
-  useLeaveGuard({
-    dirty: dirty && canManage,
-    label: t('settings.ai.ai'),
-    canSave: valid,
-    save: async () => {
-      if (!form) return false
+    try {
+      const saved = await updateAiFeatureFlagsFn({
+        data: { workspaceId, featureFlags: next },
+      })
 
-      try {
-        await save.mutateAsync(form)
+      queryClient.setQueryData(key, saved)
 
-        return true
-      } catch {
-        return false
-      }
-    },
-    discard: () => {
-      if (settings) setForm(toForm(settings))
-    },
-  })
+      toast(t('settings.ai.aiAccessFlagsToast'), {
+        action: {
+          label: t('common.actions.undo'),
+          onClick: () => void commitFlag(flag, !on),
+        },
+      })
+    } catch (error) {
+      queryClient.setQueryData(key, current)
+
+      toast.error(
+        error instanceof Error ? error.message : t('settings.ai.aiAccessFlags'),
+      )
+    }
+  }
 
   return (
     <>
-      <SettingsHeader
-        phoneActions="bottom"
-        title={t('settings.ai.ai')}
-        actions={
-          <AiSettingsSave
-            form={form}
-            busy={save.isPending}
-            onSave={(next) => save.mutate(next)}
-            dirty={dirty}
-            valid={valid}
-            canManage={canManage}
-          />
-        }
-      />
+      <SettingsHeader title={t('settings.ai.ai')} />
 
       <SettingsBody data-testid="ai-settings">
         {query.isPending ? (
@@ -240,31 +258,37 @@ function WorkspaceAiSettingsForm({ workspaceId }: { workspaceId: string }) {
           </Notice>
         ) : null}
 
-        {view && form ? (
+        {view && settings ? (
           <>
             <AiNotices
               readiness={view.readiness}
-              dirty={dirty}
               providerConfigError={view.providerConfigError}
               canManage={canManage}
             />
 
             <div id="ai-assistant" className="scroll-mt-4">
               <AssistantConfiguration
-                form={form}
+                form={toForm(settings)}
                 profiles={view.profiles}
-                onChange={setForm}
                 canManage={canManage}
+                onChange={(patch) => void commit(patch)}
+                onAskConsent={setAsking}
               />
             </div>
 
             <SemanticSearchSection
               workspaceId={workspaceId}
-              cloudAllowed={form.cloudEgressEnabled}
-              assistantOn={form.enabled}
+              cloudAllowed={settings.cloudEgressEnabled}
+              assistantOn={settings.enabled}
             />
 
-            <AiBudget form={form} onChange={setForm} canManage={canManage} />
+            <AiBudget
+              key={`${settings.maxTokensPerCall}-${settings.maxCostMicrousdPerCall}`}
+              maxTokens={settings.maxTokensPerCall}
+              maxCost={settings.maxCostMicrousdPerCall}
+              canManage={canManage}
+              onChange={(patch) => void commit(patch)}
+            />
 
             <Section title={t('settings.ai.agentAccess')}>
               <Muted>{t('settings.ai.connectedCodingAgents')}</Muted>
@@ -278,7 +302,11 @@ function WorkspaceAiSettingsForm({ workspaceId }: { workspaceId: string }) {
                 </Link>
               </Muted>
 
-              <AiAccessFlags {...accessDraft} canManage={canManage} />
+              <AiAccessFlags
+                flags={view.featureFlags}
+                canManage={canManage}
+                onChange={(flag, on) => void commitFlag(flag, on)}
+              />
             </Section>
 
             <AgentPermissionsPanel
@@ -289,14 +317,64 @@ function WorkspaceAiSettingsForm({ workspaceId }: { workspaceId: string }) {
             <AiChecksPanel
               workspaceId={workspaceId}
               canManage={canManage}
-              aiOn={Boolean(settings?.enabled)}
+              aiOn={settings.enabled}
             />
 
             <AiSettingsChanged settings={settings} />
           </>
         ) : null}
       </SettingsBody>
+
+      {asking && view ? (
+        <ConsentDialog
+          label={
+            view.profiles.find(
+              (profile) =>
+                profile.id ===
+                (asking.providerProfile ?? settings?.providerProfile),
+            )?.label ?? ''
+          }
+          onClose={() => setAsking(null)}
+          onAllow={() => {
+            const intent = asking
+
+            setAsking(null)
+            void commit({ ...intent, enabled: true, cloudEgressEnabled: true })
+          }}
+        />
+      ) : null}
     </>
+  )
+}
+
+/** The one question asked before data can go to an outside AI service. */
+function ConsentDialog({
+  label,
+  onClose,
+  onAllow,
+}: {
+  label: string
+  onClose: () => void
+  onAllow: () => void
+}) {
+  return (
+    <Dialog open onOpenChange={(open) => (open ? null : onClose())}>
+      <DialogContent>
+        <DialogHeader title={t('settings.ai.consentTitle')} />
+        <DialogBody className="flex flex-col gap-2">
+          <p className="m-0">{t('settings.ai.consentBody', { label })}</p>
+          <Muted>{t('settings.ai.consentNote')}</Muted>
+        </DialogBody>
+        <DialogFooter>
+          <DialogClose render={<Button />}>
+            {t('settings.ai.consentCancel')}
+          </DialogClose>
+          <Button variant="primary" onClick={onAllow}>
+            {t('settings.ai.consentAllow')}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   )
 }
 
@@ -304,12 +382,10 @@ function WorkspaceAiSettingsForm({ workspaceId }: { workspaceId: string }) {
  * line pointing at the setting an owner changes to fix it. */
 function AiNotices({
   readiness,
-  dirty,
   providerConfigError,
   canManage,
 }: {
   readiness: AiSettingsView['readiness']
-  dirty: boolean
   providerConfigError: string | null | undefined
   canManage: boolean
 }) {
@@ -327,8 +403,6 @@ function AiNotices({
     readiness.reason !== 'provider_config_invalid'
   )
     lines.push({ text: aiReadinessMessage(readiness), fix: '#ai-assistant' })
-
-  if (dirty) lines.push({ text: t('settings.ai.saveChangesApply') })
 
   if (!lines.length) return null
 
@@ -357,32 +431,6 @@ function AiNotices({
   )
 }
 
-function AiSettingsSave({
-  form,
-  busy,
-  onSave,
-  dirty,
-  valid,
-  canManage,
-}: {
-  form: FormState | null
-  busy: boolean
-  onSave: (next: FormState) => void
-  dirty: boolean
-  valid: boolean
-  canManage: boolean
-}) {
-  return (
-    <Button
-      variant="primary"
-      onClick={() => form && onSave(form)}
-      disabled={!dirty || !valid || busy || !canManage}
-    >
-      {busy ? t('common.states.saving') : t('common.actions.saveChanges')}
-    </Button>
-  )
-}
-
 function AiSettingsChanged({
   settings,
 }: {
@@ -403,16 +451,20 @@ function AssistantConfiguration({
   form,
   profiles,
   onChange,
+  onAskConsent,
   canManage,
 }: {
   form: FormState
   profiles: AiSettingsView['profiles']
-  onChange: (form: FormState) => void
+  onChange: (patch: Partial<FormState>) => void
+  onAskConsent: (intent: ConsentIntent) => void
   canManage: boolean
 }) {
   const selectedProfile = form.providerProfile
     ? profiles.find((profile) => profile.id === form.providerProfile)
     : undefined
+
+  const outside = selectedProfile?.dataClass === 'cloud'
 
   return (
     <Section title={t('settings.ai.assistant')}>
@@ -420,7 +472,11 @@ function AssistantConfiguration({
         title={t('settings.ai.enableAssistantWorkspace')}
         body={t('settings.ai.membersAskGrounded')}
         checked={form.enabled}
-        onCheckedChange={(enabled) => onChange({ ...form, enabled })}
+        onCheckedChange={(enabled) => {
+          if (enabled && outside && !form.cloudEgressEnabled)
+            onAskConsent({ enabled: true })
+          else onChange({ enabled })
+        }}
         disabled={!canManage}
       />
       <div className="grid gap-4 md:grid-cols-2">
@@ -434,9 +490,17 @@ function AssistantConfiguration({
         >
           <Select
             value={form.providerProfile ?? ''}
-            onChange={(event) =>
-              onChange({ ...form, providerProfile: event.target.value || null })
-            }
+            onChange={(event) => {
+              const id = event.target.value || null
+
+              const next = id
+                ? profiles.find((profile) => profile.id === id)
+                : undefined
+
+              if (next?.dataClass === 'cloud' && !form.cloudEgressEnabled)
+                onAskConsent({ providerProfile: id })
+              else onChange({ providerProfile: id })
+            }}
             disabled={!canManage}
             aria-label={t('settings.ai.providerProfile')}
           >
@@ -445,7 +509,7 @@ function AssistantConfiguration({
               <option key={profile.id} value={profile.id}>
                 {profile.label}
                 {profile.dataClass === 'cloud'
-                  ? ' (cloud)'
+                  ? t('settings.ai.outsideSuffix')
                   : t('settings.ai.runs')}
               </option>
             ))}
@@ -455,10 +519,7 @@ function AssistantConfiguration({
           <Select
             value={form.model}
             onChange={(event) =>
-              onChange({
-                ...form,
-                model: z.enum(MODEL_NAMES).parse(event.target.value),
-              })
+              onChange({ model: z.enum(MODEL_NAMES).parse(event.target.value) })
             }
             disabled={!canManage}
             aria-label={t('settings.ai.modelRole')}
@@ -472,28 +533,25 @@ function AssistantConfiguration({
         </Field>
       </div>
       {selectedProfile ? (
-        <div className="flex flex-col gap-3 rounded-lg border border-border-subtle p-3">
-          <div className="flex flex-wrap items-center gap-2 text-label text-fg-muted">
-            <span className="rounded border border-border-subtle px-1.5 py-0.5 text-fg">
-              {selectedProfile.dataClass === 'cloud'
-                ? 'Cloud'
-                : t('settings.ai.runs2')}
-            </span>
-            <span>
-              {selectedProfile.keyAvailable
-                ? t('settings.ai.accessKeyPlace')
-                : t('settings.ai.accessKeyYet')}
-            </span>
-          </div>
-          {selectedProfile.dataClass === 'cloud' ? (
+        <div className="flex flex-col gap-3">
+          <Muted>
+            {selectedProfile.keyAvailable
+              ? t('settings.ai.accessKeyPlace')
+              : t('settings.ai.accessKeyYet')}
+          </Muted>
+          {outside ? (
             <CheckRow
               title={t('settings.ai.allowPromptsLeave')}
               body={t('settings.ai.notebookTextPermitted', {
                 label: selectedProfile.label,
               })}
               checked={form.cloudEgressEnabled}
-              onCheckedChange={(cloudEgressEnabled) =>
-                onChange({ ...form, cloudEgressEnabled })
+              onCheckedChange={(allowed) =>
+                onChange(
+                  allowed
+                    ? { cloudEgressEnabled: true }
+                    : { cloudEgressEnabled: false, enabled: false },
+                )
               }
               disabled={!canManage}
             />
@@ -507,55 +565,13 @@ function AssistantConfiguration({
   )
 }
 
-function useAiFeatureFlagDraft(workspaceId: string) {
-  const queryClient = useQueryClient()
-
-  const query = useQuery({
-    queryKey: aiSettingsKey(workspaceId),
-    queryFn: () => getAiSettingsFn({ data: { workspaceId } }),
-    enabled: Boolean(workspaceId),
-  })
-
-  const view = query.data
-  const [featureFlags, setFeatureFlags] = useState<AiFeatureFlags | null>(null)
-
-  useEffect(() => {
-    // react-doctor-disable-next-line react-doctor/no-adjust-state-on-prop-change -- The form is keyed by workspaceId; initialise this editable draft once and preserve same-workspace edits across query refreshes.
-    if (view && featureFlags === null) setFeatureFlags(view.featureFlags)
-  }, [view, featureFlags])
-
-  const saveFlags = useMutation({
-    mutationFn: (next: AiFeatureFlags) =>
-      updateAiFeatureFlagsFn({ data: { workspaceId, featureFlags: next } }),
-    onSuccess: (nextView: AiSettingsView) => {
-      queryClient.setQueryData(aiSettingsKey(workspaceId), nextView)
-      setFeatureFlags(nextView.featureFlags)
-      toast(t('settings.ai.aiAccessFlagsToast'))
-    },
-    onError: (error) =>
-      toast.error(
-        error instanceof Error ? error.message : t('settings.ai.aiAccessFlags'),
-      ),
-  })
-
-  const flagsDirty = Boolean(
-    featureFlags &&
-    view &&
-    AI_FEATURE_FLAG_KEYS.some(
-      (key) => featureFlags[key] !== view.featureFlags[key],
-    ),
-  )
-
-  return { query, featureFlags, setFeatureFlags, saveFlags, flagsDirty }
-}
-
-function AiAccessFlags({
-  featureFlags,
-  setFeatureFlags,
-  saveFlags,
-  flagsDirty,
+const AiAccessFlags = memo(function AiAccessFlags({
+  flags,
+  onChange,
   canManage,
-}: Omit<ReturnType<typeof useAiFeatureFlagDraft>, 'query'> & {
+}: {
+  flags: AiFeatureFlags
+  onChange: (flag: keyof AiFeatureFlags, on: boolean) => void
   canManage: boolean
 }) {
   return (
@@ -574,45 +590,36 @@ function AiAccessFlags({
                   key={flag.key}
                   title={flag.label}
                   body={flag.description}
-                  checked={featureFlags?.[flag.key] ?? flag.defaultValue}
-                  onCheckedChange={(enabled) =>
-                    setFeatureFlags((current) =>
-                      current ? { ...current, [flag.key]: enabled } : current,
-                    )
-                  }
-                  disabled={!canManage || !featureFlags}
+                  checked={flags[flag.key] ?? flag.defaultValue}
+                  onCheckedChange={(enabled) => onChange(flag.key, enabled)}
+                  disabled={!canManage}
                 />
               ),
             )}
           </div>
         ))}
       </div>
-      <div className="flex flex-wrap items-center gap-3">
-        <Button
-          variant="primary"
-          onClick={() => featureFlags && saveFlags.mutate(featureFlags)}
-          disabled={!flagsDirty || saveFlags.isPending || !canManage}
-        >
-          {saveFlags.isPending
-            ? t('common.states.saving')
-            : t('settings.ai.saveAccessFlags')}
-        </Button>
-        <Muted>{t('settings.ai.flagsOnlyReduce')}</Muted>
-      </div>
+      <Muted>{t('settings.ai.flagsOnlyReduce')}</Muted>
     </>
   )
-}
+})
 
 function AiBudget({
-  form,
+  maxTokens,
+  maxCost,
   onChange,
   canManage,
 }: {
-  form: FormState
-  onChange: (form: FormState) => void
+  maxTokens: number
+  maxCost: number
+  onChange: (patch: Partial<FormState>) => void
   canManage: boolean
 }) {
-  const { maxTokensValid, maxCostValid } = budgetValidity(form)
+  const [tokens, setTokens] = useState(maxTokens)
+  const [cost, setCost] = useState(maxCost)
+
+  const tokensOk = tokensValid(tokens)
+  const costOk = costValid(cost)
 
   return (
     <Section title={t('settings.ai.limits')}>
@@ -623,37 +630,34 @@ function AiBudget({
             AISETTINGSMAXTOKENSCEILING:
               AI_SETTINGS_MAX_TOKENS_CEILING.toLocaleString('en-GB'),
           })}
-          error={maxTokensValid ? undefined : t('settings.ai.enterWholeNumber')}
+          error={tokensOk ? undefined : t('settings.ai.enterWholeNumber')}
         >
           <Input
             type="number"
             min={1}
             max={AI_SETTINGS_MAX_TOKENS_CEILING}
             step={1}
-            value={
-              Number.isFinite(form.maxTokensPerCall)
-                ? form.maxTokensPerCall
-                : ''
-            }
-            onChange={(event) =>
-              onChange({
-                ...form,
-                maxTokensPerCall: Number(event.target.value),
-              })
-            }
+            value={Number.isFinite(tokens) ? tokens : ''}
+            onChange={(event) => setTokens(Number(event.target.value))}
+            onBlur={() => {
+              if (tokensOk && tokens !== maxTokens)
+                onChange({ maxTokensPerCall: tokens })
+            }}
             disabled={!canManage}
             aria-label={t('settings.ai.maximumTokensPer')}
           />
         </Field>
         <Field
           label={t('settings.ai.maximumCostPer2')}
-          error={maxCostValid ? undefined : t('settings.ai.enterAmountWithin')}
+          error={costOk ? undefined : t('settings.ai.enterAmountWithin')}
         >
           <DollarInput
-            micro={form.maxCostMicrousdPerCall}
-            onChange={(maxCostMicrousdPerCall) =>
-              onChange({ ...form, maxCostMicrousdPerCall })
-            }
+            micro={maxCost}
+            onChange={setCost}
+            onBlur={() => {
+              if (costOk && cost !== maxCost)
+                onChange({ maxCostMicrousdPerCall: cost })
+            }}
             disabled={!canManage}
             aria-label={t('settings.ai.maximumCostPerAria2')}
           />

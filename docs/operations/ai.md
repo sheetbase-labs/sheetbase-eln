@@ -101,7 +101,12 @@ A workspace owner sets the policy at **Settings → AI**:
   gateway allowlist decides the role; the profile supplies the concrete model.
 - **Cloud-egress consent** — required before a cloud profile can serve a
   request. The consent is stored on the workspace and audited with the settings
-  change.
+  change. In Settings → AI it reads "Allow sending data to outside AI
+  services". Choosing an outside AI, or turning the assistant on while one is
+  chosen, asks for it in a dialog and saves everything in one step; turning it
+  off also turns the assistant off.
+- Every control on the page saves the moment it changes (budget fields when
+  you leave them). The toast offers Undo and a failed save puts the screen back.
 - **Maximum tokens/cost per call** — the gateway rejects a call before it leaves
   the server if the estimated context cannot fit, and rejects it again if the
   provider reports more usage than the cap.

@@ -250,8 +250,12 @@ export const designSteps: Array<SeedStep> = [
     // one again so the assistant works straight after a reseed.
     name: 'design ai settings',
     run: async (db) => {
-      const profile = parseProviderProfiles(process.env.AI_PROVIDER_PROFILES)[0]
+      const profile = parseProviderProfiles(
+        process.env.AI_PROVIDER_PROFILES,
+      ).at(0)
+
       if (!profile) return
+
       await db.execute(sql`
         update api.workspace_settings
            set ai_enabled = true,

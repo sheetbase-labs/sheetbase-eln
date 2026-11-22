@@ -1457,11 +1457,14 @@ function ChecklistEditor({
     changeItems(editor.rows.filter((row) => row.key !== key))
   }
 
+  // The row just added takes the caret, so a list can be typed without
+  // reaching for the Add item button between items.
+  const [focusKey, setFocusKey] = React.useState<string | null>(null)
+
   function add() {
-    changeItems([
-      ...editor.rows,
-      { key: crypto.randomUUID(), item: { text: '', checked: false } },
-    ])
+    const key = crypto.randomUUID()
+    changeItems([...editor.rows, { key, item: { text: '', checked: false } }])
+    setFocusKey(key)
   }
 
   if (readOnly) {
@@ -1487,7 +1490,7 @@ function ChecklistEditor({
   return (
     <div className={cn('space-y-1.5', className)}>
       {/* The block toolbar floats over the first row's right edge; keep the row controls clear of it. */}
-      <ul className="space-y-1.5 pr-16">
+      <ul className="space-y-1.5 pr-16 max-md:pr-9">
         {editor.rows.map(({ key, item }, i) => (
           <li key={key} className="flex flex-wrap items-center gap-2.5">
             <label className="sr-only" htmlFor={`check-${block.id}-${key}`}>
@@ -1511,7 +1514,17 @@ function ChecklistEditor({
               id={`check-text-${block.id}-${key}`}
               type="text"
               value={item.text}
-              autoFocus={autoFocus && i === a.draft.items.length - 1}
+              autoFocus={
+                (autoFocus && i === a.draft.items.length - 1) ||
+                key === focusKey
+              }
+              onFocus={() => setFocusKey(null)}
+              onKeyDown={(e) => {
+                if (e.key !== 'Enter' || e.nativeEvent.isComposing) return
+                e.preventDefault()
+                e.stopPropagation()
+                add()
+              }}
               onChange={(e) => update(key, { text: e.target.value })}
               onBlur={() => a.flush()}
               placeholder={t('notebook.blockEditor.itemIPlaceholder', {
@@ -1994,7 +2007,7 @@ function Field({
     <div className="space-y-1.5">
       <label
         htmlFor={htmlFor}
-        className="text-xs font-semibold uppercase tracking-wide text-fg-muted"
+        className="block text-xs font-semibold uppercase tracking-wide text-fg-muted"
       >
         {label}
       </label>
@@ -3812,7 +3825,7 @@ function WellInspector({
       {/* Sample link (for sample and control roles) */}
       {role !== 'empty' && role !== 'blank' ? (
         <div className="space-y-1.5">
-          <p className="text-xs font-semibold uppercase tracking-wide text-fg-muted">
+          <p className="block text-xs font-semibold uppercase tracking-wide text-fg-muted">
             {t('notebook.blockEditor.sample')}
           </p>
           {well?.sampleRef ? (
@@ -3917,7 +3930,7 @@ function WellVolumeEditor({
     <div className="space-y-1.5">
       <label
         htmlFor={`well-volume-${wellCode}`}
-        className="text-xs font-semibold uppercase tracking-wide text-fg-muted"
+        className="block text-xs font-semibold uppercase tracking-wide text-fg-muted"
       >
         {t('notebook.blockEditor.volume')}
       </label>
@@ -3988,7 +4001,7 @@ function ValidationConfigEditor({
           aria-label={t('notebook.blockEditor.requiredRoles')}
           className="space-y-1.5"
         >
-          <p className="text-xs font-semibold uppercase tracking-wide text-fg-muted">
+          <p className="block text-xs font-semibold uppercase tracking-wide text-fg-muted">
             {t('notebook.blockEditor.requiredRoles')}
           </p>
           <div className="flex flex-wrap gap-x-4 gap-y-2">

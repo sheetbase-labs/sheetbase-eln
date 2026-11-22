@@ -154,7 +154,7 @@ export function Row({
     'flex w-full items-center text-left',
     scale.row,
     interactive &&
-      'cursor-pointer no-underline transition-colors hover:bg-surface-hover focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-focus',
+      'cursor-pointer no-underline transition-colors hover:bg-surface-hover active:bg-surface-hover focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-focus',
     className,
   )
 

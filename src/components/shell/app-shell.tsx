@@ -1491,7 +1491,7 @@ function NavLink({ item }: { item: NavItem }) {
     <Link
       {...item.link}
       activeOptions={{ exact: item.label === 'Home' }}
-      className="flex h-[30px] shrink-0 items-center gap-2 rounded-md px-2 text-body leading-[normal] text-fg no-underline hover:bg-surface-hover hover:text-fg hover:no-underline [&_svg]:text-fg-muted"
+      className="flex h-[30px] shrink-0 items-center gap-2 rounded-md px-2 text-body leading-[normal] text-fg no-underline hover:bg-surface-hover active:bg-surface-hover hover:text-fg hover:no-underline [&_svg]:text-fg-muted"
       activeProps={selectedProps}
       inactiveProps={
         item.label === 'Home' && homeSelected ? selectedProps : undefined
@@ -1556,7 +1556,7 @@ function NavEntry({
               <Link
                 to={pin.to}
                 title={pin.name}
-                className="flex h-[28px] min-w-0 flex-1 items-center rounded-md px-2 text-body leading-[normal] text-fg-muted no-underline hover:bg-surface-hover hover:text-fg hover:no-underline"
+                className="flex h-[28px] min-w-0 flex-1 items-center rounded-md px-2 text-body leading-[normal] text-fg-muted no-underline hover:bg-surface-hover active:bg-surface-hover hover:text-fg hover:no-underline"
                 activeProps={{
                   className: 'bg-nav-selected text-fg hover:bg-nav-selected',
                   'aria-current': 'page',

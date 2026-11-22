@@ -79,7 +79,7 @@ function OutputList({
   return (
     <nav
       aria-label={t('projects.resultsWorkspace.outputs')}
-      className="w-[196px] shrink-0 overflow-auto border-r border-border px-3 py-4"
+      className="w-[196px] shrink-0 overflow-auto border-r border-border px-3 py-4 max-md:w-auto max-md:border-b max-md:border-r-0"
     >
       <div className="mb-2 px-2 text-label text-fg-muted">
         {t('projects.resultsWorkspace.outputs')}
@@ -201,7 +201,7 @@ function SummaryPane({
 
   return (
     <div className="flex flex-col gap-3">
-      <div className="flex items-baseline gap-2">
+      <div className="flex flex-wrap items-baseline gap-2">
         <h2 className="m-0 font-heading text-doc font-semibold">{title}</h2>
         {summary ? (
           <Button
@@ -272,7 +272,7 @@ function FigurePane({
 
   return (
     <div className="flex flex-col gap-3">
-      <div className="flex items-baseline gap-2">
+      <div className="flex flex-wrap items-baseline gap-2">
         <h2 className="m-0 font-heading text-doc font-semibold">{title}</h2>
         <span className="text-label text-fg-muted">
           {inNotebook
@@ -680,7 +680,7 @@ export function ResultsWorkspace({
   }, [effective, seriesId, xId, excludeFlagged])
 
   return (
-    <div className="flex min-h-0 min-w-0 flex-1">
+    <div className="flex min-h-0 min-w-0 flex-1 max-md:flex-col max-md:overflow-auto">
       <OutputList
         outputs={outputs}
         selectedKey={selected?.key}
@@ -688,7 +688,7 @@ export function ResultsWorkspace({
         onPick={setPicked}
       />
 
-      <div className="min-w-0 flex-1 overflow-auto px-6 py-5">
+      <div className="min-w-0 flex-1 overflow-auto px-6 py-5 max-md:overflow-visible max-md:px-4">
         <ResultsBody
           selected={selected}
           decision={decision}

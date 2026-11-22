@@ -113,7 +113,7 @@ function Row({
                 aria-label={`${cell.label}: ${cell.occupant.identifier}`}
                 className={cn(
                   base,
-                  'border-selection-border bg-selection text-primary-text',
+                  'border-border-strong bg-nav-selected text-fg',
                 )}
               >
                 <span

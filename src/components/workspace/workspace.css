@@ -586,6 +586,19 @@
   padding: 0;
   cursor: pointer;
 }
+.mx-act,
+.mx-num,
+.mx-newer {
+  transition:
+    background-color 150ms ease-out,
+    color 150ms ease-out,
+    scale 150ms ease-out;
+}
+.mx-act:active:not(:disabled),
+.mx-num:active,
+.mx-newer:active {
+  scale: 0.97;
+}
 .mx-act:hover {
   background: var(--surface-hover);
   color: var(--mx-text);

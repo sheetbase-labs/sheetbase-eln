@@ -206,7 +206,7 @@ export default function AssistantChat({
               {' '}
               <Link
                 to="/settings/workspace/ai"
-                className="font-medium text-fg underline underline-offset-2"
+                className="font-medium text-fg underline underline-offset-2 transition-[opacity,scale] duration-150 ease-out active:scale-[.97]"
               >
                 {t('notebook.assistantPanel.openAiSettings')}
               </Link>
@@ -389,7 +389,7 @@ function ChatBody({
               <button
                 type="button"
                 onClick={() => void regenerate()}
-                className="inline-flex cursor-pointer items-center gap-1 border-0 bg-transparent p-0 font-medium text-fg underline underline-offset-2"
+                className="inline-flex cursor-pointer items-center gap-1 border-0 bg-transparent p-0 font-medium text-fg underline underline-offset-2 transition-[opacity,scale] duration-150 ease-out active:scale-[.97]"
               >
                 <Icon name="rotateCcw" size={12} />
                 {t('notebook.assistantPanel.tryAgain')}
@@ -812,7 +812,7 @@ function EmptyChat({
               key={suggestion}
               type="button"
               onClick={() => onAsk(suggestion)}
-              className="cursor-pointer rounded-xl border border-border bg-surface px-3 py-2 text-left text-body text-fg hover:bg-surface-hover"
+              className="cursor-pointer rounded-xl border border-border bg-surface px-3 py-2 text-left text-body text-fg transition-[background-color,scale] duration-150 ease-out hover:bg-surface-hover active:scale-[.98]"
             >
               {suggestion}
             </button>
@@ -883,7 +883,7 @@ function AnswerFooter({
           onClick={() => onCopy()}
           aria-label={t('common.actions.copy')}
           title={copied ? t('common.states.copied') : t('common.actions.copy')}
-          className="inline-flex size-6 cursor-pointer items-center justify-center rounded-md border-0 bg-transparent text-fg-muted hover:bg-surface-hover hover:text-fg"
+          className="inline-flex size-6 cursor-pointer items-center justify-center rounded-md border-0 bg-transparent text-fg-muted transition-[background-color,color,scale] duration-150 ease-out hover:bg-surface-hover hover:text-fg active:scale-[.97]"
         >
           {copied ? (
             <Icon name="check" size={13} />

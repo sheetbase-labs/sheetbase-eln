@@ -149,7 +149,7 @@ export function PromptBox({
               aria-label={t('features.labFiles.attach.button')}
               title={t('features.labFiles.attach.hint')}
               data-testid="assistant-attach"
-              className="inline-flex size-8 shrink-0 cursor-pointer items-center justify-center rounded-full border-0 bg-transparent text-fg-muted transition-colors hover:bg-surface-hover hover:text-fg disabled:cursor-default disabled:text-fg-faint"
+              className="inline-flex size-8 shrink-0 cursor-pointer items-center justify-center rounded-full border-0 bg-transparent text-fg-muted transition-[color,background-color,scale] duration-150 ease-out hover:bg-surface-hover hover:text-fg active:scale-[.97] disabled:cursor-default disabled:text-fg-faint"
             >
               <Icon name="paperclip" size={16} />
             </button>
@@ -174,7 +174,7 @@ export function PromptBox({
             type="button"
             onClick={onStop}
             aria-label={t('notebook.assistantPanel.stop')}
-            className="inline-flex size-8 shrink-0 cursor-pointer items-center justify-center rounded-full border border-border bg-surface text-fg hover:bg-surface-hover"
+            className="inline-flex size-8 shrink-0 cursor-pointer items-center justify-center rounded-full border border-border bg-surface text-fg transition-[background-color,scale] duration-150 ease-out hover:bg-surface-hover active:scale-[.97]"
           >
             <Icon name="square" size={12} fill="currentColor" />
           </button>
@@ -184,7 +184,7 @@ export function PromptBox({
             disabled={!canSend}
             aria-label={t('notebook.assistantPanel.ask')}
             data-testid="assistant-ask"
-            className="inline-flex size-8 shrink-0 cursor-pointer items-center justify-center rounded-full border border-primary bg-primary text-primary-foreground transition-colors hover:bg-primary-hover disabled:cursor-default disabled:border-border disabled:bg-surface-disabled disabled:text-fg-faint"
+            className="inline-flex size-8 shrink-0 cursor-pointer items-center justify-center rounded-full border border-primary bg-primary text-primary-foreground transition-[color,background-color,scale] duration-150 ease-out hover:bg-primary-hover active:scale-[.97] disabled:active:scale-100 disabled:cursor-default disabled:border-border disabled:bg-surface-disabled disabled:text-fg-faint"
           >
             <Icon name="arrowUp" size={16} />
           </button>

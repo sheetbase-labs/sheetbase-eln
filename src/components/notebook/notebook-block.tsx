@@ -297,7 +297,7 @@ function BlockGrip({
           draggable
           onDragStart={onDragStart}
           onDragEnd={onDragEnd}
-          className="cursor-grab rounded p-0.5 text-fg-muted opacity-0 outline-none transition-opacity focus-visible:opacity-100 focus-visible:ring-2 focus-visible:ring-ring group-hover:opacity-100 active:cursor-grabbing"
+          className="cursor-grab rounded p-0.5 text-fg-muted opacity-0 outline-none transition-[opacity,background-color,color,scale] duration-150 ease-out hover:bg-surface-hover hover:text-fg focus-visible:opacity-100 focus-visible:ring-2 focus-visible:ring-ring group-hover:opacity-100 active:cursor-grabbing"
         >
           <Icon name="move" size={14} />
         </button>

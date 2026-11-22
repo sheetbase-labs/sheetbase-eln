@@ -52,7 +52,7 @@ export function PageHeader({
       data-compact={compact || undefined}
       data-collapsed={collapsed || undefined}
       className={cn(
-        'group/header flex flex-col gap-1.5 border-b border-border bg-surface px-4 pt-3 md:px-6 md:pt-3.5',
+        'group/header flex flex-col gap-1.5 border-b border-border bg-gradient-to-b from-primary/[0.06] to-surface px-4 pt-3 md:px-6 md:pt-3.5',
         !tabs && 'pb-3',
         compact && 'max-md:data-[collapsed]:py-2',
         className,

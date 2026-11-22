@@ -63,7 +63,7 @@ export function ListHeader({
   tabs?: React.ReactNode
 }) {
   return (
-    <header className="flex flex-col gap-1 border-b border-border bg-surface px-4 pt-3 md:px-6 md:pt-5">
+    <header className="flex flex-col gap-1 border-b border-border bg-gradient-to-b from-primary/[0.06] to-surface px-4 pt-3 md:px-6 md:pt-5">
       <div className="flex min-h-9 flex-wrap items-center gap-x-3 gap-y-1">
         <h1 className="text-[22px] font-semibold leading-7 tracking-[-0.01em] text-fg max-md:text-[18px] max-md:leading-6">
           {title}

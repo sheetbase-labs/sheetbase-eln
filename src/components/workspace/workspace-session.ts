@@ -78,6 +78,7 @@ import type { PaneCrumb } from './pane-header'
 import type { PanePageHandle } from './pane-page'
 import {
   focusedRecordAnchor,
+  PAGE_MIME,
   LINK_MIME,
   useRecordLinks,
 } from './use-record-links'
@@ -92,6 +93,7 @@ import type {
 import { statusHints } from './workspace-status'
 import type { Hint } from './workspace-status'
 import {
+  carriesPageLink,
   carriesRecordLink,
   mainScroller,
   pageTitleFor,
@@ -1231,12 +1233,17 @@ export function useWorkspaceSession({
     if (!nextHref) return
     event.preventDefault()
 
-    if (edge === 'center') {
+    // A page is not something to cite: dropped in the middle it
+    // opens beside the pane it landed on.
+    const isPage = event.dataTransfer.types.includes(PAGE_MIME)
+
+    if (edge === 'center' && !isPage) {
       void citeOnPrimary(nextHref)
 
       return
     }
 
+    const side = edge === 'center' ? 'right' : edge
     const newId = crypto.randomUUID()
 
     const result = openBeside(current.current, {
@@ -1244,8 +1251,8 @@ export function useWorkspaceSession({
       newId,
       title: event.dataTransfer.getData('text/x-sheetbase-title') || undefined,
       targetId: paneId,
-      direction: edge === 'left' || edge === 'right' ? 'row' : 'column',
-      before: edge === 'left' || edge === 'top',
+      direction: side === 'left' || side === 'right' ? 'row' : 'column',
+      before: side === 'left' || side === 'top',
     })
 
     apply(() => result.state)
@@ -1429,7 +1436,9 @@ export function useWorkspaceSession({
         Math.abs(point.y / box.height - 0.5) < 0.2
 
       const edge =
-        primary && middle ? ('center' as const) : dropEdge(point, box)
+        primary && middle && !carriesPageLink(event.dataTransfer)
+          ? ('center' as const)
+          : dropEdge(point, box)
 
       setDropTarget((previous) =>
         previous?.paneId === paneId && previous.edge === edge

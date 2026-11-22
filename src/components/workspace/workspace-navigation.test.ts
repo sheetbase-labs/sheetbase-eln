@@ -1,6 +1,10 @@
 import { describe, expect, it, vi } from 'vitest'
 
-import { openBesideOnAlt } from './workspace-navigation'
+import {
+  openAnchorBesideOnAlt,
+  openBesideOnAlt,
+  registerOpenBeside,
+} from './workspace-navigation'
 
 function click(init: Partial<MouseEvent> = {}) {
   return {
@@ -75,5 +79,50 @@ describe('openBesideOnAlt', () => {
 
   it('does nothing outside a workspace', () => {
     expect(openBesideOnAlt(null, '/x', click({ altKey: true }))).toBe(false)
+  })
+})
+
+describe('openAnchorBesideOnAlt', () => {
+  const anchorClick = (init: Partial<MouseEvent>) => {
+    const anchor = document.createElement('a')
+    anchor.href = '/samples?new=true'
+    const event = click(init)
+
+    return {
+      event: { ...event, currentTarget: anchor },
+      prevented: event.preventDefault,
+    }
+  }
+
+  it('asks the workspace for a pane beside on Alt-click, below with Shift', () => {
+    const open = vi.fn()
+    const stop = registerOpenBeside(open)
+    const beside = anchorClick({ altKey: true })
+    openAnchorBesideOnAlt(beside.event)
+    const below = anchorClick({ altKey: true, shiftKey: true })
+    openAnchorBesideOnAlt(below.event)
+    stop()
+    expect(open).toHaveBeenNthCalledWith(
+      1,
+      '/samples?new=true',
+      undefined,
+      false,
+    )
+    expect(open).toHaveBeenNthCalledWith(
+      2,
+      '/samples?new=true',
+      undefined,
+      true,
+    )
+  })
+
+  it('leaves a plain click to the link', () => {
+    const open = vi.fn()
+    const stop = registerOpenBeside(open)
+    const plain = anchorClick({})
+    openAnchorBesideOnAlt(plain.event)
+    stop()
+    expect(open).not.toHaveBeenCalled()
+    expect(plain.event.preventDefault).not.toHaveBeenCalled()
   })
 })

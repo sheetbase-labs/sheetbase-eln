@@ -1,3 +1,4 @@
+import { workspaceHref } from '#/lib/workspace-state'
 import type { FrozenState } from '#/lib/workspace-state'
 import {
   createContext,
@@ -181,6 +182,27 @@ export function useReportMissing(missing: boolean) {
 /** True when this page is shown in a pane that may not edit. */
 export function usePaneReadOnly() {
   return useContext(PaneContext).readOnly
+}
+
+/**
+ * For a link in the shell, which sits outside the workspace: Alt-click opens
+ * its page in a pane beside, Alt+Shift-click below. Anything else runs the link.
+ */
+export function openAnchorBesideOnAlt(
+  event: ClickLike & {
+    currentTarget: Element
+    preventDefault: () => void
+  },
+) {
+  if (!event.altKey || isBrowserClick(event)) return
+  const anchor = event.currentTarget.closest('a[href]')
+
+  if (!(anchor instanceof HTMLAnchorElement)) return
+  const href = workspaceHref(anchor.href, location.origin)
+
+  if (!href) return
+  event.preventDefault()
+  requestOpenBeside(href, undefined, event.shiftKey)
 }
 
 const BESIDE_EVENT = 'sheetbase:workspace-open-beside'

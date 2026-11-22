@@ -248,12 +248,14 @@ function UrlTabs({
 }: Extract<TabsProps, { mode: 'url' }>) {
   // The tabs a phone moves into the More menu: those past `phoneKeep`, except
   // the one you are on, which stays in the row so you can see where you are.
-  const tucked = items.filter(
+  const tuckedItems = items.filter(
     (item, index) =>
       phoneKeep !== undefined &&
       index >= phoneKeep &&
       (value === undefined || item.key !== value),
   )
+
+  const tucked = new Set(tuckedItems)
 
   return (
     <nav aria-label={label} className={cn(LIST[variant], className)}>
@@ -269,7 +271,7 @@ function UrlTabs({
             className={cn(
               ITEM[variant],
               ACTIVE_LINK[variant],
-              tucked.includes(item) && 'max-md:hidden',
+              tucked.has(item) && 'max-md:hidden',
             )}
             // Where the caller names the current key, only that key is current:
             // the router's own match is narrowed to the same URL, so its
@@ -291,7 +293,7 @@ function UrlTabs({
           </Link>
         )
       })}
-      {tucked.length > 0 ? (
+      {tucked.size > 0 ? (
         <DropdownMenu>
           <DropdownMenuTrigger
             aria-label={t('notebook.inspector.moreTabsAriaLabel')}
@@ -301,7 +303,7 @@ function UrlTabs({
             <Icon name="chevronDown" size={12} />
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="min-w-[180px]">
-            {tucked.map((item, index) => (
+            {tuckedItems.map((item, index) => (
               <DropdownMenuLinkItem
                 // react-doctor-disable-next-line react-doctor/no-array-index-as-key -- an item without a key or link target is identified by its fixed position.
                 key={item.key ?? item.link.to ?? index}

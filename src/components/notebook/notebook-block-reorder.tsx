@@ -139,7 +139,7 @@ export function NotebookBlockHandle({
       render={<button type="button" />}
       aria-label={label}
       className={cn(
-        'rounded p-0.5 text-fg-muted transition-opacity focus-visible:ring-2 focus-visible:ring-ring',
+        'rounded p-0.5 text-fg-muted transition-[opacity,background-color,color,scale] duration-150 ease-out hover:bg-surface-hover hover:text-fg active:scale-[.97] focus-visible:ring-2 focus-visible:ring-ring',
         // Hover-revealed only where a hover exists. A touchscreen cannot
         // hover, and the grip is its only route to a reorder, so there it is
         // simply visible — which is why the reveal is gated on the pointer

@@ -605,7 +605,13 @@ test('an imported plate analysis remains reconstructable after independent revie
       .getByRole('button', { name: new RegExp(experimentTitle) })
       .click()
     // Inbox activation opens the actual submitted revision in the same pane.
-    await expect(reviewerPage).toHaveURL(new RegExp(`${revisionPath}$`))
+    // The stand-alone review page hands an experiment's review on to the
+    // experiment's Review tab once its code and the record have loaded, and
+    // the first time the reviewer opens that page the CI dev server compiles
+    // it, which can take longer than the default 5 second wait.
+    await expect(reviewerPage).toHaveURL(new RegExp(`${revisionPath}$`), {
+      timeout: 30_000,
+    })
     await reviewerPage
       .getByRole('link', { name: 'Checks', exact: true })
       .click()

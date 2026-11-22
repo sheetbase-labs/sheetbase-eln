@@ -108,6 +108,8 @@ export interface UseAutosaveResult<T> {
   validationErrors: string[]
   /** Flush the debounce immediately (used on blur / explicit save). */
   flush: () => void
+  /** Drop a save that is waiting on its timer; the draft stays as it is. */
+  cancelPending: () => void
   /** Discard the local draft and adopt the server value (`conflict`). */
   discardDraft: () => void
   /** Re-attempt saving the local draft (`conflict` / `failed`). */
@@ -488,6 +490,7 @@ export function useAutosave<T extends object>({
     serverValue,
     validationErrors,
     flush,
+    cancelPending: clearTimers,
     discardDraft,
     retry,
     hasUnsavedWork: status !== 'clean',

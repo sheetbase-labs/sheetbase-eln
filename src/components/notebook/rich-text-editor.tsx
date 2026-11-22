@@ -368,6 +368,10 @@ function useNotebookTextEditing({
 
   // Refs so Tiptap's once-created callbacks always read the latest values.
   const slashMenuRef = useCommittedRef(slashMenu)
+  // A slash command that swaps this block for another type deletes it. Its
+  // text is only the "/query" then, so leaving the box must not save it: the
+  // save would arrive after the block is gone and be refused.
+  const replacingRef = React.useRef(false)
 
   // "Write with AI": offered only when a real model is connected.
   const ai = usePageAi()
@@ -615,6 +619,7 @@ function useNotebookTextEditing({
                   .run()
               } else {
                 // Block will be replaced — no need to clean up editor text.
+                replacingRef.current = true
                 cb.onSlashCommand?.(selected.type)
               }
 
@@ -729,6 +734,9 @@ function useNotebookTextEditing({
         })
       },
       onFocus: ({ editor: focused }) => {
+        // A picker that was cancelled leaves the block in place, so typing in
+        // it again counts as keeping it.
+        replacingRef.current = false
         placeRef.current = {
           from: focused.state.selection.from,
           to: focused.state.selection.to,
@@ -782,7 +790,7 @@ function useNotebookTextEditing({
         updateSelectionState(currentEditor)
       },
       onBlur: () => {
-        cbRef.current.onBlur()
+        if (!replacingRef.current) cbRef.current.onBlur()
         setSlashMenu(SLASH_MENU_CLOSED)
         setHasSelection(false)
       },
@@ -942,6 +950,7 @@ function useNotebookTextEditing({
         editor.chain().focus().setHeading({ level: 2 }).run()
       }
     } else {
+      replacingRef.current = true
       cbRef.current.onSlashCommand?.(type)
     }
 

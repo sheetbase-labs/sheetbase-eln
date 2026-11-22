@@ -28,7 +28,7 @@ export function ReviewerBand({
       className="flex flex-wrap items-center gap-x-3 gap-y-1 border-b border-border bg-surface-muted px-4 py-2 text-label text-fg-muted md:px-6"
     >
       <Icon name="info" size={14} className="shrink-0" aria-hidden />
-      <p className="min-w-0 flex-1 basis-64">
+      <p className="min-w-0 flex-1 basis-64 max-md:basis-0">
         <strong className="font-medium text-fg">
           {waitingFor
             ? t('projects.experimentPage.reviewBand.authorTitle', {
@@ -36,20 +36,24 @@ export function ReviewerBand({
               })
             : t('projects.experimentPage.reviewBand.title')}
         </strong>{' '}
-        {waitingFor
-          ? t('projects.experimentPage.reviewBand.authorBody', {
-              date: submittedAt ? formatDate(submittedAt) : '',
-            })
-          : t('projects.experimentPage.reviewBand.body', {
-              name: ownerName,
-              date: submittedAt ? formatDate(submittedAt) : '',
-            })}
+        {/* The sentence under the title is for a wide screen: on a phone the
+            band is the title and the link, one line instead of three. */}
+        <span className="max-md:hidden">
+          {waitingFor
+            ? t('projects.experimentPage.reviewBand.authorBody', {
+                date: submittedAt ? formatDate(submittedAt) : '',
+              })
+            : t('projects.experimentPage.reviewBand.body', {
+                name: ownerName,
+                date: submittedAt ? formatDate(submittedAt) : '',
+              })}
+        </span>
       </p>
       {revisionId ? (
         <Link
           to="/review/$revisionId"
           params={{ revisionId }}
-          className="text-link"
+          className="shrink-0 text-link"
         >
           {t('projects.experimentPage.reviewBand.open')}
         </Link>

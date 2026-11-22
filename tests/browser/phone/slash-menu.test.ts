@@ -8,11 +8,14 @@ import { expect, test } from 'playwright/test'
 import type { Page } from 'playwright/test'
 
 import {
+  DESIGN_USER,
   createExperiment,
   createProject,
+  reload,
   signIn,
   uniqueName,
   waitForHydration,
+  withAdminDb,
 } from '../journeys/helpers'
 import {
   KEYBOARD_PX,
@@ -23,11 +26,69 @@ import {
   setKeyboard,
 } from './phone'
 
+/** The seeded design workspace the journeys run in. */
+const DESIGN_WORKSPACE = '00000000-0000-4000-8000-000000000300'
+
 test.use({ ...PHONE })
 test.setTimeout(120_000)
 
 let projectPath = ''
 const LINES = 30
+
+/**
+ * Write the notebook's lines with the same insert the editor calls for a new
+ * block, straight against the database. Typing thirty lines with Enter took
+ * thirty round trips, each re-rendering the notebook a little slower than the
+ * last, and on a busy CI machine the later ones outlasted the wait for the new
+ * line. The test is about where the menu opens, not how fast blocks are made,
+ * so the page is filled the quick way and only the line the menu opens in is
+ * typed by hand.
+ */
+async function writeLines(recordId: string, count: number) {
+  await withAdminDb(async (db) => {
+    await db.query('begin')
+    await db.query('set local role authenticated')
+    await db.query("select set_config('request.jwt.claims', $1, true)", [
+      JSON.stringify({
+        sub: DESIGN_USER,
+        workspace_id: DESIGN_WORKSPACE,
+        role: 'authenticated',
+      }),
+    ])
+    const first = await db.query(
+      'select id from api.blocks where record_id = $1',
+      [recordId],
+    )
+    let previous: string = first.rows[0].id
+    for (let line = 2; line <= count; line += 1) {
+      const inserted = await db.query(
+        `select (api.insert_block(
+           p_record_id => $1,
+           p_type => 'rich_text',
+           p_payload => $2::jsonb,
+           p_after_block_id => $3
+         ))->'block'->>'id' as id`,
+        [
+          recordId,
+          JSON.stringify({
+            doc: {
+              type: 'doc',
+              content: [
+                {
+                  type: 'paragraph',
+                  content: [{ type: 'text', text: `Observation ${line}` }],
+                },
+              ],
+            },
+          }),
+          previous,
+        ],
+      )
+      previous = inserted.rows[0].id
+    }
+    await db.query('commit')
+  })
+}
 
 /**
  * A fresh draft notebook with enough lines to scroll, so the seeded notebooks
@@ -37,25 +98,39 @@ async function openDraftNotebook(page: Page) {
   await emulatePhone(page)
   await signIn(page)
   if (!projectPath) projectPath = await createProject(page, uniqueName('Phone'))
-  await createExperiment(page, projectPath, uniqueName('Phone notebook'))
+  const recordId = await createExperiment(
+    page,
+    projectPath,
+    uniqueName('Phone notebook'),
+  )
   await waitForHydration(page)
   await emulateInstalledApp(page)
-  // A new draft opens on one empty text block.
-  const editor = page.getByRole('textbox', { name: 'Text content' }).first()
+  // A new draft opens on one empty text block: write the first line in it.
   const blocks = page.getByRole('group', { name: /^Text block/ })
+  const editor = page.getByRole('textbox', { name: 'Text content' }).first()
   await editor.click()
   await expect(editor).toBeFocused()
-  // Enter at the end of a block starts a new one, so this writes a stack of
-  // one-line blocks, typed at a person's pace.
-  for (let line = 1; line <= LINES; line += 1) {
-    await page.keyboard.type(`Observation ${line}`, { delay: 10 })
-    if (line < LINES) {
-      await page.keyboard.press('Enter')
-      await expect(
-        blocks.nth(line).getByRole('textbox', { name: 'Text content' }),
-      ).toBeFocused()
-    }
-  }
+  await page.keyboard.type('Observation 1', { delay: 10 })
+  // The editor saves on its own a moment after typing: wait for it to land
+  // before the page is reloaded.
+  await expect
+    .poll(() =>
+      withAdminDb(async (db) =>
+        JSON.stringify(
+          (
+            await db.query(
+              'select payload from api.blocks where record_id = $1',
+              [recordId],
+            )
+          ).rows,
+        ),
+      ),
+    )
+    .toContain('Observation 1')
+  await writeLines(recordId, LINES)
+  await reload(page)
+  await emulateInstalledApp(page)
+  await expect(blocks).toHaveCount(LINES)
   // Leave the caret in a new empty block in the middle, with blocks both
   // above and below it, so it can be scrolled anywhere on screen.
   await blocks

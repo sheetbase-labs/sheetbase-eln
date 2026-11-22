@@ -56,6 +56,21 @@ export async function reload(page: Page): Promise<void> {
   await loadServed(page, () => page.reload())
 }
 
+/**
+ * Wait for the toast that follows pressing Cite. Citing is a chain of requests
+ * (read the notebook, compose the analysis, insert the block, freeze it, record
+ * the citation) and the toast only shows after the last one, so the first run
+ * of each route on a cold dev server can outlast the default 5 second wait.
+ * Wait for either outcome with room for that, so a real refusal fails at once
+ * with its own toast instead of looking like a missing success toast.
+ */
+export async function expectCited(page: Page): Promise<void> {
+  const cited = page.getByText('Cited in a notebook').first()
+  const refused = page.getByText('Couldn’t cite').first()
+  await expect(cited.or(refused)).toBeVisible({ timeout: 30_000 })
+  await expect(cited).toBeVisible()
+}
+
 /** Navigate and wait for the page to be interactive. */
 export async function open(page: Page, url: string): Promise<void> {
   await loadServed(page, () => page.goto(url))

@@ -14,6 +14,7 @@ import type { Locator, Page } from 'playwright/test'
 
 import {
   createExperiment,
+  expectCited,
   createProject,
   ensureEffectiveProtocol,
   open,
@@ -164,7 +165,7 @@ test('CORE-09 a dataset snapshot can be referenced from the notebook', async ({
   await dialog.getByRole('combobox').fill(title)
   await dialog.getByText(title).first().click()
   await dialog.getByRole('button', { name: /^cite$/i }).click()
-  await expect(page.getByText('Cited in a notebook')).toBeVisible()
+  await expectCited(page)
   await open(page, `/experiments/${expId}/data/links`)
   await expect(page.getByRole('link', { name: 'DS-0311' })).toBeVisible()
 })

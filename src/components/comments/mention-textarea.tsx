@@ -125,7 +125,7 @@ export function MentionTextarea({
           }
         }}
       />
-      {open
+      {open && typeof document !== 'undefined'
         ? createPortal(
             <ul
               ref={listRef}

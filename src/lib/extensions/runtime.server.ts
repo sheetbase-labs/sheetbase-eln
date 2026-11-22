@@ -367,7 +367,7 @@ export async function runPackage(
     if (runtime.environmentState === 'failed')
       throw new ExtensionRunError(
         'environment_failed',
-        `This plugin’s Python packages could not be installed: ${runtime.environmentError ?? 'the installer gave no reason'}. An administrator can try again in Settings › Plugins.`,
+        `This plugin’s Python packages could not be installed: ${(runtime.environmentError ?? 'the installer gave no reason').replace(/[.\s]+$/, '')}. An administrator can try again in Settings › Plugins.`,
       )
 
     if (runtime.environmentState !== 'ready' || !runtime.environmentId)

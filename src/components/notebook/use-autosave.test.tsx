@@ -420,6 +420,14 @@ describe('useAutosave — flush and navigation guard', () => {
     expect(mount.current.hasUnsavedWork).toBe(false)
   })
 
+  it('cancelPending drops a save that is waiting on its timer', async () => {
+    const { mount, save } = mountAutosave({ debounceMs: 40 })
+    act(() => mount.current.setDraft({ text: '/checklist' }))
+    act(() => mount.current.cancelPending())
+    await sleep(100)
+    expect(save).not.toHaveBeenCalled()
+  })
+
   it('clears timers on unmount so no save fires after tab closure', async () => {
     const { mount, save, mount: m } = mountAutosave({ debounceMs: 50 })
     act(() => mount.current.setDraft({ text: 'pending' }))

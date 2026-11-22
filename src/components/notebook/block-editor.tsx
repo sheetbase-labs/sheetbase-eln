@@ -586,7 +586,16 @@ function RichTextEditor({
           a.setDraft(payload)
         }}
         onBlur={a.flush}
-        onSlashCommand={onSlashCommand}
+        onSlashCommand={
+          onSlashCommand
+            ? (type) => {
+                // The block is about to be swapped for another type; a save
+                // of its "/query" text would land after it is gone.
+                a.cancelPending()
+                onSlashCommand(type)
+              }
+            : undefined
+        }
         onEnterAtEnd={onEnterAtEnd}
         onBackspaceAtStart={onBackspaceAtStart}
         onArrowUpFromStart={onArrowUpFromStart}

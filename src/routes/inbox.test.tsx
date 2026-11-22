@@ -303,7 +303,9 @@ describe('Inbox witness presentation (REV-02)', () => {
     fireEvent.click(getByRole('button', { name: /^Reviews 2$/ }))
     const row = getByRole('button', { name: /Witness target/ })
     expect(row.textContent).toContain('Witness requested')
-    expect(row.querySelector('[data-slot="status"] .bg-review')).not.toBeNull()
+    expect(
+      row.querySelector('[data-slot="status"] .text-review'),
+    ).not.toBeNull()
     fireEvent.click(row)
     fireEvent.keyDown(window, { key: 'Enter' })
     expect(navigate).toHaveBeenCalledWith({

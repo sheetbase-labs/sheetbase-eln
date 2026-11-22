@@ -1,5 +1,5 @@
-import { useLeaveGuard } from '#/components/settings/use-leave-guard'
-import { useEffect, useState } from 'react'
+import { useAutoSave } from '#/components/settings/use-autosave'
+import { useEffect, useMemo, useState } from 'react'
 import { createFileRoute } from '@tanstack/react-router'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 
@@ -21,7 +21,6 @@ import {
   CheckRow,
   SettingsBody,
   SettingsHeader,
-  SettingsSaveBar,
 } from '#/components/settings/settings-page'
 import {
   fetchBackupsFn,
@@ -128,6 +127,12 @@ function Backups() {
   )
 }
 
+interface BackupDraft {
+  enabled: boolean
+  frequency: BackupFrequency
+  keepCount: number | null
+}
+
 function BackupsBody({
   workspaceId,
   canManage,
@@ -158,41 +163,45 @@ function BackupsBody({
     keepCount >= KEEP_COUNT_RANGE.min &&
     keepCount <= KEEP_COUNT_RANGE.max
 
-  const dirty =
-    enabled !== saved.enabled ||
-    frequency !== saved.frequency ||
-    keep !== String(saved.keepCount)
-
-  const save = useMutation({
-    mutationFn: () =>
-      saveBackupSettingsFn({
-        data: { workspaceId, enabled, frequency, keepCount },
-      }),
-    onSuccess: () => {
-      toast.success(t('settings.backups.savedToast'))
-      onChanged()
-    },
-    onError: () => toast.error(t('settings.backups.couldNotSaveToast')),
+  // What was last stored: it moves the moment a save succeeds, so the form is
+  // settled without waiting for the page to re-read.
+  const [stored, setStored] = useState<BackupDraft>({
+    enabled: saved.enabled,
+    frequency: saved.frequency,
+    keepCount: saved.keepCount,
   })
 
-  useLeaveGuard({
-    dirty: dirty && canManage,
-    label: t('settings.backups.title'),
-    canSave: keepValid,
-    save: async () => {
-      try {
-        await save.mutateAsync()
+  const draft = useMemo<BackupDraft>(
+    () => ({ enabled, frequency, keepCount: keepValid ? keepCount : null }),
+    [enabled, frequency, keepCount, keepValid],
+  )
 
-        return true
-      } catch {
-        return false
-      }
+  useAutoSave({
+    draft,
+    saved: stored,
+    equal: (a, b) =>
+      a.enabled === b.enabled &&
+      a.frequency === b.frequency &&
+      a.keepCount === b.keepCount,
+    valid: canManage && keepValid,
+    save: async (next) => {
+      await saveBackupSettingsFn({
+        data: {
+          workspaceId,
+          enabled: next.enabled,
+          frequency: next.frequency,
+          keepCount: next.keepCount ?? saved.keepCount,
+        },
+      })
+      setStored(next)
+      onChanged()
     },
-    discard: () => {
-      setEnabled(saved.enabled)
-      setFrequency(saved.frequency)
-      setKeep(String(saved.keepCount))
+    restore: (value) => {
+      setEnabled(value.enabled)
+      setFrequency(value.frequency)
+      setKeep(String(value.keepCount ?? saved.keepCount))
     },
+    message: t('settings.backups.savedToast'),
   })
 
   const runNow = useMutation({
@@ -306,14 +315,6 @@ function BackupsBody({
           )}
         </Section>
       </SettingsBody>
-      {canManage ? (
-        <SettingsSaveBar
-          dirty={dirty}
-          pending={save.isPending}
-          disabled={!keepValid}
-          onSave={() => save.mutate()}
-        />
-      ) : null}
     </>
   )
 }

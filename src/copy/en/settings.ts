@@ -1,6 +1,8 @@
 /** Settings, administration, sign-in, help and the app shell. */
 export const settings = {
   page: {
+    savedToast: 'Saved',
+    couldNotSave: 'That could not be saved. Try again.',
     settingsAria: 'Settings',
     workspace: 'Workspace',
     account: 'Account',

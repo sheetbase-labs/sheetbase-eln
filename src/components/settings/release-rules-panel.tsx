@@ -1,4 +1,4 @@
-import { useLeaveGuard } from '#/components/settings/use-leave-guard'
+import { useAutoSave } from '#/components/settings/use-autosave'
 import { useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 
@@ -274,47 +274,40 @@ function RuleEditor({
 
   const problem = rules.map(validateRule).find(Boolean) ?? null
 
-  const dirty =
-    JSON.stringify(rules) !== JSON.stringify(saved ?? BUILT_IN_RULES)
+  // What was last stored: it moves the moment a save succeeds, so the form is
+  // settled without waiting for the page to re-read.
+  const [stored, setStored] = useState<readonly ReleaseRule[]>(
+    saved ?? BUILT_IN_RULES,
+  )
 
-  const save = useMutation({
-    mutationFn: () => saveReleaseRules(client, workspaceId, sampleType, rules),
-    onSuccess: () => {
-      toast(t('settings.releaseRules.saved'))
-      onChanged()
-    },
-    onError: (error) => toast.error(errorMessage(error)),
-  })
+  const freshDrafts = (list: readonly ReleaseRule[]) =>
+    list.map((rule) => ({ id: crypto.randomUUID(), rule }))
 
   const reset = useMutation({
     mutationFn: () => resetReleaseRules(client, sampleType),
     onSuccess: () => {
       toast(t('settings.releaseRules.reset'))
+      setStored(BUILT_IN_RULES)
+      setDrafts(freshDrafts(BUILT_IN_RULES))
       onChanged()
     },
     onError: (error) => toast.error(errorMessage(error)),
   })
 
-  useLeaveGuard({
-    dirty: dirty && canManage,
-    label: t('settings.releaseRules.editTitle', { type: sampleType }),
-    canSave: problem === null,
-    save: async () => {
-      try {
-        await save.mutateAsync()
-
-        return true
-      } catch {
-        return false
-      }
+  // A check half filled in is not saved; the message below says what is
+  // missing, and the list saves itself once every check is complete.
+  const { pending } = useAutoSave({
+    draft: rules,
+    saved: stored,
+    equal: (a, b) => JSON.stringify(a) === JSON.stringify(b),
+    valid: canManage && problem === null,
+    save: async (next) => {
+      await saveReleaseRules(client, workspaceId, sampleType, next)
+      setStored(next)
+      onChanged()
     },
-    discard: () =>
-      setDrafts(
-        (saved ?? BUILT_IN_RULES).map((rule) => ({
-          id: crypto.randomUUID(),
-          rule,
-        })),
-      ),
+    restore: (value) => setDrafts(freshDrafts(value)),
+    message: t('settings.releaseRules.saved'),
   })
 
   const update = (index: number, replacement: ReleaseRule) =>
@@ -485,25 +478,17 @@ function RuleEditor({
       </fieldset>
       {canManage ? (
         <div className="flex flex-col items-start gap-2">
-          {dirty && problem ? (
+          {problem && JSON.stringify(rules) !== JSON.stringify(stored) ? (
             <span className="text-label text-danger-text">{problem}</span>
           ) : null}
-          <div className="flex flex-wrap gap-2">
+          {saved ? (
             <Button
-              variant="primary"
-              disabled={!dirty || Boolean(problem) || save.isPending}
-              onClick={() => save.mutate()}
+              disabled={reset.isPending || pending}
+              onClick={() => reset.mutate()}
             >
-              {save.isPending
-                ? t('common.states.saving')
-                : t('settings.releaseRules.save')}
+              {t('settings.releaseRules.useBuiltIn')}
             </Button>
-            {saved ? (
-              <Button disabled={reset.isPending} onClick={() => reset.mutate()}>
-                {t('settings.releaseRules.useBuiltIn')}
-              </Button>
-            ) : null}
-          </div>
+          ) : null}
         </div>
       ) : null}
     </div>

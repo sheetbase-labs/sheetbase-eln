@@ -1,12 +1,11 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 
 import { Checkbox } from '#/components/ui/checkbox'
 import { Input } from '#/components/ui/input'
 import { Notice } from '#/components/ui/alert'
-import { toast } from '#/components/ui/sonner'
 import { Tooltip } from '#/components/ui/tooltip'
-import { SettingsSaveBar } from './settings-page'
+import { useAutoSave } from './use-autosave'
 import { PhoneAlerts } from './phone-alerts'
 import { PluginChannels } from './plugin-channels'
 import { TableBox } from '#/components/ui/table'
@@ -46,6 +45,24 @@ function matchesPreference(
  * WORK-03.1 — SettingsNotifications: choose where each event reaches the
  * caller, quiet hours and the daily digest time. UI port: app-3's v3 kit.
  */
+interface NotificationDraft {
+  rows: NotificationPreference[]
+  quietStart: string | null
+  quietEnd: string | null
+  digestTime: string | null
+}
+
+function sameNotificationDraft(a: NotificationDraft, b: NotificationDraft) {
+  const before = new Map(b.rows.map((row) => [row.eventType, row]))
+
+  return (
+    a.rows.every((row) => matchesPreference(before.get(row.eventType), row)) &&
+    a.quietStart === b.quietStart &&
+    a.quietEnd === b.quietEnd &&
+    a.digestTime === b.digestTime
+  )
+}
+
 export function SettingsNotifications() {
   const queryClient = useQueryClient()
 
@@ -85,8 +102,8 @@ export function SettingsNotifications() {
   const savedByEvent = new Map(savedRows.map((row) => [row.eventType, row]))
 
   const save = useMutation({
-    mutationFn: async () => {
-      for (const row of rows) {
+    mutationFn: async (next: NotificationDraft) => {
+      for (const row of next.rows) {
         const before = savedByEvent.get(row.eventType)
 
         if (matchesPreference(before, row)) continue
@@ -95,36 +112,54 @@ export function SettingsNotifications() {
       }
 
       await saveNotificationTiming({
-        quietHoursStart: quietStart,
-        quietHoursEnd: quietEnd,
-        digestTime,
+        quietHoursStart: next.quietStart,
+        quietHoursEnd: next.quietEnd,
+        digestTime: next.digestTime,
       })
     },
-    onSuccess: () => {
-      void queryClient.invalidateQueries({
-        queryKey: notificationPreferencesQueryKeys.preferences(),
-      })
-      void queryClient.invalidateQueries({
-        queryKey: notificationPreferencesQueryKeys.timing(),
-      })
-      // Only on a resolved save, so the confirmation cannot claim a write that
-      // failed — the panel's own Notice reports failures.
-      toast(t('settings.notifications.notificationSettingsSavedToast'))
-    },
+    // Wait for the re-read so the draft and the saved copy match again before
+    // the form counts as settled.
+    onSuccess: () =>
+      Promise.all([
+        queryClient.invalidateQueries({
+          queryKey: notificationPreferencesQueryKeys.preferences(),
+        }),
+        queryClient.invalidateQueries({
+          queryKey: notificationPreferencesQueryKeys.timing(),
+        }),
+      ]),
   })
 
-  // The form is dirty only against what the server last returned, so Save is
-  // inert until something actually changes. Times are wall-clock values in the
-  // person's own zone; the delivery and digest queries read them there.
-  const dirty =
-    rows.some((row) => {
-      const before = savedByEvent.get(row.eventType)
+  // Times are wall-clock values in the person's own zone; the delivery and
+  // digest queries read them there.
+  const draft = useMemo<NotificationDraft>(
+    () => ({ rows, quietStart, quietEnd, digestTime }),
+    [rows, quietStart, quietEnd, digestTime],
+  )
 
-      return !matchesPreference(before, row)
-    }) ||
-    quietStart !== (timingQuery.data?.quietHoursStart ?? null) ||
-    quietEnd !== (timingQuery.data?.quietHoursEnd ?? null) ||
-    digestTime !== (timingQuery.data?.digestTime ?? null)
+  const savedDraft: NotificationDraft | undefined =
+    preferencesQuery.data && timingQuery.data
+      ? {
+          rows: savedRows,
+          quietStart: timingQuery.data.quietHoursStart,
+          quietEnd: timingQuery.data.quietHoursEnd,
+          digestTime: timingQuery.data.digestTime,
+        }
+      : undefined
+
+  useAutoSave({
+    draft,
+    saved: savedDraft,
+    equal: sameNotificationDraft,
+    save: (next) => save.mutateAsync(next),
+    restore: (value) => {
+      setRows(value.rows)
+      setQuietStart(value.quietStart)
+      setQuietEnd(value.quietEnd)
+      setDigestTime(value.digestTime)
+    },
+    message: t('settings.notifications.notificationSettingsSavedToast'),
+  })
 
   const rowsByEvent = new Map(rows.map((row) => [row.eventType, row]))
 
@@ -237,12 +272,6 @@ export function SettingsNotifications() {
         onQuietStartChange={setQuietStart}
         onQuietEndChange={setQuietEnd}
         onDigestTimeChange={setDigestTime}
-      />
-      <SettingsSaveBar
-        dirty={dirty}
-        pending={save.isPending}
-        disabled={preferencesQuery.isLoading || timingQuery.isLoading}
-        onSave={() => save.mutate()}
       />
     </div>
   )

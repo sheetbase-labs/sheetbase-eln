@@ -110,6 +110,12 @@ afterEach(() => {
 
 afterAll(() => vi.unstubAllGlobals())
 
+/** Autosave waits for typing to pause, then writes. */
+const eventually = (check: () => void) => waitFor(check, { timeout: 4000 })
+
+/** Long enough for an autosave that was going to happen to have happened. */
+const quiet = () => new Promise((resolve) => setTimeout(resolve, 1200))
+
 describe('SettingsGeneral', () => {
   it('loads the workspace settings and saves them', async () => {
     const user = userEvent.setup()
@@ -149,8 +155,7 @@ describe('SettingsGeneral', () => {
     expect(reason.getAttribute('aria-checked')).toBe('false')
     await user.click(reason)
 
-    await user.click(screen.getByRole('button', { name: 'Save changes' }))
-    await waitFor(() =>
+    await eventually(() =>
       expect(writes).toContainEqual({
         rpc: 'update_workspace_general',
         body: expect.objectContaining({
@@ -159,7 +164,7 @@ describe('SettingsGeneral', () => {
         }),
       }),
     )
-    await waitFor(() =>
+    await eventually(() =>
       expect(writes).toContainEqual({
         rpc: 'update_workspace_settings',
         body: {
@@ -173,13 +178,13 @@ describe('SettingsGeneral', () => {
       rpc: 'update_workspace_name',
       body: { p_workspace_id: 'ws-1', p_name: 'Process Development' },
     })
-    await waitFor(() =>
+    await eventually(() =>
       expect(writes).toContainEqual({
         rpc: 'update_workspace_publication_policy',
         body: { p_workspace_id: 'ws-1', p_required: true },
       }),
     )
-    await waitFor(() =>
+    await eventually(() =>
       expect(writes).toContainEqual({
         rpc: 'update_workspace_settings',
         body: { p_workspace_id: 'ws-1', p_allow_offline_editing: false },
@@ -198,8 +203,7 @@ describe('SettingsGeneral', () => {
 
     expect(regulated.getAttribute('aria-checked')).toBe('false')
     await user.click(regulated)
-    await user.click(screen.getByRole('button', { name: 'Save changes' }))
-    await waitFor(() =>
+    await eventually(() =>
       expect(writes).toContainEqual({
         rpc: 'set_regulated_lab',
         body: { p_workspace_id: 'ws-1', p_regulated: true },
@@ -213,10 +217,13 @@ describe('SettingsGeneral', () => {
     renderSection()
 
     await user.type(await screen.findByLabelText('Site'), '!')
-    await user.click(screen.getByRole('button', { name: 'Save changes' }))
 
     expect(
-      await screen.findByText('Could not save the time zone.'),
+      await screen.findByText(
+        'Could not save the time zone.',
+        {},
+        { timeout: 4000 },
+      ),
     ).toBeTruthy()
     expect(screen.queryByText('Settings saved')).toBeNull()
   })
@@ -226,23 +233,19 @@ describe('SettingsGeneral', () => {
     renderSection()
     const timezone = await screen.findByLabelText<HTMLInputElement>('Time zone')
 
-    const saveButton = () =>
-      screen.getByRole<HTMLButtonElement>('button', { name: 'Save changes' })
-
-    expect(saveButton().disabled).toBe(true)
-
     await user.clear(timezone)
     await user.type(timezone, 'Mars/Olympus')
     expect(screen.getByText(/valid IANA time zone/i)).toBeTruthy()
-    expect(saveButton().disabled).toBe(true)
     expect(timezone.getAttribute('aria-invalid')).toBe('true')
+    await quiet()
+    expect(writes).toEqual([])
 
     // Restoring the stored zone clears the error; the form is unchanged, so
     // there is still nothing to save.
     await user.clear(timezone)
     await user.type(timezone, 'Europe/London')
     expect(screen.queryByText(/valid IANA time zone/i)).toBeNull()
-    expect(saveButton().disabled).toBe(true)
+    await quiet()
     expect(writes).toEqual([])
   })
 
@@ -250,27 +253,23 @@ describe('SettingsGeneral', () => {
     const user = userEvent.setup()
     renderSection()
 
-    const saveButton = () =>
-      screen.getByRole<HTMLButtonElement>('button', { name: 'Save changes' })
-
     const name =
       await screen.findByLabelText<HTMLInputElement>('Workspace name')
 
     // Empty the field through its input, as the audit did, with another
-    // change pending so Save is otherwise available.
+    // change pending.
     await user.type(name, 'X')
     await user.clear(name)
     expect(name.value).toBe('')
     await user.type(screen.getByLabelText('Site'), '!')
     expect(screen.getByText('Enter a workspace name.')).toBeTruthy()
     expect(name.getAttribute('aria-invalid')).toBe('true')
-    expect(saveButton().disabled).toBe(true)
+    await quiet()
+    expect(writes).toEqual([])
 
     await user.type(name, 'Process Development 2')
     expect(screen.queryByText('Enter a workspace name.')).toBeNull()
-    expect(saveButton().disabled).toBe(false)
-    await user.click(saveButton())
-    await waitFor(() =>
+    await eventually(() =>
       expect(writes).toContainEqual({
         rpc: 'update_workspace_name',
         body: { p_workspace_id: 'ws-1', p_name: 'Process Development 2' },
@@ -278,40 +277,31 @@ describe('SettingsGeneral', () => {
     )
   })
 
-  it('enables Save only once a field has changed', async () => {
+  it('saves nothing until a field has changed', async () => {
     renderSection()
     await screen.findByDisplayValue('Process Development')
-    expect(
-      screen.getByRole<HTMLButtonElement>('button', { name: 'Save changes' })
-        .disabled,
-    ).toBe(true)
+    await quiet()
+    expect(writes).toEqual([])
     await userEvent.type(screen.getByLabelText('Site'), '!')
-    expect(
-      screen.getByRole<HTMLButtonElement>('button', { name: 'Save changes' })
-        .disabled,
-    ).toBe(false)
+    await eventually(() => expect(writes.length).toBeGreaterThan(0))
   })
 
   it('treats a cleared record-ID prefix as unchanged', async () => {
     const user = userEvent.setup()
     renderSection()
 
-    const saveButton = () =>
-      screen.getByRole<HTMLButtonElement>('button', { name: 'Save changes' })
-
     await screen.findByDisplayValue('Process Development')
     const prefix = screen.getByLabelText<HTMLInputElement>('sample prefix')
-    expect(saveButton().disabled).toBe(true)
 
-    // Type then clear: nothing differs from the stored map, so Save goes
-    // quiet again rather than staying enabled forever.
+    // Type then clear: nothing differs from the stored map, so nothing is
+    // written.
     await user.type(prefix, 'QA2X')
-    expect(saveButton().disabled).toBe(false)
     await user.clear(prefix)
     expect(prefix.value).toBe('')
-    expect(saveButton().disabled).toBe(true)
+    await quiet()
     expect(writes).toEqual([])
   })
+
   it('starts a workspace that has never saved settings from its name and the defaults', async () => {
     // The settings row is written by the first save, so a workspace that
     // skipped setup reads none.
@@ -322,15 +312,8 @@ describe('SettingsGeneral', () => {
     expect(screen.queryByText('Enter a workspace name.')).toBeNull()
     expect(screen.getByDisplayValue('Europe/London')).toBeTruthy()
 
-    const save = screen.getByRole<HTMLButtonElement>('button', {
-      name: 'Save changes',
-    })
-
-    expect(save.disabled).toBe(true)
     await user.type(screen.getByLabelText('Site'), 'Cambridge')
-    expect(save.disabled).toBe(false)
-    await user.click(save)
-    await waitFor(() =>
+    await eventually(() =>
       expect(writes).toContainEqual({
         rpc: 'update_workspace_general',
         body: expect.objectContaining({

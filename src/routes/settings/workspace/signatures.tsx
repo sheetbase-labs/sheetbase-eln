@@ -1,6 +1,6 @@
-import { useLeaveGuard } from '#/components/settings/use-leave-guard'
+import { useAutoSave } from '#/components/settings/use-autosave'
 import { t } from '#/copy'
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { Link, createFileRoute } from '@tanstack/react-router'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 
@@ -182,6 +182,18 @@ function Signatures() {
   )
 }
 
+interface ReviewDraft {
+  enabled: boolean
+  workflow: string
+  minReviewers: number | null
+}
+
+function sameMeanings(a: Record<string, boolean>, b: Record<string, boolean>) {
+  return ['Authored', 'Witnessed', 'Reviewed', 'Approved'].every(
+    (key) => (a[key] ?? false) === (b[key] ?? false),
+  )
+}
+
 function PolicySection({
   policy,
   canManage,
@@ -198,36 +210,30 @@ function PolicySection({
     policy.meanings,
   )
 
-  const save = useMutation({
-    mutationFn: () =>
-      updateWorkspaceSettings(createDataClient(), {
+  // What was last stored: it moves the moment a save succeeds, so the form is
+  // settled without waiting for the page to re-read.
+  // react-doctor-disable-next-line react-doctor/no-derived-useState -- Starts from the stored policy, then follows each successful save; the page re-reading must not reset it mid-edit.
+  const [stored, setStored] = useState(policy.meanings)
+
+  useAutoSave({
+    draft: meanings,
+    saved: stored,
+    equal: sameMeanings,
+    valid: canManage,
+    save: async (next) => {
+      await updateWorkspaceSettings(createDataClient(), {
         workspaceId,
-        signaturePolicy: { meanings, reauth: 'every' },
-      }),
-    onSuccess: () => {
+        signaturePolicy: { meanings: next, reauth: 'every' },
+      })
+      setStored(next)
       onSaved()
-      toast(t('settings.signatures.signaturePolicySavedToast'))
     },
-    onError: (error) =>
-      toast.error(t('settings.signatures.couldSavePolicyToast'), {
-        description:
-          error instanceof Error
-            ? error.message
-            : t('settings.signatures.databaseRefused'),
-      }),
+    restore: setMeanings,
+    message: t('settings.signatures.signaturePolicySavedToast'),
   })
 
   return (
-    <Section
-      title={t('settings.signatures.workspacePolicy')}
-      count={
-        canManage ? (
-          <Button disabled={save.isPending} onClick={() => save.mutate()}>
-            {t('common.actions.saveChanges')}
-          </Button>
-        ) : undefined
-      }
-    >
+    <Section title={t('settings.signatures.workspacePolicy')}>
       <div className="flex flex-col gap-2.5">
         {(['Authored', 'Witnessed', 'Reviewed', 'Approved'] as const).map(
           (m) => (
@@ -295,67 +301,51 @@ function ReviewSection({
   const count = Number(minReviewers)
   const countValid = Number.isInteger(count) && count >= 1 && count <= 5
 
-  const dirty =
-    enabled !== current.enabled ||
-    workflow !== current.workflow ||
-    (countValid && count !== current.minReviewers)
-
-  const save = useMutation({
-    mutationFn: () =>
-      updateWorkspaceSettings(dataClient, {
-        workspaceId,
-        reviewWorkflowEnabled: enabled,
-        reviewWorkflowConfig: { workflow, minReviewers: count },
-      }),
-    onSuccess: () => {
-      onSaved()
-      toast(t('settings.signatures.reviewSavedToast'))
-    },
-    onError: (error) =>
-      toast.error(t('settings.signatures.couldSaveReviewToast'), {
-        description:
-          error instanceof Error
-            ? error.message
-            : t('settings.signatures.databaseRefused'),
-      }),
-  })
-
   const known = options.data ?? []
 
-  useLeaveGuard({
-    dirty: dirty && canManage,
-    label: t('settings.signatures.reviewWorkflow'),
-    canSave: countValid,
-    save: async () => {
-      try {
-        await save.mutateAsync()
+  const draft = useMemo<ReviewDraft>(
+    () => ({ enabled, workflow, minReviewers: countValid ? count : null }),
+    [enabled, workflow, count, countValid],
+  )
 
-        return true
-      } catch {
-        return false
-      }
+  // What was last stored: it moves the moment a save succeeds, so the form is
+  // settled without waiting for the page to re-read.
+  const [stored, setStored] = useState<ReviewDraft>({
+    enabled: current.enabled,
+    workflow: current.workflow,
+    minReviewers: current.minReviewers,
+  })
+
+  useAutoSave({
+    draft,
+    saved: stored,
+    equal: (a, b) =>
+      a.enabled === b.enabled &&
+      a.workflow === b.workflow &&
+      a.minReviewers === b.minReviewers,
+    valid: canManage && countValid,
+    save: async (next) => {
+      await updateWorkspaceSettings(dataClient, {
+        workspaceId,
+        reviewWorkflowEnabled: next.enabled,
+        reviewWorkflowConfig: {
+          workflow: next.workflow,
+          minReviewers: next.minReviewers ?? current.minReviewers,
+        },
+      })
+      setStored(next)
+      onSaved()
     },
-    discard: () => {
-      setEnabled(current.enabled)
-      setWorkflow(current.workflow)
-      setMinReviewers(String(current.minReviewers))
+    restore: (value) => {
+      setEnabled(value.enabled)
+      setWorkflow(value.workflow)
+      setMinReviewers(String(value.minReviewers ?? current.minReviewers))
     },
+    message: t('settings.signatures.reviewSavedToast'),
   })
 
   return (
-    <Section
-      title={t('settings.signatures.reviewWorkflow')}
-      count={
-        canManage ? (
-          <Button
-            disabled={save.isPending || !dirty || !countValid}
-            onClick={() => save.mutate()}
-          >
-            {t('common.actions.saveChanges')}
-          </Button>
-        ) : undefined
-      }
-    >
+    <Section title={t('settings.signatures.reviewWorkflow')}>
       <CheckRow
         title={t('settings.signatures.useOneWorkflow')}
         body={t('settings.signatures.useOneWorkflowHint')}

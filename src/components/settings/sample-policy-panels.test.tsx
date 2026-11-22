@@ -78,17 +78,19 @@ it('keeps a surviving release check input mounted and saves only its rule after 
   await user.click(screen.getAllByRole('button', { name: 'Remove check' })[0])
   expect(screen.getByDisplayValue('Survivor')).toBe(survivor)
   await user.type(survivor, ' edited')
-  await user.click(screen.getByRole('button', { name: 'Save checks' }))
-  await waitFor(() =>
-    expect(fixture.writes).toEqual([
-      {
-        p_workspace_id: 'ws',
-        p_sample_type: 'Plasma',
-        p_rules: [
-          { kind: 'no_result', result: 'warning', label: 'Survivor edited' },
-        ],
-      },
-    ]),
+  // The checks save themselves once typing pauses.
+  await waitFor(
+    () =>
+      expect(fixture.writes).toEqual([
+        {
+          p_workspace_id: 'ws',
+          p_sample_type: 'Plasma',
+          p_rules: [
+            { kind: 'no_result', result: 'warning', label: 'Survivor edited' },
+          ],
+        },
+      ]),
+    { timeout: 4000 },
   )
   expect(fixture.unexpected).toEqual([])
 })

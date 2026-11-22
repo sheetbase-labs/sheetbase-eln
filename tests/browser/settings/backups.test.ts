@@ -80,7 +80,6 @@ test('saves a changed schedule', async ({ page }) => {
   await openSettings(page, 'backups')
   await page.getByLabel('How often').selectOption('weekly')
   await page.getByLabel(/Copies to keep/).fill('14')
-  await page.getByRole('button', { name: 'Save changes' }).click()
   await expect(
     page.getByText('Backup schedule saved', { exact: true }),
   ).toBeVisible()
@@ -102,9 +101,8 @@ test('will not save copies outside 1 to 90', async ({ page }) => {
   const transport = await serverFixtures(page, [read()])
   await openSettings(page, 'backups')
   await page.getByLabel(/Copies to keep/).fill('200')
-  await expect(
-    page.getByRole('button', { name: 'Save changes' }),
-  ).toBeDisabled()
+  // A value outside the range is never sent, however long it is left.
+  await page.waitForTimeout(1500)
   expect(
     transport.calls.some((call) => call.name === 'saveBackupSettingsFn'),
   ).toBe(false)

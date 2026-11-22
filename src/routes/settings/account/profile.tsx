@@ -1,6 +1,5 @@
-import { useEffect, useState } from 'react'
-import type { KeyboardEvent } from 'react'
-import { useLeaveGuard } from '#/components/settings/use-leave-guard'
+import { useEffect, useMemo, useState } from 'react'
+import { useAutoSave } from '#/components/settings/use-autosave'
 import { createFileRoute, useRouter } from '@tanstack/react-router'
 
 import { Button } from '#/components/ui/button'
@@ -79,49 +78,63 @@ interface ProfileValues {
   jobTitle: string
 }
 
-/** Asks Save, Discard or Cancel when the profile is left with unsaved edits. */
-function useProfileGuard({
+/** Whether two sets of profile values mean the same thing once trimmed. A
+ * blank time zone means "no change", as it does when saving. */
+function sameProfile(a: ProfileValues, b: ProfileValues) {
+  const zone = a.timeZone.trim()
+
+  return (
+    a.name.trim() === b.name.trim() &&
+    (zone === '' || zone === b.timeZone.trim()) &&
+    a.initials.trim() === b.initials.trim() &&
+    a.jobTitle.trim() === b.jobTitle.trim()
+  )
+}
+
+/** Saves the profile as it is edited, once the values are usable. */
+function useProfileAutoSave({
   values,
-  saved,
+  profile,
+  savedName,
+  savedTimeZone,
   save,
-  discard,
+  restore,
 }: {
   values: ProfileValues
-  saved: {
-    name: string
-    timeZone: string
-    initials: string | undefined
-    jobTitle: string | undefined
-  }
-  save: () => Promise<boolean>
-  discard: () => void
+  profile: Awaited<ReturnType<typeof fetchMyProfile>> | undefined
+  savedName: string
+  savedTimeZone: string
+  save: () => Promise<void>
+  restore: (value: ProfileValues) => void
 }) {
   const zone = values.timeZone.trim()
 
-  const profileChanged =
-    saved.initials !== undefined &&
-    (values.initials.trim() !== saved.initials ||
-      values.jobTitle.trim() !== saved.jobTitle)
+  const draft = useMemo<ProfileValues>(
+    () => values,
+    // The four fields are the identity of the draft.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [values.name, values.timeZone, values.initials, values.jobTitle],
+  )
 
-  const dirty =
-    values.name.trim() !== saved.name.trim() ||
-    (zone !== '' && zone !== saved.timeZone) ||
-    profileChanged
-
-  const blocked =
-    !values.name.trim() ||
-    Boolean(zone && !isUsableTimeZone(zone)) ||
-    values.initials.trim().length > 4
-
-  useLeaveGuard({
-    dirty,
-    label: t('settings.profile.profile'),
-    canSave: !blocked,
+  useAutoSave({
+    draft,
+    saved: profile
+      ? {
+          name: savedName,
+          timeZone: savedTimeZone,
+          initials: profile.initials,
+          jobTitle: profile.jobTitle,
+        }
+      : undefined,
+    equal: sameProfile,
+    valid:
+      Boolean(values.name.trim()) &&
+      !(zone && !isUsableTimeZone(zone)) &&
+      values.initials.trim().length <= 4,
     save,
-    discard,
+    restore,
+    message: t('settings.profile.changesSavedToast'),
   })
-
-  return dirty
 }
 
 function Profile() {
@@ -164,20 +177,17 @@ function Profile() {
     profile: profile.data,
   })
 
-  const changed = useProfileGuard({
+  useProfileAutoSave({
     values: { name, timeZone, initials, jobTitle },
-    saved: {
-      name: user.name,
-      timeZone: savedTimeZone,
-      initials: profile.data?.initials,
-      jobTitle: profile.data?.jobTitle,
-    },
+    profile: profile.data,
+    savedName: user.name,
+    savedTimeZone,
     save: saveProfile.save,
-    discard: () => {
-      setName(user.name)
-      setTimeZone(savedTimeZone)
-      setInitials(profile.data?.initials ?? '')
-      setJobTitle(profile.data?.jobTitle ?? '')
+    restore: (value) => {
+      setName(value.name)
+      setTimeZone(value.timeZone)
+      setInitials(value.initials)
+      setJobTitle(value.jobTitle)
     },
   })
 
@@ -191,19 +201,7 @@ function Profile() {
 
   return (
     <>
-      <SettingsHeader
-        phoneActions="bottom"
-        title={t('settings.profile.profile')}
-        actions={
-          <SaveProfile
-            busy={saveProfile.busy}
-            onSave={() => void saveProfile.save()}
-            disabled={
-              !changed || [error, timeZoneError, initialsError].some(Boolean)
-            }
-          />
-        }
-      >
+      <SettingsHeader title={t('settings.profile.profile')}>
         {t('settings.profile.howAppearOthers')}
       </SettingsHeader>
       <SettingsBody>
@@ -213,10 +211,7 @@ function Profile() {
             name={name}
             initials={initials.trim().toUpperCase() || initialsOf(name)}
           />
-          <div
-            className="grid min-w-0 flex-1 grid-cols-1 gap-x-5 gap-y-4 md:grid-cols-[repeat(auto-fill,minmax(15rem,1fr))]"
-            onKeyDown={saveOnEnter}
-          >
+          <div className="grid min-w-0 flex-1 grid-cols-1 gap-x-5 gap-y-4 md:grid-cols-[repeat(auto-fill,minmax(15rem,1fr))]">
             <Field label={t('settings.profile.fullName')} error={error}>
               <Input
                 value={name}
@@ -324,24 +319,6 @@ function Profile() {
   )
 }
 
-/** Enter in a one-line field saves the profile, as the Save changes button does. */
-function saveOnEnter(event: KeyboardEvent<HTMLDivElement>) {
-  const target = event.target
-
-  if (event.key !== 'Enter' || event.defaultPrevented) return
-
-  if (!(target instanceof HTMLInputElement) || target.type === 'file') return
-
-  const save = document.querySelector<HTMLButtonElement>(
-    'button[data-profile-save]:not([disabled])',
-  )
-
-  if (!save) return
-
-  event.preventDefault()
-  save.click()
-}
-
 function useSaveProfile({
   name,
   timeZone,
@@ -361,8 +338,8 @@ function useSaveProfile({
   const [busy, setBusy] = useState(false)
   const zone = timeZone.trim()
 
-  /** Saves the form; true when everything was stored. */
-  async function save(): Promise<boolean> {
+  /** Saves the form; rejects with the reason when something was refused. */
+  async function save(): Promise<void> {
     setBusy(true)
 
     try {
@@ -389,45 +366,12 @@ function useSaveProfile({
       // route context, so re-resolve it rather than report a save the
       // rest of the app has not seen.
       await router.invalidate()
-      toast(t('settings.profile.changesSavedToast'))
-
-      return true
-    } catch (failure) {
-      toast.error(t('settings.profile.couldSaveProfileToast'), {
-        description:
-          failure instanceof Error
-            ? failure.message
-            : t('settings.profile.tryAgain'),
-      })
-
-      return false
     } finally {
       setBusy(false)
     }
   }
 
   return { busy, save }
-}
-
-function SaveProfile({
-  busy,
-  onSave,
-  disabled,
-}: {
-  busy: boolean
-  onSave: () => void
-  disabled: boolean
-}) {
-  return (
-    <Button
-      variant="primary"
-      data-profile-save
-      disabled={busy || disabled}
-      onClick={onSave}
-    >
-      {t('common.actions.saveChanges')}
-    </Button>
-  )
 }
 
 function DisplayPreferences() {
@@ -493,7 +437,7 @@ function DisplayPreferences() {
                   onClick={() => chooseAppearance(option.value)}
                   className={cn(
                     'h-6 cursor-pointer rounded-sm border-0 bg-transparent px-2.5 text-label text-fg',
-                    on && 'bg-selection font-medium',
+                    on && 'bg-nav-selected font-medium',
                   )}
                 >
                   {option.label}
@@ -526,7 +470,7 @@ function DisplayPreferences() {
                   onClick={() => chooseDisplay({ clock: value })}
                   className={cn(
                     'h-6 cursor-pointer rounded-sm border-0 bg-transparent px-2.5 text-label text-fg',
-                    clock === value && 'bg-selection font-medium',
+                    clock === value && 'bg-nav-selected font-medium',
                   )}
                 >
                   {label}

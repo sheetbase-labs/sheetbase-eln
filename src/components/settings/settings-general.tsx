@@ -1,13 +1,11 @@
-import { useLeaveGuard } from '#/components/settings/use-leave-guard'
+import { useAutoSave } from '#/components/settings/use-autosave'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import type { Dispatch, SetStateAction } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 
 import { Field, Input } from '#/components/ui/input'
 import { Notice } from '#/components/ui/alert'
-import { toast } from '#/components/ui/sonner'
 import { Section } from '#/components/ui/layout'
-import { Button } from '#/components/ui/button'
 import { CheckRow, SettingsBody, SettingsHeader } from './settings-page'
 import { Select } from '#/components/ui/select'
 import { LabLogoSettings } from './lab-logo-settings'
@@ -191,62 +189,33 @@ export function SettingsGeneral({
   // empty name is not a saveable value: it is required here rather than
   // skipped silently while the rest of the form is written.
   const { nameError, timezoneError } = validateGeneralDraft(form)
-  const dirty = saved ? !sameGeneral(form, saved) : false
   // The example number carries the year the app would mint today, so the
   // sample cannot go stale as the calendar moves.
 
   const save = useMutation({
-    mutationFn: () => saveGeneral(workspaceId, form, saved),
-    onSuccess: () => {
-      // Every write above has resolved, so the save really happened and the
-      // person gets told; the button going quiet again is not a confirmation.
-      void queryClient.invalidateQueries({ queryKey: workspaceGeneralQueryKey })
-      toast(t('settings.general.settingsSavedToast'))
-    },
+    mutationFn: (next: WorkspaceGeneral) =>
+      saveGeneral(workspaceId, next, saved),
+    // Wait for the re-read so the draft and the saved copy match again before
+    // the form counts as settled.
+    onSuccess: () =>
+      queryClient.invalidateQueries({ queryKey: workspaceGeneralQueryKey }),
   })
 
-  const controlsDisabled = query.isLoading || query.isError || save.isPending
+  const controlsDisabled = query.isLoading || query.isError
 
-  useLeaveGuard({
-    dirty,
-    label: t('settings.general.general'),
-    canSave: timezoneError === null && nameError === null,
-    save: async () => {
-      try {
-        await save.mutateAsync()
-
-        return true
-      } catch {
-        return false
-      }
-    },
-    discard: () => {
-      if (saved) setForm(saved)
-    },
+  useAutoSave({
+    draft: form,
+    saved,
+    equal: sameGeneral,
+    valid: timezoneError === null && nameError === null,
+    save: (next) => save.mutateAsync(next),
+    restore: setForm,
+    message: t('settings.general.settingsSavedToast'),
   })
 
   return (
     <>
-      <SettingsHeader
-        phoneActions="bottom"
-        title={t('settings.general.general')}
-        actions={
-          <Button
-            variant="primary"
-            disabled={
-              !dirty ||
-              controlsDisabled ||
-              timezoneError !== null ||
-              nameError !== null
-            }
-            onClick={() => save.mutate()}
-          >
-            {save.isPending
-              ? t('common.states.saving')
-              : t('common.actions.saveChanges')}
-          </Button>
-        }
-      >
+      <SettingsHeader title={t('settings.general.general')}>
         {workspaceName ?? t('settings.general.workspace')}
       </SettingsHeader>
       <SettingsBody>

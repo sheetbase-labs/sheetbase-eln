@@ -103,15 +103,14 @@ test('owner enables the assistant and sees the readiness state', async ({
 
   await page
     .getByRole('checkbox', {
-      name: /Enable the assistant for this workspace/i,
+      name: /Turn on the AI assistant/i,
     })
     .click()
-  await page.getByRole('button', { name: 'Save changes' }).click()
 
-  await expect(page.getByText('AI settings saved')).toBeVisible()
+  await expect(page.getByText('Saved', { exact: true })).toBeVisible()
   await expect(page.getByText('Assistant status')).toBeVisible()
   await expect(
-    page.getByText('Built-in deterministic model. No external provider', {
+    page.getByText('Using the built-in assistant', {
       exact: false,
     }),
   ).toBeVisible()

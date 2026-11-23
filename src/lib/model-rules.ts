@@ -187,10 +187,13 @@ export function fetchModelRecordValidation(
 }
 
 // ---------------------------------------------------------------------------
-// MDL-04.2 — a client mirror of `internal.model_rule_condition_matches` /
-// `internal.evaluate_model_rules`, used to show rules inline on a generated
-// form before the server has seen the values. The server stays authoritative:
-// this never decides what is saved, only what the form says in advance.
+// MDL-04.2 — shows rules inline on a generated form before the server has seen
+// the values. The server stays authoritative: this never decides what is saved,
+// only what the form says in advance. For typed values it gives the same answer
+// as `internal.model_rule_condition_matches`, which
+// tests/db/app-database-parity.test.ts checks. It is looser in one way: text
+// typed into a number field counts as that number, as the form holds it before
+// it is saved.
 // ---------------------------------------------------------------------------
 
 const numericOperand = z.number()
@@ -264,7 +267,7 @@ function leafCondition(condition: ModelRuleCondition): ModelRuleLeafCondition {
   return condition as ModelRuleLeafCondition
 }
 
-/** Mirrors the SQL condition DSL. `{}` always matches. */
+/** Whether the condition holds for these values. `{}` always matches. */
 export function modelRuleConditionMatches(
   condition: ModelRuleCondition | null | undefined,
   values: ModelFieldValues,

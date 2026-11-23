@@ -12,7 +12,13 @@ import {
   DialogHeader,
 } from '#/components/ui/dialog'
 import { Notice } from '#/components/ui/alert'
-import { toast } from '#/components/ui/sonner'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuLinkItem,
+  DropdownMenuTrigger,
+} from '#/components/ui/dropdown-menu'
+import { Icon } from '#/components/icons'
 import { TableBox } from '#/components/ui/table'
 import {
   RegistryGrid,
@@ -35,14 +41,43 @@ function formatSize(bytes: number): string {
   return bytes < 1024 ? `${bytes} B` : `${Math.round(bytes / 1024)} kB`
 }
 
+const DOWNLOADS = [
+  { format: 'docx', icon: 'file', label: 'wordLabel' },
+  { format: 'pdf', icon: 'file', label: 'pdfLabel' },
+  { format: 'html', icon: 'file', label: 'htmlLabel' },
+] as const
+
+/** Word, PDF or the stored web page: each is made from the same stored document. */
+function DownloadMenu({ generationId }: { generationId: string }) {
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger render={<Button size="sm" icon="download" />}>
+        {t('projects.reports.generated.download')}
+        <Icon name="chevronDown" size={10} />
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end" className="min-w-[230px]">
+        {DOWNLOADS.map((item) => (
+          <DropdownMenuLinkItem
+            key={item.format}
+            icon={item.icon}
+            hint={t(`projects.reports.generated.${item.format}Hint`)}
+            render={
+              <a
+                href={`/api/export/report-generation/${generationId}?format=${item.format}`}
+                download
+              />
+            }
+          >
+            {t(`projects.reports.generated.${item.label}`)}
+          </DropdownMenuLinkItem>
+        ))}
+      </DropdownMenuContent>
+    </DropdownMenu>
+  )
+}
+
 /** Every document generated from the report, newest first, each openable. */
-export function GeneratedReports({
-  definitionId,
-  identifier,
-}: {
-  definitionId: string
-  identifier: string
-}) {
+export function GeneratedReports({ definitionId }: { definitionId: string }) {
   const [openId, setOpenId] = useState<string | null>(null)
 
   const list = useQuery({
@@ -58,20 +93,6 @@ export function GeneratedReports({
     enabled: openId !== null,
     queryFn: () => fetchGenerationHtml(notebookDataClient, openId ?? ''),
   })
-
-  const download = async (row: ReportGeneration) => {
-    try {
-      const body = await fetchGenerationHtml(notebookDataClient, row.id)
-      const url = URL.createObjectURL(new Blob([body], { type: 'text/html' }))
-      const a = document.createElement('a')
-      a.href = url
-      a.download = `${identifier}-v${row.reportVersion}.html`
-      a.click()
-      URL.revokeObjectURL(url)
-    } catch {
-      toast.error(t('projects.reports.generated.viewerFailed'))
-    }
-  }
 
   const columns: RegistryColumn<ReportGeneration>[] = [
     {
@@ -119,13 +140,7 @@ export function GeneratedReports({
           <Button size="sm" onClick={() => setOpenId(row.original.id)}>
             {t('projects.reports.generated.open')}
           </Button>
-          <Button
-            size="sm"
-            icon="download"
-            onClick={() => void download(row.original)}
-          >
-            {t('projects.reports.generated.download')}
-          </Button>
+          <DownloadMenu generationId={row.original.id} />
         </span>
       ),
     },
@@ -147,6 +162,9 @@ export function GeneratedReports({
       {list.isError ? (
         <Notice tone="bad" title={t('projects.reports.builder.loadFailed')} />
       ) : null}
+      <p className="text-label text-fg-muted">
+        {t('projects.reports.generated.fingerprintNote')}
+      </p>
       <TableBox>
         <RegistryGrid
           label={t('projects.reports.generated.label')}

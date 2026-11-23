@@ -207,10 +207,7 @@ function ReportPage() {
           ) : tab === 'preview' ? (
             <ReportDocument report={report} />
           ) : (
-            <GeneratedReports
-              definitionId={report.definitionId}
-              identifier={report.identifier}
-            />
+            <GeneratedReports definitionId={report.definitionId} />
           )}
         </div>
       </div>

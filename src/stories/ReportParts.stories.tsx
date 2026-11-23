@@ -372,9 +372,7 @@ const generations: ReportGeneration[] = [
 ]
 
 export const GeneratedList: Story = {
-  render: () => (
-    <GeneratedReports definitionId={DEFINITION_ID} identifier="RPT-0004" />
-  ),
+  render: () => <GeneratedReports definitionId={DEFINITION_ID} />,
   decorators: [
     withApiReads('error'),
     inside(
@@ -390,9 +388,7 @@ export const GeneratedList: Story = {
 }
 
 export const GeneratedEmpty: Story = {
-  render: () => (
-    <GeneratedReports definitionId={DEFINITION_ID} identifier="RPT-0004" />
-  ),
+  render: () => <GeneratedReports definitionId={DEFINITION_ID} />,
   decorators: [
     inside(seeded([{ key: reportKeys.generations(DEFINITION_ID), value: [] }])),
   ],

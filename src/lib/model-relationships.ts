@@ -10,12 +10,14 @@ import { z } from 'zod'
  * `record_links`). Enforcement is server-side in
  * `internal.assert_model_relationship_rule`, which fails closed with
  * SB080 (undeclared type/target pair) and SB081 (maximum exceeded)
- * wherever a link is created. This module is the client mirror: fetching,
+ * wherever a link is created. This module is the client side: fetching,
  * stewardship RPCs, the same allowability policy as pure functions, and
  * the KNOW label feed (rule-declared display names preferred over the
  * canonical `relationshipLabel` vocabulary).
  *
- * Policy grain (mirrors the trigger): the world closes per source Model.
+ * Policy grain: the world closes per source Model. The DB test
+ * tests/db/model-relationships.test.ts runs every source, link type and
+ * target through the trigger and `isLinkAllowed` and fails if they differ.
  * A source Model with no declared rules is unrestricted; a Model with any
  * rule allows only its declared (link type, target model) pairs.
  * Reference-field selection is type-agnostic, so `isReferenceTargetAllowed`
@@ -192,7 +194,7 @@ export function removeModelRelationshipRule(
 }
 
 // ---------------------------------------------------------------------------
-// Policy — pure mirrors of the server trigger grain.
+// Policy — the trigger's grain as pure functions; see the test named above.
 // ---------------------------------------------------------------------------
 
 /** Rules declared for one (source model, link type) pair. */
@@ -445,7 +447,7 @@ export const RELATIONSHIP_CARDINALITY_MESSAGE =
   'This record already has the maximum number of links of that kind.'
 
 // ---------------------------------------------------------------------------
-// Migration guidance — pure mirrors of the server enforcement grain for the
+// Migration guidance — the server's enforcement grain, explained for the
 // steward preview. Rule changes alter link-creation meaning (SB080/SB081);
 // local working state is never auto-migrated, so every change names what
 // the steward must do downstream instead.
@@ -461,7 +463,7 @@ export interface PendingRelationshipDeclaration {
 
 /**
  * Steward-facing consequences of declaring (or re-declaring) one rule.
- * Mirrors the trigger grain: the first declaration for a source Model
+ * Follows the trigger grain: the first declaration for a source Model
  * closes the world for that model; maxima fail closed at creation;
  * minima are completeness metadata, never write-time enforcement.
  */

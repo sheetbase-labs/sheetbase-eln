@@ -16,6 +16,8 @@
 import type { Client } from 'pg'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 
+import { APPROVER_ROLE_OPTIONS } from '#/components/models/model-approval'
+
 import { expectDenied, prepareTestDatabase } from './helpers'
 
 const WS = '00000000-0000-4000-8000-00000000a130'
@@ -517,5 +519,21 @@ describe('MDL-03 approval-gated publication', () => {
       )
       expect(kinds.rows).toHaveLength(0)
     }
+  })
+})
+
+describe('approver roles the app offers', () => {
+  it('are all roles the approval_requests check accepts', async () => {
+    const result = await migrator.query<{ ok: boolean }>(
+      `select $1::text[] <@ array(
+         select (m)[1]
+           from pg_constraint c,
+                regexp_matches(pg_get_constraintdef(c.oid),
+                  '''([a-z_]+)''::text', 'g') as m
+          where c.conname = 'chk_approval_requests_roles') as ok`,
+      [[...APPROVER_ROLE_OPTIONS]],
+    )
+
+    expect(result.rows[0].ok).toBe(true)
   })
 })

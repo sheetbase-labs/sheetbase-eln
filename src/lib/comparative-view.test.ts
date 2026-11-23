@@ -3,7 +3,7 @@
  */
 import { describe, expect, it } from 'vitest'
 
-import { validateChartSpec } from './chart-spec'
+import { toNumber, validateChartSpec } from './chart-spec'
 import { CHART_ROW_ID_KEY } from './visualisation-pipeline'
 import {
   buildDefaultComparativeViewConfig,
@@ -348,5 +348,33 @@ describe('pairComparativeSources', () => {
       ['S3', 'b-only', null],
     ])
     expect(pairing.rule).toContain('Sample')
+  })
+})
+
+describe('toComparableNumber', () => {
+  it('reads every value the way the chart materialiser does', () => {
+    const values = [
+      3,
+      -1.5,
+      0,
+      NaN,
+      Infinity,
+      '4.5',
+      ' 2 ',
+      '',
+      '  ',
+      'abc',
+      true,
+      false,
+      null,
+      undefined,
+    ]
+
+    for (const value of values) {
+      expect(
+        toComparableNumber(value as never),
+        `toComparableNumber and toNumber (src/lib/chart-spec.ts) disagree on ${String(value)}`,
+      ).toBe(toNumber(value as never))
+    }
   })
 })

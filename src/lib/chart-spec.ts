@@ -1698,7 +1698,7 @@ export interface ChartColumn {
   unit?: unknown
 }
 
-function toNumber(v: ChartValue): number | null {
+export function toNumber(v: ChartValue): number | null {
   if (isNumber(v)) return Number.isFinite(v) ? v : null
 
   if (isString(v) && v.trim() !== '') {

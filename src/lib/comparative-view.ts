@@ -11,8 +11,8 @@
  *
  * Grouping is strictly by explicit field keys — never label-inferred joins.
  * Null group keys collect into a `(missing)` group; null/non-numeric values
- * are excluded from statistics and counted honestly (`nullCount`), mirroring
- * how `materialiseChart` drops non-numeric points instead of binning them
+ * are excluded from statistics and counted honestly (`nullCount`), as
+ * `materialiseChart` does: non-numeric points are dropped, never binned
  * as zero.
  */
 
@@ -169,9 +169,9 @@ export function validateComparativeViewConfig(
 }
 
 /**
- * Coerce a measure to a finite number. Mirrors the ChartSpec materialiser's
- * `toNumber` so inspection statistics never silently diverge from what the
- * promoted chart plots (booleans read as 1/0, numeric strings parse, every
+ * Coerce a measure to a finite number. Must agree with the ChartSpec
+ * materialiser's `toNumber` (compared in comparative-view.test.ts) so
+ * inspection statistics never diverge from what the promoted chart plots (booleans read as 1/0, numeric strings parse, every
  * other non-numeric reads as null and is counted, never binned as zero).
  */
 export function toComparableNumber(value: DatasetCellInput): number | null {

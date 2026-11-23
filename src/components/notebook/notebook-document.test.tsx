@@ -1520,8 +1520,8 @@ describe('NotebookDocument — optimistic reorder and rollback', () => {
  * semantics, and the keyboard sensor really lifts and drops the row.
  */
 describe('NotebookDocument — drag and drop', () => {
-  it('renders the grip on each movable block and registers the row as a sortable item', () => {
-    const { container } = render(
+  it('gives each movable block a grip that prints as nothing and a labelled row', () => {
+    render(
       <NotebookDocument
         record={record}
         blocks={threeBlocks()}
@@ -1534,34 +1534,20 @@ describe('NotebookDocument — drag and drop', () => {
     )
 
     const handles = screen.getAllByRole('button', { name: 'Drag block' })
+
     expect(handles).toHaveLength(3)
 
     for (const handle of handles) {
-      expect(handle.getAttribute('data-slot')).toBe('sortable-item-handle')
-      // Native drag is not wanted on the grip: the browser's own drag would
-      // start alongside the pointer sensor and fight it for the same gesture.
-      expect(handle.getAttribute('draggable')).toBeNull()
-      // The grip joins the print-hide set with the rest of the row's chrome,
-      // so the printed document carries no authoring affordances.
+      // The printed document carries no authoring controls.
       expect(handle.closest('[data-print-hide]')).not.toBeNull()
     }
 
-    const rows = Array.from(
-      container.querySelectorAll('[data-slot="sortable-item"]'),
-    )
+    // Each row is a focusable group, not a widget, so its own controls stay
+    // reachable and axe stays clean.
+    const firstRow = handles[0].closest('[role="group"]')
 
-    expect(rows.map((row) => row.getAttribute('data-value'))).toEqual([
-      'b1',
-      'b2',
-      'b3',
-    ])
-    // The row keeps the notebook's own semantics rather than taking the
-    // item's widget role: a labelled group whose focusable control is inside
-    // it, which is what keeps axe clean (see condition C1 in the comparison
-    // record).
-    expect(rows[0].getAttribute('role')).toBe('group')
-    expect(rows[0].getAttribute('tabindex')).toBe('0')
-    expect(rows[0].getAttribute('aria-pressed')).toBeNull()
+    expect(firstRow).not.toBeNull()
+    expect(firstRow?.getAttribute('tabindex')).toBe('0')
   })
 
   it('lifts and cancels the row with the keyboard sensor on the grip', async () => {

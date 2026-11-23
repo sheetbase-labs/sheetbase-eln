@@ -1702,31 +1702,6 @@ export function buildDemoSteps(scope: DemoTarget): Array<SeedStep> {
             order: 3,
           },
           {
-            id: DEMO_BLOCK_IDS.designTable,
-            type: 'table',
-            payload: {
-              columns: [
-                'Timepoint (days)',
-                'Replicate',
-                'Volume (µL)',
-                'Storage condition',
-              ],
-              rows: [
-                [0, 1, 100, '4 °C'],
-                [0, 2, 100, '4 °C'],
-                [7, 1, 100, '4 °C'],
-                [7, 2, 100, '4 °C'],
-                [14, 1, 100, '4 °C'],
-                [14, 2, 100, '4 °C'],
-                [21, 1, 100, '4 °C'],
-                [21, 2, 100, '4 °C'],
-                [28, 1, 100, '4 °C'],
-                [28, 2, 100, '4 °C'],
-              ],
-            },
-            order: 4,
-          },
-          {
             id: DEMO_BLOCK_IDS.results,
             type: 'rich_text',
             payload: {

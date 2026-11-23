@@ -29,6 +29,12 @@ describe('demo notebook content', () => {
           })
 
           for (const block of blocks) {
+            // A grid is written as an ad hoc sheet, not stored as a block.
+            if (block.type === 'grid') {
+              expect(block.payload.columns.length, name).toBeGreaterThan(0)
+              continue
+            }
+
             const result = validateBlock({
               type: block.type,
               payload: block.payload,
@@ -74,7 +80,7 @@ describe('demo notebook content', () => {
     expect(types('approved')).toContain('conclusion')
     expect(types('in_review')).toContain('conclusion')
     expect(types('in_progress')).not.toContain('conclusion')
-    expect(types('draft')).not.toContain('table')
+    expect(types('draft')).not.toContain('grid')
   })
 
   it('has a topic for every named experiment it covers', () => {

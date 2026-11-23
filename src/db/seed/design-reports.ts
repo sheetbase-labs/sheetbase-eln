@@ -251,7 +251,8 @@ export async function seedDesignReports(db: Db): Promise<void> {
              cross join lateral jsonb_array_elements(rv.block_snapshot) b
             where r.identifier = $1 and b->>'type' = $2
             order by rv.created_at desc limit 1`,
-          [s.from, s.block],
+          // A results table is an ad hoc sheet in the notebook.
+          [s.from, s.block === 'table' ? 'sheet' : s.block],
         )
 
         const e = evidence.rows.at(0)

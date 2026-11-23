@@ -127,6 +127,23 @@ function useNewRecordSchema(modelKey: string) {
   }
 }
 
+/**
+ * A registry entry belongs to the whole lab unless a project is chosen; any
+ * other record is filed under one, the first when none is picked.
+ */
+function chosenProject(
+  isRegistry: boolean,
+  projectId: string,
+  projects: readonly { id: string }[],
+): string {
+  return isRegistry ? projectId : projectId || projects[0]?.id || ''
+}
+
+/** Only a registry entry may go without a project. */
+function projectIsSettled(isRegistry: boolean, project: string): boolean {
+  return isRegistry || project !== ''
+}
+
 function useNewRecord(modelKey: string) {
   const navigate = useNavigate()
 
@@ -159,11 +176,7 @@ function useNewRecord(modelKey: string) {
   // not an error state, and the disabled Create button is not the message.
   const [interacted, setInteracted] = useState(false)
 
-  // A registry entry belongs to the whole lab unless a project is chosen; any
-  // other record is filed under one, the first when none is picked.
-  const selectedProject = isRegistry
-    ? projectId
-    : projectId || projects[0]?.id || ''
+  const selectedProject = chosenProject(isRegistry, projectId, projects)
 
   // The sequence file fills the sequence field, so it is not typed in too.
   const shownFields = useMemo(
@@ -222,7 +235,7 @@ function useNewRecord(modelKey: string) {
     !titleError &&
     validation.blocks.length === 0 &&
     Object.keys(fieldErrors).length === 0 &&
-    (isRegistry || Boolean(selectedProject)) &&
+    projectIsSettled(isRegistry, selectedProject) &&
     (matches.length === 0 ? true : acknowledged)
 
   const submit = recordSubmission({

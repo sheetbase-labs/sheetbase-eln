@@ -278,7 +278,6 @@ async function insert(
 }
 
 const CONFLUENCE = {
-  title: 'Confluence check',
   columns: ['Plate', 'Confluence (%)', 'Morphology'],
   rows: [
     ['P1', '62', 'Normal'],
@@ -302,16 +301,47 @@ const HALF = [
   ['P4', '', ''],
 ]
 
+/** A grid written as an ad hoc sheet: the notebook's only table. */
+async function insertGrid(
+  recordId: string,
+  grid: { columns: string[]; rows: string[][] },
+  after?: string,
+) {
+  const { rows } = await migrator.query(
+    `select internal.grid_to_sheet_instance($1,$2::jsonb,$3,$4) as id`,
+    [recordId, JSON.stringify(grid), crypto.randomUUID(), OWNER],
+  )
+
+  return insert(recordId, 'sheet', { instanceId: rows[0].id }, after)
+}
+
+/** Replace the rows of a sheet, keeping its column headings. */
 async function fillTable(blockId: string, rows: string[][]) {
   const { rows: current } = await migrator.query(
-    `select version, payload from api.blocks where id=$1`,
+    `select i.id, i.state from api.blocks b
+       join api.sheet_instances i on i.id=(b.payload->>'instanceId')::uuid
+      where b.id=$1`,
     [blockId],
   )
-  await owner.query(`select api.update_block_payload($1,$2::jsonb,$3)`, [
-    blockId,
-    JSON.stringify({ ...current[0].payload, rows }),
-    current[0].version,
-  ])
+
+  const state = current[0].state as {
+    localFields: Array<{ label: string; lifecycle: string }>
+    presentation: { columnOrder: string[] }
+  }
+
+  const columns = state.localFields
+    .filter((field) => field.lifecycle === 'active')
+    .map((field) => field.label)
+
+  await migrator.query(
+    `select set_config('sheetbase.sheet_instance_write','rpc-v1',false)`,
+  )
+  await migrator.query(
+    `update api.sheet_instances
+        set state = internal.grid_sheet_state($2::jsonb,$3), revision = revision + 1
+      where id=$1`,
+    [current[0].id, JSON.stringify({ columns, rows }), crypto.randomUUID()],
+  )
 }
 
 async function refused(promise: Promise<unknown>, code: string) {
@@ -321,7 +351,7 @@ async function refused(promise: Promise<unknown>, code: string) {
 /** An experiment with a confluence table and a gate under it. */
 async function gated(mode: 'warn' | 'block', title = 'Gated') {
   const { recordId } = await experiment(title)
-  const table = await insert(recordId, 'table', CONFLUENCE)
+  const table = await insertGrid(recordId, CONFLUENCE)
   const gate = await insert(
     recordId,
     'gate',
@@ -590,7 +620,7 @@ describe('conditions', () => {
 
   it('counts rows of a table, with and without a column', async () => {
     const { recordId } = await experiment('Rows')
-    const table = await insert(recordId, 'table', CONFLUENCE)
+    const table = await insertGrid(recordId, CONFLUENCE)
     await insert(
       recordId,
       'gate',
@@ -598,7 +628,12 @@ describe('conditions', () => {
         mode: 'warn',
         label: 'Enough',
         conditions: [
-          { kind: 'table_filled', blockId: table.id, minRows: 5 },
+          {
+            kind: 'table_filled',
+            blockId: table.id,
+            minRows: 5,
+            label: 'Confluence check',
+          },
           {
             kind: 'table_filled',
             blockId: table.id,
@@ -1004,6 +1039,73 @@ describe('gates from a template', () => {
     )
   })
 
+  it('turns a table in an old template version into a sheet, and refuses a new one', async () => {
+    const placement = (blockType: string) => ({
+      formatVersion: 1,
+      parameters: [],
+      parts: [],
+      placements: [
+        {
+          id: crypto.randomUUID(),
+          kind: 'narrative',
+          order: 1,
+          blockType,
+          payload:
+            blockType === 'table'
+              ? { columns: ['Plate', 'Confluence (%)'], rows: [['P1', '62']] }
+              : DOC,
+        },
+      ],
+    })
+
+    // A new version cannot carry a table.
+    await expect(
+      owner.query(
+        `select api.create_notebook_template($1,$2,'Old table',null,$3::jsonb)`,
+        [WS, `old_${Date.now()}`, JSON.stringify(placement('table'))],
+      ),
+    ).rejects.toBeTruthy()
+
+    // One published before tables became sheets still makes a notebook.
+    const created = (
+      await owner.query(
+        `select api.create_notebook_template($1,$2,'Old table',null,$3::jsonb) result`,
+        [WS, `old2_${Date.now()}`, JSON.stringify(placement('rich_text'))],
+      )
+    ).rows[0].result
+    const published = (
+      await owner.query(
+        `select to_jsonb(api.publish_notebook_template_version($1,$2,'Published')) result`,
+        [created.version.id, created.version.revision],
+      )
+    ).rows[0].result
+    await migrator.query(
+      `alter table api.notebook_template_versions disable trigger user`,
+    )
+    await migrator.query(
+      `update api.notebook_template_versions set configuration=$2::jsonb where id=$1`,
+      [published.id, JSON.stringify(placement('table'))],
+    )
+    await migrator.query(
+      `alter table api.notebook_template_versions enable trigger user`,
+    )
+    const made = (
+      await owner.query(
+        `select api.instantiate_notebook_template_version($1,$2,'From old','[]'::jsonb,$3) result`,
+        [published.id, PROJECT, crypto.randomUUID()],
+      )
+    ).rows[0].result
+    const { rows } = await migrator.query(
+      `select b.type, i.state->'localFields'->0->>'label' as first_column
+         from api.blocks b
+         left join api.sheet_instances i on i.id=(b.payload->>'instanceId')::uuid
+        where b.record_id=$1 order by b."order"`,
+      [made.record.id],
+    )
+    expect(rows.map((r) => r.type)).not.toContain('table')
+    expect(rows).toContainEqual({ type: 'sheet', first_column: 'Plate' })
+  })
+
   it('arrives with an experiment made from a template, pointed at its own blocks', async () => {
     const partOne = crypto.randomUUID()
     const partTwo = crypto.randomUUID()
@@ -1066,10 +1168,20 @@ describe('gates from a template', () => {
         },
       ],
     }
+    // A template version cannot be written with a table any more, so it is
+    // written with a note and the table put back, as an old version had it.
+    const written = {
+      ...configuration,
+      placements: configuration.placements.map((p) =>
+        p.id === stepPlacement
+          ? { ...p, blockType: 'rich_text', payload: DOC }
+          : p,
+      ),
+    }
     const created = (
       await owner.query(
         `select api.create_notebook_template($1,$2,'Dosing template',null,$3::jsonb) result`,
-        [WS, `dosing_${Date.now()}`, JSON.stringify(configuration)],
+        [WS, `dosing_${Date.now()}`, JSON.stringify(written)],
       )
     ).rows[0].result
     const published = (
@@ -1078,6 +1190,16 @@ describe('gates from a template', () => {
         [created.version.id, created.version.revision],
       )
     ).rows[0].result
+    await migrator.query(
+      `alter table api.notebook_template_versions disable trigger user`,
+    )
+    await migrator.query(
+      `update api.notebook_template_versions set configuration=$2::jsonb where id=$1`,
+      [published.id, JSON.stringify(configuration)],
+    )
+    await migrator.query(
+      `alter table api.notebook_template_versions enable trigger user`,
+    )
     const made = (
       await owner.query(
         `select api.instantiate_notebook_template_version($1,$2,'Dosing','[]'::jsonb,$3) result`,
@@ -1109,7 +1231,7 @@ describe('gates from a template', () => {
     expect(blocks[0].payload.fromTemplate).toBe(true)
     // Filling in the table opens the gate: it points at this experiment's table.
     const { rows: table } = await migrator.query(
-      `select id from api.blocks where record_id=$1 and type='table'`,
+      `select id from api.blocks where record_id=$1 and type='sheet'`,
       [recordId],
     )
     expect(rows[1].conditions[0]).toMatchObject({ blockId: table[0].id })

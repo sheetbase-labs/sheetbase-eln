@@ -59,6 +59,23 @@ export const Route = createFileRoute('/reports/$reportId')({
   component: ReportPage,
 })
 
+/**
+ * Reading a report needs view access to its project; generating it needs edit
+ * or review access, and checking and changing it need edit access. A report
+ * on no project follows the workspace role, which the database still decides.
+ */
+function useReportAccess(projectId: string | null | undefined) {
+  const permissions = useQuery({
+    queryKey: ['project-permissions', 'mine'],
+    queryFn: () => fetchMyProjectPermissions(notebookDataClient),
+    staleTime: 60_000,
+  })
+
+  return reportAccess(
+    projectId && permissions.data ? permissions.data.get(projectId) : undefined,
+  )
+}
+
 function ReportPage() {
   const { reportId } = Route.useParams()
   const { context } = Route.useRouteContext()
@@ -79,22 +96,7 @@ function ReportPage() {
 
   const report = query.data
 
-  // Reading a report needs view access to its project; generating, checking
-  // and changing it need edit access. A report on no project follows the
-  // workspace role, which the database still decides.
-  const permissions = useQuery({
-    queryKey: ['project-permissions', 'mine'],
-    queryFn: () => fetchMyProjectPermissions(notebookDataClient),
-    staleTime: 60_000,
-  })
-
-  const mine =
-    !report?.projectId || permissions.data === undefined
-      ? undefined
-      : permissions.data.get(report.projectId)
-
-  // Reviewers can generate a report without being able to change it.
-  const { canEdit, canGenerate } = reportAccess(mine)
+  const { canEdit, canGenerate } = useReportAccess(report?.projectId)
 
   const names = useUserNames(report ? [report.createdByUserId] : [])
   useRecentViewTracking('record', report ? report.recordId : null)

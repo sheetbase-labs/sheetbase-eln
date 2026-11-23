@@ -29,8 +29,9 @@ import type { PipelineWebCall } from './web-call'
  * definition version, parameters and input Dataset Version ids is
  * reproducible. The database validates the same rules at the version
  * boundary and at run start (api.pipeline_config_errors /
- * api.pipeline_run_request_errors); this module is the TypeScript mirror used
- * by the authoring UI and the server executor.
+ * api.pipeline_run_request_errors); this module is the TypeScript copy used
+ * by the authoring UI and the server executor, and
+ * `tests/db/pipeline-config-mirror.test.ts` fails when the two disagree.
  */
 
 export const PIPELINE_CONFIG_VERSION = 2 as const
@@ -76,8 +77,9 @@ export const PIPELINE_STEP_KINDS = [
 
 /**
  * What the runner executes a kind as. A no-code kind stores the SQL it writes
- * and runs as `sql`; every other kind runs as itself. Mirrors the `runs`
- * column of `internal.pipeline_step_kinds`.
+ * and runs as `sql`; every other kind runs as itself. The `runs` column of
+ * `internal.pipeline_step_kinds` repeats this;
+ * `tests/db/pipeline-config-mirror.test.ts` fails when it differs.
  */
 export function stepRuns(
   kind: (typeof PIPELINE_STEP_KINDS)[number],
@@ -1830,7 +1832,8 @@ export interface ResolvedRunRequest {
  * Validate a run request against a validated configuration: every supplied
  * parameter must be declared and type-match, required parameters must be
  * present, and input_versions must name exactly the declared inputs with
- * Dataset Version ids. Mirrors api.pipeline_run_request_errors.
+ * Dataset Version ids. `tests/db/pipeline-config-mirror.test.ts` fails when
+ * this and api.pipeline_run_request_errors disagree.
  */
 export function validatePipelineRunRequest(
   config: PipelineConfig,

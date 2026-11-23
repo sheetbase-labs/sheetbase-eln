@@ -952,8 +952,10 @@ export async function seedDesignCalendar(db: Db): Promise<void> {
   const at = (day: number, hour: number) =>
     new Date(base + day * 86_400_000 + hour * 3_600_000).toISOString()
 
+  const resourceByCode = new Map(resources.rows.map((r) => [r.code, r.id]))
+
   for (const b of BOOKINGS) {
-    const resource = resources.rows.find((r) => r.code === b.resource)?.id
+    const resource = resourceByCode.get(b.resource)
 
     if (!resource) throw new Error(`resource ${b.resource}`)
 

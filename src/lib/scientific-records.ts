@@ -7,7 +7,7 @@
  *
  * - configurable property validation against `record_field_definitions`;
  * - kind-specific status vocabularies and lifecycle transition rules
- *   (compared with the `transition_record_status` RPC in tests/db);
+ *   (the database's `transition_record_status` decides which changes happen);
  * - stable identifier prefixes;
  * - record-picker query helpers and inspector summary projections.
  *
@@ -322,50 +322,6 @@ export const KIND_STATUS_VOCABULARY: Record<
     'low_stock',
   ],
   protocol_template: ['draft', 'active', 'under_review'],
-}
-
-/**
- * Allowed transitions. `tests/db/scientific-records.test.ts` fails when this
- * differs from the `transition_record_status` RPC matrix.
- * A transition is allowed iff `key` is in the set, where
- * `key = `${kind}:${from}->${to}``.
- */
-export const ALLOWED_TRANSITIONS: readonly string[] = [
-  'sample:available->reserved',
-  'sample:available->consumed',
-  'sample:available->quarantined',
-  'sample:reserved->available',
-  'sample:reserved->consumed',
-  'sample:quarantined->available',
-  'material:available->reserved',
-  'material:available->consumed',
-  'material:available->quarantined',
-  'material:available->expired',
-  'material:reserved->available',
-  'material:reserved->consumed',
-  'material:quarantined->available',
-  'protocol_template:draft->active',
-  'protocol_template:draft->under_review',
-  'protocol_template:under_review->active',
-  'protocol_template:under_review->draft',
-  'protocol_template:active->draft',
-]
-
-export function isAllowedTransition(
-  kind: ScientificRecordKind,
-  from: string,
-  to: string,
-): boolean {
-  return ALLOWED_TRANSITIONS.includes(`${kind}:${from}->${to}`)
-}
-
-export function allowedTargets(
-  kind: ScientificRecordKind,
-  from: string,
-): readonly string[] {
-  return KIND_STATUS_VOCABULARY[kind].filter((to) =>
-    isAllowedTransition(kind, from, to),
-  )
 }
 
 /**

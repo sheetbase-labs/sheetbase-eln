@@ -11,10 +11,8 @@ import {
   DUPLICATE_SCIENTIFIC_LINK_MESSAGE,
   KIND_PREFIX,
   KIND_STATUS_VOCABULARY,
-  allowedTargets,
   formatPropertyValue,
   identifierPattern,
-  isAllowedTransition,
   isDuplicateLinkError,
   isPropertyLogicalType,
   isScientificRecordKind,
@@ -27,7 +25,6 @@ import {
 import type {
   PropertyLogicalType,
   RecordFieldDefinition,
-  ScientificRecordKind,
 } from './scientific-records'
 
 function def(
@@ -269,56 +266,13 @@ describe('validateProperties', () => {
   })
 })
 
-describe('status vocabularies and transition rules', () => {
+describe('status vocabularies', () => {
   it('exposes a distinct vocabulary per kind', () => {
     expect(KIND_STATUS_VOCABULARY.sample).toContain('frozen')
     expect(KIND_STATUS_VOCABULARY.material).toContain('low_stock')
     expect(KIND_STATUS_VOCABULARY.material).not.toContain('frozen')
     expect(KIND_STATUS_VOCABULARY.protocol_template).toEqual([
       'draft',
-      'active',
-      'under_review',
-    ])
-  })
-
-  it('mirrors the RPC transition matrix', () => {
-    const allowed: Array<[ScientificRecordKind, string, string]> = [
-      ['sample', 'available', 'reserved'],
-      ['sample', 'available', 'consumed'],
-      ['sample', 'available', 'quarantined'],
-      ['sample', 'reserved', 'available'],
-      ['sample', 'reserved', 'consumed'],
-      ['sample', 'quarantined', 'available'],
-      ['material', 'available', 'expired'],
-      ['protocol_template', 'draft', 'active'],
-      ['protocol_template', 'under_review', 'draft'],
-      ['protocol_template', 'active', 'draft'],
-    ]
-
-    for (const [kind, from, to] of allowed) {
-      expect(isAllowedTransition(kind, from, to)).toBe(true)
-    }
-  })
-
-  it('rejects disallowed transitions', () => {
-    expect(isAllowedTransition('sample', 'consumed', 'available')).toBe(false)
-    expect(isAllowedTransition('sample', 'available', 'frozen')).toBe(false)
-    expect(isAllowedTransition('material', 'low_stock', 'available')).toBe(
-      false,
-    )
-    expect(
-      isAllowedTransition('protocol_template', 'active', 'under_review'),
-    ).toBe(false)
-  })
-
-  it('lists only reachable targets from a given status', () => {
-    expect(allowedTargets('sample', 'available')).toEqual([
-      'reserved',
-      'consumed',
-      'quarantined',
-    ])
-    expect(allowedTargets('sample', 'consumed')).toEqual([])
-    expect(allowedTargets('protocol_template', 'draft')).toEqual([
       'active',
       'under_review',
     ])

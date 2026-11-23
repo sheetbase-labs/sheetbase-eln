@@ -6,7 +6,7 @@ import type { Client } from 'pg'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 
 import { RECORD_KIND_PREFIX, isGeneratedRecordId } from '#/lib/record-id-policy'
-import { ALLOWED_TRANSITIONS, KIND_PREFIX } from '#/lib/scientific-records'
+import { KIND_PREFIX } from '#/lib/scientific-records'
 
 import { prepareTestDatabase } from './helpers'
 
@@ -182,23 +182,6 @@ describe('scientific record creation and properties', () => {
     }
 
     expect(KIND_PREFIX.material).toBe(RECORD_KIND_PREFIX.get('material'))
-  })
-
-  it('lists the same status changes as api.transition_record_status', async () => {
-    const { rows } = await migrator.query(
-      `SELECT pg_get_functiondef('api.transition_record_status(uuid,text,integer)'::regprocedure) AS def`,
-    )
-    const inDatabase = [
-      ...String(rows[0].def).matchAll(/'([a-z_]+:[a-z_]+->[a-z_]+)'/g),
-    ]
-      .map((match) => match[1])
-      .sort()
-    const inApp = [...ALLOWED_TRANSITIONS].sort()
-
-    expect(
-      inApp,
-      'src/lib/scientific-records.ts ALLOWED_TRANSITIONS and api.transition_record_status must list the same changes',
-    ).toEqual(inDatabase)
   })
 
   it('rejects unsupported kinds and projects in another workspace', async () => {

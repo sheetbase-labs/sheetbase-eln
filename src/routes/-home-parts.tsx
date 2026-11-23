@@ -20,6 +20,7 @@ import { Dot } from '#/components/ui/status'
 import { TableBox } from '#/components/ui/table'
 import { RegistryGrid } from '#/components/inventory/registry-grid'
 import { EmptyState } from '#/components/ui/empty-state'
+import { ChipRowSkeleton, SectionSkeleton } from '#/components/ui/page-skeleton'
 import { Skeleton } from '#/components/ui/skeleton'
 import { AskAiButton } from '#/components/assist/ask-ai-button'
 import { HomeBrief } from '#/components/assist/home-brief'
@@ -1015,18 +1016,30 @@ export function HomeUnavailable({
   )
 }
 
-/** The page while its reads are outstanding. */
+/** The page while its reads are outstanding: the real header and the busy
+ * page's own sections, drawn as placeholders, so the page does not move. */
 export function HomeLoading(): React.ReactElement {
   return (
-    <div className="flex flex-col gap-4 p-6" role="status">
-      <span className="sr-only">{t('projects.home.loading')}</span>
-      <Skeleton className="h-6 w-32" />
-      <Skeleton className="h-4 w-64" />
-      <div className="grid gap-4 md:grid-cols-2">
-        <Skeleton className="h-40" />
-        <Skeleton className="h-40" />
+    <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-auto">
+      <PageHeader
+        className="border-b-0 bg-transparent"
+        title={t('projects.home.title')}
+        meta={<Skeleton className="h-3 w-56" />}
+      />
+      <div role="status" className="flex flex-col gap-7 px-4 pb-8 pt-2 md:px-6">
+        <span className="sr-only">{t('projects.home.loading')}</span>
+        <ChipRowSkeleton />
+        <SectionSkeleton
+          title={t('projects.home.sections.awaitingReview')}
+          columns={4}
+          rows={5}
+        />
+        <SectionSkeleton
+          title={t('projects.home.sections.continueWorking')}
+          columns={4}
+          rows={6}
+        />
       </div>
-      <Skeleton className="h-56" />
     </div>
   )
 }

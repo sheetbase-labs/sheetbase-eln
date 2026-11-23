@@ -1,4 +1,5 @@
 import { useCallback, useMemo, useState } from 'react'
+import { TableSkeleton } from '#/components/ui/page-skeleton'
 import { useScrollLoad } from '#/lib/use-scroll-load'
 import { z } from 'zod'
 import { ObjectLink } from '#/components/ui/object-link'
@@ -635,7 +636,11 @@ function ExperimentsEmpty({
   onIncludeOlder: () => void
   onClearSearch: () => void
 }) {
-  if (isLoading || visibleCount > 0) return null
+  // The grid draws its own placeholders; the phone list has none until the read lands.
+  if (isLoading)
+    return <TableSkeleton columns={2} rows={8} className="md:hidden" />
+
+  if (visibleCount > 0) return null
 
   const noAccess = hasProjectAccess === false
 
@@ -690,7 +695,7 @@ function ExperimentsFooter({
     <div className="flex h-8 shrink-0 items-center gap-4 border-t border-border px-4 text-label text-fg-muted md:px-6">
       <span>
         {isLoading ? (
-          t('common.states.loading')
+          <Skeleton className="h-3 w-28" />
         ) : (
           <>
             {t('projects.experimentsList.shown', { shown, total })}

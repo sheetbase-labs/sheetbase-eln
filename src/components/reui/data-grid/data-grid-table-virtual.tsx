@@ -58,6 +58,8 @@ import type {
 import {
   DataGridTableAddRow,
   DataGridTableBase,
+  DataGridTableBodyRowSkeleton,
+  DataGridTableBodyRowSkeletonCell,
   DataGridTableBody,
   DataGridTableEmpty,
   DataGridTableFillBodyCell,
@@ -87,6 +89,7 @@ import type {
 } from '@tanstack/react-virtual'
 import { cn } from '#/lib/utils'
 
+import { Skeleton } from '#/components/ui/skeleton'
 import { Spinner } from '#/components/ui/spinner'
 
 type DataGridTableVirtualScrollElements = {
@@ -566,6 +569,54 @@ const MemoizedRenderedRow = memo(
     prev.centerWindow?.end === next.centerWindow?.end,
 ) as typeof DataGridTableRenderedRow
 
+/** How many placeholder rows a list shows before its first read lands. */
+const SKELETON_ROW_COUNT = 8
+
+/** Cell placeholder widths, cycled by column so the rows do not read as a grid of equal bars. */
+const SKELETON_WIDTHS = ['w-16', 'w-40', 'w-24', 'w-32', 'w-20', 'w-28']
+
+/** The rows of a list while its first read is outstanding: the same columns
+ * the loaded rows will have, so nothing shifts when the data arrives. */
+function DataGridTableVirtualSkeletonRows<TData extends object>({
+  table,
+}: {
+  table: DataGridTableInstance<TData>
+}) {
+  const columns = [
+    ...table.getStartVisibleLeafColumns(),
+    ...table.getCenterVisibleLeafColumns(),
+    ...table.getEndVisibleLeafColumns(),
+  ]
+
+  const { i18n } = useDataGrid()
+
+  return (
+    <>
+      {Array.from({ length: SKELETON_ROW_COUNT }).map((_, rowIndex) => (
+        <DataGridTableBodyRowSkeleton key={rowIndex}>
+          {columns.map((column, columnIndex) => (
+            <DataGridTableBodyRowSkeletonCell column={column} key={column.id}>
+              <Skeleton
+                className={cn(
+                  'h-3',
+                  SKELETON_WIDTHS[
+                    (columnIndex + rowIndex) % SKELETON_WIDTHS.length
+                  ],
+                )}
+              />
+            </DataGridTableBodyRowSkeletonCell>
+          ))}
+        </DataGridTableBodyRowSkeleton>
+      ))}
+      <tr>
+        <td className="sr-only" role="status">
+          {i18n.labels.loading}
+        </td>
+      </tr>
+    </>
+  )
+}
+
 // react-doctor-disable-next-line react-doctor/no-high-complexity-react-function -- one body renders the pinned, virtualised and infinite-scroll sections in their declared order; the branches are those sections.
 function DataGridTableVirtualBody<TData extends object>({
   table,
@@ -589,16 +640,7 @@ function DataGridTableVirtualBody<TData extends object>({
   if (!totalRows) {
     // Initial load must not flash the empty state as if the query returned
     // nothing.
-    if (isLoading) {
-      return (
-        <DataGridTableVirtualStatusRow table={table}>
-          <div className="flex items-center justify-center gap-2">
-            <Spinner size={16} className="opacity-60" />
-            {loadingMoreMessage}
-          </div>
-        </DataGridTableVirtualStatusRow>
-      )
-    }
+    if (isLoading) return <DataGridTableVirtualSkeletonRows table={table} />
 
     return <DataGridTableEmpty />
   }

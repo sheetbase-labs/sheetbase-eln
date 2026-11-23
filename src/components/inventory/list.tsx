@@ -325,7 +325,14 @@ export function ListFooter({
       className="flex h-8 shrink-0 items-center gap-4 border-t border-border px-4 text-label text-fg-muted max-md:hidden md:px-6"
     >
       <span className="num">
-        {loading ? t('common.states.loading') : children}
+        {loading ? (
+          <>
+            <span className="sr-only">{t('common.states.loading')}</span>
+            <Skeleton className="h-3 w-28" />
+          </>
+        ) : (
+          children
+        )}
       </span>
       {right ? (
         <span className="ml-auto text-fg max-xl:mr-28">{right}</span>

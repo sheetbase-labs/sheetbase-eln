@@ -1,4 +1,5 @@
 import { rich, t } from '#/copy'
+import { RecordBodySkeleton } from '#/components/ui/page-skeleton'
 import { NOTEBOOK_STRUCTURE_SCOPE } from '#/lib/notebook-structure-scope'
 import { ObjectLink } from '#/components/ui/object-link'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
@@ -3706,11 +3707,8 @@ export function EmptyNotebook({ record }: { record: NotebookRecord }) {
 
 export function NotebookSkeleton() {
   return (
-    <div className="space-y-3" aria-busy="true">
-      <div className="h-16 animate-pulse rounded-lg border bg-card" />
-      {Array.from({ length: 3 }).map((_, i) => (
-        <div key={i} className="h-24 animate-pulse rounded-lg border bg-card" />
-      ))}
+    <div aria-busy="true">
+      <RecordBodySkeleton />
     </div>
   )
 }

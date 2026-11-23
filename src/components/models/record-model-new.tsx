@@ -159,7 +159,11 @@ function useNewRecord(modelKey: string) {
   // not an error state, and the disabled Create button is not the message.
   const [interacted, setInteracted] = useState(false)
 
-  const selectedProject = projectId || projects[0]?.id || ''
+  // A registry entry belongs to the whole lab unless a project is chosen; any
+  // other record is filed under one, the first when none is picked.
+  const selectedProject = isRegistry
+    ? projectId
+    : projectId || projects[0]?.id || ''
 
   // The sequence file fills the sequence field, so it is not typed in too.
   const shownFields = useMemo(
@@ -218,7 +222,7 @@ function useNewRecord(modelKey: string) {
     !titleError &&
     validation.blocks.length === 0 &&
     Object.keys(fieldErrors).length === 0 &&
-    Boolean(selectedProject) &&
+    (isRegistry || Boolean(selectedProject)) &&
     (matches.length === 0 ? true : acknowledged)
 
   const submit = recordSubmission({
@@ -248,7 +252,7 @@ function useNewRecord(modelKey: string) {
     try {
       const lot = await addRegistryLot<RecordModelRecord>(notebookDataClient, {
         entryId: match.id,
-        projectId: selectedProject,
+        projectId: selectedProject || undefined,
         title: title.trim(),
         customFields: {},
       })
@@ -275,6 +279,7 @@ function useNewRecord(modelKey: string) {
     model.isLoading || fieldsQuery.isLoading || projectsQuery.isLoading
 
   return {
+    isRegistry,
     model,
     modelKey,
     submit,
@@ -501,7 +506,7 @@ function recordSubmission({
     try {
       const created = isRegistry
         ? await createRegistryEntry<RecordModelRecord>(notebookDataClient, {
-            projectId: selectedProject,
+            projectId: selectedProject || null,
             kind: modelKey,
             title: title.trim(),
             customFields,
@@ -511,7 +516,7 @@ function recordSubmission({
         : await notebookDataClient.rpc<RecordModelRecord>(
             'create_model_record',
             {
-              p_project_id: selectedProject,
+              p_project_id: selectedProject || null,
               p_kind: parentKey ? rootKey : modelKey,
               p_title: title.trim(),
               p_status: 'draft',
@@ -670,6 +675,7 @@ export function RecordModelNew({ modelKey }: { modelKey: string }) {
 
 function NewRecordFields({ form }: { form: NewRecord }) {
   const {
+    isRegistry,
     modelKey,
     title,
     setTitle,
@@ -726,11 +732,7 @@ function NewRecordFields({ form }: { form: NewRecord }) {
             matches={matches}
             acknowledged={acknowledged}
             onAcknowledge={setAcknowledged}
-            onAddLot={
-              lotKind && selectedProject !== ''
-                ? (match) => void addAsLot(match)
-                : undefined
-            }
+            onAddLot={lotKind ? (match) => void addAsLot(match) : undefined}
             addingLot={addingLot}
           />
         </div>
@@ -762,7 +764,22 @@ function NewRecordFields({ form }: { form: NewRecord }) {
         />
       ) : null}
 
-      {projects.length > 1 ? (
+      {isRegistry ? (
+        projects.length > 0 ? (
+          <label className="text-xs text-fg-muted">
+            {t('library.models.recordModelNew.projectOptional')}
+            <PickerSelect
+              noun="project"
+              className="mt-1 h-8 text-xs"
+              value={selectedProject}
+              onChange={(id) => setProjectId(id)}
+              aria-label={t('library.models.recordModelNew.project2')}
+              clearLabel={t('library.models.recordModelNew.noProject')}
+              options={projects.map((project) => projectOption(project))}
+            />
+          </label>
+        ) : null
+      ) : projects.length > 1 ? (
         <label className="text-xs text-fg-muted">
           {t('library.models.recordModelNew.project')}
           <PickerSelect

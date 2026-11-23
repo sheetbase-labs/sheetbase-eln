@@ -172,7 +172,7 @@ export async function findDuplicates(
 export async function createRegistryEntry<T>(
   client: DataClient,
   input: {
-    projectId: string
+    projectId: string | null
     kind: string
     title: string
     customFields: CustomFieldValues

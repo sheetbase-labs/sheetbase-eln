@@ -1419,6 +1419,8 @@ export const library = {
       name2: 'Name',
       project: 'Project *',
       project2: 'Project',
+      projectOptional: 'Project (optional)',
+      noProject: 'No project, shared across the lab',
       project3: 'Project *<p>{title}</p>',
       aProjectIsRequired: 'A project is required',
       projects: 'Projects',

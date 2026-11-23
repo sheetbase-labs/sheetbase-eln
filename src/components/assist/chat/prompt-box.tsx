@@ -104,7 +104,7 @@ export function PromptBox({
     <form
       className={cn(
         'relative flex flex-col gap-1.5 rounded-2xl border border-border bg-surface p-2 shadow-sm transition-colors',
-        dragging && 'border-primary bg-surface-muted',
+        dragging && 'border-ring bg-surface-muted',
         'focus-within:border-border-strong focus-within:outline-2 focus-within:outline-offset-1 focus-within:outline-focus',
         disabled && 'bg-surface-disabled',
       )}

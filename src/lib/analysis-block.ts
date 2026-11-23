@@ -10,8 +10,9 @@
  * the pure `runAnalysis` over the pinned Version's rows; the recorded row
  * count and checksum prove the inputs are the ones that were pinned.
  *
- * Validation is mirrored by the database `validate_scientific_block`
- * trigger; direct CRUD can never fabricate, alter or remove a frozen
+ * The database `validate_scientific_block` trigger checks the same draft
+ * fields (tests/db/merged-analysis-block.test.ts runs both over the same
+ * payloads); direct CRUD can never fabricate, alter or remove a frozen
  * payload — only the SECURITY DEFINER freeze/unfreeze RPCs may write one.
  */
 
@@ -118,7 +119,7 @@ const jsonObject = z.record(z.string(), z.unknown())
 const uuidText = z.string().regex(UUID_RE)
 
 /** A required, non-blank text field. */
-const nonEmptyText = z.string().min(1)
+const nonEmptyText = z.string().trim().min(1)
 
 /** A required Dataset row count. */
 const rowCount = z.number().int()

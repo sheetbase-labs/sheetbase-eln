@@ -361,46 +361,6 @@ export const validateConclusion = payloadValidator((payload): FieldErrors => {
   return errors
 })
 
-export const validateTable = payloadValidator((payload): FieldErrors => {
-  const errors: FieldErrors = []
-
-  if (!isObject(payload))
-    return [
-      { code: 'invalid_payload_shape', message: 'payload must be an object' },
-    ]
-  const columns = payload.columns
-
-  if (!Array.isArray(columns) || !columns.every(isString)) {
-    errors.push({
-      code: 'invalid_field_value',
-      field: 'columns',
-      message: 'columns must be an array of strings',
-    })
-  }
-
-  const rows = payload.rows
-
-  if (!Array.isArray(rows)) {
-    errors.push({
-      code: 'invalid_field_value',
-      field: 'rows',
-      message: 'rows must be an array',
-    })
-  } else {
-    rows.forEach((row, i) => {
-      if (!Array.isArray(row)) {
-        errors.push({
-          code: 'invalid_field_value',
-          field: `rows[${i}]`,
-          message: 'each row must be an array',
-        })
-      }
-    })
-  }
-
-  return errors
-})
-
 export const validateChart = payloadValidator((payload): FieldErrors => {
   if (!isObject(payload))
     return [

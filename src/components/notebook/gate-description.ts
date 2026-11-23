@@ -58,9 +58,7 @@ function describeCondition(
     case 'table_filled': {
       const block = context.blocks.find((b) => b.id === condition.blockId)
 
-      const tables = context.blocks.filter(
-        (b) => b.type === 'table' || b.type === 'sheet',
-      )
+      const tables = context.blocks.filter((b) => b.type === 'sheet')
 
       const table =
         condition.label?.trim() ||
@@ -184,19 +182,11 @@ export function gateTargetsFrom(
     .sort((a, b) => a.order - b.order)
 
   const tables = above
-    .filter((b) => b.type === 'table' || b.type === 'sheet')
+    .filter((b) => b.type === 'sheet')
     .map((b, index) => ({
       id: b.id,
       label: blockTitle(b, index + 1),
-      columns:
-        b.type === 'table'
-          ? Array.isArray(b.payload.columns)
-            ? z
-                .array(z.union([z.string(), z.number(), z.boolean(), z.null()]))
-                .parse(b.payload.columns)
-                .map(String)
-            : []
-          : (options.sheetColumns?.get(b.id) ?? []),
+      columns: options.sheetColumns?.get(b.id) ?? [],
     }))
 
   const steps = above

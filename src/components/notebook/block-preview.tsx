@@ -304,10 +304,12 @@ function renderPayload(
       return <MaterialsPreview payload={payload} />
     case 'metric':
       return renderMetric(payload)
-    case 'table':
-      return renderTable(payload)
     case 'sheet':
       return <SheetBlockPreview payload={payload} />
+    case 'table':
+      return frozen
+        ? renderFrozenTable(payload)
+        : renderUnsupported(type, payload)
     case 'chart':
       return <ChartBlockPreview payload={payload} />
     case 'plugin':
@@ -918,7 +920,11 @@ function renderMetric(payload: NotebookBlock['payload']): React.ReactNode {
   )
 }
 
-function renderTable(payload: NotebookBlock['payload']): React.ReactNode {
+// A table block can no longer be made or edited: every one in a notebook is
+// now an ad hoc sheet. A signed revision or a report section frozen before
+// that still holds the block as it was, so a frozen view draws it as it was
+// written, as plain text.
+function renderFrozenTable(payload: NotebookBlock['payload']): React.ReactNode {
   const obj = asObject(payload)
 
   if (!obj) return null

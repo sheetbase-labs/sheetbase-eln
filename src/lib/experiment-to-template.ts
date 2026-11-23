@@ -52,7 +52,6 @@ const LEFT_OUT_LABEL = new Map<string, string>([
   ['reaction', 'reaction'],
   ['code_cell', 'code cell'],
   ['plugin', 'plugin block'],
-  ['table', 'table'],
   ['materials', 'materials list'],
   ['linked_record', 'linked record'],
   ['pipeline_output', 'pipeline output'],

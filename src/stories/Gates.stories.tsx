@@ -53,12 +53,9 @@ function state(gates: RecordGate[]): GatesState {
       blocks: [
         {
           id: 't1',
-          type: 'table',
+          type: 'sheet',
           order: 1,
-          payload: {
-            title: 'Confluence check',
-            columns: ['Well', 'Confluence (%)'],
-          },
+          payload: { title: 'Confluence check' },
         },
       ],
       parts: [],

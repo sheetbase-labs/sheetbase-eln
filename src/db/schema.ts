@@ -1278,7 +1278,7 @@ export const blocks = api.table(
   (table) => [
     check(
       'chk_blocks_type',
-      sql`${table.type} IN ('rich_text', 'checklist', 'linked_record', 'callout', 'table', 'sheet', 'chart', 'analysis', 'plate_map', 'file', 'metric', 'procedure_step', 'protocol_reference', 'materials', 'pipeline_output', 'signature_request', 'corrective_actions', 'conclusion', 'dataset_import', 'structure', 'reaction', 'code_cell', 'gate', 'plugin', 'plate_run')`,
+      sql`${table.type} IN ('rich_text', 'checklist', 'linked_record', 'callout', 'sheet', 'chart', 'analysis', 'plate_map', 'file', 'metric', 'procedure_step', 'protocol_reference', 'materials', 'pipeline_output', 'signature_request', 'corrective_actions', 'conclusion', 'dataset_import', 'structure', 'reaction', 'code_cell', 'gate', 'plugin', 'plate_run')`,
     ),
     index('idx_blocks_record_id').on(table.recordId),
     // (record_id, order) is the hot loading path for notebook render.

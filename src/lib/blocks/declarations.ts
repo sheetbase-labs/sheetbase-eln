@@ -53,7 +53,6 @@ import {
   validateRichText,
   validateSheet,
   validateStructure,
-  validateTable,
   validateCorrectiveActions,
   validateSignatureRequest,
 } from './validators'
@@ -210,17 +209,9 @@ export const BLOCK_DECLARATIONS = defineBlocks([
       group: 'writing',
       aliases: ['note', 'warning', 'banner', 'aside', 'info'],
     },
-    // A4: editable since the callout editor landed. The static `table` block
-    // is still read-only on purpose — see the note in `block-editor.tsx`.
     editable: true,
     defaultPayload: () => ({}),
     validate: validateCallout,
-  },
-  {
-    type: 'table',
-    editable: false,
-    defaultPayload: () => ({}),
-    validate: validateTable,
   },
   {
     type: 'sheet',

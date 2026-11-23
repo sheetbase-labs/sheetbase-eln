@@ -8,7 +8,8 @@ import type { AnalysisViewWire } from './analysis-studio-data'
 import type { DataClient } from './data-client'
 import { plainTextToRichText } from './blocks/plain-text'
 import { fetchRecord } from './notebook-data'
-import { insertBlock } from './notebook-mutations'
+import { insertBlock, insertSheetInstanceBlock } from './notebook-mutations'
+import { writeGridToSheet } from './sheet-grid-write'
 
 /**
  * Cites a saved analysis view in a notebook as a frozen figure, and records the
@@ -101,12 +102,15 @@ export async function addSummaryTableToNotebook(
     payload: plainTextToRichText(`## ${args.heading}`),
   })
 
-  const table = await insertBlock(client, {
+  const sheet = await insertSheetInstanceBlock(client, {
     recordId: args.recordId,
-    type: 'table',
     afterBlockId: heading.block.id,
-    payload: { columns: args.columns, rows: args.rows },
   })
 
-  return { blockId: table.block.id }
+  await writeGridToSheet(client, sheet.instanceId, {
+    columns: args.columns,
+    rows: args.rows,
+  })
+
+  return { blockId: sheet.block.id }
 }

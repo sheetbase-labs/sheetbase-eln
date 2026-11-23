@@ -500,6 +500,7 @@ function zonedParts(at: Date, zone: string): ZonedClock {
 function nextDailyInZone(from: Date, dailyAt: string, zone: string): Date {
   const [hour, minute] = dailyAt.split(':').map(Number)
   const now = zonedParts(from, zone)
+
   const candidate = firstInstantOfWallClock(
     Date.UTC(now.y, now.mo - 1, now.d, hour, minute),
     now.offsetMs,

@@ -34,7 +34,7 @@ export const RULE_KINDS: readonly ReleaseRuleKind[] = [
 /** The type every sample falls back to when its own type has no rules. */
 export const ALL_TYPES = '*'
 
-/** What applies when a workspace sets nothing. Mirrors the database default. */
+/** What applies when a workspace sets nothing (tests/db/app-database-parity.test.ts compares the database default). */
 export const BUILT_IN_RULES: readonly ReleaseRule[] = [
   { kind: 'no_result', result: 'fail', label: 'No failed measurement' },
 ]

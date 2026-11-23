@@ -532,8 +532,8 @@ export interface PlanningActionResult {
 }
 
 // ---------------------------------------------------------------------------
-// The dates a repeat falls on. Mirrors internal.recurring_dates, so the card
-// shows the dates the database will make.
+// The dates a repeat falls on, so the card shows the dates the database will
+// make. tests/db/recurring-work.test.ts compares it with internal.recurring_dates.
 // ---------------------------------------------------------------------------
 
 function isoWeekdayOf(dayText: string): number {

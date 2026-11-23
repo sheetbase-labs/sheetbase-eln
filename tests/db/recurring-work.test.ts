@@ -10,6 +10,8 @@
 import type { Client } from 'pg'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 
+import { repeatDates } from '#/lib/assistant-planning'
+
 import { prepareTestDatabase, setActorJwt } from './helpers'
 
 const WS = '00000000-0000-4000-8000-00000000d059'
@@ -374,5 +376,113 @@ describe('the dates a repeat falls on', () => {
       '2027-01-19',
       '2027-02-02',
     ])
+  })
+})
+
+describe('the app and the database list the same repeat dates', () => {
+  const TO = '2028-01-31'
+
+  const cases = [
+    {
+      frequency: 'daily',
+      every: 3,
+      weekdays: [],
+      from: '2027-01-02',
+      count: 10,
+      until: null,
+    },
+    {
+      frequency: 'daily',
+      every: 1,
+      weekdays: [],
+      from: '2027-02-25',
+      count: null,
+      until: '2027-03-05',
+    },
+    {
+      frequency: 'weekly',
+      every: 1,
+      weekdays: [1, 3, 5],
+      from: '2027-01-06',
+      count: 8,
+      until: null,
+    },
+    {
+      frequency: 'weekly',
+      every: 2,
+      weekdays: [2, 4],
+      from: '2027-01-07',
+      count: null,
+      until: '2027-03-31',
+    },
+    {
+      frequency: 'weekly',
+      every: 3,
+      weekdays: [7],
+      from: '2027-01-03',
+      count: 5,
+      until: null,
+    },
+    {
+      frequency: 'monthly',
+      every: 1,
+      weekdays: [],
+      from: '2027-01-31',
+      count: 6,
+      until: null,
+    },
+    {
+      frequency: 'monthly',
+      every: 2,
+      weekdays: [],
+      from: '2027-03-30',
+      count: null,
+      until: '2027-12-31',
+    },
+    {
+      frequency: 'monthly',
+      every: 12,
+      weekdays: [],
+      from: '2028-02-29',
+      count: 1,
+      until: null,
+    },
+  ] as const
+
+  it.each(cases)('$frequency every $every from $from', async (c) => {
+    const { rows } = await migrator.query<{ id: string }>(
+      `insert into api.recurring_schedules(workspace_id,kind,title,frequency,interval_count,weekdays,starts_on,ends_on,
+           max_occurrences,timezone,notebook_template_id,project_id,created_by_user_id)
+         values($1,'experiment','Parity',$2,$3,$4::smallint[],$5,$6,$7,'UTC',$8,$9,$10) returning id`,
+      [
+        WS,
+        c.frequency,
+        c.every,
+        c.frequency === 'weekly' ? c.weekdays : null,
+        c.from,
+        c.until,
+        c.count,
+        templateId,
+        PROJECT,
+        OWNER,
+      ],
+    )
+    const inDatabase = await migrator.query<{ d: string }>(
+      `select d::text from internal.recurring_dates(
+           (select s from api.recurring_schedules s where id = $1), $2::date) d`,
+      [rows[0]!.id, TO],
+    )
+
+    expect(
+      repeatDates({
+        firstDay: c.from,
+        frequency: c.frequency,
+        every: c.every,
+        weekdays: [...c.weekdays],
+        count: c.count,
+        until: c.until ?? TO,
+      }),
+      'src/lib/assistant-planning.ts repeatDates and internal.recurring_dates must give the same dates',
+    ).toEqual(inDatabase.rows.map((row) => row.d))
   })
 })

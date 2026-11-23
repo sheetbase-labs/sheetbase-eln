@@ -42,8 +42,9 @@ const DAY_MS = 86_400_000
 
 // ---------------------------------------------------------------------------
 // Pure decision logic (no database). The SQL RPC is the authoritative
-// implementation; this mirrors `internal.sample_hold_deadline` so the UI and
-// tests can reason about the same rule. Keep the two in step.
+// implementation; this is the same rule as `internal.sample_hold_deadline` so
+// the UI and tests can reason about it. tests/db/app-database-parity.test.ts
+// runs both and fails when they differ.
 // ---------------------------------------------------------------------------
 
 /** A record's `properties` JSONB: JSON values keyed by property name. */

@@ -9318,7 +9318,7 @@ export const dataExports = api.table(
   (table) => [
     check(
       'chk_data_exports_object_type',
-      sql`${table.objectType} IN ('dataset','dataset_version','sheet_instance','record','revision')`,
+      sql`${table.objectType} IN ('dataset','dataset_version','sheet_instance','record','revision','workspace','report_generation')`,
     ),
     check(
       'chk_data_exports_format',

@@ -15,6 +15,7 @@ import { prepareTestDatabase, ensureSessions } from './helpers'
 import { ANALYSIS_METHOD_VERSION, runAnalysis } from '#/lib/analysis-definition'
 import type { FrozenAnalysis } from '#/lib/analysis-block'
 import type { DatasetValueFlag } from '#/lib/dataset-flags'
+import { validateAnalysisBlockPayload } from '#/lib/analysis-block'
 import { fetchFrozenAnalysisRows } from '#/lib/chart-data'
 import type { DataClient } from '#/lib/data-client'
 
@@ -867,5 +868,56 @@ describe('compose_analysis_definition', () => {
         [viewId, `Hidden ${Date.now()}`],
       ),
     ).rejects.toMatchObject({ code: '42501' })
+  })
+})
+
+describe('the app and the trigger accept the same analysis drafts', () => {
+  it('agrees on the title, definition and provenance of a draft block', async () => {
+    const cases: Array<Record<string, unknown>> = [
+      {},
+      { title: '' },
+      { title: '   ' },
+      { title: 5 },
+      { title: null },
+      { definitionId: 'not-a-uuid' },
+      { definitionId: null },
+      { definitionId: 5 },
+      { provenance: 'Imported from the plate reader' },
+      { provenance: null },
+      { provenance: 5 },
+      { provenance: {} },
+      { frozen: null },
+    ]
+
+    const gaps: string[] = []
+
+    for (const overrides of cases) {
+      const payload = {
+        title: 'Recovery over time',
+        definitionId,
+        frozen: null,
+        ...overrides,
+      }
+
+      const app = validateAnalysisBlockPayload(payload).length === 0
+      let database = true
+
+      try {
+        await insertAnalysisBlock(overrides)
+      } catch {
+        database = false
+      }
+
+      if (app !== database) {
+        gaps.push(
+          `${JSON.stringify(overrides)}: app ${app ? 'accepts' : 'refuses'}, trigger ${database ? 'accepts' : 'refuses'}`,
+        )
+      }
+    }
+
+    expect(
+      gaps,
+      'validateAnalysisBlockPayload in src/lib/analysis-block.ts and the analysis branch of internal.validate_scientific_block disagree',
+    ).toEqual([])
   })
 })

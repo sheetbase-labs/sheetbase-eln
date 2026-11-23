@@ -3,6 +3,7 @@
  *
  * Usage:
  *   pnpm db:seed        minimal fixtures only (safe for tests to assume absent)
+ *   pnpm db:seed --first-run  only the auth-free user and an empty workspace
  *   pnpm db:seed --demo fixtures plus the Virus Stability demonstration data
  *   pnpm db:seed --design --scale  the design data plus about 10,000
  *                       experiments and 50,000 samples (see ./scale.ts)
@@ -20,6 +21,7 @@ import { monthSteps } from './month'
 import { seedScale } from './scale'
 import { DESIGN_WORKSPACE_IDS, designSteps } from './design'
 import { buildDemoSteps } from './demo-steps'
+import { bootstrapWorkspaceForUser } from '#/lib/bootstrap'
 import {
   FIXTURE_PROJECT_ID,
   FIXTURE_PROJECT_KEY,
@@ -31,10 +33,13 @@ import {
 
 config({ path: ['.env.local', '.env'] })
 
-const DEV_USER = resolveDevUserIdentity(process.env.SHEETBASE_DEV_USER_ID, {
-  name: process.env.SHEETBASE_DEV_USER_NAME,
-  email: process.env.SHEETBASE_DEV_USER_EMAIL,
-})
+export const DEV_USER = resolveDevUserIdentity(
+  process.env.SHEETBASE_DEV_USER_ID,
+  {
+    name: process.env.SHEETBASE_DEV_USER_NAME,
+    email: process.env.SHEETBASE_DEV_USER_EMAIL,
+  },
+)
 
 // OPS-002 storage demonstration fixtures. These stable IDs make preview
 // reseeds converge while keeping the storage map useful for visual review.
@@ -189,9 +194,36 @@ export const fixtureSteps: Array<SeedStep> = [
 ]
 
 /**
- * Demonstration data: the Virus Stability example. Richer and slower than
- * fixtures; for humans exploring the product, never for test assertions.
+ * First run: what a hosted open demo starts from (`pnpm db:seed --first-run`).
+ * Only the auth-free person and their session, and the same empty personal
+ * workspace a real sign-up gets (`bootstrapWorkspaceForUser`): no project, no
+ * records, setup not done. Lab setup opens on first visit and is the one place
+ * that adds sample data, and only when asked.
  */
+export const firstRunSteps: Array<SeedStep> = [
+  ...fixtureSteps.filter(
+    (step) =>
+      step.name === 'auth-free development user' ||
+      step.name === 'auth-free development session',
+  ),
+  {
+    name: 'first workspace (empty, owned by the auth-free user)',
+    run: async (db) => {
+      const { workspaceId } = await bootstrapWorkspaceForUser(db, {
+        id: DEV_USER.id,
+        name: DEV_USER.name,
+      })
+
+      await db
+        .insert(schema.userPreferences)
+        .values({ userId: DEV_USER.id, activeWorkspaceId: workspaceId })
+        .onConflictDoUpdate({
+          target: schema.userPreferences.userId,
+          set: { activeWorkspaceId: workspaceId },
+        })
+    },
+  },
+]
 
 /**
  * Demonstration data: the Virus Stability example. Richer and slower than
@@ -212,13 +244,14 @@ async function main() {
     )
   }
 
+  const firstRun = process.argv.includes('--first-run')
   const withDemo = process.argv.includes('--demo')
   const withMonth = process.argv.includes('--month')
   const withDesign = process.argv.includes('--design')
   const withScale = process.argv.includes('--scale')
 
   const steps = [
-    ...fixtureSteps,
+    ...(firstRun ? firstRunSteps : fixtureSteps),
     ...(withDesign
       ? [
           ...designSteps,

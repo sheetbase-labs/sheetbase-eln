@@ -160,3 +160,51 @@ describe('itemLink', () => {
       })
   })
 })
+
+describe('itemLink for items that name a record', () => {
+  // Every item below is about one thing. With that thing's identity in hand,
+  // the link must open it — never the Inbox or a list page it appears in.
+  const named: WorkItemKind[] = [
+    'review_requested',
+    'witness_requested',
+    'review_returned',
+    'approval_unsigned',
+    'witness_signed',
+    'data_issue',
+    'material_expiring',
+    'sample_awaiting_release',
+    'sample_hold_exceeded',
+    'calibration_overdue',
+    'qualification_requested',
+    'qualification_granted',
+    'plugin_note',
+    'access_decided',
+    'project_following',
+    'agent_proposal',
+  ]
+
+  const LIST_PAGES = new Set([
+    '/inbox',
+    '/datasets',
+    '/materials',
+    '/samples',
+    '/instruments',
+    '/projects',
+    '/plates',
+  ])
+
+  it.each(named)('%s opens its record, not a list', (kind) => {
+    const link = itemLink(
+      item(kind, {
+        revisionId: 'revision-1',
+        sourceId: 'source-1',
+        datasetId: 'dataset-1',
+        rowId: 'row-1',
+        fieldId: 'field-1',
+        projectId: 'project-1',
+      }),
+    )
+
+    expect(LIST_PAGES.has(link.to)).toBe(false)
+  })
+})

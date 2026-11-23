@@ -76,8 +76,8 @@ const STATUS_LABEL: Record<AgentProposalStatus, string> = {
 }
 
 /**
- * Load one linked proposal. Mirrors `agentOperationQueryKeys.events`: the query
- * is keyed by id so a decision can write the RPC's returned row straight back
+ * Load one linked proposal. The query uses `agentOperationQueryKeys.proposal`,
+ * keyed by id so a decision can write the RPC's returned row straight back
  * into the cache.
  */
 export function usePipelineProposalQuery(proposalId: string | null) {

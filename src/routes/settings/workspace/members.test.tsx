@@ -262,8 +262,8 @@ describe('SET-02 members status', () => {
     renderMembers()
 
     const table = await screen.findByRole('table', { name: 'Members' })
-    // The header row plus the primitive's state row: never a bare header.
-    expect(within(table).getAllByRole('row')).toHaveLength(2)
+    // The header row plus the primitive's placeholder rows: never a bare header.
+    expect(within(table).getAllByRole('row').length).toBeGreaterThan(2)
     expect(screen.queryByText('No members')).toBeNull()
 
     release()

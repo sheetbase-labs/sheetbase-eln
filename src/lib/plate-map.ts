@@ -4,8 +4,9 @@
  * A `plate_map` notebook block carries a `PlateMapSpec` on its JSONB payload.
  * This module is the application-boundary source of truth for the spec shape:
  * the block validator (`src/lib/blocks`) delegates plate-map-payload
- * validation here, the DB trigger (`validate_scientific_block`) mirrors the
- * structural rules and enforces reference integrity, and the renderer/preview
+ * validation here, the DB trigger (`validate_scientific_block`) enforces the
+ * structural rules too (tests/db/plate-map-blocks.test.ts runs both on the same
+ * plates) and enforces reference integrity, and the renderer/preview
  * consume the typed shapes.
  *
  * The spec is intentionally generic: it stores well assignments with generic

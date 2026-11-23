@@ -101,9 +101,9 @@ export function accessForMembership(
   return { ok: true, permissions, role: membership.role }
 }
 
-/** Client-facing capability hint mirroring the server scopes above. */
+/** Client-facing capability hint: commenting needs the same grant as writing. */
 export function canCommentInRoom(role: string): boolean {
-  return WRITER_ROLES.has(role)
+  return canWriteInRoom(roomPermissionsForRole(role))
 }
 
 /** True when the grant lets a connection send document changes. */

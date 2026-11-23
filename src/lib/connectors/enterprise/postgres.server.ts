@@ -533,7 +533,7 @@ export const postgresAdapter: EnterpriseConnectorAdapter<PostgresConnectorConfig
             payload: {
               headers: read.columns,
               // NULL → blank so the pinned Schema's fail-closed coercion
-              // decides, mirroring CSV import semantics.
+              // decides, as it does for a CSV import.
               rows: read.rows.map((row) =>
                 Object.fromEntries(
                   read.columns.map((column) => [column, row[column] ?? '']),

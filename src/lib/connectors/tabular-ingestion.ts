@@ -301,10 +301,9 @@ async function mapValidateCommitStages(input: {
     })
   }
 
-  // Pre-create required-coverage check, mirroring the Core RPC's
-  // required_value rule over the same pinned Schema field metadata: a
-  // required field with no mapped source column would deterministically
-  // fail validation, so fail here — before any Dataset is created.
+  // Pre-create required-coverage check: a required field with no mapped
+  // source column would deterministically fail validation, so fail here,
+  // before any Dataset is created.
   const mappedFieldIds = new Set(
     mappings
       .filter((mapping) => mapping.kind === 'field')

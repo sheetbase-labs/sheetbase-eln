@@ -17,6 +17,7 @@ const PROJ_A2 = '00000000-0000-4000-8000-00000000112a'
 const PROJ_B = '00000000-0000-4000-8000-00000000111b'
 const OWNER_A = 'sci-record-owner-a'
 const MEMBER_A = 'sci-record-member-a'
+const VIEWER_A = 'sci-record-viewer-a'
 const OWNER_B = 'sci-record-owner-b'
 
 let migrator: Client
@@ -97,12 +98,14 @@ beforeAll(async () => {
     `INSERT INTO internal.user (id, name, email, "emailVerified") VALUES
       ('${OWNER_A}', 'SCI Owner A', 'sci-owner-a@sheetbase.test', true),
       ('${MEMBER_A}', 'SCI Member A', 'sci-member-a@sheetbase.test', true),
+      ('${VIEWER_A}', 'SCI Viewer A', 'sci-viewer-a@sheetbase.test', true),
       ('${OWNER_B}', 'SCI Owner B', 'sci-owner-b@sheetbase.test', true);
      INSERT INTO api.workspaces (id, slug, name) VALUES
       ('${WS_A}', 'sci-record-a', 'SCI Record A'),
       ('${WS_B}', 'sci-record-b', 'SCI Record B');
      INSERT INTO api.workspace_memberships (workspace_id, user_id, role) VALUES
       ('${WS_A}', '${OWNER_A}', 'owner'), ('${WS_A}', '${MEMBER_A}', 'member'),
+      ('${WS_A}', '${VIEWER_A}', 'viewer'),
       ('${WS_B}', '${OWNER_B}', 'owner');
      INSERT INTO api.projects (id, workspace_id, key, title, lead_user_id) VALUES
       ('${PROJ_A}', '${WS_A}', 'sci-a', 'SCI A', '${OWNER_A}'),
@@ -182,6 +185,63 @@ describe('scientific record creation and properties', () => {
     }
 
     expect(KIND_PREFIX.material).toBe(RECORD_KIND_PREFIX.get('material'))
+  })
+
+  it('changes the status of a material the same way as a sample, and only for people who may edit', async () => {
+    const owner = await asAuthenticated(OWNER_A, WS_A)
+    const viewer = await asAuthenticated(VIEWER_A, WS_A)
+    const material = await createRecord(
+      owner,
+      PROJ_A,
+      'material',
+      'Buffer lot',
+      'available',
+    )
+
+    const { rows: reserved } = await owner.query(
+      `SELECT * FROM api.transition_record_status($1,'reserved',$2)`,
+      [material.id, material.metadata_version],
+    )
+
+    expect(reserved[0]).toMatchObject({ status: 'reserved' })
+
+    // A reserved material can't expire: only an available one can.
+    await expect(
+      owner.query(
+        `SELECT * FROM api.transition_record_status($1,'expired',$2)`,
+        [material.id, reserved[0].metadata_version],
+      ),
+    ).rejects.toMatchObject({ code: 'SB004' })
+
+    const other = await createRecord(
+      owner,
+      PROJ_A,
+      'material',
+      'Media lot',
+      'available',
+    )
+
+    // A viewer can read the record but not change it.
+    await viewer
+      .query(
+        `SELECT * FROM api.transition_record_status($1,'quarantined',$2)`,
+        [other.id, other.metadata_version],
+      )
+      .catch(() => null)
+
+    const { rows: after } = await migrator.query(
+      `SELECT status FROM api.records WHERE id = $1`,
+      [other.id],
+    )
+
+    expect(after[0].status).toBe('available')
+
+    const { rows: expired } = await owner.query(
+      `SELECT * FROM api.transition_record_status($1,'expired',$2)`,
+      [other.id, other.metadata_version],
+    )
+
+    expect(expired[0]).toMatchObject({ status: 'expired' })
   })
 
   it('rejects unsupported kinds and projects in another workspace', async () => {

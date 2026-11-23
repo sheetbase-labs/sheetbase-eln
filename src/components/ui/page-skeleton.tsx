@@ -51,7 +51,7 @@ export function TableSkeleton({
           key={r}
           className="flex h-[33px] items-center gap-6 border-b border-border-subtle px-6"
         >
-          {Array.from({ length: columns }).map((_, c) => (
+          {Array.from({ length: columns }).map((__, c) => (
             <Skeleton key={c} className={cn('h-3', CELL_WIDTHS[(c + r) % 6])} />
           ))}
         </div>

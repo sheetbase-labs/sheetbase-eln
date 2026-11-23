@@ -50,7 +50,7 @@ export const PIPELINE_OPERATIONS = defineOperations([
     kind: 'write',
     scope: 'projects:write',
     inputs: [
-      input('p_project_id', 'uuid'),
+      input('p_project_id', 'uuid', true, true),
       input('p_kind', 'text'),
       input('p_title', 'text'),
       input('p_status', 'text', false),

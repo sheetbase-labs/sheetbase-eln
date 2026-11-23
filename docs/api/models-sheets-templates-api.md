@@ -231,19 +231,19 @@ and answer with text or a boolean as well as a number. The output column's
 
 Add a record of any record type
 
-Create an experiment, sample, material, report or supported model record in a project.
+Create an experiment, sample, material, report or supported model record in a project. A registry model's entries (and its lot records) can be made with `p_project_id` null: they then belong to the whole lab, are visible to every member and can be edited by anyone who can write records. Every other record type needs a project.
 
 Scope: `projects:write`. Returns `json`.
 
-| Parameter         | Type   | Required | Notes |
-| ----------------- | ------ | -------- | ----- |
-| `p_project_id`    | uuid   | yes      |       |
-| `p_kind`          | text   | yes      |       |
-| `p_title`         | text   | yes      |       |
-| `p_status`        | text   | no       |       |
-| `p_tags`          | text[] | no       |       |
-| `p_properties`    | json   | no       |       |
-| `p_custom_fields` | json   | no       |       |
+| Parameter         | Type   | Required | Notes                             |
+| ----------------- | ------ | -------- | --------------------------------- |
+| `p_project_id`    | uuid   | yes      | May be null for a registry entry. |
+| `p_kind`          | text   | yes      |                                   |
+| `p_title`         | text   | yes      |                                   |
+| `p_status`        | text   | no       |                                   |
+| `p_tags`          | text[] | no       |                                   |
+| `p_properties`    | json   | no       |                                   |
+| `p_custom_fields` | json   | no       |                                   |
 
 ### `create_workspace_model`
 

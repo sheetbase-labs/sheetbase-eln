@@ -1000,13 +1000,13 @@ Scope: `lab:write`.
 
 ### `create_registry_entry`
 
-Add a registry entry. Creates an entry of a registry model (such as a cell line or construct). Refuses a likely duplicate unless `p_allow_duplicate` is true. A model with a same-thing rule from a plugin only takes entries that come with the rule’s key (`p_sameness_value`), and refuses one whose key is already registered.
+Add a registry entry. Creates an entry of a registry model (such as a cell line or construct). Pass `p_project_id` as null for an entry that belongs to the whole lab rather than one project. Refuses a likely duplicate unless `p_allow_duplicate` is true. A model with a same-thing rule from a plugin only takes entries that come with the rule’s key (`p_sameness_value`), and refuses one whose key is already registered.
 
 Scope: `lab:write`.
 
 | Argument            | Type |                                             |
 | ------------------- | ---- | ------------------------------------------- |
-| `p_project_id` *    | uuid | Project id.                                 |
+| `p_project_id` *    | uuid | Project id, or null for a lab-wide entry.   |
 | `p_kind` *          | text | Kind, as listed in the app.                 |
 | `p_title` *         | text | Title.                                      |
 | `p_custom_fields`   | json | Field values, keyed by field name.          |

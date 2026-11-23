@@ -95,8 +95,8 @@ export function PipelineOutputBlockPreview({ payload }: { payload: unknown }) {
           </Link>
           {datasetId ? (
             <Link
-              to="/datasets"
-              search={{ dataset: datasetId, archived: false }}
+              to="/datasets/$datasetId"
+              params={{ datasetId }}
               className="text-fg-muted text-xs underline-offset-2 hover:underline"
             >
               {t('notebook.pipelineOutputBlockPreview.outputDataset')}

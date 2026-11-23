@@ -124,7 +124,7 @@ describe('SCI-002 protocol and procedure blocks', () => {
     // UUID even when the live record is archived.
     const openProtocol = screen.getByRole('link', { name: 'Open protocol' })
     expect(openProtocol.getAttribute('href')).toBe(
-      `/templates?protocol=${encodeURIComponent('protocol-1')}`,
+      `/protocols/${encodeURIComponent('protocol-1')}`,
     )
 
     rerender(

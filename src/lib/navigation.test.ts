@@ -26,7 +26,7 @@ describe('canonical navigation destinations', () => {
       '/materials/material-id',
     )
     expect(recordDestination('protocol_template', 'protocol-id')).toBe(
-      '/templates?protocol=protocol-id',
+      '/protocols/protocol-id',
     )
   })
 
@@ -47,11 +47,9 @@ describe('canonical navigation destinations', () => {
   })
 
   it('distinguishes canonical versioned templates from legacy template records', () => {
-    expect(notebookTemplatePath('template-id')).toBe(
-      '/templates?template=template-id',
-    )
+    expect(notebookTemplatePath('template-id')).toBe('/templates/template-id')
     expect(searchResultDestination('template', 'template-id')).toBe(
-      '/templates?template=template-id',
+      '/templates/template-id',
     )
     expect(searchResultDestination('record', 'record-id')).toBe(
       '/records/record-id',
@@ -72,7 +70,7 @@ describe('canonical navigation destinations', () => {
 
   it('resolves supported aliases without inventing destinations for unknown kinds', () => {
     expect(objectPath('protocol', 'protocol/id')).toBe(
-      '/templates?protocol=protocol%2Fid',
+      '/protocols/protocol%2Fid',
     )
     expect(objectPath('reagent', 'reagent/id')).toBe('/materials/reagent%2Fid')
     expect(objectPath('analysis_view', 'analysis/id')).toBe(

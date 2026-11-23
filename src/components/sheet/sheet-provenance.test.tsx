@@ -45,13 +45,8 @@ describe('Sheet provenance navigation (NAV-02)', () => {
     })
     const link = screen.getByRole('link')
     const href = new URL(link.getAttribute('href') ?? '', 'http://localhost')
-    expect(href.pathname).toBe('/datasets')
-    // The link carries only the stable Dataset ID — the explorer resolves
-    // the Dataset's lifecycle itself and flips to the archived view when
-    // needed, so the link must not claim the active-only filter.
-    expect(Object.fromEntries(href.searchParams)).toEqual({
-      dataset: '770e8400-e29b-41d4-a716-446655440020',
-    })
+    // The dataset's own page, not the list it appears in.
+    expect(href.pathname).toBe('/datasets/770e8400-e29b-41d4-a716-446655440020')
     expect(link.textContent).toBe('Open dataset')
   })
 

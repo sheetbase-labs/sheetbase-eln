@@ -15,7 +15,12 @@ import { addDays } from './calendar'
 import { clockOption } from './display-clock'
 import type { CalendarBooking, CalendarInstrument } from './calendar'
 import type { DataClient } from './data-client'
-import { recordDestination } from './navigation'
+import {
+  datasetPath,
+  datasetValuePath,
+  reagentPath,
+  recordDestination,
+} from './navigation'
 import type { RecentItem } from './recents'
 import type { ProjectSummary } from '#/components/projects/project-data'
 import { dateTimeFormat } from '#/lib/intl-cache'
@@ -76,7 +81,13 @@ export function homeWaitingItem(input: {
     identifier: string | null
     reason: string
   }[]
-  datasetIssues: { id: string; identifier: string; label: string }[]
+  datasetIssues: {
+    id: string
+    identifier: string
+    label: string
+    rowId?: string | null
+    fieldId?: string | null
+  }[]
 }): HomeWaitingItem | null {
   const review = input.reviews.at(0)
 
@@ -96,9 +107,7 @@ export function homeWaitingItem(input: {
       text: `${material.identifier ?? 'A material lot'} — ${material.reason}`,
       why: 'A lot used in your work is expiring',
       action: 'Open lot',
-      to: material.recordId
-        ? `/materials?selected=${material.recordId}`
-        : '/materials',
+      to: material.recordId ? reagentPath(material.recordId) : '/materials',
     }
   }
 
@@ -109,7 +118,10 @@ export function homeWaitingItem(input: {
       text: `${dataset.identifier} — ${dataset.label}`,
       why: 'A Dataset has unresolved issues',
       action: 'Open dataset',
-      to: `/datasets?dataset=${dataset.id}&archived=false`,
+      to:
+        dataset.rowId && dataset.fieldId
+          ? datasetValuePath(dataset.id, dataset.rowId, dataset.fieldId)
+          : datasetPath(dataset.id),
     }
   }
 
@@ -292,9 +304,7 @@ export function buildComingUp(input: {
       time: null,
       text: `${material.identifier ?? material.title} — ${material.reason}`,
       why: 'A lot used in your work expires',
-      to: material.recordId
-        ? `/materials?selected=${material.recordId}`
-        : '/materials',
+      to: material.recordId ? reagentPath(material.recordId) : '/materials',
     })
   }
 

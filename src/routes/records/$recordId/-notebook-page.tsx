@@ -1,4 +1,5 @@
 import { rich, t } from '#/copy'
+import { NOTEBOOK_STRUCTURE_SCOPE } from '#/lib/notebook-structure-scope'
 import { ObjectLink } from '#/components/ui/object-link'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import type { QueryClient } from '@tanstack/react-query'
@@ -2728,24 +2729,6 @@ function useEditableNotebook({
     withResolver: true,
   })
 
-  // Each structural change (insert, move, delete...) sends the structure
-  // version it read from the cache. Two keystrokes in quick succession, a move
-  // then an insert, would both read the old version and the second would be
-  // refused as stale, so they run one after another and each reads the version
-  // the one before it left.
-  const structureQueue = useRef<Promise<unknown> | null>(null)
-
-  function inStructureOrder<T>(change: () => Promise<T>): Promise<T> {
-    const run = (structureQueue.current ?? Promise.resolve()).then(
-      change,
-      change,
-    )
-
-    structureQueue.current = run.catch(() => undefined)
-
-    return run
-  }
-
   const proceedRef = useRef<(() => void) | null>(null)
   const resetRef = useRef<(() => void) | null>(null)
   useEffect(() => {
@@ -2838,6 +2821,7 @@ function useEditableNotebook({
 
   // --- Insert ------------------------------------------------------------
   const insertMutation = useMutation({
+    scope: NOTEBOOK_STRUCTURE_SCOPE,
     mutationFn: async ({
       type,
       afterBlockId,
@@ -2891,6 +2875,7 @@ function useEditableNotebook({
 
   // --- Duplicate ---------------------------------------------------------
   const duplicateMutation = useMutation({
+    scope: NOTEBOOK_STRUCTURE_SCOPE,
     mutationFn: async (block: NotebookBlockDomain) => {
       const current = queryClient.getQueryData<NotebookRecord | null>(recordKey)
 
@@ -2913,6 +2898,7 @@ function useEditableNotebook({
 
   // --- Delete ------------------------------------------------------------
   const deleteMutation = useMutation({
+    scope: NOTEBOOK_STRUCTURE_SCOPE,
     mutationFn: async (block: NotebookBlockDomain) => {
       const current = queryClient.getQueryData<NotebookRecord | null>(recordKey)
 
@@ -2940,6 +2926,7 @@ function useEditableNotebook({
   // either the block is restored at its original position (and the RPC's
   // (id, order) list reconciles the cache) or nothing was written.
   const undoDeleteMutation = useMutation({
+    scope: NOTEBOOK_STRUCTURE_SCOPE,
     mutationFn: async ({
       type,
       payload,
@@ -2994,6 +2981,7 @@ function useEditableNotebook({
   // thrown error propagates to NotebookDocument, which rolls back the
   // optimistic ordering it applied.
   const moveMutation = useMutation({
+    scope: NOTEBOOK_STRUCTURE_SCOPE,
     mutationFn: async ({
       block,
       destination,
@@ -3163,13 +3151,11 @@ function useEditableNotebook({
       return undefined
     }
 
-    const res = await inStructureOrder(() =>
-      insertMutation.mutateAsync({
-        type,
-        afterBlockId,
-        options,
-      }),
-    )
+    const res = await insertMutation.mutateAsync({
+      type,
+      afterBlockId,
+      options,
+    })
 
     return res.block.id
   }
@@ -3334,15 +3320,13 @@ function useEditableNotebook({
   }
 
   async function handleDuplicate(block: NotebookBlockDomain) {
-    const duplicated = await inStructureOrder(() =>
-      duplicateMutation.mutateAsync(block),
-    )
+    const duplicated = await duplicateMutation.mutateAsync(block)
 
     return duplicated.block.id
   }
 
   async function handleDelete(block: NotebookBlockDomain) {
-    await inStructureOrder(() => deleteMutation.mutateAsync(block))
+    await deleteMutation.mutateAsync(block)
   }
 
   /**
@@ -3361,7 +3345,7 @@ function useEditableNotebook({
     },
   ): Promise<string | undefined> {
     const newId = await handleInsert(type, block.id, options)
-    await inStructureOrder(() => deleteMutation.mutateAsync(block))
+    await deleteMutation.mutateAsync(block)
 
     return newId
   }
@@ -3374,13 +3358,11 @@ function useEditableNotebook({
       beforeBlockId: string | null
     },
   ) {
-    const restored = await inStructureOrder(() =>
-      undoDeleteMutation.mutateAsync({
-        type,
-        payload,
-        destination,
-      }),
-    )
+    const restored = await undoDeleteMutation.mutateAsync({
+      type,
+      payload,
+      destination,
+    })
 
     return { id: restored.block.id, moved: true }
   }
@@ -3389,9 +3371,7 @@ function useEditableNotebook({
     block: NotebookBlockDomain,
     destination: { afterBlockId: string | null; beforeBlockId: string | null },
   ) {
-    await inStructureOrder(() =>
-      moveMutation.mutateAsync({ block, destination }),
-    )
+    await moveMutation.mutateAsync({ block, destination })
   }
 
   /** Add drafted steps after the last block, one procedure step each. */

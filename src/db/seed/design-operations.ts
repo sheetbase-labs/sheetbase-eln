@@ -385,7 +385,7 @@ export async function seedDesignShipments(db: Db): Promise<void> {
         )
 
         const results = (end.short ?? []).flatMap((short) => {
-          const row = rows.rows[short.index]
+          const row = rows.rows.at(short.index)
 
           return row
             ? [{ item_id: row.id, received: false, note: short.note }]

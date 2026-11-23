@@ -43,7 +43,10 @@ import type { NotebookBlock } from './notebook-data'
 // Signature request
 // ---------------------------------------------------------------------------
 
-/** The meanings a request may ask for. Mirrors the writable REV-03 set. */
+/**
+ * The meanings a request may ask for. tests/db/app-database-parity.test.ts
+ * compares them with the list in internal.assert_signature_target.
+ */
 const signatureMeaningSchema = z.enum([
   'reviewed',
   'reviewed-and-approved',

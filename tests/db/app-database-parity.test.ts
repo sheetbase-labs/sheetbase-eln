@@ -10,6 +10,8 @@ import {
   agentActionAlwaysAsk,
   agentActionAlwaysNever,
 } from '#/lib/agent-action-policy'
+import { workflowStepRiskClass } from '#/lib/agent-workflows'
+import { SIGNATURE_REQUEST_MEANINGS } from '#/lib/notebook-action-blocks'
 import { PUBLIC_EMAIL_DOMAINS } from '#/lib/join-domains'
 import { modelRuleConditionMatches } from '#/lib/model-rules'
 import type { ModelRuleCondition } from '#/lib/model-rules'
@@ -233,5 +235,80 @@ describe('model rule conditions', () => {
       modelRuleConditionMatches(condition, values),
       'src/lib/model-rules.ts and internal.model_rule_condition_matches must agree',
     ).toBe(rows[0]!.matches)
+  })
+})
+
+describe('signature request meanings', () => {
+  it('are the meanings the database accepts after a submission', async () => {
+    const { rows } = await migrator.query<{ def: string }>(
+      `select pg_get_functiondef('internal.assert_signature_target(uuid,text,text)'::regprocedure) as def`,
+    )
+
+    const list = /p_meaning NOT IN\s*\(([^)]*)\)/.exec(rows[0]!.def)?.[1]
+
+    expect(
+      list,
+      'internal.assert_signature_target no longer lists the meanings it accepts as p_meaning NOT IN (...); update this test with it',
+    ).toBeDefined()
+
+    const inDatabase = [...(list ?? '').matchAll(/'([a-z-]+)'/g)]
+      .map((match) => match[1]!)
+      .sort()
+
+    expect(
+      [...SIGNATURE_REQUEST_MEANINGS].sort(),
+      'src/lib/notebook-action-blocks.ts and internal.assert_signature_target must list the same meanings',
+    ).toEqual(inDatabase)
+  })
+})
+
+describe('agent workflow risk class', () => {
+  it('matches the database for every operation kind it names', async () => {
+    const { rows } = await migrator.query<{ def: string }>(
+      `select pg_get_functiondef('internal.agent_operation_policy_evaluate_core(uuid,jsonb,jsonb)'::regprocedure) as def`,
+    )
+
+    const def = rows[0]!.def
+    const risk =
+      /v_risk := CASE\s+WHEN v_kind IN \(([^)]*)\)\s+THEN 'safe_draft'/.exec(
+        def,
+      )?.[1]
+
+    expect(
+      risk,
+      'internal.agent_operation_policy_evaluate_core no longer sets v_risk from a list of safe_draft kinds; update this test with it',
+    ).toBeDefined()
+
+    const safeInDatabase = new Set(
+      [...(risk ?? '').matchAll(/'([a-z_.]+)'/g)].map((match) => match[1]!),
+    )
+
+    const named = new Set<string>(safeInDatabase)
+
+    for (const clause of def.matchAll(
+      /WHEN v_kind (?:= '[^']+'|IN \([^)]*\))/g,
+    )) {
+      for (const kind of clause[0].matchAll(/'([a-z_]+\.[a-z_.]+)'/g))
+        named.add(kind[1]!)
+    }
+
+    const gaps: string[] = []
+
+    for (const kind of named) {
+      // SAFETY: workflowStepRiskClass reads only the operation's kind.
+      const app = workflowStepRiskClass({ operation: { kind } } as never)
+      const database = safeInDatabase.has(kind)
+        ? 'safe_draft'
+        : 'consequential_write'
+
+      if (app !== database)
+        gaps.push(`${kind}: app ${app}, database ${database}`)
+    }
+
+    expect(
+      gaps,
+      'workflowStepRiskClass in src/lib/agent-workflows.ts and internal.agent_operation_policy_evaluate_core disagree',
+    ).toEqual([])
+    expect(named.size).toBeGreaterThan(10)
   })
 })

@@ -18,9 +18,10 @@ import type { Tone } from '#/components/ui/status'
  * so the buttons match what the server will accept.
  */
 
-/** Roles an approver may be named from. Mirrors the `chk_approval_requests_roles`
- * list; `viewer` is excluded because a viewer is not a workspace writer and can
- * never decide. */
+/** Roles an approver may be named from. Every one must be allowed by the
+ * `chk_approval_requests_roles` check, and `tests/db/approval-requests.test.ts`
+ * fails if one is not. `viewer` and `member` are left out because neither is a
+ * role that decides. */
 export const APPROVER_ROLE_OPTIONS = [
   'owner',
   'admin',
@@ -170,7 +171,7 @@ export function approvalStatus(
   return STATE_STATUS[request.state]
 }
 
-/** Mirrors `replace_dataset_schema_version_fields`: editing a draft needs it. */
+/** Submitting means editing the draft, so it needs `schema.edit`, the capability `replace_dataset_schema_version_fields` requires. */
 export function canSubmitForApproval(role: string | null | undefined): boolean {
   return hasCapability(role, 'schema.edit')
 }

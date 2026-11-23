@@ -2,6 +2,8 @@
 import type { Client } from 'pg'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 
+import { validatePlateMapPayload } from '#/lib/plate-map'
+
 import { prepareTestDatabase } from './helpers'
 
 const WS_A = '00000000-0000-4000-8000-00000000050a'
@@ -244,6 +246,86 @@ describe('SCI-005 plate-map blocks', () => {
       await expect(
         insertBlock(a, experimentA.id, badPayload, 10 + index),
       ).rejects.toMatchObject({ code: '23514' })
+    }
+  })
+
+  it('accepts and refuses the same plate maps in the app and in the trigger', async () => {
+    const well = { wellCode: 'A1', row: 0, col: 0, role: 'blank' }
+
+    const cases: Array<[string, unknown, boolean]> = [
+      ['an empty plate', payload(), true],
+      ['one blank well', payload(undefined, { wells: [well] }), true],
+      [
+        'a control with a volume',
+        payload(undefined, {
+          wells: [
+            {
+              ...well,
+              role: 'positive_control',
+              volume: { value: 20, unit: 'µL' },
+            },
+          ],
+        }),
+        true,
+      ],
+      [
+        'rows that don’t match the format',
+        payload(undefined, { rows: 7 }),
+        false,
+      ],
+      [
+        'columns that don’t match the format',
+        payload(undefined, { cols: 13 }),
+        false,
+      ],
+      [
+        'a well code outside the plate',
+        payload(undefined, { wells: [{ ...well, wellCode: 'Z99' }] }),
+        false,
+      ],
+      [
+        'the same well twice',
+        payload(undefined, { wells: [well, well] }),
+        false,
+      ],
+      [
+        'a role that doesn’t exist',
+        payload(undefined, { wells: [{ ...well, role: 'unknown' }] }),
+        false,
+      ],
+      [
+        'a row past the last',
+        payload(undefined, { wells: [{ ...well, row: 8, wellCode: 'I1' }] }),
+        false,
+      ],
+      [
+        'a negative column',
+        payload(undefined, { wells: [{ ...well, col: -1 }] }),
+        false,
+      ],
+      ['wells that aren’t a list', payload(undefined, { wells: 'A1' }), false],
+    ]
+
+    for (const [index, [name, candidate, accepted]] of cases.entries()) {
+      expect(
+        validatePlateMapPayload(candidate).length === 0,
+        `${name}: the app's answer`,
+      ).toBe(accepted)
+
+      const inTrigger = await insertBlock(
+        a,
+        experimentA.id,
+        candidate,
+        100 + index,
+      ).then(
+        () => true,
+        () => false,
+      )
+
+      expect(
+        inTrigger,
+        `${name}: src/lib/plate-map.ts and validate_scientific_block must agree`,
+      ).toBe(accepted)
     }
   })
 

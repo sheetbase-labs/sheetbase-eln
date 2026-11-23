@@ -4,7 +4,8 @@
  * A `chart` notebook block carries a `ChartSpec` on its JSONB payload. This
  * module is the application-boundary source of truth for the spec shape: the
  * block validator (`src/lib/blocks`) delegates chart-payload validation here,
- * the DB trigger (`validate_scientific_block`) mirrors the structural rules,
+ * the DB trigger (`validate_scientific_block`) enforces the structural rules
+ * (tests/db/sci-04-visualisation.test.ts runs both on the same specs),
  * and the renderer/preview consume the typed shapes.
  *
  * The spec is intentionally generic: it references canonical Datasets
@@ -475,7 +476,7 @@ export interface BoxPlotParams {
 export interface HeatmapParams {
   xBins?: number
   yBins?: number
-  /** Defaults to 'count' when absent (mirrors the validators). */
+  /** Defaults to 'count' when absent. */
   aggregate?: HeatmapAggregate
   valueField: FieldBinding | null
 }

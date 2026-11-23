@@ -25,6 +25,7 @@ export function ReportHeader({
   tab,
   ready,
   generating,
+  canEdit,
   onShare,
   onGenerate,
 }: {
@@ -32,6 +33,7 @@ export function ReportHeader({
   tab: ReportTab
   ready: boolean
   generating: boolean
+  canEdit: boolean
   onShare: () => void
   onGenerate: () => void
 }) {
@@ -56,7 +58,14 @@ export function ReportHeader({
           </Button>
           <Button
             variant="primary"
-            disabled={generating || report.sections.length === 0 || !ready}
+            disabled={
+              generating || report.sections.length === 0 || !ready || !canEdit
+            }
+            title={
+              canEdit
+                ? undefined
+                : t('projects.reports.builder.generateNeedsEdit')
+            }
             onClick={onGenerate}
           >
             {generating

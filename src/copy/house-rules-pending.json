@@ -238,7 +238,6 @@
   "settings.lineage.retry": ["retry"],
   "settings.page.couldNotSave": ["contraction:could not"],
   "settings.profile.displaySavedFailed": ["contraction:could not"],
-  "settings.sampleData.keyInUse": ["contraction:was not"],
   "settings.semanticSearch.couldNotSave": ["contraction:could not"],
   "settings.semanticSearch.rereadFailed": ["contraction:could not"],
   "settings.validation.description": ["contraction:does not"]

@@ -179,7 +179,7 @@ export function RecordPicker({
           <p className="px-3 py-3 text-xs text-fg-muted">
             {t('notebook.recordPicker.identifiersLookLike')}
             <code className="font-mono">
-              {t('notebook.recordPicker.prefixYyyyNnnn', { prefix })}
+              {t('notebook.recordPicker.identifierExample', { prefix })}
             </code>
             .
           </p>

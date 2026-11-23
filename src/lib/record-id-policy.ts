@@ -2,7 +2,8 @@
  * CORE-04.10 Record-ID policy seam.
  *
  * CORE-04 uses the Model-owned generated identifier assigned by
- * `api.create_model_record`: `{PREFIX}-YYYY-NNNN`. Sheet creation must not
+ * `api.create_model_record`: `{PREFIX}-NNNN`. The `format` label below is
+ * stored in saved sheet mappings, so it keeps its old spelling. Sheet creation must not
  * invent a second generator or accept user-supplied/override IDs. Future
  * Model-configurable modes can extend `RecordIdPolicy.mode` without changing
  * Sheet identity (UUID remains the relationship key).
@@ -31,7 +32,7 @@ export const CURRENT_RECORD_ID_POLICY: RecordIdPolicy = {
   owner: RECORD_ID_POLICY_OWNER,
 }
 
-/** Prefixes assigned by `create_model_record` / `create_record`. */
+/** Default prefixes `api.next_record_identifier` uses (compared in tests/db). */
 export const RECORD_KIND_PREFIX = new Map<string, string>([
   ['experiment', 'EXP'],
   ['protocol_template', 'PRT'],
@@ -51,7 +52,7 @@ export function recordIdPattern(kind: string): RegExp | null {
 
   if (!prefix) return null
 
-  return new RegExp(`^${prefix}-\\d{4}-\\d{4}$`)
+  return new RegExp(`^${prefix}-\\d{3,}$`)
 }
 
 export function isGeneratedRecordId(kind: string, identifier: string): boolean {

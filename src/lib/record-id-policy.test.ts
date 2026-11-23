@@ -22,12 +22,12 @@ describe('Sheet Record ID policy', () => {
   })
 
   it('recognises registry identifiers without treating them as relationship identity', () => {
-    expect(isGeneratedRecordId('sample', 'SMP-2026-0001')).toBe(true)
-    expect(isGeneratedRecordId('material', 'RGT-2026-0042')).toBe(true)
-    expect(isGeneratedRecordId('experiment', 'EXP-2026-0007')).toBe(true)
-    expect(recordIdPattern('sample')?.test('SMP-2026-0001')).toBe(true)
+    expect(isGeneratedRecordId('sample', 'SMP-0001')).toBe(true)
+    expect(isGeneratedRecordId('material', 'MAT-0042')).toBe(true)
+    expect(isGeneratedRecordId('experiment', 'EXP-0007')).toBe(true)
+    expect(recordIdPattern('sample')?.test('SMP-0001')).toBe(true)
     expect(() =>
-      parsePersistedRecordReference('SMP-2026-0001', { nullable: true }),
+      parsePersistedRecordReference('SMP-0001', { nullable: true }),
     ).toThrowError(/Choose the record/)
   })
 })

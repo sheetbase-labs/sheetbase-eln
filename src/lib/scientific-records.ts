@@ -7,7 +7,7 @@
  *
  * - configurable property validation against `record_field_definitions`;
  * - kind-specific status vocabularies and lifecycle transition rules
- *   (mirroring the `transition_record_status` RPC matrix);
+ *   (compared with the `transition_record_status` RPC in tests/db);
  * - stable identifier prefixes;
  * - record-picker query helpers and inspector summary projections.
  *
@@ -42,22 +42,26 @@ export function isScientificRecordKind(
   )
 }
 
-/** Kind -> stable identifier prefix (mirrors the create_record RPC). */
+/**
+ * Kind -> default identifier prefix. A workspace can set its own, so this is
+ * only what `api.next_record_identifier` uses when it hasn't.
+ * `tests/db/scientific-records.test.ts` compares both.
+ */
 export const KIND_PREFIX: Record<ScientificRecordKind, string> = {
   sample: 'SMP',
-  material: 'RGT',
+  material: 'MAT',
   protocol_template: 'PRT',
 }
 
 /**
- * Matches the stable identifier format `<PREFIX>-YYYY-NNNN` assigned by the
- * database. Used for client-side validation of picker input before forwarding
- * to PostgREST; the database sequence is the authority.
+ * Matches an identifier the database assigns by default: `<PREFIX>-NNNN`, with
+ * at least three digits. Used for client-side validation of picker input
+ * before forwarding to PostgREST; the database sequence is the authority.
  */
 export function identifierPattern(kind: ScientificRecordKind): RegExp {
   const prefix = KIND_PREFIX[kind]
 
-  return new RegExp(`^${prefix}-\\d{4}-\\d{4}$`)
+  return new RegExp(`^${prefix}-\\d{3,}$`)
 }
 
 // ---------------------------------------------------------------------------
@@ -321,11 +325,12 @@ export const KIND_STATUS_VOCABULARY: Record<
 }
 
 /**
- * Allowed transitions, mirroring the `transition_record_status` RPC matrix.
+ * Allowed transitions. `tests/db/scientific-records.test.ts` fails when this
+ * differs from the `transition_record_status` RPC matrix.
  * A transition is allowed iff `key` is in the set, where
  * `key = `${kind}:${from}->${to}``.
  */
-const ALLOWED_TRANSITIONS: readonly string[] = [
+export const ALLOWED_TRANSITIONS: readonly string[] = [
   'sample:available->reserved',
   'sample:available->consumed',
   'sample:available->quarantined',

@@ -64,21 +64,19 @@ describe('scientific record kinds and identifiers', () => {
 
   it('maps each kind to its stable identifier prefix', () => {
     expect(KIND_PREFIX.sample).toBe('SMP')
-    expect(KIND_PREFIX.material).toBe('RGT')
+    expect(KIND_PREFIX.material).toBe('MAT')
     expect(KIND_PREFIX.protocol_template).toBe('PRT')
   })
 
-  it('matches the stable <PREFIX>-YYYY-NNNN identifier shape', () => {
-    expect(identifierPattern('sample').test('SMP-2026-0001')).toBe(true)
-    expect(identifierPattern('material').test('RGT-2026-0042')).toBe(true)
-    expect(identifierPattern('protocol_template').test('PRT-2026-0007')).toBe(
-      true,
-    )
+  it('matches the <PREFIX>-NNNN identifier shape the database assigns', () => {
+    expect(identifierPattern('sample').test('SMP-0001')).toBe(true)
+    expect(identifierPattern('material').test('MAT-0042')).toBe(true)
+    expect(identifierPattern('protocol_template').test('PRT-007')).toBe(true)
     // Wrong prefix, short sequence, lowercase, extra segments.
-    expect(identifierPattern('sample').test('RGT-2026-0001')).toBe(false)
-    expect(identifierPattern('sample').test('SMP-2026-001')).toBe(false)
-    expect(identifierPattern('sample').test('smp-2026-0001')).toBe(false)
-    expect(identifierPattern('sample').test('SMP-2026-0001-extra')).toBe(false)
+    expect(identifierPattern('sample').test('MAT-0001')).toBe(false)
+    expect(identifierPattern('sample').test('SMP-01')).toBe(false)
+    expect(identifierPattern('sample').test('smp-0001')).toBe(false)
+    expect(identifierPattern('sample').test('SMP-0001-extra')).toBe(false)
   })
 })
 

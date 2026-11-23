@@ -17,13 +17,20 @@ a CORE-03 ad-hoc Sheet Instance with six local fields and 32 stability rows,
 created through `insert_sheet_instance_block` and
 `mutate_sheet_instance_local_state`. It is not a scientific table.
 
-**Sample data on a real workspace** — the Virus Stability example is also what
-an admin can add after setting up their own workspace (Settings → General →
-Sample data, or the "Also add the sample project" box in lab setup). It is the
-same `buildDemoSteps` the `--demo` flag uses, pointed at that workspace and
-owned by that admin, so there is one path: set up, then add sample data. It
-only adds; the deliberately broken file-state fixtures are left out, and it
-refuses if the workspace already has its own project with the sample's key.
+**Sample data lives in a workspace of its own.** The Virus Stability example is
+what a person gets when they choose the demo in lab setup ("Explore a demo
+workspace instead", or Settings → General → Sample data). It is the same
+`buildDemoSteps` the `--demo` flag uses, written into a new workspace called
+Demo that the person owns and that is already set up. Their own workspace is
+never touched: it stays empty until they set it up (lab setup without the
+demo) and fill it themselves. Asking again opens the same Demo workspace.
+
+**First run** (`pnpm db:seed --first-run`) is what the hosted open demo
+(sheetbase.dev) is seeded with: the auth-free person and their session, and one
+empty personal workspace made by `bootstrapWorkspaceForUser`, the same one a
+real sign-up gets. No project, no records, setup not done, so lab setup opens
+on the first visit. Nothing else is seeded: a visitor sees demo data only after
+choosing it. Reseed sheetbase.dev with `--first-run`, not `--design`.
 
 To try that locally against an empty database, set `SHEETBASE_DEV_USER_NAME` and
 `SHEETBASE_DEV_USER_EMAIL` (see `.env.example`) before `pnpm db:seed`, so the

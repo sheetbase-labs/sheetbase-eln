@@ -1149,6 +1149,8 @@ export function useInstrumentHistory(
 export interface InstrumentUsedBy {
   key: string
   kind: 'dataset' | 'parser'
+  /** The dataset's own ID (`DS-0298`); a parser has none. */
+  identifier: string | null
   label: string
   how: string
   since: string | null
@@ -1202,7 +1204,8 @@ export function useInstrumentUsedBy(
         ...datasets.map((d): InstrumentUsedBy => ({
           key: d.id,
           kind: 'dataset',
-          label: `${d.display_id ?? ''} ${d.name}`.trim(),
+          identifier: d.display_id,
+          label: d.name,
           how: `${counts.get(d.id) ?? 0} import${counts.get(d.id) === 1 ? '' : 's'}`,
           since: firstImport.get(d.id) ?? null,
           link: { to: '/datasets/$datasetId', id: d.id },
@@ -1210,6 +1213,7 @@ export function useInstrumentUsedBy(
         ...parsers.map((p): InstrumentUsedBy => ({
           key: p.id,
           kind: 'parser',
+          identifier: null,
           label: p.name,
           how: 'Parses its exports',
           since: p.created_at,

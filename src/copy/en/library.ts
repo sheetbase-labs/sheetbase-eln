@@ -535,6 +535,7 @@ export const library = {
       by: 'By',
       registered: 'Registered',
       usedBy: 'Used by',
+      usedById: 'ID',
       usedByName: 'Name',
       usedByHow: 'How',
       usedBySince: 'Since',

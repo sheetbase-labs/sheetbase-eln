@@ -1,11 +1,14 @@
 import { useMemo } from 'react'
-import { Link } from '@tanstack/react-router'
+import { Link, useNavigate } from '@tanstack/react-router'
 
 import { DescriptionList, Muted, Section } from '#/components/ui/layout'
 import { Status } from '#/components/ui/status'
 import { TableBox } from '#/components/ui/table'
 import { RegistryGrid } from '#/components/inventory/registry-grid'
 import type { RegistryColumn } from '#/components/inventory/registry-grid'
+import { ObjectLink } from '#/components/ui/object-link'
+import { useOpenRow } from '#/components/workspace/workspace-navigation'
+import { datasetPath } from '#/lib/navigation'
 import { Tooltip } from '#/components/ui/tooltip'
 import { AddedFields } from '#/components/models/added-fields'
 import {
@@ -67,18 +70,42 @@ export function FieldsSection({
 }
 
 function UsedByGrid({ rows }: { rows: InstrumentUsedBy[] }) {
+  const navigate = useNavigate()
+
+  const open = useOpenRow<InstrumentUsedBy>(
+    navigate,
+    (row) => (row.link ? datasetPath(row.link.id) : null),
+    (row) => row.label,
+  )
+
   const columns = useMemo<RegistryColumn<InstrumentUsedBy>[]>(
     () => [
+      {
+        id: 'identifier',
+        header: t('library.instruments.record.usedById'),
+        accessorFn: (row) => row.identifier ?? undefined,
+        enableHiding: false,
+        cell: ({ row }) =>
+          row.original.link && row.original.identifier ? (
+            <ObjectLink
+              kind="dataset"
+              id={row.original.link.id}
+              identifier={row.original.identifier}
+            />
+          ) : (
+            <span className="text-fg-muted">—</span>
+          ),
+      },
       {
         id: 'name',
         header: t('library.instruments.record.usedByName'),
         accessorFn: (row) => row.label,
-        enableHiding: false,
         cell: ({ row }) =>
           row.original.link ? (
             <Link
               to={row.original.link.to}
               params={{ datasetId: row.original.link.id }}
+              onClick={(event) => open(row.original, event)}
             >
               {row.original.label}
             </Link>
@@ -106,7 +133,7 @@ function UsedByGrid({ rows }: { rows: InstrumentUsedBy[] }) {
         ),
       },
     ],
-    [],
+    [open],
   )
 
   return (
@@ -116,6 +143,7 @@ function UsedByGrid({ rows }: { rows: InstrumentUsedBy[] }) {
       columns={columns}
       getRowId={(row) => row.key}
       selectable={false}
+      onRowClick={(row) => open(row)}
     />
   )
 }

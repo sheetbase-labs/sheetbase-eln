@@ -298,9 +298,7 @@ export const useFileUpload = (
         }
       }
 
-      // Only update state if we have valid files to add
       if (validFiles.length > 0) {
-        // Call the onFilesAdded callback with the newly added valid files
         onFilesAdded?.(validFiles)
 
         const nextFiles = multiple

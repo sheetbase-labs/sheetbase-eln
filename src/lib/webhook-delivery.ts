@@ -258,7 +258,7 @@ export interface DeliveryResult {
  * Returns the result including HTTP status and any error info.
  *
  * EVENT-02: pass the change_event id as `idempotencyKey`. It is sent as
- * `X-Sheetbase-Event-Id` (mirroring the payload event id) so receivers can
+ * `X-Sheetbase-Event-Id` (the same id as the payload's event id) so receivers can
  * deduplicate across retries and replays. Retries and replays reuse the
  * same key; no downstream duplication for receivers that honor it.
  */

@@ -5,6 +5,9 @@
 import type { Client } from 'pg'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 
+import { RECORD_KIND_PREFIX, isGeneratedRecordId } from '#/lib/record-id-policy'
+import { ALLOWED_TRANSITIONS, KIND_PREFIX } from '#/lib/scientific-records'
+
 import { prepareTestDatabase } from './helpers'
 
 const WS_A = '00000000-0000-4000-8000-00000000110a'
@@ -154,10 +157,48 @@ describe('scientific record creation and properties', () => {
     expect(sample2.identifier).toMatch(/^SMP-\d{4}$/)
     expect(reagent.identifier).toMatch(/^MAT-\d{4}$/)
     expect(otherProject.identifier).toMatch(/^SMP-\d{4}$/)
+    expect(isGeneratedRecordId('sample', sample1.identifier)).toBe(true)
+    expect(isGeneratedRecordId('material', reagent.identifier)).toBe(true)
     expect(sample1.custom_fields).toEqual({
       note: 'cold',
       required_text: 'tube',
     })
+  })
+
+  it('hands out the default prefixes the app lists for every kind', async () => {
+    const owner = await asAuthenticated(OWNER_A, WS_A)
+
+    for (const [kind, prefix] of RECORD_KIND_PREFIX) {
+      const { rows } = await owner.query(
+        'SELECT api.next_record_identifier($1, $2) AS identifier',
+        [WS_A, kind],
+      )
+
+      expect(
+        rows[0].identifier.startsWith(`${prefix}-`),
+        `${kind}: the database gave ${rows[0].identifier}, src/lib/record-id-policy.ts lists ${prefix}`,
+      ).toBe(true)
+      expect(isGeneratedRecordId(kind, rows[0].identifier)).toBe(true)
+    }
+
+    expect(KIND_PREFIX.material).toBe(RECORD_KIND_PREFIX.get('material'))
+  })
+
+  it('lists the same status changes as api.transition_record_status', async () => {
+    const { rows } = await migrator.query(
+      `SELECT pg_get_functiondef('api.transition_record_status(uuid,text,integer)'::regprocedure) AS def`,
+    )
+    const inDatabase = [
+      ...String(rows[0].def).matchAll(/'([a-z_]+:[a-z_]+->[a-z_]+)'/g),
+    ]
+      .map((match) => match[1])
+      .sort()
+    const inApp = [...ALLOWED_TRANSITIONS].sort()
+
+    expect(
+      inApp,
+      'src/lib/scientific-records.ts ALLOWED_TRANSITIONS and api.transition_record_status must list the same changes',
+    ).toEqual(inDatabase)
   })
 
   it('rejects unsupported kinds and projects in another workspace', async () => {

@@ -2065,7 +2065,7 @@ export const notebook = {
     noMatches: 'No {kind}s match your search',
     heading: 'Archived',
     identifiersLookLike: 'Identifiers look like',
-    prefixYyyyNnnn: '{prefix}-YYYY-NNNN',
+    identifierExample: '{prefix}-0001',
     sample: 'Sample',
     material: 'Material',
     protocol: 'Protocol',

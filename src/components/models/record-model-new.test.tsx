@@ -90,6 +90,7 @@ afterEach(() => {
 async function renderForm(
   initialDraft?: RecordModelVersion,
   saveDraft?: typeof fetch,
+  registry = false,
 ) {
   let draft = initialDraft
   dropSharedReads()
@@ -115,6 +116,7 @@ async function renderForm(
                     name: 'Cell bank',
                     identifier_prefix: 'CB',
                     current_version: 1,
+                    is_registry: registry,
                   },
                 ]
               : [],
@@ -235,6 +237,26 @@ describe('RecordModelNew — generated form', () => {
     expect(screen.queryAllByRole('alert')).toHaveLength(0)
     const create = screen.getByRole('button', { name: 'Create Cell bank' })
     expect(create).toHaveProperty('disabled', false)
+  })
+
+  it('lets a registry entry be made without a project, and any other record not', async () => {
+    await renderForm(undefined, undefined, true)
+    expect(screen.getByText('Project (optional)')).toBeTruthy()
+    fireEvent.change(screen.getByLabelText('Name'), {
+      target: { value: 'Lab-wide line' },
+    })
+    fireEvent.change(screen.getByLabelText('Cell line'), {
+      target: { value: 'cho_k1' },
+    })
+    fireEvent.change(screen.getByLabelText('Passage'), {
+      target: { value: '12' },
+    })
+    expect(
+      screen.getByRole('button', { name: 'Create Cell bank' }),
+    ).toHaveProperty('disabled', false)
+    cleanup()
+    await renderForm()
+    expect(screen.queryByText('Project (optional)')).toBeNull()
   })
 
   it('shows the outstanding errors once the person has interacted', async () => {

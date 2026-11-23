@@ -48,6 +48,10 @@ describe('/sheetbase-components route gate (COMP-05)', () => {
 
 describe('sheetbase components demo surface (COMP-05)', () => {
   it('renders the package grid inside the host-mapped scope', () => {
+    // The grid follows the `dark` class on <html>, which other tests in this
+    // worker may have left behind; this test sets the theme it asserts on.
+    document.documentElement.classList.remove('dark')
+
     render(<SheetbaseComponentsDemo />)
 
     const demo = screen.getByTestId('sheetbase-components-demo')

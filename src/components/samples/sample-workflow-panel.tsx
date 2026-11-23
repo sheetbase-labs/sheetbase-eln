@@ -1,5 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 
+import { LoadingBlock } from '#/components/ui/page-skeleton'
 import { Button } from '#/components/ui/button'
 import { Muted } from '#/components/ui/layout'
 import { Select } from '#/components/ui/select'
@@ -122,7 +123,7 @@ export function SampleWorkflowPanel({
   })
 
   if (runs.isLoading)
-    return <Muted>{t('settings.sampleWorkflows.loading')}</Muted>
+    return <LoadingBlock label={t('settings.sampleWorkflows.loading')} />
 
   const options = (startable.data ?? []).filter(
     (w) => !open.some((run) => run.workflowId === w.id),

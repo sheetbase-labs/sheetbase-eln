@@ -1,4 +1,5 @@
 import { useRef, useState } from 'react'
+import { LoadingBlock } from '#/components/ui/page-skeleton'
 import { z } from 'zod'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 
@@ -204,11 +205,14 @@ export function PipelineConnections({
         </div>
       ) : (
         <SettingsBody className="pt-0 pb-4">
-          <Muted>
-            {query.isLoading
-              ? t('features.pipelineConnections.settings.loading')
-              : t('features.pipelineConnections.settings.none')}
-          </Muted>
+          {query.isLoading ? (
+            <LoadingBlock
+              label={t('features.pipelineConnections.settings.loading')}
+              rows={2}
+            />
+          ) : (
+            <Muted>{t('features.pipelineConnections.settings.none')}</Muted>
+          )}
         </SettingsBody>
       )}
       {live ? (

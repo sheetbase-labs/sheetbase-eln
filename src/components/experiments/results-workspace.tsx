@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react'
+import { LoadingBlock } from '#/components/ui/page-skeleton'
 import { Link } from '@tanstack/react-router'
 import {
   useMutation,
@@ -302,7 +303,7 @@ function FigurePane({
           className="rounded-none border-0 bg-transparent shadow-none"
         />
       ) : (
-        <Muted>{t('projects.resultsWorkspace.loading')}</Muted>
+        <LoadingBlock label={t('projects.resultsWorkspace.loading')} />
       )}
       {flagged > 0 && excludeFlagged ? (
         <Muted>

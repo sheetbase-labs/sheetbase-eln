@@ -1,4 +1,5 @@
 import { PickerSelect } from '#/components/record-picker/entity-picker'
+import { LoadingBlock } from '#/components/ui/page-skeleton'
 import { recordOption } from '#/components/record-picker/entity-options'
 import { useMemo, useState } from 'react'
 import { z } from 'zod'
@@ -876,7 +877,7 @@ function Milestones() {
   if (tasks.isLoading) {
     return (
       <div className="px-4 py-5 md:px-6" aria-busy="true">
-        <Muted>{t('projects.projectMilestones.loading')}</Muted>
+        <LoadingBlock label={t('projects.projectMilestones.loading')} />
       </div>
     )
   }

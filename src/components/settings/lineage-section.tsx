@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { LoadingBlock } from '#/components/ui/page-skeleton'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 
 import { Button } from '#/components/ui/button'
@@ -266,10 +267,17 @@ function LineageTargets({
       </section>
     )
 
+  if (loading) {
+    return (
+      <LoadingBlock
+        label={t('settings.lineage.loading')}
+        className="px-4 py-3 md:px-6"
+      />
+    )
+  }
+
   return (
-    <Muted className="px-4 py-3 md:px-6">
-      {loading ? t('settings.lineage.loading') : t('settings.lineage.empty')}
-    </Muted>
+    <Muted className="px-4 py-3 md:px-6">{t('settings.lineage.empty')}</Muted>
   )
 }
 

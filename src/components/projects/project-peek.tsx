@@ -2,6 +2,7 @@
  * The projects list's side panel: the selected project's details, its latest
  * experiments and what changed lately, without leaving the list. Reads only.
  */
+import { LoadingBlock } from '#/components/ui/page-skeleton'
 import { useQuery } from '@tanstack/react-query'
 import { Link } from '@tanstack/react-router'
 
@@ -210,11 +211,15 @@ function PeekActivity({ project }: { project: ProjectRow }) {
           )
         })}
         {!activity.data?.length ? (
-          <span className="text-fg-muted">
-            {activity.isPending
-              ? t('projects.projectOverview.activity.loading')
-              : t('projects.projectOverview.activity.empty')}
-          </span>
+          activity.isPending ? (
+            <LoadingBlock
+              label={t('projects.projectOverview.activity.loading')}
+            />
+          ) : (
+            <span className="text-fg-muted">
+              {t('projects.projectOverview.activity.empty')}
+            </span>
+          )
         ) : null}
       </div>
     </section>

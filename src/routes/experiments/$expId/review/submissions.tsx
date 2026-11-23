@@ -1,8 +1,8 @@
 import { Link, createFileRoute } from '@tanstack/react-router'
+import { LoadingBlock } from '#/components/ui/page-skeleton'
 import { useQuery } from '@tanstack/react-query'
 
 import { EmptyState } from '#/components/ui/empty-state'
-import { Muted } from '#/components/ui/layout'
 import { TableBox } from '#/components/ui/table'
 import { RegistryGrid } from '#/components/inventory/registry-grid'
 import type { RegistryColumn } from '#/components/inventory/registry-grid'
@@ -106,7 +106,9 @@ function Submissions() {
           {t('projects.experimentPage.submissions.loadFailed')}
         </p>
       ) : submissions.isPending ? (
-        <Muted>{t('projects.experimentPage.submissions.loading')}</Muted>
+        <LoadingBlock
+          label={t('projects.experimentPage.submissions.loading')}
+        />
       ) : rows.length === 0 ? (
         <EmptyState
           icon="check"

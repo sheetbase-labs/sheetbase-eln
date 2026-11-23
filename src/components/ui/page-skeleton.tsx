@@ -9,6 +9,8 @@ import { cn } from '#/lib/utils'
  * lands. Pages compose these rather than drawing their own grey boxes.
  */
 
+const LINE_WIDTHS = ['w-full', 'w-2/3', 'w-1/2']
+
 const CELL_WIDTHS = ['w-16', 'w-48', 'w-28', 'w-36', 'w-20', 'w-24']
 
 /** A page or record title still being read: the heading's height, with the
@@ -106,6 +108,28 @@ export function RecordBodySkeleton({ blocks = 3 }: { blocks?: number }) {
           <Skeleton className="h-3 w-full" />
           <Skeleton className="h-3 w-2/3" />
         </div>
+      ))}
+    </div>
+  )
+}
+
+/** A few lines standing in for a panel's content while it is read, with the
+ * words for a screen reader. For a block inside a page: a tab, a card, a
+ * dialog body. */
+export function LoadingBlock({
+  label,
+  rows = 3,
+  className,
+}: {
+  label: string
+  rows?: number
+  className?: string
+}) {
+  return (
+    <div role="status" className={cn('flex flex-col gap-2 py-1', className)}>
+      <span className="sr-only">{label}</span>
+      {Array.from({ length: rows }).map((_, i) => (
+        <Skeleton key={i} className={cn('h-3', LINE_WIDTHS[i % 3])} />
       ))}
     </div>
   )

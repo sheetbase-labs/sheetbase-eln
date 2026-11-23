@@ -1,9 +1,10 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 
+import { LoadingBlock } from '#/components/ui/page-skeleton'
 import { Button } from '#/components/ui/button'
 import { Notice } from '#/components/ui/alert'
 import { EmptyState } from '#/components/ui/empty-state'
-import { Muted, Section } from '#/components/ui/layout'
+import { Section } from '#/components/ui/layout'
 import { authClient } from '#/lib/auth-client'
 import { listMySessionsFn } from './settings-sessions-data'
 import type { MySession } from './settings-sessions-data'
@@ -63,7 +64,7 @@ export function SettingsSessions() {
       ) : null}
 
       {query.isLoading ? (
-        <Muted>{t('common.states.loading')}</Muted>
+        <LoadingBlock label={t('common.states.loading')} />
       ) : query.isError ? (
         <div className="flex flex-col gap-2">
           <Notice tone="bad">

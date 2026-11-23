@@ -52,6 +52,7 @@ const AGENT_MAY_DELETE: ReadonlySet<string> = new Set(featureAgentDeletes())
 /**
  * Same rule as `internal.agent_action_always_never` in the database, which
  * reads the allowed deletes from `internal.agent_allowed_deletes`.
+ * `tests/db/app-database-parity.test.ts` runs both over every action key.
  */
 export function agentActionAlwaysNever(key: string): boolean {
   return (
@@ -316,7 +317,7 @@ export interface PolicySubject {
 /**
  * The level that applies, from the rows on file: a setting for the credential
  * beats one for the role, which beats the one for everyone, and with none the
- * answer is Ask. Mirrors `api.resolve_agent_action_level`.
+ * answer is Ask. `api.resolve_agent_action_level` gives the same answer.
  */
 export function resolveAgentActionLevel(
   policies: readonly Pick<

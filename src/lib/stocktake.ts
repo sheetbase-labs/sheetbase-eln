@@ -244,7 +244,11 @@ export function summariseItems(
   }
 }
 
-/** What can be done about an item, best first. Mirrors the database's rules. */
+/**
+ * What can be done about an item, best first. tests/db/stocktake.test.ts runs
+ * every state and kind through api.resolve_stocktake_item and fails when the
+ * database accepts a different set of fixes.
+ */
 export function actionsFor(item: StocktakeItem): StocktakeAction[] {
   if (item.resolvedAt) return []
 

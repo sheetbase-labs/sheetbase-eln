@@ -362,6 +362,23 @@ describe('interval and daily next runs on the database match the page', () => {
         { dailyAt: '09:30', timeZone: 'Europe/London' },
         '2026-10-24T09:00:00Z',
       ],
+      // The hour the clocks go back: 01:30 happens twice, the first one runs.
+      [
+        'daily',
+        { dailyAt: '01:30', timeZone: 'Europe/London' },
+        '2026-10-24T23:00:00Z',
+      ],
+      // Once it has run, the next one is the following day, not an hour later.
+      [
+        'daily',
+        { dailyAt: '01:30', timeZone: 'Europe/London' },
+        '2026-10-25T00:30:00Z',
+      ],
+      [
+        'daily',
+        { dailyAt: '01:30', timeZone: 'Europe/London' },
+        '2026-10-25T01:10:00Z',
+      ],
       [
         'daily',
         { dailyAt: '08:00', timeZone: 'America/New_York' },

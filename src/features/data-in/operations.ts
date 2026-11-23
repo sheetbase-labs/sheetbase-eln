@@ -3,7 +3,7 @@
  * definition that takes a dataset as an input. A dataset made from a file has
  * none, so the database writes one from the dataset's own columns the first
  * time (once per measurement table version) and makes the sheet from it. The
- * definition only mirrors columns the dataset already has, so it needs no
+ * definition only uses columns the dataset already has, so it needs no
  * authoring right: anyone who may edit the notebook or project may open the
  * data in a sheet.
  */

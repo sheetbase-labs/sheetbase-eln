@@ -6,7 +6,7 @@ import type { Capability } from './capability'
  *
  * The design says "sections a role cannot open are omitted, not disabled" but
  * defines no ELN role map. Navigation reuses the CORE-05 capability vocabulary
- * (mirrored authoritatively in SQL `api.has_capability`) and the workspace role
+ * (`tests/db/capability-mirror.test.ts` keeps it equal to SQL `api.has_capability`) and the workspace role
  * list from `workspace-admin`. An entry with neither `roles` nor `capability`
  * is visible to everyone, including a caller with no workspace role: everyday
  * scientific navigation must never disappear.

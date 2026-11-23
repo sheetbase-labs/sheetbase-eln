@@ -175,7 +175,7 @@ export function canSubmitForApproval(role: string | null | undefined): boolean {
   return hasCapability(role, 'schema.edit')
 }
 
-/** Mirrors `api.is_workspace_writer` (record.create capability). */
+/** `api.is_workspace_writer` is the `record.create` capability. */
 export function isWorkspaceWriter(role: string | null | undefined): boolean {
   return hasCapability(role, 'record.create')
 }

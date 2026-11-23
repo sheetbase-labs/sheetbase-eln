@@ -4,7 +4,7 @@
  *
  * The database is authoritative: `api.settings_access_level` and
  * `api.has_settings_access` resolve the same mapping for every settings RPC
- * and for `api.has_capability`. This module mirrors the defaults so the nav and
+ * and for `api.has_capability`. This module holds the defaults so the nav and
  * the pages can decide what to show without a round trip.
  */
 

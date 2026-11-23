@@ -4,7 +4,7 @@
  */
 import type { DataClient } from './data-client'
 import { notebookDataClient } from './notebook-data'
-import { objectPath, recordPath } from './navigation'
+import { objectPath, recordDestination, recordPath } from './navigation'
 
 export interface NotificationItem {
   id: string
@@ -132,6 +132,62 @@ export async function fetchLatestReviews(
   return latest
 }
 
+/** What a notification's record is called, so the bell can name it. */
+export interface NotificationRecord {
+  kind: string
+  identifier: string | null
+  title: string
+}
+
+/**
+ * The record each notification is about. A notification's own title says what
+ * happened ("Review returned or signed"); this says to what, and decides which
+ * page owns it (a material lot, a sample and a dataset are not notebooks).
+ */
+export async function fetchNotificationRecords(
+  items: readonly NotificationItem[],
+  client: DataClient = notebookDataClient,
+): Promise<Map<string, NotificationRecord>> {
+  const ids = [
+    ...new Set(items.flatMap((item) => (item.recordId ? [item.recordId] : []))),
+  ]
+
+  const found = new Map<string, NotificationRecord>()
+
+  if (ids.length === 0) return found
+
+  const rows = await client.list<{
+    id: string
+    kind: string
+    identifier: string | null
+    title: string
+  }>(
+    'records',
+    `?id=in.(${ids.map(encodeURIComponent).join(',')})&select=id,kind,identifier,title`,
+  )
+
+  for (const row of rows)
+    found.set(row.id, {
+      kind: row.kind,
+      identifier: row.identifier,
+      title: row.title,
+    })
+
+  return found
+}
+
+/** The record a notification is about, as one line: `EXP-0131 · Day 7 pull`. */
+export function notificationRecordLabel(
+  item: NotificationItem,
+  records: ReadonlyMap<string, NotificationRecord> = new Map(),
+): string | undefined {
+  const record = item.recordId ? records.get(item.recordId) : undefined
+
+  return record
+    ? [record.identifier, record.title].filter(Boolean).join(' · ')
+    : undefined
+}
+
 /**
  * Where a notification opens. It follows the Inbox's rules: a review request
  * or a signature request opens the review for its revision, a review that came
@@ -141,6 +197,7 @@ export async function fetchLatestReviews(
 export function notificationDestination(
   item: NotificationItem,
   latestReviews: ReadonlyMap<string, LatestReview> = new Map(),
+  records: ReadonlyMap<string, NotificationRecord> = new Map(),
 ): string | undefined {
   if (!item.recordId) return item.link ?? undefined
 
@@ -154,5 +211,9 @@ export function notificationDestination(
     }
   }
 
-  return recordPath(item.recordId)
+  const record = records.get(item.recordId)
+
+  return record
+    ? recordDestination(record.kind, item.recordId)
+    : recordPath(item.recordId)
 }

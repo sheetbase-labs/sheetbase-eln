@@ -56,6 +56,10 @@ async function renderBell({
       init,
     )
 
+    // The record names are a read of their own; these tests count the others.
+    if (request.url.startsWith('http://localhost/api/db/records?'))
+      return Response.json([])
+
     requests.push(request)
 
     switch (request.url.split('?')[0]) {

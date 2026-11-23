@@ -11,6 +11,8 @@ import {
   agentActionAlwaysNever,
 } from '#/lib/agent-action-policy'
 import { PUBLIC_EMAIL_DOMAINS } from '#/lib/join-domains'
+import { modelRuleConditionMatches } from '#/lib/model-rules'
+import type { ModelRuleCondition } from '#/lib/model-rules'
 import { LAB_RPCS } from '#/lib/lab-api-surface'
 import { BUILT_IN_RULES } from '#/lib/release-rules'
 import { effectiveHoldDeadline } from '#/lib/sample-hold.server'
@@ -142,5 +144,94 @@ describe('public email domains', () => {
       [...PUBLIC_EMAIL_DOMAINS].sort(),
       'src/lib/join-domains.ts and internal.public_email_domain must list the same domains',
     ).toEqual(inDatabase)
+  })
+})
+
+describe('model rule conditions', () => {
+  // Typed values, as saved. The form also lets text typed into a number field
+  // count as that number, which the database doesn't, so mixed cases are left
+  // out on purpose.
+  const values = { passage: 34, name: 'cell', clean: true, empty: null }
+
+  const conditions: Array<[string, ModelRuleCondition]> = [
+    ['nothing', {}],
+    ['number equal', { field: 'passage', op: 'eq', value: 34 }],
+    ['number not equal', { field: 'passage', op: 'neq', value: 34 }],
+    ['default operator is equal', { field: 'name', value: 'cell' }],
+    ['text equal', { field: 'name', op: 'eq', value: 'cell' }],
+    ['text different', { field: 'name', op: 'eq', value: 'tissue' }],
+    ['text not equal', { field: 'name', op: 'neq', value: 'tissue' }],
+    ['boolean equal', { field: 'clean', op: 'eq', value: true }],
+    ['in the list', { field: 'passage', op: 'in', value: [10, 34] }],
+    ['not in the list', { field: 'passage', op: 'not_in', value: [10, 20] }],
+    ['text in the list', { field: 'name', op: 'in', value: ['cell', 'x'] }],
+    ['number above', { field: 'passage', op: 'gt', value: 30 }],
+    ['number not above', { field: 'passage', op: 'gt', value: 34 }],
+    ['number at least', { field: 'passage', op: 'gte', value: 34 }],
+    ['number below', { field: 'passage', op: 'lt', value: 40 }],
+    ['number at most', { field: 'passage', op: 'lte', value: 33 }],
+    ['text after', { field: 'name', op: 'gt', value: 'bell' }],
+    ['text before', { field: 'name', op: 'lt', value: 'bell' }],
+    ['pattern matches', { field: 'name', op: 'matches', value: '^ce' }],
+    ['pattern misses', { field: 'name', op: 'matches', value: '^x' }],
+    ['null field is null', { field: 'empty', op: 'is_null' }],
+    ['missing field is null', { field: 'absent', op: 'is_null' }],
+    ['set field is not null', { field: 'passage', op: 'not_null' }],
+    ['missing field is not set', { field: 'absent', op: 'not_null' }],
+    ['missing field never equals', { field: 'absent', op: 'eq', value: 1 }],
+    ['missing field never differs', { field: 'absent', op: 'neq', value: 1 }],
+    ['null field never compares', { field: 'empty', op: 'gt', value: 1 }],
+    [
+      'all true',
+      {
+        all: [
+          { field: 'passage', op: 'gt', value: 1 },
+          { field: 'clean', op: 'eq', value: true },
+        ],
+      },
+    ],
+    [
+      'all with one false',
+      {
+        all: [
+          { field: 'passage', op: 'gt', value: 1 },
+          { field: 'name', op: 'eq', value: 'x' },
+        ],
+      },
+    ],
+    [
+      'any with one true',
+      {
+        any: [
+          { field: 'passage', op: 'lt', value: 1 },
+          { field: 'name', op: 'eq', value: 'cell' },
+        ],
+      },
+    ],
+    ['any with none true', { any: [{ field: 'passage', op: 'lt', value: 1 }] }],
+    ['not', { not: { field: 'passage', op: 'eq', value: 34 } }],
+    [
+      'nested',
+      {
+        not: {
+          any: [
+            { field: 'passage', op: 'gt', value: 100 },
+            { all: [{ field: 'clean', op: 'eq', value: false }] },
+          ],
+        },
+      },
+    ],
+  ]
+
+  it.each(conditions)('%s', async (_name, condition) => {
+    const { rows } = await migrator.query<{ matches: boolean }>(
+      `select internal.model_rule_condition_matches($1::jsonb, $2::jsonb) as matches`,
+      [JSON.stringify(condition), JSON.stringify(values)],
+    )
+
+    expect(
+      modelRuleConditionMatches(condition, values),
+      'src/lib/model-rules.ts and internal.model_rule_condition_matches must agree',
+    ).toBe(rows[0]!.matches)
   })
 })

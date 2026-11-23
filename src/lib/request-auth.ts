@@ -65,7 +65,12 @@ export async function recordDataExportReceipt(input: {
   workspaceId: string
   actorUserId: string
   objectType:
-    'dataset' | 'dataset_version' | 'sheet_instance' | 'record' | 'revision'
+    | 'dataset'
+    | 'dataset_version'
+    | 'sheet_instance'
+    | 'record'
+    | 'revision'
+    | 'report_generation'
   objectId: string
   format: string
   rowCount?: number | null

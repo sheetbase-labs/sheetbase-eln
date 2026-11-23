@@ -29,6 +29,15 @@ import { parquetDocument } from './parquet'
 import { buildEvidencePackage, parseEvidencePackage } from './evidence-package'
 import { renderRevisionPdf } from './revision-pdf'
 import {
+  REPORT_CONTENT_TYPES,
+  REPORT_FORMATS,
+  parseReportHtml,
+  reportFileName,
+} from './report-document'
+import type { ReportFormat } from './report-document'
+import { renderReportDocx } from './report-docx'
+import { renderReportPdf } from './report-pdf'
+import {
   auditEventMatchesCategory,
   auditEventsCsv,
   auditEventsPageSchema,
@@ -40,6 +49,7 @@ import type { AuditEventWire } from '../audit-history'
 import {
   recordDataExportReceipt,
   requestErrorResponse,
+  resolvePersonalAuth,
   resolveSessionAuth,
   postgrestRpc,
   postgrestSelect,
@@ -105,7 +115,12 @@ async function insertReceipt(input: {
   workspaceId: string
   actorUserId: string
   objectType:
-    'dataset' | 'dataset_version' | 'sheet_instance' | 'record' | 'revision'
+    | 'dataset'
+    | 'dataset_version'
+    | 'sheet_instance'
+    | 'record'
+    | 'revision'
+    | 'report_generation'
   objectId: string
   format: string
   rowCount?: number | null
@@ -1382,5 +1397,108 @@ export async function handleRevisionPdf(
     bytes,
     'application/pdf',
     `evidence-${pkg.revision.id}.pdf`,
+  )
+}
+
+interface ReportGenerationWire {
+  id: string
+  workspace_id: string
+  report_id: string
+  report_version: number
+  output_checksum: string
+  output_html: string | null
+  generated_at: string
+}
+
+function isReportFormat(value: string): value is ReportFormat {
+  return REPORT_FORMATS.some((format) => format === value)
+}
+
+/**
+ * One generated report as a Word document, a PDF or the stored HTML.
+ *
+ * Every format is made from the document stored when the report was generated,
+ * so the report's fingerprint (the checksum of what it was generated from) is
+ * the same in all three. A session or a personal token with `lab:read` may
+ * download it, and the database decides which reports that person can see.
+ */
+export async function handleReportGenerationExport(
+  request: Request,
+  generationId: string,
+  deps: SessionAuthDeps,
+): Promise<Response> {
+  const auth = await resolvePersonalAuth(request.headers, 'lab:read', deps)
+
+  if (!auth.ok)
+    return requestErrorResponse(auth.status, auth.code, auth.message)
+  const { context } = auth
+
+  const formatParam = new URL(request.url).searchParams.get('format') ?? 'docx'
+
+  if (!isReportFormat(formatParam)) {
+    return requestErrorResponse(
+      400,
+      'invalid_format',
+      'Reports download as docx, pdf or html.',
+    )
+  }
+
+  if (!z.uuid().safeParse(generationId).success) {
+    return requestErrorResponse(404, 'not_found', 'Report not found.')
+  }
+
+  const generations = await postgrestSelect<ReportGenerationWire[]>(
+    'report_generations',
+    `id=eq.${generationId}&select=id,workspace_id,report_id,report_version,output_checksum,output_html,generated_at&limit=1`,
+    context.token,
+  )
+
+  const generation = Array.isArray(generations.body)
+    ? generations.body.at(0)
+    : undefined
+
+  if (generations.status >= 400 || !generation) {
+    return requestErrorResponse(404, 'not_found', 'Report not found.')
+  }
+
+  const definitions = await postgrestSelect<
+    Array<{ document_identifier: string }>
+  >(
+    'report_definitions',
+    `id=eq.${generation.report_id}&select=document_identifier&limit=1`,
+    context.token,
+  )
+
+  const identifier = Array.isArray(definitions.body)
+    ? (definitions.body.at(0)?.document_identifier ?? 'report')
+    : 'report'
+
+  const html = generation.output_html ?? ''
+
+  const document = parseReportHtml(html, {
+    checksum: generation.output_checksum,
+    generatedAt: generation.generated_at,
+  })
+
+  const bytes =
+    formatParam === 'docx'
+      ? await renderReportDocx(document)
+      : formatParam === 'pdf'
+        ? await renderReportPdf(document)
+        : new TextEncoder().encode(html)
+
+  await insertReceipt({
+    actorUserId: context.userId,
+    workspaceId: generation.workspace_id,
+    objectType: 'report_generation',
+    objectId: generation.id,
+    format: formatParam,
+    byteSize: bytes.byteLength,
+  })
+
+  return binaryExportResponse(
+    bytes,
+    REPORT_CONTENT_TYPES[formatParam],
+    reportFileName(identifier, generation.report_version, formatParam),
   )
 }

@@ -6,6 +6,11 @@
 import type { Client } from 'pg'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 
+import {
+  agentActionAlwaysAsk,
+  agentActionAlwaysNever,
+} from '#/lib/agent-action-policy'
+import { LAB_RPCS } from '#/lib/lab-api-surface'
 import { BUILT_IN_RULES } from '#/lib/release-rules'
 import { effectiveHoldDeadline } from '#/lib/sample-hold.server'
 
@@ -67,5 +72,57 @@ describe('release rules', () => {
       [...BUILT_IN_RULES],
       'BUILT_IN_RULES in src/lib/release-rules.ts and internal.canonical_sample_release_rules must be the same rules',
     ).toEqual(inDatabase)
+  })
+})
+
+describe('what agents may never do or always need a person for', () => {
+  // Every action the lab API has, plus keys that sit on the edge of each rule.
+  const keys = [
+    ...Object.keys(LAB_RPCS),
+    'sign_record',
+    'amend_record',
+    'unlock_record',
+    'delete_file',
+    'delete_notebook_block',
+    'purge_everything',
+    'submit_for_review',
+    'submit_experiment_x',
+    'resubmit_experiment',
+    'decide_review',
+    'release_sample',
+    'approve_signature',
+    'set_agent_action_policy',
+    'update_workspace_ai_settings',
+    'create_record',
+  ]
+
+  it('agree on every action key', async () => {
+    const { rows } = await migrator.query<{
+      key: string
+      never: boolean
+      ask: boolean
+    }>(
+      `select k as key,
+              internal.agent_action_always_never(k) as never,
+              internal.agent_action_always_ask(k) as ask
+         from unnest($1::text[]) k`,
+      [keys],
+    )
+
+    const differing = rows
+      .filter(
+        (row) =>
+          row.never !== agentActionAlwaysNever(row.key) ||
+          row.ask !== agentActionAlwaysAsk(row.key),
+      )
+      .map(
+        (row) =>
+          `${row.key}: database never=${row.never} ask=${row.ask}, app never=${agentActionAlwaysNever(row.key)} ask=${agentActionAlwaysAsk(row.key)}`,
+      )
+
+    expect(
+      differing,
+      'src/lib/agent-action-policy.ts and internal.agent_action_always_never / _always_ask must agree',
+    ).toEqual([])
   })
 })

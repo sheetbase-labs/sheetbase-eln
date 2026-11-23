@@ -23,7 +23,7 @@
  * and the accept helpers are the only mutation seam (called by the host,
  * never by the proposal itself).
  *
- * Facts-primary pattern (mirrors ASSIST-01): deterministic local builders
+ * Facts-primary pattern (as in ASSIST-01): deterministic local builders
  * are the facts; the gateway stub phrasing (`stubPhraseDraft`) is marked
  * assistance-only and rendered beside — never instead of — the proposal.
  */

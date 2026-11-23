@@ -27,7 +27,7 @@ export interface TemplateUsageRecord {
 }
 
 /**
- * Mirrors the record-status rule the In-use table uses: a lock (a record
+ * The record-status rule the In-use table uses: a lock (a record
  * signature) wins, then anything the workflow put in review, else in progress.
  */
 export function templateUseStatus(record: {

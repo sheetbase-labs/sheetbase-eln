@@ -3,7 +3,7 @@
  * same PostgREST boundary as the rest of the notebook domain: a REST
  * collection (`api.comments`, read-only for request roles) plus four
  * SECURITY DEFINER RPCs for create/reply/resolve/reopen. The wire shape
- * mirrors the database columns; the UI groups rows into threads by
+ * has the database's column names; the UI groups rows into threads by
  * `rootId` and renders unavailable targets and departed users honestly.
  */
 import { z } from 'zod'

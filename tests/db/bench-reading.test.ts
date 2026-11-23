@@ -14,6 +14,9 @@ import { randomUUID } from 'node:crypto'
 import type { Client } from 'pg'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 
+import { isReadingOutOfRange } from '#/lib/readings-data'
+import type { ReadingFieldWire } from '#/lib/readings-data'
+
 import { expectDenied, prepareTestDatabase } from './helpers'
 
 const WS_A = '00000000-0000-4000-8000-000000000e0a'
@@ -291,5 +294,61 @@ describe('bench reading fills a canonical planned row', () => {
     const state = await rowState(PLANNED_B)
     expect(state.status).toBe('planned')
     expect(await storedValues(PLANNED_B)).toHaveLength(0)
+  })
+})
+
+describe('the out-of-range warning shown before a reading is saved', () => {
+  it('flags the same values the database flags, on and either side of each limit', async () => {
+    const member = await asUser(MEMBER_A, WS_A)
+
+    const field: ReadingFieldWire = {
+      field_id: FIELD_TITRE,
+      key: 'capsid_titre',
+      label: 'Capsid titre',
+      logical_type: 'decimal',
+      nullable: true,
+      display_order: 2,
+      quantity: null,
+      validation: {
+        extensions: { systemFlags: { out_of_range: { min: 2, max: 4 } } },
+      },
+      relationship: null,
+    }
+
+    const gaps: string[] = []
+
+    for (const [index, value] of [-1, 0, 1.99, 2, 3, 4, 4.01, 9].entries()) {
+      const rowId = randomUUID()
+      const key = `RNG-${index}`
+
+      await migrator.query(
+        `INSERT INTO api.dataset_rows (id, dataset_id, workspace_id, status, planned_key)
+         VALUES ($1, $2, $3, 'planned', $4)`,
+        [rowId, DATASET_A, WS_A, key],
+      )
+
+      const result = await commit(member, {
+        datasetId: DATASET_A,
+        plannedKey: key,
+        values: { [FIELD_TITRE]: value },
+      })
+
+      expect(result.ok).toBe(true)
+
+      const flagged = (await systemFlags(rowId)).some(
+        (flag) => flag.kind === 'out_of_range',
+      )
+
+      if (flagged !== isReadingOutOfRange(field, value)) {
+        gaps.push(
+          `${value}: database ${flagged ? 'flags' : 'accepts'}, page ${flagged ? 'accepts' : 'flags'}`,
+        )
+      }
+    }
+
+    expect(
+      gaps,
+      'isReadingOutOfRange in src/lib/readings-data.ts and the out_of_range system flag in the commit RPC disagree',
+    ).toEqual([])
   })
 })

@@ -14,6 +14,7 @@
  * `readOnly` disables editing (archived notebooks, etc.).
  */
 import { rich, t } from '#/copy'
+import { chartTypePatch } from '#/lib/chart-type-patch'
 import { useStepNumber } from '#/lib/step-numbers'
 import { PickerSelect } from '#/components/record-picker/entity-picker'
 import { datasetOption } from '#/components/record-picker/entity-options'
@@ -2846,7 +2847,8 @@ function useChartDraft({
   }
 
   // Switching types keeps the spec coherent: fields that carry no meaning
-  // for the new type are cleared (mirrors the DB trigger's rules).
+  // for the new type are cleared (`chartTypePatch`; a database test feeds
+  // every type through the chart trigger).
   function setChartType(next: ChartType) {
     if (!spec) return
     updateSpec(chartTypePatch(spec, next))
@@ -3299,34 +3301,6 @@ function ChartTypeParameters({
       </Select>
     </ChartField>
   )
-}
-
-function chartTypePatch(spec: ChartSpec, next: ChartType): Partial<ChartSpec> {
-  const fields = { ...spec.fields }
-  let overlays = spec.overlays
-  let typeParams: ChartSpec['typeParams'] = {}
-
-  if (next === 'histogram' || next === 'box') {
-    fields.x = null
-    typeParams =
-      next === 'box'
-        ? { box: { showOutliers: true } }
-        : { histogram: { bins: 10 } }
-  } else if (next === 'heatmap') {
-    fields.series = null
-    fields.color = null
-    fields.size = null
-    overlays = { errorBars: null }
-    typeParams = {
-      heatmap: { aggregate: 'count', valueField: null, xBins: 10, yBins: 10 },
-    }
-  }
-
-  const display = ['line', 'scatter', 'bar'].includes(next)
-    ? spec.display
-    : { ...spec.display, annotations: [] }
-
-  return { type: next, fields, overlays, typeParams, display }
 }
 
 function chartSpecForDataset(

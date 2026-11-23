@@ -2,7 +2,8 @@
  * The record form and the Sheet check a typed value with validateModelFieldValue
  * before it is sent; internal.validate_model_fields is what decides when it
  * arrives. Each field type is given the same values both ways, and any value
- * one side accepts and the other refuses is listed.
+ * the app accepts and the database refuses is a failure; values only the app
+ * refuses are listed in APP_ONLY_REFUSES.
  */
 import type { Client } from 'pg'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
@@ -71,6 +72,17 @@ const CASES: Case[] = [
   },
 ]
 
+/**
+ * Values the app refuses and the database would take. The form sends
+ * timestamps as full ISO text, so the app asks for the same; the database's
+ * cast is looser. The other direction (app accepts, database refuses) is a
+ * bug and is never listed.
+ */
+const APP_ONLY_REFUSES = [
+  'timestamp "2026-01-02 10:00"',
+  'timestamp "2026-01-02"',
+]
+
 beforeAll(async () => {
   ;({ migrator, asRole } = await prepareTestDatabase())
   await migrator.query(`
@@ -128,9 +140,10 @@ function definitionOf(
   }
 }
 
-describe('the app and the database accept the same field values', () => {
-  it('agrees on every value given to every field type', async () => {
+describe('the app and the database treat field values alike', () => {
+  it('never accepts a value the database refuses', async () => {
     const gaps: string[] = []
+    const stricter: string[] = []
 
     for (const { type, validation, values } of CASES) {
       const definition = definitionOf(type, validation)
@@ -148,13 +161,20 @@ describe('the app and the database accept the same field values', () => {
           database = false
         }
 
-        if (app !== database) {
-          gaps.push(
-            `${type} ${JSON.stringify(value)}: app ${app ? 'accepts' : 'refuses'}, database ${database ? 'accepts' : 'refuses'}`,
-          )
+        const label = `${type} ${JSON.stringify(value)}`
+
+        if (app && !database) {
+          gaps.push(`${label}: app accepts, database refuses`)
         }
+
+        if (!app && database) stricter.push(label)
       }
     }
+
+    expect(
+      stricter,
+      'the app now refuses a value it did not refuse before; if that is deliberate, list it in APP_ONLY_REFUSES',
+    ).toEqual(APP_ONLY_REFUSES)
 
     expect(
       gaps,

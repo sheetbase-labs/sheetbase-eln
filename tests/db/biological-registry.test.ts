@@ -379,3 +379,53 @@ describe('access', () => {
     ).rejects.toThrow(/not a registry/)
   })
 })
+
+describe('entries without a project', () => {
+  it('makes a lab-wide entry that every member sees and a writer can edit', async () => {
+    const { rows } = await owner.query(
+      `select * from api.create_registry_entry(null,'antibody','Lab-wide anti-GFP',$1::jsonb,false)`,
+      [JSON.stringify({ vendor: 'Abcam', catalogue_number: 'ab-nop-1' })],
+    )
+    const entry = rows[0] as { id: string; project_id: string | null }
+    expect(entry.project_id).toBeNull()
+
+    const seen = await viewer.query(`select id from api.records where id=$1`, [
+      entry.id,
+    ])
+    expect(seen.rows).toHaveLength(1)
+
+    const elsewhere = await stranger.query(
+      `select id from api.records where id=$1`,
+      [entry.id],
+    )
+    expect(elsewhere.rows).toHaveLength(0)
+
+    const edited = await owner.query(
+      `select * from api.update_record_custom_fields($1,1,$2::jsonb)`,
+      [entry.id, JSON.stringify({ vendor: 'Abcam plc' })],
+    )
+    expect(edited.rows[0].custom_fields.vendor).toBe('Abcam plc')
+  })
+
+  it('still refuses a duplicate and a viewer adding one', async () => {
+    await expect(
+      owner.query(
+        `select * from api.create_registry_entry(null,'antibody','Another','{"vendor":"Abcam plc","catalogue_number":"ab-nop-1"}'::jsonb,false)`,
+      ),
+    ).rejects.toThrow()
+    await expectDenied(
+      viewer.query(
+        `select * from api.create_registry_entry(null,'antibody','Nope','{}'::jsonb,false)`,
+      ),
+      '42501',
+    )
+  })
+
+  it('keeps asking for a project on any other kind of record', async () => {
+    await expect(
+      owner.query(
+        `select * from api.create_model_record(null,'experiment','No project')`,
+      ),
+    ).rejects.toThrow(/needs a project/)
+  })
+})

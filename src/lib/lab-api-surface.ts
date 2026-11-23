@@ -3090,7 +3090,7 @@ const LAB_RPCS_HAND_WRITTEN: LabRpcIndex = {
   create_registry_entry: {
     summary: 'Add a registry entry',
     description:
-      'Creates an entry of a registry model (such as a cell line or construct). Refuses a likely duplicate unless `p_allow_duplicate` is true. A model with a same-thing rule from a plugin only takes entries that come with the rule’s key (`p_sameness_value`), and refuses one whose key is already registered.',
+      'Creates an entry of a registry model (such as a cell line or construct). Pass `p_project_id` as null for an entry that belongs to the whole lab rather than one project. Refuses a likely duplicate unless `p_allow_duplicate` is true. A model with a same-thing rule from a plugin only takes entries that come with the rule’s key (`p_sameness_value`), and refuses one whose key is already registered.',
     scope: 'lab:write',
     params: [
       ['p_project_id', 'uuid', 1],

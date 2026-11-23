@@ -223,7 +223,7 @@ export async function seedDesignReports(db: Db): Promise<void> {
         [PROCESS, r.title, r.subtitle ?? null],
       )
 
-      const row = created.rows[0]
+      const row = created.rows.at(0)
 
       if (!row) throw new Error(`report not created: ${r.title}`)
       made.push({ id: row.id, record: row.record_id, seed: r })
@@ -254,7 +254,7 @@ export async function seedDesignReports(db: Db): Promise<void> {
           [s.from, s.block],
         )
 
-        const e = evidence.rows[0]
+        const e = evidence.rows.at(0)
 
         if (!e) throw new Error(`no ${s.block} block on ${s.from}`)
 

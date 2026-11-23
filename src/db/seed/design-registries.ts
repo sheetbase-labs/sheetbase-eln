@@ -1053,7 +1053,7 @@ export async function seedDesignRegistries(db: Db): Promise<void> {
         ],
       )
 
-      const row = made.rows[0]
+      const row = made.rows.at(0)
 
       if (!row) throw new Error(`lot not created: ${lot.title}`)
       ids.set(`lot:${lot.title}`, row.id)

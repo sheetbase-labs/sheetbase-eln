@@ -2,7 +2,8 @@ import type { WorkspaceRole } from './workspace-admin'
 
 /**
  * CORE-05 capability vocabulary. PostgreSQL `api.has_capability` is
- * authoritative; this module mirrors the role mapping for UI gating.
+ * authoritative; this module is the same role table for UI gating, and
+ * tests/db/capability-mirror.test.ts fails when the two differ.
  * Capabilities are not placed in JWT claims.
  */
 export const CAPABILITIES = [

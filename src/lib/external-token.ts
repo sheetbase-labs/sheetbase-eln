@@ -483,7 +483,7 @@ export async function verifyExternalCredential(
 
   // A personal token must present the creator's identity to the PostgREST
   // request role and remain usable only while that membership is active.
-  // This mirrors the exchange-time check, so revoking a membership stops the
+  // The exchange step checks the same thing, so revoking a membership stops the
   // token at use time even against a still-unexpired JWT.
   if (kind === 'personal') {
     if (claims.role !== 'authenticated' || claims.sub !== row.createdByUserId) {

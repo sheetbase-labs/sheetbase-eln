@@ -7,7 +7,7 @@
  * against the published version, validation, and the three-way reconciliation
  * after a refused stale save live here so they can be tested without React.
  *
- * The conflict helpers mirror the server contract: the server refuses a save
+ * The conflict helpers follow the server contract: the server refuses a save
  * whose `p_expected_revision` is stale (SB001), so the client must never
  * resolve a conflict by guessing. `detectDraftConflict` classifies it and
  * `mergeDraftRows` is the only automatic resolution, and it is only used when
@@ -143,7 +143,7 @@ const relationshipSchema = z.object({
 })
 
 /**
- * The editor's own validation, mirroring the server's field checks
+ * The editor's own validation, ahead of the server's field checks
  * (`internal.replace_dataset_schema_version_fields` and the text/numeric
  * validation used when a value is written). The server stays authoritative;
  * this only stops a save that would be refused.

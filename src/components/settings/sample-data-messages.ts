@@ -1,12 +1,9 @@
 import type { AddSampleDataResult } from '#/lib/sample-data'
 import { t } from '#/copy'
 
-/** What to tell the admin when the sample data could not be added. */
+/** What to tell the person when the demo workspace could not be created. */
 export function describeSampleDataFailure(
-  result: Extract<AddSampleDataResult, { ok: false }>,
-  projectKey = 'virus-stability',
+  _result: Extract<AddSampleDataResult, { ok: false }>,
 ): string {
-  return result.reason === 'project_key_in_use'
-    ? t('settings.sampleData.keyInUse', { key: projectKey })
-    : t('settings.sampleData.elsewhere')
+  return t('settings.sampleData.elsewhere')
 }

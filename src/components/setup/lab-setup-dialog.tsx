@@ -14,8 +14,7 @@ import {
 } from '#/components/ui/dialog'
 import { Field, Input } from '#/components/ui/input'
 import { Select } from '#/components/ui/select'
-import { addSampleDataFn } from '#/lib/sample-data'
-import { describeSampleDataFailure } from '#/components/settings/settings-sample-data'
+import { useOpenDemoWorkspace } from '#/components/settings/settings-sample-data'
 import { toast } from '#/components/ui/sonner'
 import { createDataClient } from '#/lib/data-client'
 import {
@@ -69,8 +68,9 @@ export function LabSetupDialog({
     () => new Set(STARTER_TABLE_KEYS),
   )
 
-  const [withSample, setWithSample] = useState(false)
   const [error, setError] = useState<string | null>(null)
+
+  const demo = useOpenDemoWorkspace(workspaceId)
 
   const finish = useMutation({
     mutationFn: async () => {
@@ -92,17 +92,6 @@ export function LabSetupDialog({
         timeZone,
         starterKeys: STARTER_TABLE_KEYS.filter((key) => starters.has(key)),
       })
-
-      if (withSample) {
-        // Setup is done by now, so a sample that can't be added must not look
-        // like a failed setup; it is offered again in Settings.
-        const sample = await addSampleDataFn({ data: { workspaceId } }).catch(
-          () => null,
-        )
-
-        if (!sample) toast.error(t('settings.sampleData.error'))
-        else if (!sample.ok) toast.error(describeSampleDataFailure(sample))
-      }
     },
     onSuccess: async () => {
       toast.success(t('settings.labSetup.done'))
@@ -114,7 +103,6 @@ export function LabSetupDialog({
       })
       await queryClient.invalidateQueries({ queryKey: ['ui-port', 'import'] })
 
-      if (withSample) await queryClient.invalidateQueries()
       await router.invalidate()
       onClose()
     },
@@ -198,16 +186,22 @@ export function LabSetupDialog({
               ))}
             </div>
           </fieldset>
-          <ChoiceCheckbox
-            title={t('settings.sampleData.setupTitle')}
-            checked={withSample}
-            onCheckedChange={(checked) => setWithSample(Boolean(checked))}
-          >
-            {t('settings.sampleData.setupHint')}
-          </ChoiceCheckbox>
-          {error ? <Notice tone="bad">{error}</Notice> : null}
+          {error || demo.isError ? (
+            <Notice tone="bad">
+              {error ?? t('settings.sampleData.error')}
+            </Notice>
+          ) : null}
         </DialogBody>
         <DialogFooter>
+          <Button
+            variant="quiet"
+            disabled={finish.isPending || demo.isPending}
+            onClick={() => demo.mutate()}
+          >
+            {demo.isPending
+              ? t('settings.sampleData.adding')
+              : t('settings.sampleData.setupTitle')}
+          </Button>
           <Button
             variant="quiet"
             disabled={finish.isPending}

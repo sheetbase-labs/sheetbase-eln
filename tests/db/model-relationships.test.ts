@@ -6,6 +6,11 @@
 import type { Client } from 'pg'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 
+import {
+  isLinkAllowed,
+  toModelRelationshipRule,
+} from '#/lib/model-relationships'
+
 import { prepareTestDatabase } from './helpers'
 
 const WS_A = '00000000-0000-4000-8000-00000000210a'
@@ -422,5 +427,78 @@ describe('link enforcement', () => {
       [exp.id],
     )
     expect(counted[0].n).toBe(1)
+  })
+})
+
+describe('the app and the trigger allow the same links', () => {
+  it('agrees on every source, link type and target model', async () => {
+    const owner = await asAuthenticated(OWNER_A, WS_A)
+    await configureRule(owner, 'experiment', 'material', 'material', 0, null)
+    await configureRule(owner, 'experiment', 'sample', 'sample', 0, null)
+
+    const { rows } = await migrator.query(
+      `SELECT * FROM api.model_relationship_rules WHERE workspace_id = $1`,
+      [WS_A],
+    )
+    const rules = rows.map(toModelRelationshipRule)
+
+    const sources = ['experiment', 'material', 'sample']
+    const linkTypes = ['sample', 'material', 'protocol']
+
+    const targets: Array<{ kind: string; record: Record<string, any> }> = []
+    for (const kind of ['sample', 'material', 'protocol_template']) {
+      targets.push({
+        kind,
+        record: await createRecord(owner, PROJ_A, kind, `Target ${kind}`),
+      })
+    }
+
+    const gaps: string[] = []
+
+    for (const source of sources) {
+      for (const linkType of linkTypes) {
+        for (const target of targets) {
+          const from = await createRecord(
+            owner,
+            PROJ_A,
+            source,
+            `Source ${source} ${linkType} ${target.kind}`,
+          )
+          let refused = false
+
+          try {
+            await createLink(owner, from.id, {
+              kind: target.kind,
+              identifier: target.record.identifier,
+              id: target.record.id,
+              linkType,
+            })
+          } catch (error) {
+            refused =
+              typeof error === 'object' &&
+              error !== null &&
+              'code' in error &&
+              error.code === 'SB080'
+          }
+
+          const app = isLinkAllowed(rules, {
+            sourceModelKey: source,
+            linkType,
+            targetModelKey: target.kind,
+          })
+
+          if (app === refused) {
+            gaps.push(
+              `${source} -[${linkType}]-> ${target.kind}: app says ${app ? 'allowed' : 'refused'}, trigger ${refused ? 'refused' : 'allowed'}`,
+            )
+          }
+        }
+      }
+    }
+
+    expect(
+      gaps,
+      'isLinkAllowed in src/lib/model-relationships.ts and internal.assert_model_relationship_rule disagree',
+    ).toEqual([])
   })
 })

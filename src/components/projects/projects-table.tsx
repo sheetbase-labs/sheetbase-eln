@@ -1,4 +1,5 @@
 import { Link } from '@tanstack/react-router'
+import { functionalUpdate } from '@tanstack/react-table'
 
 import { ObjectLink } from '#/components/ui/object-link'
 import { Status } from '#/components/ui/status'
@@ -183,7 +184,18 @@ export function ProjectsTable({
           bulk={canBulkArchive ? bulk : undefined}
           rowLabel={(p) => p.id}
           rowSelection={peekId ? { [peekId]: true } : {}}
-          onRowClick={onPeek}
+          // A click opens the project, as on every other list; moving along the
+          // rows with the keyboard keeps the side preview following.
+          onRowClick={(p) => openProject(p)}
+          onRowSelectionChange={(next) => {
+            const chosen = Object.keys(
+              functionalUpdate(next, peekId ? { [peekId]: true as const } : {}),
+            ).at(0)
+
+            const project = rows.find((p) => p.id === chosen)
+
+            if (project) onPeek(project)
+          }}
         />
       ) : null}
       {!rows.length ? (

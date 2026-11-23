@@ -1,4 +1,5 @@
 import { Outlet, createFileRoute, redirect } from '@tanstack/react-router'
+import { TitleSkeleton } from '#/components/ui/page-skeleton'
 import { RecordUnavailable } from '#/components/ui/record-unavailable'
 import { useQuery } from '@tanstack/react-query'
 
@@ -152,9 +153,11 @@ function ExperimentLayout() {
             },
           ]}
           title={
-            record.isLoading
-              ? t('projects.experimentPage.loading')
-              : t('projects.experimentPage.notFound')
+            record.isLoading ? (
+              <TitleSkeleton label={t('projects.experimentPage.loading')} />
+            ) : (
+              t('projects.experimentPage.notFound')
+            )
           }
         />
         <RecordUnavailable

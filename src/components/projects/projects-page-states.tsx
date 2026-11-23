@@ -1,4 +1,5 @@
 import { Button } from '#/components/ui/button'
+import { TableSkeleton } from '#/components/ui/page-skeleton'
 import { t } from '#/copy'
 
 import { NO_PROJECT_ACCESS_BODY, noProjectAccessTitle } from './project-access'
@@ -14,9 +15,10 @@ import type { ArchivedMode, ProjectsTab } from './projects-page-model'
 
 export function ProjectsLoading() {
   return (
-    <p role="status" className="px-6 py-10 text-fg-muted">
-      {t('projects.projectsPage.loading')}
-    </p>
+    <div role="status">
+      <span className="sr-only">{t('projects.projectsPage.loading')}</span>
+      <TableSkeleton columns={5} rows={8} />
+    </div>
   )
 }
 

@@ -1,4 +1,8 @@
 import { formatDate } from '#/lib/format-date'
+import {
+  RecordBodySkeleton,
+  TitleSkeleton,
+} from '#/components/ui/page-skeleton'
 import { Link, Outlet, createFileRoute, redirect } from '@tanstack/react-router'
 
 import { PageHeader } from '#/components/ui/layout'
@@ -174,11 +178,13 @@ function ProjectUnavailable({
           },
         ]}
         title={
-          query.isLoading
-            ? t('projects.projectShell.loading')
-            : query.isError
-              ? t('projects.projectShell.loadFailed')
-              : t('projects.projectShell.notFound')
+          query.isLoading ? (
+            <TitleSkeleton label={t('projects.projectShell.loading')} />
+          ) : query.isError ? (
+            t('projects.projectShell.loadFailed')
+          ) : (
+            t('projects.projectShell.notFound')
+          )
         }
       />
       <div className="px-4 py-4 md:px-6">
@@ -188,7 +194,9 @@ function ProjectUnavailable({
             what={t('projects.projectShell.thisProject')}
             onRetry={() => void query.refetch()}
           />
-        ) : query.isLoading ? null : (
+        ) : query.isLoading ? (
+          <RecordBodySkeleton />
+        ) : (
           <NotFoundNotice
             what={t('projects.projectShell.project')}
             action={

@@ -4,6 +4,7 @@ import type { LinkProps } from '@tanstack/react-router'
 import { ProjectListFailure } from '#/components/projects/project-list'
 import { Button } from '#/components/ui/button'
 import { NotFoundNotice } from '#/components/ui/not-found-notice'
+import { RecordBodySkeleton } from '#/components/ui/page-skeleton'
 import { useReportMissing } from '#/components/workspace/workspace-navigation'
 
 /**
@@ -29,7 +30,7 @@ export function RecordUnavailable({
 }) {
   useReportMissing(!query.isLoading)
 
-  if (query.isLoading) return null
+  if (query.isLoading) return <RecordBodySkeleton />
 
   return (
     <div className="px-4 py-4 md:px-6" data-testid="record-unavailable">

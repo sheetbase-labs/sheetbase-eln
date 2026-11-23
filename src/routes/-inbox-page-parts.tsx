@@ -3,6 +3,7 @@
  * actions, the grouped rows, and the list body with its loading, empty and
  * failed states.
  */
+import { TableSkeleton } from '#/components/ui/page-skeleton'
 import type { Dispatch, RefObject, SetStateAction } from 'react'
 
 import { Icon } from '#/components/icons'
@@ -475,6 +476,15 @@ export function InboxNothingHere({
   typeLabel: string | undefined
   onClearType: () => void
 }): React.ReactElement {
+  if (pending) {
+    return (
+      <div role="status">
+        <span className="sr-only">{t('common.states.loading')}</span>
+        <TableSkeleton columns={4} rows={8} />
+      </div>
+    )
+  }
+
   const body = type
     ? t('projects.inbox.empty.type', { type: typeLabel ?? '' })
     : tab === 'following'
@@ -489,7 +499,7 @@ export function InboxNothingHere({
       className="flex flex-col items-center gap-2 px-4 py-12 text-center md:px-6"
     >
       <div className="text-prose font-semibold">
-        {pending ? t('common.states.loading') : t('projects.inbox.empty.title')}
+        {t('projects.inbox.empty.title')}
       </div>
       <div className="max-w-[460px] leading-[19px] text-fg-muted">{body}</div>
       {/* QA3-inbox-2 — the type chips narrow the list, so the state that

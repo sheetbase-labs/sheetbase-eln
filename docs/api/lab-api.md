@@ -2307,7 +2307,7 @@ Scope: `lab:read`.
 
 ### `generate_report`
 
-Generate a report. Builds the report from its sections as they stand now and keeps the result with a checksum. `p_output_format` is `html` by default. Returns the generation. Sends `report.generated`.
+Generate a report. Builds the report from its sections as they stand now and keeps the result with a checksum. Needs edit or review access to the project of the report. `p_output_format` is `html` by default. Returns the generation. Sends `report.generated`.
 
 Scope: `lab:write`.
 

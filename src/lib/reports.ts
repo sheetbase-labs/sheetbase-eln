@@ -1,5 +1,6 @@
 import { z } from 'zod'
 
+import { DataClientError } from '#/lib/data-client'
 import type { DataClient } from '#/lib/data-client'
 import type { NotebookBlock, RevisionWire } from '#/lib/notebook-data'
 import { t } from '#/copy'
@@ -523,6 +524,20 @@ function mapGeneration(g: GenerationWire): ReportGeneration {
     actorUserId: g.actor_user_id,
     generatedAt: g.generated_at,
   }
+}
+
+/**
+ * Whether a failed call was the database refusing this person: a report can
+ * be read by anyone who can view its project, but changed or generated only by
+ * someone who can edit it.
+ */
+export function isPermissionDenied(error: Error): boolean {
+  return (
+    error instanceof DataClientError &&
+    (error.code === 'permission_denied' ||
+      error.code === '42501' ||
+      error.status === 403)
+  )
 }
 
 export async function generateReport(

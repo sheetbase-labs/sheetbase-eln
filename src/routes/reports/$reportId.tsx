@@ -16,6 +16,7 @@ import { notebookDataClient } from '#/lib/notebook-data'
 import {
   fetchReport,
   generateReport,
+  isPermissionDenied,
   moveId,
   reorderSections,
   reportKeys,
@@ -28,6 +29,7 @@ import { AddPluginSectionDialog } from '#/components/extensions/plugin-report-se
 import { usePluginPoints } from '#/components/extensions/use-plugin-points'
 import { useRecentViewTracking } from '#/lib/recents'
 import { useUserNames } from '#/lib/user-names'
+import { fetchMyProjectPermissions } from '#/lib/workspace-access'
 import { signInRedirect } from '#/lib/sign-in-redirect'
 import { t } from '#/copy'
 import { z } from 'zod'
@@ -75,6 +77,21 @@ function ReportPage() {
   })
 
   const report = query.data
+
+  // Reading a report needs view access to its project; generating, checking
+  // and changing it need edit access. A report on no project follows the
+  // workspace role, which the database still decides.
+  const permissions = useQuery({
+    queryKey: ['project-permissions', 'mine'],
+    queryFn: () => fetchMyProjectPermissions(notebookDataClient),
+    staleTime: 60_000,
+  })
+
+  const canEdit =
+    !report?.projectId || permissions.data === undefined
+      ? true
+      : permissions.data.get(report.projectId)?.can_edit === true
+
   const names = useUserNames(report ? [report.createdByUserId] : [])
   useRecentViewTracking('record', report ? report.recordId : null)
 
@@ -88,7 +105,12 @@ function ReportPage() {
         definitionId: report?.definitionId ?? '',
       }),
     onSuccess: () => void refresh(),
-    onError: () => toast.error(t('projects.reports.builder.checkFailed')),
+    onError: (error: Error) =>
+      toast.error(
+        isPermissionDenied(error)
+          ? t('projects.reports.builder.checkDenied')
+          : t('projects.reports.builder.checkFailed'),
+      ),
   })
 
   const generate = useMutation({
@@ -104,11 +126,10 @@ function ReportPage() {
       })
       void queryClient.invalidateQueries({ queryKey: reportKeys.list })
     },
-    // oxlint-disable-next-line anti-slop/no-unknown-parameters -- A failed generation carries whatever the transport threw; its message is shown only when it is an Error.
-    onError: (error: unknown) =>
+    onError: (error: Error) =>
       toast.error(
-        error instanceof Error && error.message
-          ? error.message
+        isPermissionDenied(error)
+          ? t('projects.reports.builder.generateDenied')
           : t('projects.reports.builder.generateFailed'),
       ),
   })
@@ -144,7 +165,12 @@ function ReportPage() {
       void refresh()
       void queryClient.invalidateQueries({ queryKey: reportKeys.list })
     },
-    onError: () => toast.error(t('projects.reports.builder.statusFailed')),
+    onError: (error: Error) =>
+      toast.error(
+        isPermissionDenied(error)
+          ? t('projects.reports.builder.statusDenied')
+          : t('projects.reports.builder.statusFailed'),
+      ),
   })
 
   if (!report) {
@@ -179,10 +205,21 @@ function ReportPage() {
           tab={tab}
           ready={ready}
           generating={generate.isPending}
+          canEdit={canEdit}
           onShare={() => setShareOpen(true)}
           onGenerate={() => generate.mutate()}
         />
         <div className="min-h-0 flex-1 overflow-auto px-4 py-4 md:px-6">
+          {canEdit ? null : (
+            <Notice
+              tone="info"
+              icon="lock"
+              className="mb-4"
+              title={t('projects.reports.builder.readOnlyTitle')}
+            >
+              {t('projects.reports.builder.readOnlyBody')}
+            </Notice>
+          )}
           {locked ? (
             <Notice
               tone="warn"

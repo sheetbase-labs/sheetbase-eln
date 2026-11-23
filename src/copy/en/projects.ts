@@ -3774,6 +3774,12 @@ export const projects = {
       generating: 'Generating…',
       generatedToast: 'Document generated',
       generateFailed: 'The document could not be generated',
+      generateDenied:
+        'You can read this report but can’t generate it. Ask someone with edit access to its project, or ask an admin to give you edit access.',
+      readOnlyTitle: 'You can read this report but not change it',
+      readOnlyBody:
+        'Generating, checking and changing the status need edit access to its project. Ask an admin or the project owner for it.',
+      generateNeedsEdit: 'Needs edit access to the project',
       details: 'Details',
       status: 'Status',
       project: 'Project',
@@ -3797,6 +3803,10 @@ export const projects = {
         'Add a section and it will appear here as it will in the document.',
       moreActions: 'More actions',
       checkFailed: 'The sources could not be checked',
+      checkDenied:
+        'You can’t check this report’s sources without edit access to its project.',
+      statusDenied:
+        'You can’t change this report’s status without edit access to its project.',
     },
     section: {
       label: '{title}, section {n}',

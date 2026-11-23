@@ -238,8 +238,9 @@ export function outOfRangeRule(field: ReadingFieldWire): OutOfRangeRule | null {
 }
 
 /**
- * Client-side mirror of the database rule, used only to tell the scientist the
- * value will be flagged. The commit RPC stays authoritative.
+ * Tells the scientist the value will be flagged. The commit RPC stays
+ * authoritative; tests/db/bench-reading.test.ts saves values on and either
+ * side of each limit and fails when the database flags a different set.
  */
 export function isReadingOutOfRange(
   field: ReadingFieldWire,

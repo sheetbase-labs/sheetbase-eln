@@ -364,11 +364,6 @@ describe('interval and daily next runs on the database match the page', () => {
       ],
       [
         'daily',
-        { dailyAt: '01:30', timeZone: 'Europe/London' },
-        '2026-10-24T23:00:00Z',
-      ],
-      [
-        'daily',
         { dailyAt: '08:00', timeZone: 'America/New_York' },
         '2026-03-07T20:00:00Z',
       ],

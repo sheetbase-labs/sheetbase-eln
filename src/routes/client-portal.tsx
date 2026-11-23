@@ -1,5 +1,6 @@
 import { useState } from 'react'
-import { LoadingBlock } from '#/components/ui/page-skeleton'
+import { LoadingBlock, SectionSkeleton } from '#/components/ui/page-skeleton'
+import { Skeleton } from '#/components/ui/skeleton'
 import type { UseQueryResult } from '@tanstack/react-query'
 import { createFileRoute, redirect, useRouter } from '@tanstack/react-router'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
@@ -585,10 +586,28 @@ function PortalMain({
         projects.isPending ? (
           // Placeholder chrome only: the page's single H1 sits in the
           // topbar, so the loading state must not emit an empty one.
-          <div
-            aria-hidden="true"
-            className="border-b border-border bg-surface px-4 pt-3 pb-3 md:px-6 md:pt-3.5"
-          />
+          <div role="status">
+            <span className="sr-only">{t('common.states.loading')}</span>
+            <div
+              aria-hidden="true"
+              className="flex flex-col gap-2 border-b border-border bg-surface px-8 pt-4 pb-3"
+            >
+              <Skeleton className="h-5 w-56" />
+              <Skeleton className="h-3 w-72" />
+            </div>
+            <div className="flex flex-col gap-6 px-8 py-[22px]">
+              <SectionSkeleton
+                title={t('projects.clientPortal.milestones')}
+                columns={4}
+                rows={3}
+              />
+              <SectionSkeleton
+                title={t('projects.clientPortal.approvedRecords')}
+                columns={4}
+                rows={4}
+              />
+            </div>
+          </div>
         ) : (projects.data ?? []).length ? (
           (projects.data ?? []).map((p) => (
             <PortalProjectPanel key={p.projectId} project={p} />

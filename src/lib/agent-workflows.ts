@@ -269,8 +269,9 @@ export type AgentWorkflowStepGate =
   | 'succeeded'
 
 /**
- * Risk class of a workflow step's pinned operation. Mirrors the server
- * mapping in `internal.agent_operation_policy_evaluate`: Dataset row
+ * Risk class of a workflow step's pinned operation, as the server maps it in
+ * `internal.agent_operation_policy_evaluate_core` (tests/db/app-database-parity.test.ts
+ * compares the two): Dataset row
  * commits and notebook block inserts are consequential writes; every other
  * allowlisted operation drafts reversible configuration.
  */

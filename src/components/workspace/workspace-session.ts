@@ -513,7 +513,8 @@ export function useWorkspaceSession({
         newId,
         title: options.title,
         identifier: options.identifier,
-        duplicate: options.duplicate,
+        // Asking for a pane beside is deliberate: the same page may open twice.
+        duplicate: options.duplicate ?? options.beside,
         direction: options.below ? 'column' : 'row',
         before: options.before,
       })
@@ -1251,6 +1252,7 @@ export function useWorkspaceSession({
       newId,
       title: event.dataTransfer.getData('text/x-sheetbase-title') || undefined,
       targetId: paneId,
+      duplicate: true,
       direction: side === 'left' || side === 'right' ? 'row' : 'column',
       before: side === 'left' || side === 'top',
     })
@@ -1435,8 +1437,13 @@ export function useWorkspaceSession({
         Math.abs(point.x / box.width - 0.5) < 0.2 &&
         Math.abs(point.y / box.height - 0.5) < 0.2
 
+      // The middle only cites into the primary notebook, so offer it just when
+      // that pane is a record the citation can go into.
+      const active = activeTab(current.current)
+      const canCite = !!paneOf(active, active.primaryId)?.identifier
+
       const edge =
-        primary && middle && !carriesPageLink(event.dataTransfer)
+        primary && middle && canCite && !carriesPageLink(event.dataTransfer)
           ? ('center' as const)
           : dropEdge(point, box)
 

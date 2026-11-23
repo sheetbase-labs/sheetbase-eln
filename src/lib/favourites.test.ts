@@ -479,7 +479,7 @@ describe('resolveFavouriteItems', () => {
       ['record', 'Buffer lot A', '/samples/r-1'],
       ['dataset', 'Assay readouts', '/datasets/d-1'],
       ['project', 'Stability study', '/projects/p-1'],
-      ['notebook_template', 'PK study', '/templates?template=t-1'],
+      ['notebook_template', 'PK study', '/templates/t-1'],
     ])
   })
 

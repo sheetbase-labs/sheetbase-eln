@@ -174,7 +174,7 @@ describe('homeWaitingItem', () => {
       }),
     ).toMatchObject({
       text: 'MAT-0420 — lot expires in 6 days',
-      to: '/materials?selected=lot-1',
+      to: '/materials/lot-1',
     })
     expect(
       homeWaitingItem({
@@ -191,7 +191,7 @@ describe('homeWaitingItem', () => {
       }),
     ).toMatchObject({
       text: 'DS-0298 — 2 columns missing units',
-      to: '/datasets?dataset=ds-1&archived=false',
+      to: '/datasets/ds-1',
     })
   })
 
@@ -324,7 +324,7 @@ describe('buildComingUp', () => {
     })
     expect(built[4]).toMatchObject({
       why: 'A lot used in your work expires',
-      to: '/materials?selected=lot-1',
+      to: '/materials/lot-1',
     })
   })
 

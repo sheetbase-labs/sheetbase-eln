@@ -829,14 +829,7 @@ function LifecycleContent({
             {datasetId ? (
               <Button
                 render={
-                  <Link
-                    to="/datasets"
-                    search={{
-                      dataset: datasetId,
-                      archived: false,
-                      tab: 'pipelines',
-                    }}
-                  />
+                  <Link to="/datasets/$datasetId" params={{ datasetId }} />
                 }
                 nativeButton={false}
                 variant="secondary"

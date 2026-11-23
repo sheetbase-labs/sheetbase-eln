@@ -1447,7 +1447,7 @@ describe('NotebookCanvas — undo delete position (NOTE-01)', () => {
 })
 
 describe('Sheet provenance — route-level navigation (NAV-02)', () => {
-  it('resolves dataset provenance to the canonical /datasets?dataset=<uuid> route', () => {
+  it('resolves dataset provenance to the dataset page itself', () => {
     const datasetId = '770e8400-e29b-41d4-a716-446655440020'
     renderWithQuery(
       <SheetProvenanceLine
@@ -1471,11 +1471,8 @@ describe('Sheet provenance — route-level navigation (NAV-02)', () => {
     )
     expect(screen.getByRole('link').textContent).toBe('Open dataset')
     const last = linkCalls.calls[linkCalls.calls.length - 1]
-    expect(last.to).toBe('/datasets')
-    // Stable ID only: the explorer resolves the Dataset's lifecycle itself
-    // and flips to the archived view when needed.
-    expect(last.search).toEqual({ dataset: datasetId })
-    expect(last.params).toBeUndefined()
+    expect(last.to).toBe('/datasets/$datasetId')
+    expect(last.params).toEqual({ datasetId })
   })
 
   it('resolves record provenance to the canonical /records/:recordId route', () => {

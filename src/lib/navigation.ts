@@ -23,6 +23,15 @@ export function datasetPath(datasetId: string): string {
   return `/datasets/${encodeURIComponent(datasetId)}`
 }
 
+/** The flagged value itself: the dataset's rows with that value in focus. */
+export function datasetValuePath(
+  datasetId: string,
+  rowId: string,
+  fieldId: string,
+): string {
+  return `${datasetPath(datasetId)}/rows?row=${encodeURIComponent(rowId)}&field=${encodeURIComponent(fieldId)}&live=true`
+}
+
 export function datasetVersionPath(
   datasetId: string,
   versionId: string,
@@ -43,7 +52,7 @@ export function reagentPath(reagentId: string): string {
 }
 
 export function notebookTemplatePath(templateId: string): string {
-  return `/templates?template=${encodeURIComponent(templateId)}`
+  return `/templates/${encodeURIComponent(templateId)}`
 }
 
 export function reportPath(reportRecordId: string): string {
@@ -51,7 +60,7 @@ export function reportPath(reportRecordId: string): string {
 }
 
 export function protocolTemplatePath(templateRecordId: string): string {
-  return `/templates?protocol=${encodeURIComponent(templateRecordId)}`
+  return `/protocols/${encodeURIComponent(templateRecordId)}`
 }
 
 /** Resolve a polymorphic record to the product surface that owns it. */

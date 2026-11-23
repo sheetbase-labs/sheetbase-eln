@@ -107,6 +107,15 @@ Plain terms to use:
 (`title`, `aria-label`, `placeholder`, `label`, `alt`, …), in a text property
 (`label:`, `description:`, …) or passed to `toast`.
 
+The house rules a machine can check run in `src/copy/house-rules.test.ts`
+(part of `pnpm test`): contractions in hints and errors, curly apostrophes,
+"Try again" not "Retry", and none of the developer or retired words in the
+plain-terms table. A failure names the key, the text and the fix. Messages
+written before the test existed are listed in
+`src/copy/house-rules-pending.json`; the list only shrinks, and the test asks
+you to remove an entry once its message follows the rules. A statement a person
+signs keeps its formal wording: list its key there.
+
 Files that have not moved yet are listed in `scripts/copy-pending.txt` and
 skipped. The list only shrinks: once a file is clean the check asks you to run
 `pnpm check:copy --update`, which drops it. For the rare line that must stay

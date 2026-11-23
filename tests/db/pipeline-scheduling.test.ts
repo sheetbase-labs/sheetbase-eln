@@ -8,6 +8,8 @@ import { Client as PgClient } from 'pg'
 import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest'
 
 import { nextCronAfter } from '#/lib/pipeline-cron'
+import { nextRunAt, validateScheduleSpec } from '#/lib/pipeline-schedule'
+import type { PipelineScheduleKind } from '#/lib/pipeline-schedule'
 import { simpleConfig } from '#/lib/pipelines/simple/compile'
 import { sweepPipelines } from '#/lib/pipeline-scheduler.server'
 import type {
@@ -346,6 +348,134 @@ describe('cron on the database matches the page', () => {
       ).rejects.toMatchObject({ code: 'SB034' })
     }
   })
+})
+
+describe('interval and daily next runs on the database match the page', () => {
+  const cases: Array<['interval' | 'daily', Record<string, unknown>, string]> =
+    [
+      ['interval', { intervalMinutes: 15 }, '2026-10-21T08:41:00Z'],
+      ['interval', { intervalMinutes: 525_600 }, '2026-02-28T23:59:00Z'],
+      ['daily', { dailyAt: '09:30' }, '2026-10-21T09:29:00Z'],
+      ['daily', { dailyAt: '09:30' }, '2026-10-21T09:30:00Z'],
+      [
+        'daily',
+        { dailyAt: '09:30', timeZone: 'Europe/London' },
+        '2026-10-24T09:00:00Z',
+      ],
+      [
+        'daily',
+        { dailyAt: '01:30', timeZone: 'Europe/London' },
+        '2026-10-24T23:00:00Z',
+      ],
+      [
+        'daily',
+        { dailyAt: '08:00', timeZone: 'America/New_York' },
+        '2026-03-07T20:00:00Z',
+      ],
+      [
+        'daily',
+        { dailyAt: '23:59', timeZone: 'Australia/Sydney' },
+        '2026-10-03T12:00:00Z',
+      ],
+    ]
+
+  for (const [kind, spec, from] of cases) {
+    it(`${kind} ${JSON.stringify(spec)} after ${from}`, async () => {
+      const { rows } = await migrator.query<{ next: Date }>(
+        `select api.pipeline_schedule_next_run($1, $2::jsonb, $3::timestamptz) as next`,
+        [kind, JSON.stringify(spec), from],
+      )
+
+      expect(rows[0].next.toISOString()).toBe(
+        nextRunAt(
+          kind,
+          spec as Parameters<typeof nextRunAt>[1],
+          new Date(from),
+        )!.toISOString(),
+      )
+    })
+  }
+})
+
+describe('schedule specs: the database accepts what the page accepts', () => {
+  const DATASET = '0e010000-0000-4000-8000-0000000005aa'
+  const cases: Array<[string, PipelineScheduleKind, Record<string, unknown>]> =
+    [
+      ['a plain daily spec', 'daily', { dailyAt: '09:00' }],
+      [
+        'run_once policy',
+        'daily',
+        { dailyAt: '09:00', missedRunPolicy: 'run_once' },
+      ],
+      ['skip policy', 'daily', { dailyAt: '09:00', missedRunPolicy: 'skip' }],
+      [
+        'an unknown policy',
+        'daily',
+        { dailyAt: '09:00', missedRunPolicy: 'never' },
+      ],
+      ['a number policy', 'daily', { dailyAt: '09:00', missedRunPolicy: 5 }],
+      ['empty parameters', 'daily', { dailyAt: '09:00', parameters: {} }],
+      ['list parameters', 'daily', { dailyAt: '09:00', parameters: [] }],
+      ['text parameters', 'daily', { dailyAt: '09:00', parameters: 'x' }],
+      ['empty inputs', 'daily', { dailyAt: '09:00', inputs: {} }],
+      ['list inputs', 'daily', { dailyAt: '09:00', inputs: [] }],
+      [
+        'a badly named input',
+        'daily',
+        { dailyAt: '09:00', inputs: { Bad: { mode: 'latest' } } },
+      ],
+      [
+        'an input with no binding',
+        'daily',
+        { dailyAt: '09:00', inputs: { raw: 'x' } },
+      ],
+      [
+        'an input with an unknown mode',
+        'daily',
+        { dailyAt: '09:00', inputs: { raw: { mode: 'weird' } } },
+      ],
+      [
+        'a latest input with no real dataset id',
+        'daily',
+        {
+          dailyAt: '09:00',
+          inputs: { raw: { mode: 'latest', datasetId: 'nope' } },
+        },
+      ],
+      [
+        'a pinned input with no version id',
+        'daily',
+        { dailyAt: '09:00', inputs: { raw: { mode: 'pinned' } } },
+      ],
+      [
+        'an incremental input on a daily spec, bad dataset',
+        'daily',
+        {
+          dailyAt: '09:00',
+          inputs: { raw: { mode: 'incremental', datasetId: DATASET + 'x' } },
+        },
+      ],
+    ]
+
+  for (const [label, kind, spec] of cases) {
+    it(label, async () => {
+      const page = validateScheduleSpec(kind, spec) === null
+      const database = await migrator
+        .query(
+          `select api.validate_pipeline_schedule_spec($1::uuid, $2, $3::jsonb)`,
+          [WS, kind, JSON.stringify(spec)],
+        )
+        .then(
+          () => true,
+          () => false,
+        )
+
+      expect(
+        database,
+        `the page ${page ? 'accepts' : 'refuses'} this spec and the database ${database ? 'accepts' : 'refuses'} it: api.validate_pipeline_schedule_spec and validateScheduleSpec (src/lib/pipeline-schedule.ts) have drifted`,
+      ).toBe(page)
+    })
+  }
 })
 
 describe('creating and updating triggers', () => {

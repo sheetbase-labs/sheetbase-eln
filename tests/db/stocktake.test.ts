@@ -8,6 +8,14 @@
 import type { Client } from 'pg'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 
+import {
+  STOCKTAKE_ACTIONS,
+  STOCKTAKE_ITEM_STATES,
+  actionsFor,
+  toStocktakeItem,
+} from '#/lib/stocktake'
+import type { StocktakeItemWire } from '#/lib/stocktake'
+
 import { expectDenied, prepareTestDatabase } from './helpers'
 
 const WS = '00000000-0000-4000-8000-00000000e601'
@@ -408,5 +416,85 @@ describe('walking a rack', () => {
       '42501',
     )
     await owner.query(`select api.cancel_stocktake($1)`, [st.id])
+  })
+})
+
+describe('the fixes the app offers', () => {
+  /** The database says no to an action by saying it does not fit the item. */
+  const REFUSED_AS_NOT_FITTING =
+    /does not apply|nothing to fix|already been dealt/
+
+  async function allowedByDatabase(itemId: string): Promise<string[]> {
+    const allowed: string[] = []
+
+    for (const action of STOCKTAKE_ACTIONS) {
+      await owner.query('begin')
+
+      try {
+        await owner.query(`select api.resolve_stocktake_item($1,$2,null)`, [
+          itemId,
+          action,
+        ])
+        allowed.push(action)
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error)
+
+        if (!REFUSED_AS_NOT_FITTING.test(message)) allowed.push(action)
+      } finally {
+        await owner.query('rollback')
+      }
+    }
+
+    return allowed.sort()
+  }
+
+  it('lists, for every kind of item in every state, the fixes the database accepts', async () => {
+    const { rows: counts } = await migrator.query(
+      `select coalesce(max(number), 0) + 1 as next from api.stocktakes where workspace_id = $1`,
+      [WS],
+    )
+    const { rows: made } = await migrator.query(
+      `insert into api.stocktakes(workspace_id, number, scope_level, scope_id, scope_name, scope_path, status, completed_at)
+       values ($1, $2, 'box', $3, 'Box 1', 'Lab / Box 1', 'completed', now()) returning id`,
+      [WS, counts[0].next, boxA],
+    )
+    const stocktakeId: string = made[0].id
+    const gaps: string[] = []
+
+    for (const kind of ['sample', 'material'] as const) {
+      for (const state of STOCKTAKE_ITEM_STATES) {
+        for (const resolved of [false, true]) {
+          const rec = await record(kind, `${kind} ${state} ${resolved}`)
+          const { rows } = await migrator.query(
+            `insert into api.stocktake_items(workspace_id, stocktake_id, record_id, identifier, title, record_kind, expected, state, resolution, resolved_at)
+             values ($1, $2, $3, $4, null, $5, true, $6, $7, $8) returning *`,
+            [
+              WS,
+              stocktakeId,
+              rec.id,
+              rec.identifier,
+              kind,
+              state,
+              resolved ? 'accept' : null,
+              resolved ? new Date() : null,
+            ],
+          )
+          const row = rows[0] as StocktakeItemWire
+          const app = actionsFor(toStocktakeItem(row)).sort()
+          const database = await allowedByDatabase(row.id)
+
+          if (app.join() !== database.join()) {
+            gaps.push(
+              `${kind} / ${state}${resolved ? ' / already resolved' : ''}: app offers [${app}], database accepts [${database}]`,
+            )
+          }
+        }
+      }
+    }
+
+    expect(
+      gaps,
+      'actionsFor in src/lib/stocktake.ts and api.resolve_stocktake_item disagree on which fixes fit',
+    ).toEqual([])
   })
 })

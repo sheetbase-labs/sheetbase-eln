@@ -66,6 +66,7 @@ export {
   AgentOperationsResource,
   WebhooksResource,
   FilesResource,
+  ReportsResource,
   PeopleResource,
   PipelinesResource,
   FacilityResource,

@@ -14,6 +14,8 @@ export type {
   AgentWorkflowUsage,
 } from './agent-operations.js'
 export { FilesResource } from './files.js'
+export { ReportsResource } from './reports.js'
+export type { ReportFormat } from './reports.js'
 export type { FileSource, StoredFile } from './files.js'
 export { WebhooksResource } from './webhooks.js'
 export { PeopleResource } from './people.js'

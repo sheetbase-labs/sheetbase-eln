@@ -142,6 +142,8 @@ export const LAB_AREAS = {
     'Deliverables of planner tasks: what each task must produce and whether it is delivered (openOnly: only those not yet delivered)',
   reports:
     'Reports: title, document number, status and version (openOnly: only those not yet published or archived)',
+  report_downloads:
+    'Generated reports, newest first, with the report version and fingerprint. Each is downloaded as Word, PDF or a web page at /api/export/report-generation/<id>?format=docx, pdf or html (give the person that link with the id)',
   plate_designs:
     'Plate designs: the layouts drawn ahead of a run (openOnly: only those not archived)',
   analysis_views:
@@ -1110,6 +1112,14 @@ const PLAIN_AREAS: Partial<Record<LabArea, PlainArea>> = {
       'id,title,subtitle,document_identifier,status,version,last_saved_at,project_id',
     order: 'updated_at.desc',
     search: ['title', 'document_identifier'],
+    page: '/reports',
+  },
+  report_downloads: {
+    table: 'report_generations',
+    select:
+      'id,report_id,report_version,output_checksum,output_size_bytes,generated_at,report:report_definitions(title,document_identifier)',
+    order: 'generated_at.desc',
+    search: [],
     page: '/reports',
   },
   plate_designs: {

@@ -8,20 +8,50 @@ enforce workspace RLS through PostgreSQL and write a provenance receipt into
 
 ## Endpoints
 
-| Endpoint                               | Formats                               | Object                          |
-| -------------------------------------- | ------------------------------------- | ------------------------------- |
-| `GET /api/export/dataset/$id`          | csv, tsv, json, ndjson, xlsx, parquet | Live Dataset                    |
-| `GET /api/export/dataset-version/$id`  | csv, tsv, json, ndjson, xlsx, parquet | Dataset Version (frozen)        |
-| `GET /api/export/sheet-instance/$id`   | json, csv, tsv, xlsx, parquet         | Sheet Instance                  |
-| `GET /api/export/record/$id`           | json                                  | Record / Notebook document      |
-| `GET /api/export/revision/$id/package` | zip                                   | Submitted revision evidence ZIP |
-| `GET /api/export/revision/$id/pdf`     | pdf                                   | Signed record report (PDF)      |
-| `GET /api/export/record/$id/eln`       | .eln                                  | One experiment as an archive    |
-| `GET /api/export/project/$id/eln`      | .eln                                  | All experiments in a project    |
-| `POST /api/import/eln?projectId=$id`   | .eln body                             | Import experiments as drafts    |
+| Endpoint                                | Formats                               | Object                          |
+| --------------------------------------- | ------------------------------------- | ------------------------------- |
+| `GET /api/export/dataset/$id`           | csv, tsv, json, ndjson, xlsx, parquet | Live Dataset                    |
+| `GET /api/export/dataset-version/$id`   | csv, tsv, json, ndjson, xlsx, parquet | Dataset Version (frozen)        |
+| `GET /api/export/sheet-instance/$id`    | json, csv, tsv, xlsx, parquet         | Sheet Instance                  |
+| `GET /api/export/record/$id`            | json                                  | Record / Notebook document      |
+| `GET /api/export/revision/$id/package`  | zip                                   | Submitted revision evidence ZIP |
+| `GET /api/export/revision/$id/pdf`      | pdf                                   | Signed record report (PDF)      |
+| `GET /api/export/report-generation/$id` | docx (default), pdf, html             | A generated report              |
+| `GET /api/export/record/$id/eln`        | .eln                                  | One experiment as an archive    |
+| `GET /api/export/project/$id/eln`       | .eln                                  | All experiments in a project    |
+| `POST /api/import/eln?projectId=$id`    | .eln body                             | Import experiments as drafts    |
 
 Downloads are plain GETs: session cookies authenticate them, so an anchor or
 `window.open` is enough in the browser.
+
+## Generated reports (Word, PDF, HTML)
+
+`GET /api/export/report-generation/$id?format=docx|pdf|html` downloads one
+generated report (the `id` that `generate_report` returns, or a row of
+`report_generations`). Word is the default.
+
+- All three formats are made from the document stored when the report was
+  generated, never from the live sections, so a copy shows that version exactly.
+- **The fingerprint covers the content, not the file.** It is the report's
+  `output_checksum`, a SHA-256 of what the report was generated from (its
+  sections and their frozen evidence). The Word, PDF and HTML copies of one
+  generation therefore share the same fingerprint and version, and the Word and
+  PDF copies print both (with the report number) in the footer of every page.
+  The size shown for a generation is the stored HTML; the other formats differ.
+- The PDF and Word files draw each section's saved text (headings, paragraphs,
+  lists) rather than the raw stored data; evidence with no text (a chart or a
+  table) is marked as saved data, with its evidence digest.
+- Authenticate with the session, or a personal API token holding `lab:read`
+  (service credentials cannot). Workspace and report access are enforced by
+  the database, and each download writes an `api.data_exports` receipt with
+  object type `report_generation` and the format.
+- Python: `client.reports.download(generation_id, format="pdf")`. TypeScript:
+  `client.reports.download(id, { format: "pdf" })`.
+- The assistant lists generated reports with `sheetbase.lab.list` (area
+  `report_downloads`) and gives the download link. MCP agents read
+  `report_generations` through `sheetbase.canonical.read`; the binary download
+  itself is the route above. Downloading changes no state, so it sends no
+  webhook event.
 
 ## Lossless machine snapshot transfer
 

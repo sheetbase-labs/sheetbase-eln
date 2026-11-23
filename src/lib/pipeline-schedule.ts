@@ -17,9 +17,10 @@
  * producer in the record/dataset/sheet/notebook families — the data-change
  * signals that merit automation.
  *
- * The database mirrors this logic in api.pipeline_schedule_next_run so the
+ * The database repeats this logic in api.pipeline_schedule_next_run so the
  * RPCs can stamp next_run_at at create/update time; this module is used by
- * the scheduler sweep and its unit tests.
+ * the scheduler sweep and its unit tests. `tests/db/pipeline-scheduling.test.ts`
+ * fails when the two give different times.
  */
 
 import { z } from 'zod'
@@ -325,8 +326,8 @@ function zoneOf(record: { timeZone?: unknown }): string {
 
 /**
  * The parts of a spec every kind shares: input bindings, the missed-run
- * policy and parameters. Mirrors api.validate_pipeline_schedule_spec so a
- * spec the page accepts is one the database accepts.
+ * policy and parameters. `tests/db/pipeline-scheduling.test.ts` fails when this
+ * and api.validate_pipeline_schedule_spec accept different specs.
  */
 function validateCommonSpec(
   kind: PipelineScheduleKind,

@@ -609,9 +609,7 @@ function DataGridTableVirtualSkeletonRows<TData extends object>({
         </DataGridTableBodyRowSkeleton>
       ))}
       <tr>
-        <td className="sr-only">
-          {i18n.labels.loading}
-        </td>
+        <td className="sr-only">{i18n.labels.loading}</td>
       </tr>
     </>
   )

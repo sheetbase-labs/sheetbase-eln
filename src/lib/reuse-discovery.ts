@@ -195,7 +195,7 @@ export function parameterKindDetail(type: ParameterTypeSummary): string {
 /**
  * Summarise what instantiating a notebook template version needs, reusing
  * the configuration validation contract: `parameters` (required vs
- * optional, mirroring `buildParameterInputs` which throws for a missing
+ * optional, as `buildParameterInputs` does, which throws for a missing
  * required value) and `placements` (including `parameterMappings` wiring
  * validated by the configuration schema).
  */

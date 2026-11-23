@@ -7,8 +7,8 @@
  * workspace route renders. Reads go through the same-origin `/api/db`
  * boundary and RLS; the four transition RPCs are SECURITY DEFINER and enforce
  * the active / not-superseded / digest / permission guards server-side, so
- * the UI mirroring those guards can never offer an action the database will
- * refuse.
+ * the UI only needs to decide which buttons to enable; the database refuses
+ * anything else.
  */
 import { z } from 'zod'
 
@@ -270,9 +270,9 @@ export function withdrawReview(
 // ---------------------------------------------------------------------------
 // Action-permission derivation.
 //
-// The UI mirrors the server-side guards so it never offers an action the
-// database will refuse. The RPC remains the authority — these helpers only
-// decide whether a button is enabled and what consequence to surface.
+// The RPC is the authority. These helpers only decide whether a button is
+// enabled and what consequence to surface; a decision also needs a signing
+// step-up, covered by the signature tests.
 // ---------------------------------------------------------------------------
 
 export interface ReviewActionPermission {

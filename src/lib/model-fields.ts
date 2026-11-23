@@ -570,7 +570,7 @@ export interface CreateModelFieldWithSemanticsInput {
 /**
  * MODEL-02 authoring flow using only existing RPCs: draft the field,
  * configure governed semantics (quantity/category source/relationship),
- * create embedded options, then activate. Mirrors what
+ * create embedded options, then activate. Does what
  * `create_and_activate_model_field` does for the simple case.
  */
 export async function createModelFieldWithSemantics(

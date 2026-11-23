@@ -74,7 +74,7 @@ function positiveInt(value: string | undefined): number | undefined {
 
 /**
  * PLAT-03 — abuse bound for the file byte routes (bytes are already capped
- * per request; this bounds request volume). Fails open by design. Mirrors the
+ * per request; this bounds request volume). Fails open by design. Behaves like the
  * proxy limiter: same bounded outcome metric, a safe warn log with no
  * principal identifiers, and Retry-After on the rejection.
  */

@@ -15,7 +15,7 @@
  * Saved views preserve a `DatasetViewSpec` (filters, sorting, grouping, field
  * selection, density) in local storage. The store treats persisted state as
  * untrusted browser input and re-validates it against the active dataset's
- * columns and the safe limits below, mirroring the registry view sanitiser.
+ * columns and the safe limits below, as the registry view sanitiser does.
  */
 import { z } from 'zod'
 

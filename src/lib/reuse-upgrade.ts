@@ -502,7 +502,7 @@ export interface NotebookTemplateUpgradeAdoption {
 /**
  * Validate an explicit Sheet Definition adoption before applying. The preview
  * must name the requested target (stale previews fail closed) and every
- * conflict needs exactly one decision — mirroring the apply RPC. Returns the
+ * conflict needs exactly one decision — as the apply RPC does (the RPC is authoritative). Returns the
  * old/new version pair for dependency/version evidence; applying re-pins
  * governed values to the target while `preserved` local state stays with
  * the instance.

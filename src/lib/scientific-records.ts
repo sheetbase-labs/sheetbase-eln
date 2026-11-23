@@ -164,7 +164,7 @@ export interface PropertyValidationError {
 
 /**
  * Validate a `properties` object against the active field definitions for a
- * kind. Mirrors the type vocabulary reused from scientific_columns (0019).
+ * kind. Uses the type vocabulary from scientific_columns (0019).
  * Returns an array of errors; empty means valid. Unknown keys (values for
  * retired or never-defined fields) are preserved but flagged so the caller
  * can decide whether to warn; they are not stripped, because historical
@@ -326,7 +326,7 @@ export const KIND_STATUS_VOCABULARY: Record<
 
 /**
  * Link type for a scientific record kind — the `record_links.link_type`
- * value used when linking a scientific record into a notebook. Mirrors the
+ * value used when linking a scientific record into a notebook. Uses the
  * `sample`/`material`/`protocol` link types from decision 0015.
  */
 export function linkTypeForKind(kind: ScientificRecordKind): string {

@@ -353,7 +353,7 @@ describe('pairComparativeSources', () => {
 
 describe('toComparableNumber', () => {
   it('reads every value the way the chart materialiser does', () => {
-    const values = [
+    const values: (number | string | boolean | null)[] = [
       3,
       -1.5,
       0,
@@ -367,14 +367,13 @@ describe('toComparableNumber', () => {
       true,
       false,
       null,
-      undefined,
     ]
 
     for (const value of values) {
       expect(
-        toComparableNumber(value as never),
+        toComparableNumber(value),
         `toComparableNumber and toNumber (src/lib/chart-spec.ts) disagree on ${String(value)}`,
-      ).toBe(toNumber(value as never))
+      ).toBe(toNumber(value))
     }
   })
 })

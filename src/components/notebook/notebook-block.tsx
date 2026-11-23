@@ -117,7 +117,7 @@ const stateRing: Record<NotebookBlockState, string> = {
   default: 'bg-transparent',
   selected: 'bg-transparent',
   editing: 'bg-transparent',
-  dragging: 'bg-surface opacity-60 shadow-sm ring-1 ring-inset ring-primary/50',
+  dragging: 'bg-surface opacity-60 shadow-sm ring-1 ring-inset ring-ring/50',
   invalid: 'ring-1 ring-inset ring-destructive/60',
   locked: 'bg-surface-muted/20',
   loading: 'bg-transparent',

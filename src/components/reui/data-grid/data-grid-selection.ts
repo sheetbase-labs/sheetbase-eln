@@ -61,8 +61,8 @@ export const dataGridCellSelectionCellClasses = cn(
   // cells must stay OPAQUE (they hide scrolled content), so they get the
   // tint pre-mixed over the background, and the focused pinned cell keeps
   // a solid background instead of turning transparent.
-  'data-[cell-selected]:bg-primary/4',
-  'data-[cell-selected]:data-pinned:bg-[color-mix(in_oklab,var(--primary)_4%,var(--data-grid-surface,var(--data-grid-card-surface,var(--background))))]',
+  'data-[cell-selected]:bg-foreground/4',
+  'data-[cell-selected]:data-pinned:bg-[color-mix(in_oklab,var(--foreground)_4%,var(--data-grid-surface,var(--data-grid-card-surface,var(--background))))]',
   'data-[cell-focused]:bg-transparent!',
   'data-[cell-focused]:data-pinned:bg-[color:var(--data-grid-surface,var(--data-grid-card-surface,var(--background)))]!',
   // Every selection line is one layout-free ::before overlay per cell. It
@@ -79,8 +79,8 @@ export const dataGridCellSelectionCellClasses = cn(
   // start/end
   // so RTL mirrors for free; a separate override rule cannot do this,
   // equal-specificity variants leave shorthand-vs-longhand to sort order.
-  "data-[cell-selected]:before:pointer-events-none data-[cell-selected]:before:absolute data-[cell-selected]:before:top-[var(--data-grid-overlay-top,-1px)] data-[cell-selected]:before:start-[var(--data-grid-overlay-start,-1px)] data-[cell-selected]:before:end-[var(--data-grid-overlay-end,-1px)] data-[cell-selected]:before:bottom-[var(--data-grid-overlay-bottom,-1px)] data-[cell-selected]:before:border-primary data-[cell-selected]:before:content-['']",
-  "data-[cell-focused]:before:pointer-events-none data-[cell-focused]:before:absolute data-[cell-focused]:before:top-[var(--data-grid-overlay-top,-1px)] data-[cell-focused]:before:start-[var(--data-grid-overlay-start,-1px)] data-[cell-focused]:before:end-[var(--data-grid-overlay-end,-1px)] data-[cell-focused]:before:bottom-[var(--data-grid-overlay-bottom,-1px)] data-[cell-focused]:before:border-primary data-[cell-focused]:before:content-['']",
+  "data-[cell-selected]:before:pointer-events-none data-[cell-selected]:before:absolute data-[cell-selected]:before:top-[var(--data-grid-overlay-top,-1px)] data-[cell-selected]:before:start-[var(--data-grid-overlay-start,-1px)] data-[cell-selected]:before:end-[var(--data-grid-overlay-end,-1px)] data-[cell-selected]:before:bottom-[var(--data-grid-overlay-bottom,-1px)] data-[cell-selected]:before:border-ring data-[cell-selected]:before:content-['']",
+  "data-[cell-focused]:before:pointer-events-none data-[cell-focused]:before:absolute data-[cell-focused]:before:top-[var(--data-grid-overlay-top,-1px)] data-[cell-focused]:before:start-[var(--data-grid-overlay-start,-1px)] data-[cell-focused]:before:end-[var(--data-grid-overlay-end,-1px)] data-[cell-focused]:before:bottom-[var(--data-grid-overlay-bottom,-1px)] data-[cell-focused]:before:border-ring data-[cell-focused]:before:content-['']",
   // Interior dividers: selected cells repaint their own end and bottom
   // gridlines on the overlay, so gridline-less grids still divide a range.
   // The gray color is guarded by not- variants (higher specificity), so a
@@ -134,6 +134,6 @@ export const dataGridCellSelectionCellClasses = cn(
   '[td[data-pinned]+&]:[--data-grid-overlay-start:0px]',
   // Tint only: the dashed region outline is one overlay element drawn by
   // the fill session, so neighboring target cells never double their edges.
-  'data-[cell-fill-target]:bg-primary/4',
-  'data-[cell-fill-target]:data-pinned:bg-[color-mix(in_oklab,var(--primary)_4%,var(--data-grid-surface,var(--data-grid-card-surface,var(--background))))]',
+  'data-[cell-fill-target]:bg-foreground/4',
+  'data-[cell-fill-target]:data-pinned:bg-[color-mix(in_oklab,var(--foreground)_4%,var(--data-grid-surface,var(--data-grid-card-surface,var(--background))))]',
 )

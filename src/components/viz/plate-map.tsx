@@ -389,7 +389,7 @@ export function PlateMap({
                       'flex aspect-square w-full items-center justify-center overflow-hidden rounded-full border border-white/60 text-[8px] font-medium leading-none text-white/90 transition-transform hover:scale-110 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 dark:border-black/20',
                       wellSize,
                       cellColour,
-                      selected && 'ring-2 ring-primary ring-offset-1',
+                      selected && 'ring-2 ring-ring ring-offset-1',
                       !interactive && 'cursor-default hover:scale-100',
                     )}
                   >

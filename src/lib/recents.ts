@@ -471,6 +471,7 @@ interface SheetLabelWire {
 interface TemplateLabelWire {
   id: string
   key: string
+  display_id: string | null
   name: string
   lifecycle: string
 }
@@ -543,17 +544,17 @@ export async function resolveRecentItems(
         idsByKind.get('sheet'),
         'id,display_id,name,lifecycle',
       ),
-      listByIds<ProjectWire>(
+      listByIds<ProjectWire & { display_id: string | null }>(
         client,
         'projects',
         idsByKind.get('project'),
-        'id,key,title,status,archived_at',
+        'id,key,display_id,title,status,archived_at',
       ),
       listByIds<TemplateLabelWire>(
         client,
         'notebook_templates',
         idsByKind.get('notebook_template'),
-        'id,key,name,lifecycle',
+        'id,key,display_id,name,lifecycle',
       ),
     ])
 
@@ -598,7 +599,7 @@ export async function resolveRecentItems(
     templateRows.map((t) => [
       t.id,
       {
-        key: t.key,
+        key: t.display_id ?? t.key,
         name: t.name,
         status: t.lifecycle,
         resumable: t.lifecycle === 'active',
@@ -610,7 +611,7 @@ export async function resolveRecentItems(
     projectRows.map((p) => [
       p.id,
       {
-        key: p.key,
+        key: p.display_id ?? p.key,
         title: p.title,
         status: p.status,
         resumable: p.archived_at === null,

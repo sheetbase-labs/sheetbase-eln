@@ -2,9 +2,12 @@
  * Home's rendered sections: the page header, the status chips, the first-run
  * checklist, the busy page's tables and the inspector.
  */
-import { Link } from '@tanstack/react-router'
+import { useMemo } from 'react'
+import { Link, useNavigate } from '@tanstack/react-router'
+import { useOpenRow } from '#/components/workspace/workspace-navigation'
 
 import { Button } from '#/components/ui/button'
+import { Row, RowList } from '#/components/ui/row'
 import { Notice } from '#/components/ui/alert'
 import { Icon } from '#/components/icons'
 import {
@@ -33,7 +36,7 @@ import type {
   CollapsedActivity,
   DescribedAuditEvent,
 } from '#/lib/audit-history'
-import { reagentPath } from '#/lib/navigation'
+import { datasetPath, datasetValuePath, reagentPath } from '#/lib/navigation'
 import { cn } from '#/lib/utils'
 import { now as appNow } from '#/lib/clock'
 import { rich, t } from '#/copy'
@@ -44,6 +47,17 @@ import type { HomeReviewRow } from './-home-columns'
 import type { CalendarBooking } from '#/lib/calendar'
 import type { WorkItem } from '#/lib/work-items/data'
 import type { RecentItem } from '#/lib/recents'
+
+/** Where a flagged dataset opens: the flagged value when Home knows it. */
+function datasetIssuePath(issue: {
+  id: string
+  rowId: string | null
+  fieldId: string | null
+}): string {
+  return issue.rowId && issue.fieldId
+    ? datasetValuePath(issue.id, issue.rowId, issue.fieldId)
+    : datasetPath(issue.id)
+}
 
 /** A material that still needs attention, as Home reads it. */
 export type AttentionMaterial = Pick<
@@ -376,6 +390,19 @@ export function HomeRecentsSection({
 }: {
   recents: RecentItem[]
 }): React.ReactElement {
+  const navigate = useNavigate()
+
+  const openRecent = useOpenRow<RecentItem>(
+    navigate,
+    (r) => r.destination,
+    (r) => r.label,
+  )
+
+  const recentColumns = useMemo(
+    () => homeRecentColumns(openRecent),
+    [openRecent],
+  )
+
   return (
     <Section
       title={t('projects.home.sections.continueWorking')}
@@ -390,9 +417,10 @@ export function HomeRecentsSection({
           <RegistryGrid
             label={t('projects.home.sections.continueWorking')}
             rows={recents}
-            columns={homeRecentColumns}
+            columns={recentColumns}
             getRowId={(recent) => `${recent.kind}:${recent.id}`}
             selectable={false}
+            onRowClick={openRecent}
           />
         </TableBox>
       ) : (
@@ -420,6 +448,19 @@ export function HomeReviewsSection({
   onRetry: () => void
   timeZone: string
 }): React.ReactElement {
+  const navigate = useNavigate()
+
+  const openReview = useOpenRow<HomeReviewRow>(
+    navigate,
+    (r) => `/review/${encodeURIComponent(r.revisionId)}`,
+    (r) => r.title,
+  )
+
+  const reviewColumns = useMemo(
+    () => homeReviewColumns(timeZone, openReview),
+    [timeZone, openReview],
+  )
+
   return (
     <Section
       title={t('projects.home.sections.awaitingReview')}
@@ -448,9 +489,10 @@ export function HomeReviewsSection({
             <RegistryGrid
               label={t('projects.home.sections.awaitingReview')}
               rows={reviews}
-              columns={homeReviewColumns(timeZone)}
+              columns={reviewColumns}
               getRowId={(review) => review.id}
               selectable={false}
+              onRowClick={openReview}
             />
           </TableBox>
           {/* A phone gets the record and the way into its review. */}
@@ -459,31 +501,17 @@ export function HomeReviewsSection({
             className="m-0 flex list-none flex-col p-0 md:hidden"
           >
             {reviews.map((review) => (
-              <li
-                key={review.id}
-                className="flex items-center gap-3 border-b border-border-subtle py-2.5 last:border-0"
-              >
-                <span className="min-w-0 flex-1">
-                  <span className="block truncate font-medium">
-                    {review.title}
-                  </span>
-                  <span className="block truncate text-label text-fg-muted">
-                    <span className="mono">{review.identifier}</span>
-                    {review.projectTitle ? ` · ${review.projectTitle}` : ''}
-                  </span>
-                </span>
-                <Button
-                  size="sm"
-                  nativeButton={false}
-                  render={
-                    <Link
-                      to="/review/$revisionId"
-                      params={{ revisionId: review.revisionId }}
-                    />
+              <li key={review.id}>
+                <Row
+                  to={`/review/${encodeURIComponent(review.revisionId)}`}
+                  title={review.title}
+                  meta={`${review.identifier}${review.projectTitle ? ` · ${review.projectTitle}` : ''}`}
+                  trailing={
+                    <span className="text-label font-medium text-link">
+                      {t('projects.home.columns.review')}
+                    </span>
                   }
-                >
-                  {t('projects.home.columns.review')}
-                </Button>
+                />
               </li>
             ))}
           </ul>
@@ -744,6 +772,8 @@ export function HomeInspectorToday({
   datasetIssues: {
     id: string
     identifier: string
+    rowId: string | null
+    fieldId: string | null
     label: string
     detail: string
   }[]
@@ -820,50 +850,39 @@ export function HomeInspectorToday({
             onRetry={onRetryAttention}
           />
         ) : datasetIssues.length || materials.length ? (
-          <ul className="m-0 flex list-none flex-col gap-3 p-0">
+          <RowList>
             {datasetIssues.map((f) => (
-              <li key={f.id} className="flex gap-2">
-                <span className="mt-0.5 text-danger">
-                  <Icon name="warn" size={14} />
-                </span>
-                <div className="min-w-0">
-                  <Link
-                    to="/datasets"
-                    search={{ dataset: f.id, archived: false }}
-                  >
-                    {f.identifier}
-                  </Link>{' '}
-                  · {f.label}
-                  <div className="text-label text-fg-muted">{f.detail}</div>
-                </div>
-              </li>
+              <Row
+                key={f.id}
+                to={datasetIssuePath(f)}
+                leading={
+                  <span className="text-danger">
+                    <Icon name="warn" size={14} />
+                  </span>
+                }
+                title={`${f.identifier} · ${f.label}`}
+                meta={f.detail}
+                detail={f.detail}
+              />
             ))}
             {materials.map((material) => (
-              <li
+              <Row
                 key={material.recordId ?? material.identifier}
-                className="flex gap-2"
-              >
-                <span className="mt-0.5 text-warning-text">
-                  <Icon name="warn" size={14} />
-                </span>
-                <div className="min-w-0">
-                  <Link
-                    to={
-                      material.recordId
-                        ? reagentPath(material.recordId)
-                        : '/materials'
-                    }
-                  >
-                    {material.identifier ?? material.title}
-                  </Link>{' '}
-                  · {homeMaterialExpiryLabel(material, appNow(), timeZone)}
-                  <div className="text-label text-fg-muted">
-                    {material.title}
-                  </div>
-                </div>
-              </li>
+                to={
+                  material.recordId
+                    ? reagentPath(material.recordId)
+                    : '/materials'
+                }
+                leading={
+                  <span className="text-warning-text">
+                    <Icon name="warn" size={14} />
+                  </span>
+                }
+                title={`${material.identifier ?? material.title} · ${homeMaterialExpiryLabel(material, appNow(), timeZone)}`}
+                meta={material.title}
+              />
             ))}
-          </ul>
+          </RowList>
         ) : (
           <p className="m-0 text-label text-fg-muted">
             {t('projects.home.nothingNeedsAttention')}

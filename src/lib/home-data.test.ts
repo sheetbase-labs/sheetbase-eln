@@ -175,12 +175,16 @@ describe('Home authority enrichment', () => {
       {
         id: 'd1',
         identifier: 'DS-0298',
+        rowId: null,
+        fieldId: null,
         label: '2 columns missing units',
         detail: '“Osmolality”, “Glucose” — add before review',
       },
       {
         id: 'd2',
         identifier: 'DS-0311',
+        rowId: null,
+        fieldId: null,
         label: '1 value outside range',
         detail: 'Measured 61.5 NTU, allowed 0–50 NTU',
       },

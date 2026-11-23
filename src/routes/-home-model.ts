@@ -554,6 +554,8 @@ export function useHomeWorkReads({
           datasetIssues: datasetIssues.map((issue) => ({
             id: issue.id,
             identifier: issue.identifier,
+            rowId: issue.rowId,
+            fieldId: issue.fieldId,
             label: issue.label,
           })),
         })

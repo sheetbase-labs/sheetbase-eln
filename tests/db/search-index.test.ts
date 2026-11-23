@@ -189,7 +189,6 @@ describe('what each block type contributes', () => {
     },
     callout: { text: 'zebrafinch warning', variant: 'warning' },
     conclusion: { text: 'zebrafinch result', verdict: 'supported' },
-    table: { columns: ['zebrafinch col'], rows: [['cell value']] },
     sheet: { instanceId: '0d052000-0000-4000-8000-0000000000ff' },
     chart: { title: 'zebrafinch chart', spec: {} },
     analysis: { title: 'zebrafinch analysis' },

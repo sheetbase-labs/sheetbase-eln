@@ -463,8 +463,9 @@ describe('Virus Stability demo fixtures', () => {
     // SCI-003 file block, with no duplicates after two runs.
     // SCI-004 adds a Sheet Instance block. Charts no longer bind a
     // scientific table. SCI-005 adds a plate map. SCI-009 adds a
-    // linked_record block. Total 16.
-    expect(Number(rows[0]?.n)).toBe(16)
+    // linked_record block. The static design table is gone (the notebook
+    // sheet is the table). Total 15.
+    expect(Number(rows[0]?.n)).toBe(15)
 
     const { rows: sheet } = await migrator.query<{
       fields: string
@@ -529,7 +530,7 @@ describe('Virus Stability demo fixtures', () => {
     expect(rows.map((r) => r.type)).toEqual(
       expect.arrayContaining([
         'rich_text',
-        'table',
+        'sheet',
         'chart',
         'metric',
         'checklist',

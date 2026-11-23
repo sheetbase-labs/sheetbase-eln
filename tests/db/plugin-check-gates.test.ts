@@ -1,7 +1,7 @@
 /**
  * A gate that waits on a plugin check (migration plugin_check_gates): the app
  * runs the check and keeps the answer; the gate reads it, and it counts only
- * while the table is unchanged. Nobody can write an answer from the API.
+ * while the sheet is unchanged. Nobody can write an answer from the API.
  * Runs against a freshly migrated sheetbase_test database.
  */
 import type { Client } from 'pg'
@@ -23,19 +23,25 @@ async function setUpExperiment(title: string) {
     [PROJECT, title],
   )
   const recordId = rows[0].id as string
-  const table = (
-    await owner.query(
-      `select api.insert_block($1,'table',$2::jsonb,1,null) as result`,
+  const instanceId = (
+    await migrator.query(
+      `select internal.grid_to_sheet_instance($1,$2::jsonb,$3,$4) as id`,
       [
         recordId,
-        JSON.stringify({
-          title: 'Readings',
-          columns: ['Sample', 'Value'],
-          rows: [['A', '1']],
-        }),
+        JSON.stringify({ columns: ['Sample', 'Value'], rows: [['A', '1']] }),
+        crypto.randomUUID(),
+        OWNER,
       ],
     )
+  ).rows[0].id as string
+
+  const table = (
+    await owner.query(
+      `select api.insert_block($1,'sheet',$2::jsonb,1,null) as result`,
+      [recordId, JSON.stringify({ instanceId })],
+    )
   ).rows[0].result.block as { id: string; version: number }
+
   const condition = {
     kind: 'plugin_check',
     blockId: table.id,
@@ -48,7 +54,7 @@ async function setUpExperiment(title: string) {
     `select api.insert_block($1,'gate',$2::jsonb,2,null) as result`,
     [recordId, JSON.stringify({ mode: 'block', conditions: [condition] })],
   )
-  return { recordId, table }
+  return { recordId, table, instanceId }
 }
 
 async function gate(recordId: string) {
@@ -119,21 +125,29 @@ describe('plugin check gates', () => {
   })
 
   it('asks for a fresh run once the table has changed', async () => {
-    const { recordId, table } = await setUpExperiment('Table edited')
+    const { recordId, table, instanceId } =
+      await setUpExperiment('Table edited')
     await record(recordId, table.id, 'pass')
     expect((await gate(recordId)).met).toBe(true)
-    await owner.query(`select api.update_block_payload($1,$2::jsonb,$3)`, [
-      table.id,
-      JSON.stringify({
-        title: 'Readings',
-        columns: ['Sample', 'Value'],
-        rows: [
-          ['A', '1'],
-          ['B', '99'],
-        ],
-      }),
-      table.version,
-    ])
+    await migrator.query(
+      `select set_config('sheetbase.sheet_instance_write','rpc-v1',false)`,
+    )
+    await migrator.query(
+      `update api.sheet_instances
+          set state = internal.grid_sheet_state($2::jsonb,$3), revision = revision + 1
+        where id=$1`,
+      [
+        instanceId,
+        JSON.stringify({
+          columns: ['Sample', 'Value'],
+          rows: [
+            ['A', '1'],
+            ['B', '99'],
+          ],
+        }),
+        crypto.randomUUID(),
+      ],
+    )
     expect((await gate(recordId)).missing).toEqual([
       'Range check was run before the table changed. Run it again',
     ])

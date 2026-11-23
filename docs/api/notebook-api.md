@@ -237,6 +237,14 @@ order and the bumped structure version in one round-trip. When
 between the anchor and the block that currently follows it. An anchor that
 belongs to a different record is rejected with SQLSTATE `23503`.
 
+There is no `table` block type. A table in a notebook is an ad hoc sheet: add
+one with `insert_sheet_instance_block` and fill it with
+`mutate_sheet_instance_local_state`. Asking `insert_block` for a `table` is
+refused with SQLSTATE `22023`. Tables written before this became a sheet were
+converted in place (same block, same columns and rows); a template version or
+revision that still holds one turns it into a sheet when it is copied into a
+new notebook, and the signed revision keeps the text it was signed with.
+
 ### `delete_block`
 
 Removes a block and bumps the record `structure_version`. As with

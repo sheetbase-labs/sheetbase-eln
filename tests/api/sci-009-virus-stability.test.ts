@@ -457,19 +457,13 @@ beforeAll(async () => {
   experiment.structure_version = json.structure_version
   allBlockIds.push(json.block.id)
 
-  // 3. table — experimental design
+  // 3. a static table block is retired: asking for one is refused, and the
+  // design table is an ad hoc sheet (block 12 below).
   res = await insertBlock(USER_A, WS_A, experiment, 'table', {
     columns: ['Timepoint', 'Replicate', 'Volume', 'Storage'],
-    rows: [
-      ['Day 0', 1, '100 µL', '4 °C'],
-      ['Day 0', 2, '100 µL', '4 °C'],
-      ['Day 28', 1, '100 µL', '4 °C'],
-    ],
+    rows: [['Day 0', 1, '100 µL', '4 °C']],
   })
-  expect(res.status).toBe(200)
-  json = await res.json()
-  experiment.structure_version = json.structure_version
-  allBlockIds.push(json.block.id)
+  expect(res.status).toBeGreaterThanOrEqual(400)
 
   // 4. checklist — procedure progress / QC checks
   res = await insertBlock(USER_A, WS_A, experiment, 'checklist', {
@@ -873,7 +867,7 @@ afterAll(async () => {
 })
 
 describe('SCI-009 Virus Stability end-to-end API acceptance', () => {
-  it('creates the experiment through ordinary RPCs with all 13 block types', async () => {
+  it('creates the experiment through ordinary RPCs with every block type', async () => {
     const read = await proxy(
       `blocks?record_id=eq.${experiment.id}&order=order.asc`,
       USER_A,
@@ -888,7 +882,6 @@ describe('SCI-009 Virus Stability end-to-end API acceptance', () => {
       'checklist',
       'linked_record',
       'callout',
-      'table',
       'sheet',
       'chart',
       'plate_map',

@@ -254,10 +254,7 @@ export function canPublishDraft(
 }
 
 export type ApprovalTrailKind =
-  | 'submitted'
-  | 'approved'
-  | 'returned'
-  | 'withdrawn'
+  'submitted' | 'approved' | 'returned' | 'withdrawn'
 
 export interface ApprovalTrailEntry {
   id: string

@@ -239,19 +239,12 @@ export async function seedDesignQuality(db: Db): Promise<void> {
     await db.execute(sql`alter table api.records enable trigger set_updated_at`)
   }
 
-  // Legal holds: one on a project whose records must stay, one released after
-  // an inspection, one on named documents.
+  // Legal holds: one released after an inspection, one on named documents. A
+  // hold on a live project would stop the seed rewriting its records on a
+  // reseed, so the active hold sits on documents the seed leaves alone.
   const reports = await recordIds(db, ['RPT-2026-0001', 'RPT-2026-0002'])
 
   await inTransaction(db, PEOPLE.gareth, async (client) => {
-    await client.query(
-      `select api.create_legal_hold($1,$2,$3,null,'{}'::uuid[])`,
-      [
-        'AAV1 vector design: client audit',
-        'The client has asked for the original design records for their audit. Nothing in this project may be archived or deleted.',
-        '00000000-0000-4000-8000-000000000330',
-      ],
-    )
     await client.query(
       `select api.create_legal_hold($1,$2,null,null,$3::uuid[])`,
       [

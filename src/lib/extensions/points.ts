@@ -20,8 +20,8 @@
  * card a person presses (assistant) or a pipeline a person published.
  *
  * Validation here is mirrored in `internal.validate_extension_runner_points`
- * for direct-SQL installs; `tests/db/extension-tool-points.test.ts` keeps the
- * two in step.
+ * for direct-SQL installs; `tests/db/extension-tool-points.test.ts` fails when
+ * the two lists of points differ.
  */
 
 import { z } from 'zod'

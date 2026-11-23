@@ -273,7 +273,8 @@ export function isUpdateAvailable(
 }
 
 /**
- * Distribution trust policy (mirrored in the install/update RPCs):
+ * Distribution trust policy (`tests/db/ext-03-extension-distribution.test.ts`
+ * fails when the install RPC asks differently):
  * `https:` sources are trusted; every other source identity is untrusted
  * and requires explicit admin acknowledgement. Trust is never inferred.
  */

@@ -10,6 +10,7 @@ import { Client } from 'pg'
 import { drizzle } from 'drizzle-orm/node-postgres'
 
 import * as schema from '#/db/schema'
+import { requiresTrustAcknowledgement } from '#/lib/extensions/compat'
 import { migratorUrl, prepareTestDatabase } from './helpers'
 
 const WS = '0e030000-0000-4000-8000-0000000000e1'
@@ -184,6 +185,38 @@ describe('EXT-03 trusted distribution', () => {
       acknowledgeUntrusted: true,
     })
     expect(acknowledged.source).toBe(source)
+  })
+
+  it('asks for acknowledgement exactly where the page does (TS/SQL parity)', async () => {
+    const owner = await actor(OWNER, WS)
+    const sources = [
+      'https://extensions.example.com/a.tgz',
+      'dev:parity-panel',
+      'registry:acme/parity-panel',
+      'git:acme-parity-panel',
+    ]
+
+    for (const [index, source] of sources.entries()) {
+      const key = `dist-parity-${index}`
+      const manifest = manifestFixture({
+        id: `acme.${key}`,
+        source,
+        compatibleWith: '*',
+      })
+      const database = await install(owner, { key, source, manifest }).then(
+        () => 'accepts',
+        (error: { code?: string }) => {
+          if (error.code !== 'SB034') throw error
+
+          return 'asks'
+        },
+      )
+
+      expect(
+        database,
+        `${source}: requiresTrustAcknowledgement (src/lib/extensions/compat.ts) and the install RPC disagree about whether this source needs acknowledgement`,
+      ).toBe(requiresTrustAcknowledgement(source) ? 'asks' : 'accepts')
+    }
   })
 
   it('denies untrusted installs to members even with acknowledgement', async () => {

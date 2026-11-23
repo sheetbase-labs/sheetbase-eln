@@ -5,8 +5,9 @@ import type { FieldDefinition } from './field-definition'
 /**
  * MODEL-02 shared field-value semantics.
  *
- * Single client-side value contract mirroring the server authority
- * (`internal.validate_model_fields` in former migration 0057). Record input
+ * Single client-side value contract for the server's authority
+ * (`internal.validate_model_fields`); tests/db/field-value-parity.test.ts
+ * gives both the same values and fails on any disagreement. Record input
  * (`parseModelFieldInput`/`validateModelFieldValue`), Sheet cells
  * (`parseSheetCellInput`/`validateCanonicalCell` via `sheetLocalValueError`)
  * and the parity suite all funnel through here — no second rules engine.
@@ -268,8 +269,7 @@ function outsideNumericRange(field: FieldDefinition, value: number): boolean {
 
 /**
  * Full client-side value contract including nullability/defaults and
- * cardinality, mirroring `internal.validate_model_fields` null/required
- * handling. Reference existence stays server-side.
+ * cardinality, as `internal.validate_model_fields` handles null and required. Reference existence stays server-side.
  */
 export function validateFieldValue(
   field: FieldDefinition,

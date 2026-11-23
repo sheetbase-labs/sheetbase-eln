@@ -47,16 +47,23 @@ export interface SignatureWire {
 // ---------------------------------------------------------------------------
 
 export type PostSubmissionSignatureMeaning =
-  'reviewed' | 'reviewed-and-approved' | 'witnessed'
+  | 'reviewed'
+  | 'reviewed-and-approved'
+  | 'witnessed'
 
 /** Historical aliases remain readable but are never offered for new writes. */
 export type SignatureMeaning =
-  PostSubmissionSignatureMeaning | 'authored' | 'approve-for-record' | 'witness'
+  | PostSubmissionSignatureMeaning
+  | 'authored'
+  | 'approve-for-record'
+  | 'witness'
 
 export type SignatureAssuranceLevel = 'standard'
 
 export type SignatureAuthMethod =
-  'session+name-confirmation' | 'password' | 'demo'
+  | 'session+name-confirmation'
+  | 'password'
+  | 'demo'
 
 /** Result returned by the `sign_revision` RPC. */
 export interface SignRevisionResult {
@@ -211,14 +218,14 @@ export async function fetchSignatureWitnessCandidates(
     )
 }
 
-/** The server-mirrored gates that decide whether this person may sign. */
+/** The server-enforced gates that decide whether this person may sign. */
 export interface SignatureEligibility {
   writer: boolean
   requests: SignatureWitnessRequestWire[]
 }
 
 /**
- * Mirrors `internal.assert_signature_target`'s SB008 check gate: the latest
+ * The app's view of `internal.assert_signature_target`'s SB008 check gate (the database refusals are tested in tests/db/signatures.test.ts): the latest
  * check result must exist for the signed digest and have no blocking failures.
  * The panel states the requirement instead of letting the password attempt be
  * refused opaquely.
@@ -276,7 +283,7 @@ export function signatureMeaningEnabled(
 }
 
 /**
- * Mirrors target rules for presentation. Password issuance/RPCs enforce them.
+ * Shows the target rules for presentation. Password issuance/RPCs enforce them (tests/db/signatures.test.ts).
  * `certificationCurrent` is the signer's own attestation state: DEC-04 requires
  * a current certification for every signature, so an uncertified person has no
  * available meaning and is told why before a password attempt is refused.

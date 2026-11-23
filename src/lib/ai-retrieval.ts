@@ -15,8 +15,8 @@
  * Silence about invisible objects is by design, not an omission to fix —
  * minting such a marker would require an unfiltered count that leaks.
  *
- * Lifecycle rule (mirrors docs/api/search-api.md "Archived-result
- * behaviour"):
+ * Lifecycle rule (documented in docs/api/search-api.md "Archived-result
+ * behaviour"; the RPC tests in tests/db enforce it):
  * - Soft-deleted records (`deleted_at IS NOT NULL`) are excluded by the RPC
  *   and never appear as citations — same silence as invisible objects.
  * - Archived records, archived Datasets / Sheet Instances, and retired

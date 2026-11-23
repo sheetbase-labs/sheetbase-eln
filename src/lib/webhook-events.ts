@@ -10,7 +10,7 @@
  * Only a curated subset of change_events is mapped to webhook events. Events
  * not in this map (e.g. `storage_movement`, `folder`) are not
  * delivered to webhooks. This is intentional: the webhook surface is a
- * stable product contract, not a mirror of every internal change.
+ * stable product contract, not a copy of every internal change.
  *
  * The canonical name/alias record lives in `./event-catalogue` (EVENT-01):
  * several shipped wire names leak table names (`sheet_instance.*`,

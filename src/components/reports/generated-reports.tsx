@@ -62,6 +62,7 @@ function DownloadMenu({ generationId }: { generationId: string }) {
             icon={item.icon}
             hint={t(`projects.reports.generated.${item.format}Hint`)}
             render={
+              // react-doctor-disable-next-line react-doctor/anchor-has-content -- the menu item puts its label and icon inside this anchor.
               <a
                 href={`/api/export/report-generation/${generationId}?format=${item.format}`}
                 download

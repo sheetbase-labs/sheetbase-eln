@@ -1914,8 +1914,7 @@ function ResolvedPlateMap({
   const observations = usePlateSampleObservations(spec, frozen)
 
   // VIEW-01: the shared representation frame owns the outer chrome (title,
-  // frozen-vs-live badge) for spec-backed plates, mirroring the chart
-  // preview. The plate grid stays plugged in as children.
+  // frozen-vs-live badge) for spec-backed plates, as charts do. The plate grid stays plugged in as children.
   const handle = plateMapToRepresentationHandle({ spec, title, frozen })
 
   const resolutionByWell = new Map<string, WellSampleResolution>()

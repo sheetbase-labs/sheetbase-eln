@@ -63,7 +63,7 @@ export function RepresentationFrame({
   const titleId = React.useId()
 
   // A frozen handle pinning exactly one Dataset Version surfaces the pin at
-  // a glance (mirrors the chart preview's version subtitle); multi-source
+  // a glance; multi-source
   // affordances stay with the kind renderer.
   const versionLine =
     frozen && handle.source.versionId

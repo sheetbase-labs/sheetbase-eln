@@ -16,9 +16,11 @@ import type { DataClient } from '#/lib/data-client'
 import { notebookDataClient } from '#/lib/notebook-data'
 import {
   fetchLatestReviews,
+  fetchNotificationRecords,
   fetchMyNotifications,
   markNotificationsRead,
   notificationDestination,
+  notificationRecordLabel,
   notificationsQueryKeys,
 } from '#/lib/notifications-data'
 
@@ -52,6 +54,18 @@ export function NotificationsBell({
       notifications.length,
     ],
     queryFn: () => fetchLatestReviews(notifications, client),
+    enabled: notifications.length > 0,
+    staleTime: 30_000,
+    retry: false,
+  })
+
+  const named = useQuery({
+    queryKey: [
+      ...notificationsQueryKeys.list(),
+      'records',
+      notifications.length,
+    ],
+    queryFn: () => fetchNotificationRecords(notifications, client),
     enabled: notifications.length > 0,
     staleTime: 30_000,
     retry: false,
@@ -122,7 +136,7 @@ export function NotificationsBell({
             {notifications.map((item) => (
               <Row
                 key={item.id}
-                to={notificationDestination(item, reviews.data)}
+                to={notificationDestination(item, reviews.data, named.data)}
                 leading={
                   <span
                     className="size-1.5 shrink-0 rounded-full"
@@ -134,7 +148,7 @@ export function NotificationsBell({
                   />
                 }
                 title={<span className="text-body">{item.title}</span>}
-                meta={item.body ?? undefined}
+                meta={item.body ?? notificationRecordLabel(item, named.data)}
               />
             ))}
           </RowList>

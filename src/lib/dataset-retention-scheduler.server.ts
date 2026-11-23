@@ -13,17 +13,15 @@
  * connection the pipeline scheduler uses. No migration or extra credential is
  * needed.
  *
- * This mirrors `src/lib/pipeline-scheduler.server.ts` exactly: an unref'd
- * interval, guarded by the `SHEETBASE_SCHEDULER_ENABLED` semantics, never
- * started under test runners unless explicitly enabled, and every sweep
- * failure is swallowed and logged so a bad retention run can never take the
- * server down.
+ * It runs on `background-sweep.server.ts`, and every sweep failure is
+ * swallowed and logged so a bad retention run can never take the server down.
  */
 import { PooledClient } from '#/db/pool.server'
 import type { QueryResultRow } from 'pg'
 
 import { env } from '#/env.server'
 import { logger } from './logger'
+import { createBackgroundSweep } from './background-sweep.server'
 
 /** Retention changes are year-scale; a few hours of latency is irrelevant. */
 export const DATASET_RETENTION_INTERVAL_MS = 6 * 60 * 60 * 1000
@@ -119,30 +117,7 @@ export function createDatasetRetentionTick(
   }
 }
 
-let retentionTimer: ReturnType<typeof setInterval> | null = null
-let retentionBootTimer: ReturnType<typeof setTimeout> | null = null
-const startedGlobalKey = '__sheetbaseDatasetRetentionSchedulerStarted'
-
-/**
- * The process-wide marker that keeps one scheduler per process, including
- * across a dev-server module reload. The global type declares no such key.
- */
-type SchedulerGlobal = typeof globalThis & { [startedGlobalKey]?: boolean }
-
-/**
- * Disabled under test runners unless explicitly enabled with
- * `SHEETBASE_SCHEDULER_ENABLED=true`; always disabled when that flag is
- * `false`. Same semantics as the pipeline scheduler, plus the explicit
- * unit-test opt-in required for the timer contract.
- */
-function schedulerDisabled(): boolean {
-  if (process.env.SHEETBASE_SCHEDULER_ENABLED === 'false') return true
-
-  const inTest =
-    process.env.NODE_ENV === 'test' || process.env.VITEST === 'true'
-
-  return inTest && process.env.SHEETBASE_SCHEDULER_ENABLED !== 'true'
-}
+const retentionSweep = createBackgroundSweep('dataset-retention')
 
 export interface StartDatasetRetentionOptions {
   deps?: DatasetRetentionDeps
@@ -153,46 +128,18 @@ export interface StartDatasetRetentionOptions {
 export function startDatasetRetentionScheduler(
   options: StartDatasetRetentionOptions = {},
 ): void {
-  if (typeof window !== 'undefined') return
-
-  if (schedulerDisabled()) return
-  // SAFETY: `SchedulerGlobal` only adds the marker key this module sets on `globalThis`; no other module declares or writes it.
-  const g = globalThis as SchedulerGlobal
-
-  if (g[startedGlobalKey]) return
-  g[startedGlobalKey] = true
-
   const deps = options.deps ?? { connect: defaultConnect }
   const intervalMs = options.intervalMs ?? DATASET_RETENTION_INTERVAL_MS
 
-  const tick = createDatasetRetentionTick(
-    deps,
-    DATASET_PRUNE_BATCH_LIMIT,
-    options.log,
+  retentionSweep.start(
+    createDatasetRetentionTick(deps, DATASET_PRUNE_BATCH_LIMIT, options.log),
+    intervalMs,
   )
-
-  // First sweep shortly after boot, then on the interval.
-  retentionBootTimer = setTimeout(() => void tick(), 5_000)
-  retentionBootTimer.unref()
-  retentionTimer = setInterval(() => void tick(), intervalMs)
-  retentionTimer.unref()
 }
 
 /** Clear both timers and the per-process guard (used by tests/shutdown). */
 export function stopDatasetRetentionScheduler(): void {
-  if (retentionBootTimer) {
-    clearTimeout(retentionBootTimer)
-    retentionBootTimer = null
-  }
-
-  if (retentionTimer) {
-    clearInterval(retentionTimer)
-    retentionTimer = null
-  }
-
-  // SAFETY: `SchedulerGlobal` only adds the marker key this module sets on `globalThis`; no other module declares or writes it.
-  const g = globalThis as SchedulerGlobal
-  delete g[startedGlobalKey]
+  retentionSweep.stop()
 }
 
 async function defaultConnect(): Promise<RetentionConnection> {

@@ -7,16 +7,15 @@
  * event per lot inside the warning window (idempotent per lot) and the notification
  * trigger turns it into the design's "Material lot expiring in 7 days".
  *
- * This mirrors src/lib/sample-hold.server.ts exactly: an unref'd interval, guarded by
- * the `SHEETBASE_SCHEDULER_ENABLED` semantics, never started under test runners unless
- * explicitly enabled, and every sweep failure is swallowed and logged so a bad sweep
- * can never take the server down.
+ * It runs on `background-sweep.server.ts`, and every sweep failure is swallowed
+ * and logged so a bad sweep can never take the server down.
  */
 import { PooledClient } from '#/db/pool.server'
 import type { QueryResultRow } from 'pg'
 
 import { env } from '#/env.server'
 import { logger } from './logger'
+import { createBackgroundSweep } from './background-sweep.server'
 
 /** Lots are checked day-scale; a few hours of latency is irrelevant. */
 export const REAGENT_EXPIRY_INTERVAL_MS = 6 * 60 * 60 * 1000
@@ -100,35 +99,7 @@ export function createReagentExpiryTick(
   }
 }
 
-let expiryTimer: ReturnType<typeof setInterval> | null = null
-let expiryBootTimer: ReturnType<typeof setTimeout> | null = null
-const startedGlobalKey = '__sheetbaseReagentExpirySchedulerStarted'
-
-/** The one process-global flag this module owns. */
-interface SchedulerGuard {
-  [startedGlobalKey]?: boolean
-}
-
-/** The process global object, seen as the module's own guard. */
-function schedulerGuard(): SchedulerGuard {
-  // SAFETY: `globalThis` is the process global object, and this module alone
-  // reads and writes its `__sheetbaseReagentExpirySchedulerStarted` property,
-  // which it sets to `true` and deletes; nothing else defines it.
-  return globalThis as SchedulerGuard
-}
-
-/**
- * Disabled under test runners unless explicitly enabled with
- * `SHEETBASE_SCHEDULER_ENABLED=true`; always disabled when that flag is `false`.
- */
-function schedulerDisabled(): boolean {
-  if (process.env.SHEETBASE_SCHEDULER_ENABLED === 'false') return true
-
-  const inTest =
-    process.env.NODE_ENV === 'test' || process.env.VITEST === 'true'
-
-  return inTest && process.env.SHEETBASE_SCHEDULER_ENABLED !== 'true'
-}
+const expirySweep = createBackgroundSweep('reagent-expiry')
 
 export interface StartReagentExpiryOptions {
   deps?: ReagentExpiryDeps
@@ -139,43 +110,18 @@ export interface StartReagentExpiryOptions {
 export function startReagentExpiryScheduler(
   options: StartReagentExpiryOptions = {},
 ): void {
-  if (typeof window !== 'undefined') return
-
-  if (schedulerDisabled()) return
-  const guard = schedulerGuard()
-
-  if (guard[startedGlobalKey]) return
-  guard[startedGlobalKey] = true
-
   const deps = options.deps ?? { connect: defaultConnect }
   const intervalMs = options.intervalMs ?? REAGENT_EXPIRY_INTERVAL_MS
 
-  const tick = createReagentExpiryTick(
-    deps,
-    REAGENT_EXPIRY_WINDOW_DAYS,
-    options.log,
+  expirySweep.start(
+    createReagentExpiryTick(deps, REAGENT_EXPIRY_WINDOW_DAYS, options.log),
+    intervalMs,
   )
-
-  // First sweep shortly after boot, then on the interval.
-  expiryBootTimer = setTimeout(() => void tick(), 5_000)
-  expiryBootTimer.unref()
-  expiryTimer = setInterval(() => void tick(), intervalMs)
-  expiryTimer.unref()
 }
 
 /** Clear both timers and the per-process guard (used by tests/shutdown). */
 export function stopReagentExpiryScheduler(): void {
-  if (expiryBootTimer) {
-    clearTimeout(expiryBootTimer)
-    expiryBootTimer = null
-  }
-
-  if (expiryTimer) {
-    clearInterval(expiryTimer)
-    expiryTimer = null
-  }
-
-  delete schedulerGuard()[startedGlobalKey]
+  expirySweep.stop()
 }
 
 async function defaultConnect(): Promise<ExpiryConnection> {

@@ -15,10 +15,8 @@
  * connection the pipeline and dataset retention schedulers use. No extra
  * credential is needed.
  *
- * This mirrors `src/lib/dataset-retention-scheduler.server.ts` exactly: an
- * unref'd interval, guarded by the `SHEETBASE_SCHEDULER_ENABLED` semantics,
- * never started under test runners unless explicitly enabled, and every sweep
- * failure is swallowed and logged so a bad sweep can never take the server
+ * It runs on `background-sweep.server.ts` like the dataset retention sweep, and
+ * every sweep failure is swallowed and logged so a bad sweep can never take the server
  * down.
  */
 
@@ -31,6 +29,7 @@ import { now as clockNow } from './clock'
 import { env } from '#/env.server'
 import { logger } from './logger'
 import type { LogFields } from './logger'
+import { createBackgroundSweep } from './background-sweep.server'
 
 /** Hold limits are day-scale; a few hours of latency is irrelevant. */
 export const SAMPLE_HOLD_INTERVAL_MS = 6 * 60 * 60 * 1000
@@ -226,46 +225,7 @@ export function createSampleHoldTick(
   }
 }
 
-let holdTimer: ReturnType<typeof setInterval> | null = null
-let holdBootTimer: ReturnType<typeof setTimeout> | null = null
-const startedGlobalKey = '__sheetbaseSampleHoldSchedulerStarted'
-
-/**
- * The process-wide marker that keeps one scheduler per process, including
- * across a dev-server module reload. The global type declares no such key.
- */
-type SchedulerGlobal = typeof globalThis & { [startedGlobalKey]?: boolean }
-
-/** Read the marker this module alone writes. */
-function schedulerStarted(): boolean {
-  // SAFETY: `SchedulerGlobal` only adds the marker key this module sets on `globalThis`; no other module declares or writes it.
-  const g = globalThis as SchedulerGlobal
-
-  return g[startedGlobalKey] === true
-}
-
-/** Set or clear the marker this module alone writes. */
-function markSchedulerStarted(started: boolean): void {
-  // SAFETY: `SchedulerGlobal` only adds the marker key this module sets on `globalThis`; no other module declares or writes it.
-  const g = globalThis as SchedulerGlobal
-
-  if (started) g[startedGlobalKey] = true
-  else delete g[startedGlobalKey]
-}
-
-/**
- * Disabled under test runners unless explicitly enabled with
- * `SHEETBASE_SCHEDULER_ENABLED=true`; always disabled when that flag is
- * `false`. Same semantics as the pipeline and dataset retention schedulers.
- */
-function schedulerDisabled(): boolean {
-  if (process.env.SHEETBASE_SCHEDULER_ENABLED === 'false') return true
-
-  const inTest =
-    process.env.NODE_ENV === 'test' || process.env.VITEST === 'true'
-
-  return inTest && process.env.SHEETBASE_SCHEDULER_ENABLED !== 'true'
-}
+const holdSweep = createBackgroundSweep('sample-hold')
 
 export interface StartSampleHoldOptions {
   deps?: SampleHoldDeps
@@ -276,37 +236,18 @@ export interface StartSampleHoldOptions {
 export function startSampleHoldScheduler(
   options: StartSampleHoldOptions = {},
 ): void {
-  if (typeof window !== 'undefined') return
-
-  if (schedulerDisabled()) return
-
-  if (schedulerStarted()) return
-  markSchedulerStarted(true)
-
   const deps = options.deps ?? { connect: defaultConnect }
   const intervalMs = options.intervalMs ?? SAMPLE_HOLD_INTERVAL_MS
-  const tick = createSampleHoldTick(deps, SAMPLE_HOLD_BATCH_LIMIT, options.log)
 
-  // First sweep shortly after boot, then on the interval.
-  holdBootTimer = setTimeout(() => void tick(), 5_000)
-  holdBootTimer.unref()
-  holdTimer = setInterval(() => void tick(), intervalMs)
-  holdTimer.unref()
+  holdSweep.start(
+    createSampleHoldTick(deps, SAMPLE_HOLD_BATCH_LIMIT, options.log),
+    intervalMs,
+  )
 }
 
 /** Clear both timers and the per-process guard (used by tests/shutdown). */
 export function stopSampleHoldScheduler(): void {
-  if (holdBootTimer) {
-    clearTimeout(holdBootTimer)
-    holdBootTimer = null
-  }
-
-  if (holdTimer) {
-    clearInterval(holdTimer)
-    holdTimer = null
-  }
-
-  markSchedulerStarted(false)
+  holdSweep.stop()
 }
 
 async function defaultConnect(): Promise<HoldConnection> {

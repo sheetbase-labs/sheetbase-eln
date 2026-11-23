@@ -8,6 +8,8 @@
 import type { Client } from 'pg'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 
+import { evaluateGateConditions } from '../../src/lib/experiment-gates'
+import type { GateCondition } from '../../src/lib/experiment-gates'
 import { mapEventType } from '../../src/lib/webhook-events'
 import { prepareTestDatabase } from './helpers'
 
@@ -262,6 +264,69 @@ async function gates(recordId: string): Promise<Gate[]> {
     recordId,
   ])
   return rows as Gate[]
+}
+
+/**
+ * The page checks the conditions it can see (steps, parts, dates) as
+ * soon as something is ticked, then the database answers again. Both must say
+ * the same: whether each is met, whether it only warns, and what is missing.
+ * Conditions the page cannot see (samples, fields, sheet cells) are left out.
+ */
+async function expectPageToAgree(
+  recordId: string,
+  conditions: GateCondition[],
+) {
+  const { rows: blocks } = await migrator.query(
+    `select id, type, part_id, "order", payload from api.blocks where record_id = $1 order by "order"`,
+    [recordId],
+  )
+
+  const ctx = {
+    blocks: blocks.map((b) => ({
+      id: b.id,
+      type: b.type,
+      partId: b.part_id,
+      order: b.order,
+      payload: b.payload,
+    })),
+    parts: (await parts(recordId)).map((p) => ({
+      id: p.part_id,
+      number: p.part_number,
+      title: p.title,
+      state: p.status === 'done' ? ('done' as const) : ('later' as const),
+    })),
+  }
+
+  const [row] = await gates(recordId)
+  const page = evaluateGateConditions(conditions, ctx)
+  const gaps: string[] = []
+
+  for (const [index, mine] of page.entries()) {
+    if (!mine.known) continue
+    const theirs = row.conditions[index]
+
+    if (mine.met !== theirs.met) {
+      gaps.push(
+        `${conditions[index].kind}: page says met=${mine.met}, database met=${theirs.met}`,
+      )
+      continue
+    }
+
+    if (mine.met) continue
+
+    if (mine.soft !== (theirs.soft ?? false))
+      gaps.push(`${conditions[index].kind}: soft differs`)
+
+    if (mine.text !== theirs.text)
+      gaps.push(
+        `${conditions[index].kind}: page says "${mine.text}", database says "${theirs.text}"`,
+      )
+  }
+
+  expect(
+    gaps,
+    'evaluateGateConditions in src/lib/experiment-gates.ts and internal.eval_gate_conditions disagree',
+  ).toEqual([])
 }
 
 async function insert(
@@ -565,17 +630,19 @@ describe('conditions', () => {
     const { recordId, stepIds } = await experiment('Mixed', ['Seed', 'Rinse'])
     const one = await addPart(recordId, 'Seed cells', 0)
     await addPart(recordId, 'Dose', 2)
+    const conditions: GateCondition[] = [
+      { kind: 'step_done', blockId: stepIds[0] },
+      { kind: 'part_done', partId: one.id },
+      { kind: 'samples_linked', min: 2 },
+      { kind: 'field_set', field: 'reviewer', label: 'Reviewer' },
+      { kind: 'date_reached', date: '2999-01-01' },
+    ]
     const gate = await insert(recordId, 'gate', {
       mode: 'warn',
       label: 'Before dosing',
-      conditions: [
-        { kind: 'step_done', blockId: stepIds[0] },
-        { kind: 'part_done', partId: one.id },
-        { kind: 'samples_linked', min: 2 },
-        { kind: 'field_set', field: 'reviewer', label: 'Reviewer' },
-        { kind: 'date_reached', date: '2999-01-01' },
-      ],
+      conditions,
     })
+    await expectPageToAgree(recordId, conditions)
     const [closed] = await gates(recordId)
     expect(closed.block_id).toBe(gate.id)
     expect(closed.missing).toEqual([
@@ -595,6 +662,7 @@ describe('conditions', () => {
     for (const id of stepIds) {
       await owner.query(`select api.set_step_done($1,true)`, [id])
     }
+    await expectPageToAgree(recordId, conditions)
     await migrator.query(
       `update api.records set reviewer_user_id=$2 where id=$1`,
       [recordId, OWNER],

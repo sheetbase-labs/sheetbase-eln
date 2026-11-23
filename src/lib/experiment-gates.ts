@@ -5,11 +5,12 @@
  * done. It is a `gate` block (everything after it in the same part sits behind
  * it) or an "opens when" rule on a part. Its conditions are all checked by the
  * database (`api.record_gates`), which also says what is still missing in
- * words. `evaluateGateConditions` is a mirror of that check for the page, so a
- * tick or a filled cell answers at once, like `step-status.ts`. It knows the
- * tables and steps and parts the page has loaded; a sheet, the linked samples
- * and the record's own fields it leaves to the database's last answer. Keep the
- * wording in step with `internal.eval_gate_conditions`.
+ * words. `evaluateGateConditions` runs the same check on what the page has
+ * loaded, so a tick or a filled cell answers at once, like `step-status.ts`. It
+ * knows the tables and steps and parts the page has loaded; a sheet, the linked
+ * samples and the record's own fields it leaves to the database's last answer.
+ * tests/db/experiment-gates.test.ts gives both the same gates and fails when
+ * what is met, soft or missing differs from `internal.eval_gate_conditions`.
  *
  * A gate set to warn lets people go on with a reason (`overrideGate`); a gate
  * set to block refuses the writes below it in the database. A date condition

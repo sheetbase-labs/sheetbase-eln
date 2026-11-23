@@ -3126,7 +3126,8 @@ export const projects = {
         'Experiments, datasets and analyses you open or edit will appear here.',
     },
     columns: {
-      record: 'Record',
+      id: 'ID',
+      record: 'Name',
       project: 'Project',
       submittedBy: 'Submitted by',
       due: 'Due',

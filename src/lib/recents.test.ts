@@ -435,7 +435,7 @@ describe('resolveRecentItems', () => {
       ['record', '/experiments/r-1'],
       ['dataset', '/datasets/d-1'],
       ['project', '/projects/p-1'],
-      ['notebook_template', '/templates?template=t-1'],
+      ['notebook_template', '/templates/t-1'],
     ])
     expect(items.map((i) => [i.kind, i.identifier])).toEqual([
       ['sheet', 'SH-0003'],

@@ -16,6 +16,9 @@ import { homeDueLabel } from '#/lib/home-data'
 import { now as appNow } from '#/lib/clock'
 import { t } from '#/copy'
 
+/** The registry's click rule for a row (see `useOpenRow`). */
+export type OpenRow<T> = (row: T, event?: React.MouseEvent) => void
+
 /** A submission awaiting this reader's review, as `fetchHomeReviews` returns
  * it. */
 export interface HomeReviewRow {
@@ -41,8 +44,23 @@ const PHONE_HIDDEN = {
  * and its due date, with the way into the review. */
 export function homeReviewColumns(
   timeZone: string,
+  open: OpenRow<HomeReviewRow>,
 ): RegistryColumn<HomeReviewRow>[] {
   return [
+    {
+      id: 'identifier',
+      header: t('projects.home.columns.id'),
+      cell: ({ row }) => (
+        <Link
+          to="/review/$revisionId"
+          params={{ revisionId: row.original.revisionId }}
+          className="mono text-link"
+          onClick={(event) => open(row.original, event)}
+        >
+          {row.original.identifier}
+        </Link>
+      ),
+    },
     {
       id: 'record',
       header: t('projects.home.columns.record'),
@@ -51,8 +69,8 @@ export function homeReviewColumns(
           to="/review/$revisionId"
           params={{ revisionId: row.original.revisionId }}
           className="text-fg hover:text-link"
+          onClick={(event) => open(row.original, event)}
         >
-          <span className="mono text-fg-muted">{row.original.identifier}</span>{' '}
           {row.original.title}
         </Link>
       ),
@@ -89,6 +107,7 @@ export function homeReviewColumns(
             <Link
               to="/review/$revisionId"
               params={{ revisionId: row.original.revisionId }}
+              onClick={(event: React.MouseEvent) => open(row.original, event)}
             />
           }
         >
@@ -101,15 +120,34 @@ export function homeReviewColumns(
 
 /** The person's own recent work, which names the record, its status, what last
  * changed and when. */
-export const homeRecentColumns: RegistryColumn<RecentItem>[] = [
+export const homeRecentColumns = (
+  open: OpenRow<RecentItem>,
+): RegistryColumn<RecentItem>[] => [
+  {
+    id: 'identifier',
+    header: t('projects.home.columns.id'),
+    cell: ({ row }) =>
+      row.original.identifier ? (
+        <Link
+          to={row.original.destination}
+          className="mono text-link"
+          onClick={(event) => open(row.original, event)}
+        >
+          {row.original.identifier}
+        </Link>
+      ) : (
+        <span className="text-fg-muted">—</span>
+      ),
+  },
   {
     id: 'name',
     header: t('projects.home.columns.name'),
     cell: ({ row }) => (
-      <Link to={row.original.destination} className="text-fg hover:text-link">
-        {row.original.identifier ? (
-          <span className="mono text-fg-muted">{row.original.identifier}</span>
-        ) : null}{' '}
+      <Link
+        to={row.original.destination}
+        className="text-fg hover:text-link"
+        onClick={(event) => open(row.original, event)}
+      >
         {row.original.label}
       </Link>
     ),

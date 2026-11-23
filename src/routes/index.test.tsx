@@ -643,8 +643,9 @@ describe('Home pace', () => {
     expect(
       screen.getByRole('heading', { name: 'Awaiting your review' }),
     ).toBeTruthy()
-    // One in the table, one in the phone list; CSS shows whichever fits.
-    expect(screen.getAllByRole('button', { name: 'Review' })).toHaveLength(2)
+    // The table has a Review button; the phone list is one whole-row link per
+    // review, and CSS shows whichever fits.
+    expect(screen.getAllByRole('button', { name: 'Review' })).toHaveLength(1)
 
     // QA2-Home-1: every chip opens the set it counts, filtered.
     expect(

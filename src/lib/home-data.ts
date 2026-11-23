@@ -169,6 +169,9 @@ export async function fetchHomeDatasetIssues(client: DataClient) {
       return {
         id: row.uuid,
         identifier: row.id,
+        // The first flagged value, so Home opens the value itself.
+        rowId: flags.at(0)?.rowId ?? null,
+        fieldId: flags.at(0)?.fieldId ?? null,
         label: homeDatasetIssueLabel(row),
         detail: row.missingUnitFields.length
           ? `${row.missingUnitFields.map((field) => `“${field}”`).join(', ')} — add before review`

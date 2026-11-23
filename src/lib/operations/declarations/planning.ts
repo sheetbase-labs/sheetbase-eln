@@ -555,7 +555,7 @@ export const PLANNING_OPERATIONS = defineOperations([
     label: 'Generate a report',
     summary: 'Generate a report',
     description:
-      'Builds the report from its sections as they stand now and keeps the result with a checksum. `p_output_format` is `html` (default) or `pdf`. Returns the generation. Sends `report.generated`.',
+      'Builds the report from its sections as they stand now and keeps the result with a checksum. Needs edit or review access to the project of the report. `p_output_format` is `html` (default) or `pdf`. Returns the generation. Sends `report.generated`.',
     kind: 'write',
     inputs: [
       workspace(),

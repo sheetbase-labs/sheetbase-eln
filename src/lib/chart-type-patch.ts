@@ -6,7 +6,10 @@ import type { ChartSpec, ChartType } from './chart-spec'
  * that keeps them, and `tests/db/chart-type-patch.test.ts` feeds every type
  * through it.
  */
-export function chartTypePatch(spec: ChartSpec, next: ChartType): Partial<ChartSpec> {
+export function chartTypePatch(
+  spec: ChartSpec,
+  next: ChartType,
+): Partial<ChartSpec> {
   const fields = { ...spec.fields }
   let overlays = spec.overlays
   let typeParams: ChartSpec['typeParams'] = {}

@@ -500,21 +500,50 @@ function zonedParts(at: Date, zone: string): ZonedClock {
 function nextDailyInZone(from: Date, dailyAt: string, zone: string): Date {
   const [hour, minute] = dailyAt.split(':').map(Number)
   const now = zonedParts(from, zone)
-
-  const candidate =
-    Date.UTC(now.y, now.mo - 1, now.d, hour, minute) - now.offsetMs
+  const candidate = firstInstantOfWallClock(
+    Date.UTC(now.y, now.mo - 1, now.d, hour, minute),
+    now.offsetMs,
+    zone,
+  )
 
   if (candidate <= from.getTime()) {
     // Tomorrow, with the offset re-probed so DST transitions are respected.
     const tomorrow = zonedParts(new Date(from.getTime() + 86_400_000), zone)
 
     return new Date(
-      Date.UTC(tomorrow.y, tomorrow.mo - 1, tomorrow.d, hour, minute) -
+      firstInstantOfWallClock(
+        Date.UTC(tomorrow.y, tomorrow.mo - 1, tomorrow.d, hour, minute),
         tomorrow.offsetMs,
+        zone,
+      ),
     )
   }
 
   return new Date(candidate)
+}
+
+/**
+ * The instant a wall-clock time falls on. When the clocks go back the time
+ * happens twice; the first one is taken, so a daily run happens once.
+ * `api.pipeline_schedule_next_run` does the same
+ * (`tests/db/pipeline-scheduling.test.ts` compares them).
+ */
+function firstInstantOfWallClock(
+  wallAsUtc: number,
+  offsetMs: number,
+  zone: string,
+): number {
+  const instant = wallAsUtc - offsetMs
+
+  for (const shiftMinutes of [60, 30]) {
+    const earlier = instant - shiftMinutes * 60_000
+
+    if (earlier + zonedParts(new Date(earlier), zone).offsetMs === wallAsUtc) {
+      return earlier
+    }
+  }
+
+  return instant
 }
 
 /** The next `count` run times, for the form's preview. */

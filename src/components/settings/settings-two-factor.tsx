@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { LoadingBlock } from '#/components/ui/page-skeleton'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import type { UseMutationResult } from '@tanstack/react-query'
 import QRCode from 'qrcode'
@@ -48,7 +49,7 @@ export function SettingsTwoFactor() {
   return (
     <Section title={t('settings.twoFactor.twoFactorAuthentication')}>
       {status.isLoading ? (
-        <Muted>{t('common.states.loading')}</Muted>
+        <LoadingBlock label={t('common.states.loading')} />
       ) : status.isError || !data ? (
         <Notice tone="bad">
           {messageOf(status.error, t('settings.twoFactor.couldLoadStatus'))}

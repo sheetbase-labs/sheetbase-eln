@@ -1,4 +1,5 @@
 import { useMemo } from 'react'
+import { LoadingBlock } from '#/components/ui/page-skeleton'
 import { Link } from '@tanstack/react-router'
 
 import { t } from '#/copy'
@@ -183,7 +184,7 @@ export function ScheduleHistoryDialog({
               {t('data.scheduleHistory.timesDidRun')}
             </h3>
             {activity.isLoading ? (
-              <Muted>{t('common.states.loading')}</Muted>
+              <LoadingBlock label={t('common.states.loading')} />
             ) : activityRows.length === 0 ? (
               <Muted>{t('data.scheduleHistory.nothingHasBeenSkipped')}</Muted>
             ) : (

@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { LoadingBlock } from '#/components/ui/page-skeleton'
 import type { UseQueryResult } from '@tanstack/react-query'
 import { createFileRoute, redirect, useRouter } from '@tanstack/react-router'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
@@ -352,7 +353,7 @@ function PortalProjectPanel({ project }: { project: ClientPortalProject }) {
       <div className="flex flex-col gap-6 px-8 py-[22px]">
         <Section title={t('projects.clientPortal.milestones')}>
           {milestones.isPending ? (
-            <Muted>{t('common.states.loading')}</Muted>
+            <LoadingBlock label={t('common.states.loading')} />
           ) : (milestones.data ?? []).length ? (
             <TableBox>
               <RegistryGrid
@@ -410,7 +411,7 @@ function PortalReports() {
         count={(reports.data ?? []).length}
       >
         {reports.isPending ? (
-          <Muted>{t('common.states.loading')}</Muted>
+          <LoadingBlock label={t('common.states.loading')} />
         ) : (reports.data ?? []).length ? (
           <TableBox>
             <RegistryGrid
@@ -460,7 +461,7 @@ function PortalMessages({ isClient }: { isClient: boolean }) {
         count={(messages.data ?? []).length}
       >
         {messages.isPending ? (
-          <Muted>{t('common.states.loading')}</Muted>
+          <LoadingBlock label={t('common.states.loading')} />
         ) : (messages.data ?? []).length ? (
           <div className="flex flex-col gap-3 text-body">
             {(messages.data ?? []).map((m) => (

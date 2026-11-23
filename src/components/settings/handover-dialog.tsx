@@ -1,4 +1,5 @@
 import { SearchableSelect } from '#/components/record-picker/searchable-select'
+import { LoadingBlock } from '#/components/ui/page-skeleton'
 import { useEffect, useRef, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 
@@ -195,7 +196,7 @@ function HandoverPreview({
 
   if (failed) return <Notice tone="bad">{describeAdminError(error)}</Notice>
 
-  if (pending) return <Muted>{t('people.handover.loading')}</Muted>
+  if (pending) return <LoadingBlock label={t('people.handover.loading')} />
 
   if (items.length === 0)
     return <Muted>{t('people.handover.noneBody', { name })}</Muted>

@@ -10,12 +10,12 @@
  * case are stated in words.
  */
 
+import { LoadingBlock } from '#/components/ui/page-skeleton'
 import { z } from 'zod'
 
 import { AuditCheckLine } from '#/components/review/audit-check-line'
 import { Badge } from '#/components/ui/badge'
 import { EmptyState } from '#/components/ui/empty-state'
-import { Muted } from '#/components/ui/layout'
 import { TableBox } from '#/components/ui/table'
 import { RegistryGrid } from '#/components/inventory/registry-grid'
 import type { RegistryColumn } from '#/components/inventory/registry-grid'
@@ -82,7 +82,7 @@ export function SignaturesTable({
     return (
       <section aria-label={t('projects.signatures.title')} className="py-4">
         {title}
-        <Muted>{t('projects.signatures.loading')}</Muted>
+        <LoadingBlock label={t('projects.signatures.loading')} />
       </section>
     )
   }

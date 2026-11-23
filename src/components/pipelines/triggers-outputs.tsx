@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { LoadingBlock } from '#/components/ui/page-skeleton'
 import { z } from 'zod'
 import { Link } from '@tanstack/react-router'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
@@ -55,7 +56,7 @@ export function WebhookCard({ definitionId }: { definitionId: string }) {
           </div>
         </div>
         {state.isLoading ? (
-          <Muted>{t('common.states.loading')}</Muted>
+          <LoadingBlock label={t('common.states.loading')} />
         ) : (
           <Status tone={enabled ? 'ok' : 'none'}>
             {enabled

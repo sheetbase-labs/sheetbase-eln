@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { LoadingBlock } from '#/components/ui/page-skeleton'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 
 import { Button } from '#/components/ui/button'
@@ -174,11 +175,11 @@ export function SettingsPasskeys() {
       {list.isError ? (
         <Notice tone="bad">{messageOf(list.error)}</Notice>
       ) : rows.length === 0 ? (
-        <Muted>
-          {list.isLoading
-            ? t('common.states.loading')
-            : t('people.passkeys.none')}
-        </Muted>
+        list.isLoading ? (
+          <LoadingBlock label={t('common.states.loading')} rows={2} />
+        ) : (
+          <Muted>{t('people.passkeys.none')}</Muted>
+        )
       ) : (
         <TableBox>
           <RegistryGrid

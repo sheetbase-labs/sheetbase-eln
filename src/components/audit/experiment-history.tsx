@@ -1,4 +1,5 @@
 import { Person } from '#/components/ui/person'
+import { LoadingBlock } from '#/components/ui/page-skeleton'
 import { Fragment, useState } from 'react'
 import { z } from 'zod'
 import { clockOption } from '#/lib/display-clock'
@@ -80,9 +81,11 @@ export function ExperimentHistory({
 
   if (history.isPending || workspace.isPending)
     return (
-      <p className="p-6 text-fg-muted" role="status">
-        {t('projects.experimentHistory.loading')}
-      </p>
+      <LoadingBlock
+        label={t('projects.experimentHistory.loading')}
+        rows={6}
+        className="p-6"
+      />
     )
 
   if (history.error || workspace.error || !workspace.data)

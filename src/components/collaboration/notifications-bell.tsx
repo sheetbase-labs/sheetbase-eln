@@ -1,5 +1,6 @@
 'use client'
 
+import { LoadingBlock } from '#/components/ui/page-skeleton'
 import { t } from '#/copy'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Link } from '@tanstack/react-router'
@@ -124,9 +125,7 @@ export function NotificationsBell({
           </Button>
         </div>
         {query.isLoading ? (
-          <p className="p-3 text-body text-muted-foreground">
-            {t('common.states.loading')}
-          </p>
+          <LoadingBlock label={t('common.states.loading')} className="p-3" />
         ) : notifications.length === 0 ? (
           <p className="p-3 text-body text-muted-foreground">
             {t('notebook.notificationsBell.nothingNewRightNow')}

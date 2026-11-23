@@ -7,6 +7,7 @@
  * (renders null) when there is nothing to show — mounts never need an
  * empty-state branch.
  */
+import { LoadingBlock } from '#/components/ui/page-skeleton'
 import type { IconName } from '#/components/icons'
 
 import { InspectorSection } from '#/components/record'
@@ -74,9 +75,7 @@ export function RelatedWorkPanel({
   if (isLoading) {
     return (
       <InspectorSection title={t('projects.relatedWork.title')}>
-        <p className="py-1 text-xs text-muted-foreground">
-          {t('projects.relatedWork.loading')}
-        </p>
+        <LoadingBlock label={t('projects.relatedWork.loading')} />
       </InspectorSection>
     )
   }

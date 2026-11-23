@@ -1,4 +1,5 @@
 import { useMemo } from 'react'
+import { LoadingBlock } from '#/components/ui/page-skeleton'
 import { Link, createFileRoute } from '@tanstack/react-router'
 import { useQuery } from '@tanstack/react-query'
 
@@ -405,11 +406,15 @@ function OverviewActivity({
           )
         })}
         {!activity.length ? (
-          <span className="text-fg-muted">
-            {loading
-              ? t('projects.projectOverview.activity.loading')
-              : t('projects.projectOverview.activity.empty')}
-          </span>
+          loading ? (
+            <LoadingBlock
+              label={t('projects.projectOverview.activity.loading')}
+            />
+          ) : (
+            <span className="text-fg-muted">
+              {t('projects.projectOverview.activity.empty')}
+            </span>
+          )
         ) : null}
       </div>
     </InspectorSection>

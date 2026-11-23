@@ -1,9 +1,9 @@
 import { createFileRoute } from '@tanstack/react-router'
+import { LoadingBlock } from '#/components/ui/page-skeleton'
 import { useMemo } from 'react'
 
 import { t } from '#/copy'
 import { ProjectListFailure } from '#/components/projects/project-list'
-import { Muted } from '#/components/ui/layout'
 import { usePublishApproval } from '#/components/pipelines/activity/use-publish-approval'
 import {
   usePipelineVersions,
@@ -50,7 +50,7 @@ function PipelineStarts() {
   if (!schedules.data || !rules.data) {
     return (
       <div className="px-4 py-4 md:px-6">
-        <Muted>{t('features.pipelineStarts.tab.loading')}</Muted>
+        <LoadingBlock label={t('features.pipelineStarts.tab.loading')} />
       </div>
     )
   }

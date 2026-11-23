@@ -1,4 +1,5 @@
 import { useAutoSave } from '#/components/settings/use-autosave'
+import { LoadingBlock } from '#/components/ui/page-skeleton'
 import { useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 
@@ -104,7 +105,7 @@ export function ReleaseRulesPanel({
   if (!sets.data) {
     return (
       <SettingsBody>
-        <Muted>{t('settings.releaseRules.loading')}</Muted>
+        <LoadingBlock label={t('settings.releaseRules.loading')} />
       </SettingsBody>
     )
   }

@@ -1,4 +1,5 @@
 import { SearchableSelect } from '#/components/record-picker/searchable-select'
+import { LoadingBlock } from '#/components/ui/page-skeleton'
 import { useLeaveGuard } from '#/components/settings/use-leave-guard'
 import { useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
@@ -244,7 +245,7 @@ function WorkflowEditor({
   if (!loaded.data) {
     return (
       <SettingsBody>
-        <Muted>{t('settings.sampleWorkflows.loading')}</Muted>
+        <LoadingBlock label={t('settings.sampleWorkflows.loading')} />
       </SettingsBody>
     )
   }

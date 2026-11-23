@@ -1,4 +1,5 @@
 import { useAutoSave } from '#/components/settings/use-autosave'
+import { LoadingBlock } from '#/components/ui/page-skeleton'
 import { t } from '#/copy'
 import { useMemo, useState } from 'react'
 import { Link, createFileRoute } from '@tanstack/react-router'
@@ -172,7 +173,7 @@ function Signatures() {
               ))}
             </ul>
           ) : members.isPending || certifications.isPending ? (
-            <Muted>{t('common.states.loading')}</Muted>
+            <LoadingBlock label={t('common.states.loading')} />
           ) : (
             <Muted>{t('settings.signatures.everyoneWhoSign')}</Muted>
           )}

@@ -67,7 +67,6 @@ export const BLOCK_SECTION_MAP: ReadonlyMap<string, SectionId> = new Map<
   ['materials', 'materials'],
   ['protocol_reference', 'procedures'],
   ['procedure_step', 'procedures'],
-  ['table', 'tables'],
   ['sheet', 'tables'],
   ['chart', 'visualizations'],
   ['plate_map', 'visualizations'],

@@ -44,7 +44,7 @@ const blocks: NotebookBlock[] = [
   makeBlock({ id: 'b7', type: 'plate_map', order: 7 }),
   makeBlock({ id: 'b8', type: 'procedure_step', order: 8 }),
   makeBlock({ id: 'b9', type: 'protocol_reference', order: 9 }),
-  makeBlock({ id: 'b10', type: 'table', order: 10 }),
+  makeBlock({ id: 'b10', type: 'sheet', order: 10 }),
   makeBlock({ id: 'b11', type: 'sheet', order: 11 }),
   makeBlock({ id: 'b12', type: 'linked_record', order: 12 }),
   makeBlock({ id: 'b13', type: 'metric', order: 13 }),
@@ -61,7 +61,6 @@ describe('sectionForBlockType', () => {
     expect(sectionForBlockType('materials')).toBe('materials')
     expect(sectionForBlockType('protocol_reference')).toBe('procedures')
     expect(sectionForBlockType('procedure_step')).toBe('procedures')
-    expect(sectionForBlockType('table')).toBe('tables')
     expect(sectionForBlockType('sheet')).toBe('tables')
     expect(sectionForBlockType('chart')).toBe('visualizations')
     expect(sectionForBlockType('plate_map')).toBe('visualizations')
@@ -82,7 +81,6 @@ describe('sectionForBlockType', () => {
       'checklist',
       'linked_record',
       'callout',
-      'table',
       'sheet',
       'chart',
       'plate_map',

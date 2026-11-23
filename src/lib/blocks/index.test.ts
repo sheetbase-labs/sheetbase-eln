@@ -760,7 +760,7 @@ describe('raw block validation contracts', () => {
     expect(reads).toBe(3)
   })
 
-  it('retains native metric and table values without reading or coercing them', () => {
+  it('retains native metric values without reading or coercing them', () => {
     const refusingValue = {
       get toJSON() {
         throw new Error('must not serialize scientific values')
@@ -790,12 +790,6 @@ describe('raw block validation contracts', () => {
         payloadSchemaVersion: 1,
         errors: [],
       })
-      expect(
-        validateBlock({
-          type: 'table',
-          payload: { columns: ['Observed'], rows: [[value]] },
-        }).ok,
-      ).toBe(true)
     }
   })
 

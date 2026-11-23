@@ -950,20 +950,6 @@ export function extractBlockText(
       ]
         .filter(Boolean)
         .join(' ')
-    case 'table': {
-      const rows = payload?.rows
-
-      if (!Array.isArray(rows)) return ''
-
-      return rows
-        .map((row) =>
-          Array.isArray(row)
-            ? row.map((cell) => z.string().safeParse(cell).data ?? '').join(' ')
-            : '',
-        )
-        .join(' ')
-    }
-
     default:
       return extractAllStrings(payload)
   }

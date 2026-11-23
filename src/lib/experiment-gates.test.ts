@@ -17,18 +17,6 @@ import type {
   RecordGate,
 } from './experiment-gates'
 
-const table = (rows: unknown[][]): GateBlockLike => ({
-  id: 'table-1',
-  type: 'table',
-  order: 10,
-  partId: 'p1',
-  payload: {
-    title: 'Confluence check',
-    columns: ['Well', 'Confluence (%)'],
-    rows,
-  },
-})
-
 const step = (
   id: string,
   order: number,
@@ -57,49 +45,24 @@ describe('the page check of a gate condition', () => {
     column: 'Confluence (%)',
   }
 
-  it('names the rows that are missing a value, in the words the database uses', () => {
-    const result = evaluateGateCondition(
-      filled,
-      ctx([
-        table([
-          ['A1', '80'],
-          ['A2', ''],
-          ['A3', null],
-        ]),
-      ]),
-    )
+  it('reads a block that is not a sheet as removed', () => {
+    const note: GateBlockLike = {
+      id: 'table-1',
+      type: 'rich_text',
+      order: 10,
+      payload: {},
+    }
 
-    expect(result).toMatchObject({
+    expect(evaluateGateCondition(filled, ctx([note]))).toMatchObject({
       known: true,
       met: false,
-      text: 'A2 and A3 have no Confluence (%)',
+      text: 'A table this gate waits on has been removed',
     })
-  })
-
-  it('is met when every row has the value, and asks for rows when there are none', () => {
-    expect(
-      evaluateGateCondition(filled, ctx([table([['A1', '80']])])).met,
-    ).toBe(true)
-    expect(evaluateGateCondition(filled, ctx([table([])]))).toMatchObject({
+    expect(evaluateGateCondition(filled, ctx([]))).toMatchObject({
+      known: true,
       met: false,
-      text: 'Confluence check has no rows yet',
+      text: 'A table this gate waits on has been removed',
     })
-  })
-
-  it('counts rows when a number is asked for', () => {
-    const result = evaluateGateCondition(
-      { ...filled, minRows: 3 },
-      ctx([
-        table([
-          ['A1', '80'],
-          ['A2', ''],
-        ]),
-      ]),
-    )
-
-    expect(result.text).toBe(
-      'Confluence check needs 3 rows with Confluence (%) (1 so far)',
-    )
   })
 
   it('leaves a sheet and the sample count to the database', () => {

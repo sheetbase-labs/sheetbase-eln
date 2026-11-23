@@ -117,12 +117,13 @@ describe('BlockPreview frozen evidence boundary', () => {
   )
 })
 
-describe('BlockPreview table (canonical string-array payload)', () => {
+describe('BlockPreview frozen table (a block from before tables became sheets)', () => {
   it('preserves distinct row identity when an earlier row disappears without collapsing repeated rows or columns', () => {
     const columns = ['Recovery', 'Recovery']
 
     const view = render(
       <BlockPreview
+        frozen
         block={block('table', {
           columns,
           rows: [
@@ -141,6 +142,7 @@ describe('BlockPreview table (canonical string-array payload)', () => {
     expect(screen.getAllByText('5.75')).toHaveLength(2)
     view.rerender(
       <BlockPreview
+        frozen
         block={block('table', {
           columns,
           rows: [
@@ -160,6 +162,7 @@ describe('BlockPreview table (canonical string-array payload)', () => {
   it('renders column labels and row values from the canonical format', () => {
     render(
       <BlockPreview
+        frozen
         block={block('table', {
           columns: ['Timepoint', 'Replicate', 'Volume'],
           rows: [
@@ -179,6 +182,7 @@ describe('BlockPreview table (canonical string-array payload)', () => {
   it('renders an empty body for null cells', () => {
     const { container } = render(
       <BlockPreview
+        frozen
         block={block('table', {
           columns: ['A', 'B'],
           rows: [[null, 'x']],
@@ -195,6 +199,7 @@ describe('BlockPreview table (canonical string-array payload)', () => {
   it('puts the table in a box that scrolls sideways on narrow screens', () => {
     renderWithQuery(
       <BlockPreview
+        frozen
         block={block('table', {
           columns: ['Condition', 'Peak cell density', 'Titre', 'Viability'],
           rows: [['High glucose feed', 38.7, 5.7, 91.1]],
@@ -205,6 +210,15 @@ describe('BlockPreview table (canonical string-array payload)', () => {
     expect(box.className).toContain('overflow-x-auto')
     expect(box.className).not.toContain('overflow-hidden')
     expect(box.querySelector('table')).toBeTruthy()
+  })
+
+  it('does not draw a table block outside a frozen view', () => {
+    render(
+      <BlockPreview
+        block={block('table', { columns: ['A'], rows: [['x']] })}
+      />,
+    )
+    expect(screen.queryByRole('table')).toBeNull()
   })
 })
 

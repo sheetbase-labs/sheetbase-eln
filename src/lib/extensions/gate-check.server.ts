@@ -28,12 +28,12 @@ export interface GateCheckRequest {
   columns: Record<string, string>
 }
 
-/** A table block's stored payload: the JSON object the block owns. */
+/** A sheet read as a table: its column headings and one row of text per record. */
 type TableBlockPayload = z.infer<typeof pipelineJsonObjectSchema>
 
 export interface GateCheckDeps {
   runtime: ExtensionRuntimeDeps
-  /** The table block's payload, read with the person's own access. */
+  /** The sheet as columns and rows, read with the person's own access. */
   readTable: (
     headers: Headers,
     req: GateCheckRequest,
@@ -52,15 +52,25 @@ export function defaultGateCheckDeps(): GateCheckDeps {
 
       if (!auth.ok) throw new ExtensionRunError('not_installed', auth.message)
 
-      const rows = await createServerDataClient(auth.context.token).list<{
+      // Read the block with the person's own token first, so the sheet is
+      // only ever read for someone who can see it.
+      const blocks = await createServerDataClient(auth.context.token).list<{
         payload: unknown
       }>(
         'blocks',
         `?select=payload&id=eq.${encodeURIComponent(req.blockId)}` +
-          `&record_id=eq.${encodeURIComponent(req.recordId)}&type=eq.table`,
+          `&record_id=eq.${encodeURIComponent(req.recordId)}&type=eq.sheet`,
       )
 
-      return pipelineJsonObjectSchema.safeParse(rows[0]?.payload).data ?? null
+      if (!blocks[0]) return null
+
+      const result = await db.execute<{ payload: unknown }>(
+        sql`select internal.gate_sheet_table_payload(${JSON.stringify(blocks[0].payload)}::jsonb) as payload`,
+      )
+
+      return (
+        pipelineJsonObjectSchema.safeParse(result.rows[0]?.payload).data ?? null
+      )
     },
     store: async (req, outcome) => {
       await db.execute(

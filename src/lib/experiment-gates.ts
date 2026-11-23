@@ -327,12 +327,6 @@ export interface MirroredCondition {
   text: string
 }
 
-function isBlank(value: string | null | undefined): boolean {
-  if (value === null || value === undefined) return true
-
-  return value.trim() === ''
-}
-
 /** "P3", "P3 and P4", "P3, P4 and P5", "P3, P4, P5 and 2 more". */
 export function nameList(names: readonly string[]): string {
   if (names.length === 0) return ''
@@ -345,10 +339,6 @@ export function nameList(names: readonly string[]): string {
   return `${names.slice(0, 3).join(', ')} and ${names.length - 3} more`
 }
 
-function plural(count: number, word: string): string {
-  return `${count} ${word}${count === 1 ? '' : 's'}`
-}
-
 const unknown: MirroredCondition = {
   known: false,
   met: false,
@@ -357,23 +347,13 @@ const unknown: MirroredCondition = {
 }
 
 /** A table block's payload as a gate reads it: heading text and the cell grid. */
-const gateTableSchema = z.object({
-  title: z.string().optional().catch(undefined),
-  columns: z.array(z.coerce.string()).catch([]),
-  rows: z.array(z.unknown()).catch([]),
-})
-
-const gateRowSchema = z.array(z.coerce.string().nullish())
-
-type GateRow = z.infer<typeof gateRowSchema>
-
 function tableCondition(
   condition: Extract<GateCondition, { kind: 'table_filled' }>,
   ctx: GateContext,
 ): MirroredCondition {
   const block = ctx.blocks.find((b) => b.id === condition.blockId)
 
-  if (!block || (block.type !== 'table' && block.type !== 'sheet')) {
+  if (block?.type !== 'sheet') {
     return {
       known: true,
       met: false,
@@ -384,66 +364,7 @@ function tableCondition(
 
   // The cells of a sheet live in its own instance, which the page reads
   // elsewhere: leave it to the database.
-  if (block.type === 'sheet') return unknown
-
-  const table = gateTableSchema.parse(block.payload)
-  const label = condition.label?.trim() || table.title?.trim() || 'The table'
-  const column = condition.column?.trim() || null
-  const min = condition.minRows ?? 0
-  const columns = table.columns
-
-  const rows = table.rows.flatMap((row) => {
-    const parsed = gateRowSchema.safeParse(row)
-
-    return parsed.success ? [parsed.data] : []
-  })
-
-  const index = column
-    ? columns.findIndex((c) => c.trim().toLowerCase() === column.toLowerCase())
-    : -1
-
-  const total = rows.length
-  const nonEmpty = rows.filter((row) => row.some((cell) => !isBlank(cell)))
-  const cellOf = (row: GateRow) => (index >= 0 ? row[index] : undefined)
-  const filled = rows.filter((row) => !isBlank(cellOf(row)))
-
-  const missingNames = rows.flatMap((row, i) =>
-    isBlank(cellOf(row)) ? [row[0]?.trim() || `Row ${i + 1}`] : [],
-  )
-
-  const done = (met: boolean, text: string): MirroredCondition => ({
-    known: true,
-    met,
-    soft: false,
-    text: met ? '' : text,
-  })
-
-  if (column && index < 0) {
-    return done(false, `${label} has no ${column} column`)
-  }
-
-  if (column && min > 0) {
-    return done(
-      filled.length >= min,
-      `${label} needs ${plural(min, 'row')} with ${column} (${filled.length} so far)`,
-    )
-  }
-
-  if (column) {
-    if (total === 0) return done(false, `${label} has no rows yet`)
-
-    return done(
-      filled.length === total,
-      `${nameList(missingNames)} ${missingNames.length === 1 ? 'has' : 'have'} no ${column}`,
-    )
-  }
-
-  const need = min > 0 ? min : 1
-
-  return done(
-    nonEmpty.length >= need,
-    `${label} needs at least ${plural(need, 'row')} filled (${nonEmpty.length} so far)`,
-  )
+  return unknown
 }
 
 function stepCondition(

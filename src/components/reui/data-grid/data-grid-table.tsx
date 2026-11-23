@@ -2051,7 +2051,7 @@ function DataGridTableResizeIndicator({
       data-slot="data-grid-table-resize-indicator"
       className="pointer-events-none absolute inset-y-0 z-50"
     >
-      <div className="bg-primary/85 absolute inset-y-0 left-0 w-px -translate-x-1/2" />
+      <div className="bg-ring absolute inset-y-0 left-0 w-px -translate-x-1/2" />
       <div
         ref={indicatorHeadRef}
         className="bg-primary rounded-b-sm absolute top-0 left-0 -translate-x-1/2 shadow-xs"
@@ -2625,7 +2625,7 @@ function DataGridTableBodyRowCell<TData extends object>({
             className={cn(
               'absolute z-10 cursor-crosshair in-data-[cell-editing]:hidden in-data-[cell-selecting]:hidden',
               props.tableLayout.cellFillHandleVariant === 'ring'
-                ? 'border-primary bg-bg -end-[5px] -bottom-[5px] size-[11px] rounded-full border-2 in-[td:has(+[data-slot=data-grid-table-fill-body-cell]+td[data-pinned])]:end-0 in-[td:has(+[data-slot=data-grid-table-fill-body-cell]:last-child)]:end-0 in-[td:has(+td[data-pinned])]:end-0 in-[td:last-child]:end-0 in-[tr:last-child]:bottom-0'
+                ? 'border-ring bg-bg -end-[5px] -bottom-[5px] size-[11px] rounded-full border-2 in-[td:has(+[data-slot=data-grid-table-fill-body-cell]+td[data-pinned])]:end-0 in-[td:has(+[data-slot=data-grid-table-fill-body-cell]:last-child)]:end-0 in-[td:has(+td[data-pinned])]:end-0 in-[td:last-child]:end-0 in-[tr:last-child]:bottom-0'
                 : props.tableLayout.cellFillHandleVariant === 'square'
                   ? /* Abutting the cell borders from inside: no gap and no
                        overlap, so the square cannot merge with a gridline
@@ -2851,7 +2851,7 @@ function DataGridTableRowPin<TData extends object>({
       }}
       className={cn(
         'text-fg-muted hover:text-fg rounded-lg inline-flex size-7 items-center justify-center transition-colors',
-        isPinned && 'text-primary hover:text-primary/80',
+        isPinned && 'text-fg',
       )}
     >
       {isPinned ? (

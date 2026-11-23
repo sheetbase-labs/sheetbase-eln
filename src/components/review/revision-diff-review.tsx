@@ -149,7 +149,7 @@ export function ChangeCard({
       aria-current={active ? 'step' : undefined}
       className={cn(
         'rounded-lg border bg-surface p-3 outline-none',
-        active && 'ring-2 ring-primary/40',
+        active && 'ring-2 ring-ring/40',
       )}
     >
       <div className="flex flex-wrap items-start justify-between gap-2">
@@ -212,7 +212,7 @@ function TableDiffCard({
       ref={rootRef}
       className={cn(
         'rounded-lg border bg-surface outline-none',
-        activeDetailIndex >= 0 && 'ring-2 ring-primary/40',
+        activeDetailIndex >= 0 && 'ring-2 ring-ring/40',
       )}
     >
       <div className="flex flex-wrap items-center gap-3 p-3">

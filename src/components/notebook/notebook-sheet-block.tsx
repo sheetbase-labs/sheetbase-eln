@@ -193,7 +193,7 @@ export function FrozenSheetEvidencePanel({
         return onCommentTarget && grid.rowKeys ? (
           <button
             type="button"
-            className="w-full rounded px-1 py-0.5 text-left outline-none focus-visible:ring-2 focus-visible:ring-ring aria-pressed:bg-selection aria-pressed:ring-1 aria-pressed:ring-primary"
+            className="w-full rounded px-1 py-0.5 text-left outline-none focus-visible:ring-2 focus-visible:ring-ring aria-pressed:bg-selection aria-pressed:ring-1 aria-pressed:ring-ring"
             aria-label={t(
               'notebook.notebookSheetBlock.selectLabelRowRowindexAriaLabel',
               {

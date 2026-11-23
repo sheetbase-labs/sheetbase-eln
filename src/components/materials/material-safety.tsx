@@ -312,7 +312,7 @@ function SafetyEditDialog({
                     className={cn(
                       'flex cursor-pointer items-center gap-2 rounded-md border px-2 py-1.5 text-label',
                       checked
-                        ? 'border-primary bg-surface-hover'
+                        ? 'border-ring bg-surface-hover'
                         : 'border-border',
                     )}
                   >

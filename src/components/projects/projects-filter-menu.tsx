@@ -38,7 +38,7 @@ export function ProjectsFilterMenu({
         render={
           <Button
             variant="quiet"
-            className={filterCount ? 'text-link hover:text-link' : ''}
+            className={filterCount ? 'bg-selection hover:bg-selection' : ''}
           />
         }
       >

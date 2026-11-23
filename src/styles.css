@@ -106,13 +106,13 @@
   --info-foreground: oklch(1 0 89.9);
   --border: oklch(0.909 0.009 264.5);
   --input: oklch(0.909 0.009 264.5);
-  --ring: oklch(0.551 0.188 256);
+  --ring: oklch(0.55 0 0);
 
   /* Selection and links (selection, selection-subtle, selection-border, accent, accent-hover) */
-  --selection: oklch(0.95 0.018 258.4);
+  --selection: oklch(0.945 0 0);
   --nav-selected: oklch(0.93 0 0);
-  --selection-subtle: oklch(0.975 0.009 258.3);
-  --selection-border: oklch(0.798 0.073 254.4);
+  --selection-subtle: oklch(0.972 0 0);
+  --selection-border: oklch(0.8 0 0);
   --link: oklch(0.551 0.188 256);
   --link-hover: oklch(0.467 0.159 255.9);
 
@@ -222,12 +222,12 @@
   --info-foreground: oklch(0.177 0 0);
   --border: oklch(0.311 0 0);
   --input: oklch(0.311 0 0);
-  --ring: oklch(0.687 0.167 255.6);
+  --ring: oklch(0.7 0 0);
 
-  --selection: oklch(0.286 0.044 256.9);
+  --selection: oklch(0.29 0 0);
   --nav-selected: oklch(0.3 0 0);
-  --selection-subtle: oklch(0.249 0.029 255.2);
-  --selection-border: oklch(0.424 0.085 256);
+  --selection-subtle: oklch(0.25 0 0);
+  --selection-border: oklch(0.42 0 0);
   --link: oklch(0.687 0.167 255.6);
   --link-hover: oklch(0.761 0.124 255.3);
 
@@ -317,6 +317,11 @@
   --sb-host-border: var(--border);
   --sb-host-border-subtle: var(--border-subtle);
   --sb-host-border-strong: var(--border-strong);
+  --sb-host-selection: var(--selection);
+  --sb-host-selection-subtle: var(--selection-subtle);
+  --sb-host-selection-border: var(--selection-border);
+  --sb-host-ring: var(--ring);
+  --sb-host-foreground: var(--foreground);
   --sb-host-font-sans: var(--font-sans);
   --sb-host-font-mono: var(--font-mono);
 }
@@ -332,6 +337,13 @@
   --border: var(--sb-host-border);
   --border-subtle: var(--sb-host-border-subtle);
   --border-strong: var(--sb-host-border-strong);
+
+  /* Selection and focus: the preset's dark block repaints these with its blue
+     hex values on this element, so read the neutral ELN tokens through the
+     host aliases or a selected header goes blue again in dark mode. */
+  --selection: var(--sb-host-selection);
+  --selection-subtle: var(--sb-host-selection-subtle);
+  --selection-border: var(--sb-host-selection-border);
 
   /* Surfaces */
   --app: var(--background);
@@ -350,10 +362,14 @@
   /* Interaction */
   --accent: var(--primary);
   --accent-dark: var(--primary-hover);
-  --accent-ink: var(--primary);
-  --accent-soft: var(--selection);
-  --accent-soft-2: var(--selection-subtle);
-  --focus: var(--ring);
+  --accent-soft: var(--sb-host-selection);
+  --accent-soft-2: var(--sb-host-selection-subtle);
+  --focus: var(--sb-host-ring);
+  /* Hover, focus, selected and active states stay neutral: the components read
+     these instead of the accent blue (see neutral-states.test.ts there). */
+  --state-ink: var(--sb-host-foreground);
+  --state-edge: var(--sb-host-ring);
+  --accent-ink: var(--sb-host-foreground);
   --on-accent: var(--primary-foreground);
 
   /* Status */

@@ -134,7 +134,7 @@ function RenameInput({
       ref={ref}
       aria-label={label}
       defaultValue={initial}
-      className="h-6 w-36 rounded-sm border border-border-strong bg-surface px-1.5 text-[12px] outline-none focus:border-primary"
+      className="h-6 w-36 rounded-sm border border-border-strong bg-surface px-1.5 text-[12px] outline-none focus:border-ring"
       onBlur={(event) => done(event.currentTarget.value)}
       onKeyDown={(event) => {
         if (event.key === 'Enter') done(event.currentTarget.value)

@@ -389,7 +389,7 @@ function CommentCard({
       }
       className={cn(
         'flex min-w-0 flex-col gap-2 rounded-md border border-warning/40 bg-surface px-3 py-2.5 text-sm shadow-overlay outline-none',
-        highlighted && 'ring-2 ring-primary/40',
+        highlighted && 'ring-2 ring-ring/40',
       )}
     >
       <div className="flex flex-wrap items-center gap-2">
@@ -810,7 +810,7 @@ function renderDocumentBlocks({
         className={cn(
           'relative flex min-w-0 flex-col rounded-lg border border-transparent px-6 py-4 outline-none md:px-10',
           marked && 'border-border bg-surface/60',
-          highlightedLocation === entry.id && 'ring-2 ring-primary/40',
+          highlightedLocation === entry.id && 'ring-2 ring-ring/40',
         )}
       >
         <div className="flex min-w-0 flex-wrap items-center justify-between gap-2">
@@ -962,7 +962,7 @@ function renderDocumentContents({
         tabIndex={-1}
         className={cn(
           'flex flex-col gap-3 border-b border-border-subtle pb-4 outline-none',
-          highlightedLocation === 'revision' && 'ring-2 ring-primary/40',
+          highlightedLocation === 'revision' && 'ring-2 ring-ring/40',
         )}
       >
         <div className="flex flex-wrap items-start justify-between gap-3">
@@ -1059,7 +1059,7 @@ function renderDocumentContents({
           })}
           className={cn(
             'relative min-w-0 rounded-lg border border-border bg-surface/60 px-6 py-4 outline-none md:px-10',
-            highlightedLocation === table.tableId && 'ring-2 ring-primary/40',
+            highlightedLocation === table.tableId && 'ring-2 ring-ring/40',
           )}
         >
           <div className="flex flex-wrap items-center justify-between gap-2">

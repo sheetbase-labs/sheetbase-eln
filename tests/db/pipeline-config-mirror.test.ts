@@ -131,11 +131,15 @@ describe('a configuration is accepted by the page exactly when the database acce
   for (const [label, value] of cases) {
     it(label, async () => {
       const page = validatePipelineConfig(value).length === 0
-      const { rows } = await migrator.query<{ e: unknown[] }>(
-        `select api.pipeline_config_errors($1::jsonb) as e`,
-        [JSON.stringify(value)],
-      )
-      const database = rows[0].e.length === 0
+      // The database may refuse by returning errors or by raising one.
+      const database = await migrator
+        .query<{
+          e: unknown[]
+        }>(`select api.pipeline_config_errors($1::jsonb) as e`, [JSON.stringify(value)])
+        .then(
+          ({ rows }) => rows[0].e.length === 0,
+          () => false,
+        )
 
       expect(
         database,

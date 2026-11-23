@@ -46,7 +46,7 @@ type NotebookBlockContent =
       type: 'checklist'
       payload: { items: Array<{ text: string; checked: boolean }> }
     }
-  | { type: 'table'; payload: { columns: string[]; rows: string[][] } }
+  | { type: 'grid'; payload: { columns: string[]; rows: string[][] } }
   | {
       type: 'metric'
       payload: {
@@ -216,7 +216,7 @@ export function buildNotebook(input: BuildInput): NotebookBlock[] {
   // Work in progress has the last condition still to read out.
   const pending = finished ? -1 : cells.length - 1
   blocks.push({
-    type: 'table',
+    type: 'grid',
     payload: {
       columns: [
         factor,

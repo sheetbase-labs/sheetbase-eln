@@ -22,6 +22,7 @@ import { rechainAuditLog } from './design-clock-sweep'
 import { DESIGN_SESSION_IDS } from './identities'
 import { kitFor, namedTopicFor } from './design-notebook-kits'
 import { FINAL_PROJECT_KEY } from './design-lists'
+import { insertGridSheetBlock } from './grid-sheet'
 import {
   APPROVAL_NOTES,
   RETURN_NOTES,
@@ -396,6 +397,17 @@ async function writeNotebooks(db: Db): Promise<void> {
       if (reopen) await setStatus(db, p.row.id, 'in_progress')
 
       for (const [n, block] of fresh.entries()) {
+        if (block.type === 'grid') {
+          await insertGridSheetBlock(db, {
+            id: blockId(p.row.identifier, n + 1),
+            recordId: p.row.id,
+            order: block.order,
+            payload: block.payload,
+            createdBy: p.row.createdBy,
+          })
+          continue
+        }
+
         await db.execute(sql`
           insert into api.blocks (id, record_id, type, "order", payload, created_by_user_id)
           values (${blockId(p.row.identifier, n + 1)}, ${p.row.id}, ${block.type},

@@ -10,6 +10,7 @@ import * as schema from '../schema'
 import { eq, sql } from 'drizzle-orm'
 import type { SeedStep } from './run'
 import { seedUrl } from './url'
+import { gridPayload, insertGridSheetBlock } from './grid-sheet'
 import {
   monthShowcaseSheetFields,
   monthShowcaseSheetRows,
@@ -434,7 +435,7 @@ async function upsertCore(db: Parameters<SeedStep['run']>[0]) {
         },
       },
       {
-        type: 'table' as const,
+        type: 'grid' as const,
         payload: {
           columns: [
             'Replicate',
@@ -471,7 +472,18 @@ async function upsertCore(db: Parameters<SeedStep['run']>[0]) {
       },
     ]
 
-    for (const [j, block] of payloads.entries())
+    for (const [j, block] of payloads.entries()) {
+      if (block.type === 'grid') {
+        await insertGridSheetBlock(db, {
+          id: uuid(0x500 + i * 8 + j),
+          recordId: uuid(0x300 + i),
+          order: j + 1,
+          payload: block.payload,
+          createdBy: GARETH,
+        })
+        continue
+      }
+
       await db
         .insert(schema.blocks)
         .values({
@@ -483,6 +495,7 @@ async function upsertCore(db: Parameters<SeedStep['run']>[0]) {
           createdByUserId: GARETH,
         })
         .onConflictDoNothing({ target: schema.blocks.id })
+    }
   }
 
   const storage = join(process.cwd(), '.storage', 'objects')
@@ -1680,9 +1693,9 @@ async function upsertShowcaseNotebook(db: Parameters<SeedStep['run']>[0]) {
           provenance: 'qPCR \u2014 QuantStudio 7, triplicate',
         },
       },
-      // Table — stability timecourse results
+      // Grid — stability timecourse results, written as an ad hoc sheet
       {
-        type: 'table',
+        type: 'grid' as const,
         payload: {
           columns: [
             'Timepoint',
@@ -1735,6 +1748,17 @@ async function upsertShowcaseNotebook(db: Parameters<SeedStep['run']>[0]) {
     ]
 
     for (const [j, block] of postProtocolBlocks.entries()) {
+      if (block.type === 'grid') {
+        await insertGridSheetBlock(db, {
+          id: uuid(0x5f8 + j),
+          recordId: SHOWCASE_RECORD,
+          order: 100 + j,
+          payload: gridPayload.parse(block.payload),
+          createdBy: GARETH,
+        })
+        continue
+      }
+
       await db
         .insert(schema.blocks)
         .values({

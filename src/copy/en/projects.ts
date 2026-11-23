@@ -3775,11 +3775,13 @@ export const projects = {
       generatedToast: 'Document generated',
       generateFailed: 'The document could not be generated',
       generateDenied:
-        'You can read this report but can’t generate it. Ask someone with edit access to its project, or ask an admin to give you edit access.',
+        'You can read this report but can’t generate it. Ask someone with edit or review access to its project, or ask an admin to give you access.',
       readOnlyTitle: 'You can read this report but not change it',
       readOnlyBody:
-        'Generating, checking and changing the status need edit access to its project. Ask an admin or the project owner for it.',
-      generateNeedsEdit: 'Needs edit access to the project',
+        'Generating needs edit or review access to its project; checking and changing the status need edit access. Ask an admin or the project owner for it.',
+      reviewerBody:
+        'As a reviewer you can generate this report. Checking its sources and changing its status need edit access to its project.',
+      generateNeedsEdit: 'Needs edit or review access to the project',
       details: 'Details',
       status: 'Status',
       project: 'Project',

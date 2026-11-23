@@ -18,6 +18,7 @@ import {
   generateReport,
   isPermissionDenied,
   moveId,
+  reportAccess,
   reorderSections,
   reportKeys,
   reportStatus,
@@ -87,10 +88,13 @@ function ReportPage() {
     staleTime: 60_000,
   })
 
-  const canEdit =
+  const mine =
     !report?.projectId || permissions.data === undefined
-      ? true
-      : permissions.data.get(report.projectId)?.can_edit === true
+      ? undefined
+      : permissions.data.get(report.projectId)
+
+  // Reviewers can generate a report without being able to change it.
+  const { canEdit, canGenerate } = reportAccess(mine)
 
   const names = useUserNames(report ? [report.createdByUserId] : [])
   useRecentViewTracking('record', report ? report.recordId : null)
@@ -205,7 +209,7 @@ function ReportPage() {
           tab={tab}
           ready={ready}
           generating={generate.isPending}
-          canEdit={canEdit}
+          canGenerate={canGenerate}
           onShare={() => setShareOpen(true)}
           onGenerate={() => generate.mutate()}
         />
@@ -217,7 +221,9 @@ function ReportPage() {
               className="mb-4"
               title={t('projects.reports.builder.readOnlyTitle')}
             >
-              {t('projects.reports.builder.readOnlyBody')}
+              {canGenerate
+                ? t('projects.reports.builder.reviewerBody')
+                : t('projects.reports.builder.readOnlyBody')}
             </Notice>
           )}
           {locked ? (

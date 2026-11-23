@@ -540,6 +540,23 @@ export function isPermissionDenied(error: Error): boolean {
   )
 }
 
+/**
+ * What this person may do with a report, from their access to its project.
+ * Editors change and generate it; reviewers generate it only; viewers read it.
+ * `undefined` access (no project, or not loaded yet) leaves the database to
+ * decide, so everything shows as allowed.
+ */
+export function reportAccess(
+  access: { can_edit: boolean; can_review: boolean } | undefined,
+) {
+  if (access === undefined) return { canEdit: true, canGenerate: true }
+
+  return {
+    canEdit: access.can_edit,
+    canGenerate: access.can_edit || access.can_review,
+  }
+}
+
 export async function generateReport(
   client: DataClient,
   input: { workspaceId: string; definitionId: string },

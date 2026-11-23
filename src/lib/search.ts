@@ -5,7 +5,8 @@
  * `api.search` RPC:
  *
  * - typed search result shapes (wire → domain mapping);
- * - block text extraction (mirrors the PL/pgSQL `extract_jsonb_text` for
+ * - block text extraction (a client-side copy of the PL/pgSQL `extract_jsonb_text`, kept
+ *   in step by tests/db/search-text-mirror.test.ts, for
  *   client-side use and unit testing);
  * - search filter validation and RPC argument building;
  * - matched-context rendering (converts ts_headline `<b>` tags to safe React
@@ -860,8 +861,8 @@ export function matchedFieldLabel(field: string): string {
 }
 
 // ---------------------------------------------------------------------------
-// Block text extraction (mirrors internal.extract_jsonb_text for client-side
-// use and unit testing). The DB function is the authority for indexing; this
+// Block text extraction (a client-side copy of internal.extract_jsonb_text,
+// compared with it by tests/db/search-text-mirror.test.ts). The DB function is the authority for indexing; this
 // TypeScript function is for testing and potential client-side preview.
 // ---------------------------------------------------------------------------
 
@@ -1009,8 +1010,9 @@ function extractFromArrayField(
 }
 
 /**
- * Recursively extract all string values from a JSONB-like object. Mirrors the
- * PL/pgSQL `internal.extract_jsonb_text` function.
+ * Recursively extract all string values from a JSONB-like object. Finds the same
+ * words as the PL/pgSQL `internal.extract_jsonb_text`; tests/db/search-text-mirror.test.ts
+ * compares them.
  */
 // oxlint-disable-next-line anti-slop/no-unknown-parameters -- Permissive text-extraction boundary, not JSON validation: native objects and scientific numeric values remain accepted.
 export function extractAllStrings(value: unknown): string {

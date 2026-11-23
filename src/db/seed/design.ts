@@ -23,6 +23,29 @@ import { seedDesignImports } from './design-imports'
 import { seedDesignSubtypes } from './design-subtypes'
 import { seedDesignStorage } from './design-storage'
 import { seedDesignSafety } from './design-safety'
+import { seedDesignRegistries } from './design-registries'
+import { seedDesignPlates } from './design-plates'
+import {
+  seedDesignCalendar,
+  seedDesignInstrumentExtras,
+  seedDesignPeopleAndAssistant,
+  seedDesignSuppliersAndMaterials,
+} from './design-lab-extras'
+import { seedDesignReports, seedDesignScheduledReports } from './design-reports'
+import {
+  seedDesignCollaboration,
+  seedDesignQcSeries,
+  seedDesignQuality,
+  seedDesignSampleWorkflows,
+  seedDesignWatchers,
+} from './design-quality'
+import {
+  seedDesignReagentOrders,
+  seedDesignRequests,
+  seedDesignSavedSearches,
+  seedDesignShipments,
+  seedDesignStocktakes,
+} from './design-operations'
 import { seedDesignAgentRegistry } from './design-agents'
 import { seedDesignPipelineTriggers } from './design-pipeline-triggers'
 import { seedDesignExperimentStory } from './design-story'
@@ -1431,6 +1454,88 @@ export const designSteps: Array<SeedStep> = [
     // protocols that use those materials.
     name: 'design chemical safety',
     run: (db) => seedDesignSafety(db),
+  },
+  {
+    // Registries and their linked entries (constructs, cell lines, antibodies,
+    // references, AAV vectors and their lots). Before the clock step, which
+    // pins every record's update date to the design day.
+    name: 'design registries',
+    run: (db) => seedDesignRegistries(db),
+  },
+  {
+    // Day-to-day lab operations: shipments, analysis requests, reagent orders,
+    // stocktakes and saved searches, each made through the RPC a page calls.
+    name: 'design shipments',
+    run: (db) => seedDesignShipments(db),
+  },
+  {
+    name: 'design analysis requests',
+    run: (db) => seedDesignRequests(db),
+  },
+  {
+    name: 'design reagent orders',
+    run: (db) => seedDesignReagentOrders(db),
+  },
+  {
+    name: 'design stocktakes',
+    run: (db) => seedDesignStocktakes(db),
+  },
+  {
+    name: 'design saved searches',
+    run: (db) => seedDesignSavedSearches(db),
+  },
+  {
+    // After the experiments and their evidence: sections cite frozen blocks.
+    name: 'design reports',
+    run: (db) => seedDesignReports(db),
+  },
+  {
+    name: 'design scheduled reports',
+    run: (db) => seedDesignScheduledReports(db),
+  },
+  {
+    // Release limits, the incident log, legal holds and retention rules.
+    name: 'design quality',
+    run: (db) => seedDesignQuality(db),
+  },
+  {
+    name: 'design sample workflows',
+    run: (db) => seedDesignSampleWorkflows(db),
+  },
+  {
+    // After orders and stock: the watchers run once and leave findings.
+    name: 'design watchers',
+    run: (db) => seedDesignWatchers(db),
+  },
+  {
+    name: 'design qc control charts',
+    run: (db) => seedDesignQcSeries(db),
+  },
+  {
+    name: 'design collaboration',
+    run: (db) => seedDesignCollaboration(db),
+  },
+  {
+    // The materials shelf, suppliers and a prepared reagent. Before the
+    // watchers would be ideal, but they only read stock, so order is free.
+    name: 'design suppliers and materials',
+    run: (db) => seedDesignSuppliersAndMaterials(db),
+  },
+  {
+    name: 'design instrument extras',
+    run: (db) => seedDesignInstrumentExtras(db),
+  },
+  {
+    name: 'design calendar',
+    run: (db) => seedDesignCalendar(db),
+  },
+  {
+    name: 'design plates',
+    run: (db) => seedDesignPlates(db),
+  },
+  {
+    name: 'design people and assistant',
+    run: (db) => seedDesignPeopleAndAssistant(db),
   },
   {
     // Last: snapshotting a dataset stamps `updated_at`, so pin the design

@@ -31,10 +31,10 @@ export interface JoinOffer {
 }
 
 /**
- * Public mail domains, mirrored from `internal.public_email_domain` so the
- * settings card never offers one. The database is what refuses them.
+ * Public mail domains, so the settings card never offers one. The database is
+ * what refuses them; tests/db/app-database-parity.test.ts compares the two lists.
  */
-const PUBLIC_EMAIL_DOMAINS: ReadonlySet<string> = new Set([
+export const PUBLIC_EMAIL_DOMAINS: ReadonlySet<string> = new Set([
   'gmail.com',
   'googlemail.com',
   'outlook.com',

@@ -10,6 +10,7 @@ import {
   agentActionAlwaysAsk,
   agentActionAlwaysNever,
 } from '#/lib/agent-action-policy'
+import { PUBLIC_EMAIL_DOMAINS } from '#/lib/join-domains'
 import { LAB_RPCS } from '#/lib/lab-api-surface'
 import { BUILT_IN_RULES } from '#/lib/release-rules'
 import { effectiveHoldDeadline } from '#/lib/sample-hold.server'
@@ -124,5 +125,22 @@ describe('what agents may never do or always need a person for', () => {
       differing,
       'src/lib/agent-action-policy.ts and internal.agent_action_always_never / _always_ask must agree',
     ).toEqual([])
+  })
+})
+
+describe('public email domains', () => {
+  it('are the same list in the settings card and the database', async () => {
+    const { rows } = await migrator.query<{ def: string }>(
+      `select pg_get_functiondef('internal.public_email_domain(text)'::regprocedure) as def`,
+    )
+
+    const inDatabase = [...rows[0]!.def.matchAll(/'([a-z0-9.-]+)'/g)]
+      .map((match) => match[1]!)
+      .sort()
+
+    expect(
+      [...PUBLIC_EMAIL_DOMAINS].sort(),
+      'src/lib/join-domains.ts and internal.public_email_domain must list the same domains',
+    ).toEqual(inDatabase)
   })
 })

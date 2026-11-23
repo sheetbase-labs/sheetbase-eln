@@ -6,6 +6,7 @@
  * request through that the broker refuses, or the other way round.
  */
 import { readFileSync } from 'node:fs'
+import { resolve } from 'node:path'
 import { describe, expect, it } from 'vitest'
 
 import {
@@ -18,7 +19,7 @@ import {
 import { LIMITS } from './pipeline-python-runner.mjs'
 
 const worker = readFileSync(
-  new URL('../docker/pipeline-python/worker.py', import.meta.url),
+  resolve(process.cwd(), 'docker/pipeline-python/worker.py'),
   'utf8',
 )
 

@@ -379,7 +379,7 @@ export function canonicalSheetGridMatrix(input: {
         index < composed.rowKeys.length ? composed.data[index] : null
 
       // GRID-05: a composed row without a local entry has no local values —
-      // read them safely instead of throwing (mirrors frozen-sheet-grid).
+      // read them safely instead of throwing (as frozen-sheet-grid does).
       const localRow = Object.hasOwn(input.instance.state.localValues, rowKey)
         ? input.instance.state.localValues[rowKey]
         : undefined
@@ -478,7 +478,7 @@ export function validateCanonicalCell<Input>(
  * (definition/configuration or local field order) is untouched, row identity
  * is unaffected and no data value changes. Unknown, duplicate or hidden
  * `columnOrder` entries are ignored; canonical columns missing from the saved
- * order keep their canonical position at the end, mirroring the frozen-sheet
+ * order keep their canonical position at the end, as in the frozen-sheet
  * evidence reconstruction.
  */
 export function applySheetPresentation(
@@ -612,7 +612,7 @@ export function firstBulkChangeRejection(
  * Read-only/derived columns and already-empty cells
  * are skipped, so clearing never mints phantom spare-row entries and the
  * workspace `beforeChange` validation remains the fail-closed gate for
- * required fields. Column resolution mirrors GRID-02's `toPhysicalRow` row
+ * required fields. Column resolution follows GRID-02's `toPhysicalRow` row
  * mapping via `toPhysicalColumn`; returned coordinates stay visual so
  * `setDataAtCell` applies them unchanged.
  */

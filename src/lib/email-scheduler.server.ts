@@ -3,8 +3,8 @@
  *
  * A per-process interval (unref'd, never started under test runners) that
  * enqueues due daily digests and, when SMTP is configured, sends due
- * deliveries through the outbox worker. Mirrors the pipeline scheduler's
- * start pattern.
+ * deliveries through the outbox worker. Starts the way the other
+ * schedulers do.
  */
 import { PooledClient } from '#/db/pool.server'
 import { logger } from './logger'

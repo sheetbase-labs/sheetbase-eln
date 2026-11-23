@@ -27,8 +27,8 @@ import { checkExtensionCompat } from '#/lib/extensions/compat'
 import { t } from '#/copy'
 import type { GoLiveStatus } from '#/lib/go-live.server'
 
-// Scheduler configuration — mirrors the env check in
-// src/lib/pipeline-scheduler.server.ts startPipelineScheduler().
+// Scheduler configuration: the same SHEETBASE_SCHEDULER_ENABLED switch the
+// schedulers read, so diagnostics report what they will actually do.
 function schedulerEnabled(): boolean {
   return process.env.SHEETBASE_SCHEDULER_ENABLED !== 'false'
 }

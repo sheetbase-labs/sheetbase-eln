@@ -47,7 +47,7 @@ export const relationshipQueryKeys = {
 export type RelationshipDirection = 'outgoing' | 'incoming'
 
 /**
- * Lifecycle state of the counterparty. Mirrors the honest `RecordLink`
+ * Lifecycle state of the counterparty. The honest `RecordLink`
  * states plus `archived` — FIND-03 drops these rows, this panel shows them.
  */
 export type RelationshipRowState =

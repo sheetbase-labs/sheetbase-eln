@@ -10,7 +10,7 @@ import { CheckRow, SettingsBody, SettingsHeader } from './settings-page'
 import { Select } from '#/components/ui/select'
 import { LabLogoSettings } from './lab-logo-settings'
 import { WorkingHoursSettings } from './working-hours-settings'
-import { SettingsSampleData } from './settings-sample-data'
+import { SettingsLabSetup, SettingsSampleData } from './settings-sample-data'
 import { TableBox } from '#/components/ui/table'
 import { RegistryGrid } from '#/components/inventory/registry-grid'
 import type { RegistryColumn } from '#/components/inventory/registry-grid'
@@ -335,6 +335,7 @@ export function SettingsGeneral({
         </Section>
         <LabLogoSettings />
         <WorkingHoursSettings workspaceId={workspaceId} />
+        <SettingsLabSetup />
         <SettingsSampleData workspaceId={workspaceId} />
       </SettingsBody>
     </>

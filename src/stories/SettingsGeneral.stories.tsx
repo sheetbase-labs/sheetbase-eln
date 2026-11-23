@@ -127,28 +127,36 @@ export const ReadUnavailable: Story = {
   render: () => <SettingsGeneral workspaceId={WORKSPACE_ID} />,
 }
 
-/** A workspace that has just been set up: the sample project is on offer. */
+/** A workspace that has just been set up: a demo workspace is on offer. */
 export const SampleDataOffered: Story = {
   decorators: [
     provider([
       { key: workspaceGeneralQueryKey, value: saved },
       {
         key: sampleDataQueryKey(WORKSPACE_ID),
-        value: { loaded: false, projectKey: 'virus-stability' },
+        value: {
+          loaded: false,
+          demoWorkspaceId: null,
+          projectKey: 'virus-stability',
+        },
       },
     ]),
   ],
   render: () => <SettingsGeneral workspaceId={WORKSPACE_ID} />,
 }
 
-/** Once added there is nothing more to offer, only a note. */
+/** Once the Demo workspace exists there is nothing more to offer, only a note. */
 export const SampleDataLoaded: Story = {
   decorators: [
     provider([
       { key: workspaceGeneralQueryKey, value: saved },
       {
         key: sampleDataQueryKey(WORKSPACE_ID),
-        value: { loaded: true, projectKey: 'virus-stability' },
+        value: {
+          loaded: true,
+          demoWorkspaceId: 'demo-workspace',
+          projectKey: 'virus-stability',
+        },
       },
     ]),
   ],

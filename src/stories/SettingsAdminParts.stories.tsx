@@ -468,7 +468,11 @@ export const SampleData: Story = {
     provider([
       {
         key: sampleDataQueryKey(WS),
-        value: { loaded: false, projectKey: 'virus-stability' },
+        value: {
+          loaded: false,
+          demoWorkspaceId: null,
+          projectKey: 'virus-stability',
+        },
       },
     ]),
   ],
@@ -480,7 +484,11 @@ export const SampleDataLoaded: Story = {
     provider([
       {
         key: sampleDataQueryKey(WS),
-        value: { loaded: true, projectKey: 'virus-stability' },
+        value: {
+          loaded: true,
+          demoWorkspaceId: 'demo-workspace',
+          projectKey: 'virus-stability',
+        },
       },
     ]),
   ],

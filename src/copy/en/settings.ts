@@ -670,23 +670,23 @@ export const settings = {
     addStarter: 'Add starter tables',
     addingStarter: 'Adding…',
     starterAdded: 'Starter tables added',
+    sectionTitle: 'Lab setup',
+    sectionHint:
+      'Skipped the first-run setup? Run it again to name the lab, set its time zone, choose starter tables and add the sample project.',
+    sectionAction: 'Run lab setup',
   },
   sampleData: {
     title: 'Sample data',
     description:
-      'A worked example to look around in or train people on: a stability study with samples, materials, a freezer box, a protocol, an experiment and a report. It is added to this workspace under your name and never changes your own records.',
-    hint: 'It is an ordinary project, so you can archive it when you have finished with it.',
-    add: 'Add sample data',
+      'A worked example to look around in or train people on: a stability study with samples, materials, a freezer box, a protocol, an experiment and a report. It goes in a new workspace called Demo, so this workspace is never changed.',
+    hint: 'Switch between Demo and your own workspace from the workspace menu.',
+    add: 'Create demo workspace',
     adding: 'Adding…',
     added: 'Sample data added',
-    loaded: 'The sample project is in this workspace.',
-    setupTitle: 'Also add the sample project',
-    setupHint:
-      'A worked example to look around in. You can add it later from Settings.',
-    keyInUse:
-      'This workspace already has its own project with the key “{key}”, so the sample project was not added.',
+    loaded: 'You have a Demo workspace. Switch to it from the workspace menu.',
+    setupTitle: 'Explore a demo workspace instead',
     elsewhere:
-      'The sample project already lives in another workspace on this install.',
+      'The demo already lives in another person’s workspace on this install.',
     error: 'Couldn’t add the sample data. Try again.',
   },
   joinDomains: {

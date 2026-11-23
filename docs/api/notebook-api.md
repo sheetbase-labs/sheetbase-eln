@@ -71,7 +71,7 @@ marked deleted. A later draft that changes bytes must create a new file object.
 ### `create_record_with_blocks`
 
 Creates a record and its initial blocks in one transaction. Reuses
-`create_record` for the stable `EXP-`/`PRT-`/`RPT-YYYY-NNNN` identifier.
+`create_record` for the stable `EXP-`/`PRT-`/`RPT-NNNN` identifier.
 
 ```jsonc
 // POST /api/db/rpc/create_record_with_blocks

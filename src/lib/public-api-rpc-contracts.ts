@@ -819,7 +819,7 @@ export const RPC_CONTRACTS: RpcContractCatalogue = {
   create_record: {
     summary: 'Create a model record',
     description:
-      'Creates a record and assigns a stable `{PREFIX}-YYYY-NNNN` identifier. Direct POST to `records` is also allowlisted; prefer this RPC.',
+      'Creates a record and assigns a stable `{PREFIX}-NNNN` identifier. Direct POST to `records` is also allowlisted; prefer this RPC.',
     required: [
       'p_project_id',
       'p_kind',

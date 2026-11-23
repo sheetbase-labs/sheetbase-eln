@@ -82,7 +82,7 @@ describe('RecordPicker', () => {
   it('shows an empty state when there are no results and no error', () => {
     mount({ results: [] })
     expect(screen.getByText(/no samples match your search/i)).toBeTruthy()
-    expect(screen.getByText(/SMP-YYYY-NNNN/i)).toBeTruthy()
+    expect(screen.getByText(/SMP-0001/i)).toBeTruthy()
   })
 
   it('shows an error state and never offers selection', () => {

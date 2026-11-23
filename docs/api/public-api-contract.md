@@ -144,7 +144,7 @@ where RPCs exist.
 | Domain                  | Stable identity                              | Primary operations (RPC-first)                                                                                                                                                                                                             |
 | ----------------------- | -------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | **Projects**            | `project.key`, UUID                          | `create_project`; table reads                                                                                                                                                                                                              |
-| **Models / Records**    | `{PREFIX}-YYYY-NNNN`, UUID                   | `create_record`, `create_record_with_blocks`, `create_model_record`, `update_record_custom_fields`, `transition_record_status`, `create_record_link`; registry reads                                                                       |
+| **Models / Records**    | `{PREFIX}-NNNN`, UUID                        | `create_record`, `create_record_with_blocks`, `create_model_record`, `update_record_custom_fields`, `transition_record_status`, `create_record_link`; registry reads                                                                       |
 | **Notebooks**           | record UUID (`kind=experiment`), block order | Block RPCs above; `insert_sheet_instance_block`, `duplicate_sheet_instance_block`; `preview_submission_digest`. `submit_record_revision` is **human-session-only**                                                                         |
 | **Sheet Definitions**   | definition `key`, version UUID               | `create_sheet_definition`, draft/version publish/retire RPCs, `extract_sheet_definition_draft`, …                                                                                                                                          |
 | **Sheet Instances**     | instance UUID, `revision`                    | `create_sheet_instance`, `create_sheet_instance_from_definition`, `update_sheet_instance`, `query_sheet_instance_rows`, `mutate_sheet_instance_local_state`, composition adoption, definition upgrade, materialize, Record write-back RPCs |
@@ -209,18 +209,18 @@ surface (both credential kinds) is `docs/api/openapi/external-api-v0.json`
 
 ## 4. Stable identity semantics
 
-| Object                    | Primary id | Human-stable id                 | Concurrency token                                        |
-| ------------------------- | ---------- | ------------------------------- | -------------------------------------------------------- |
-| Project                   | UUID       | `key` (unique per workspace)    | row `version` where applicable                           |
-| Record (Model instance)   | UUID       | `{PREFIX}-YYYY-NNNN` identifier | record metadata version                                  |
-| Notebook block            | UUID       | —                               | block `version`; record `structure_version` for ordering |
-| Sheet Instance            | UUID       | name (non-unique)               | `revision` (integer, monotonic)                          |
-| Sheet Definition          | UUID       | `key`                           | definition `revision`; version `revision`                |
-| Dataset                   | UUID       | name                            | dataset `revision`                                       |
-| Dataset Version           | UUID       | —                               | immutable snapshot                                       |
-| Dataset Schema Definition | UUID       | `key`                           | definition `revision`                                    |
-| Notebook Template         | UUID       | `key`                           | template `revision`                                      |
-| File object               | UUID       | —                               | checksum + storage key                                   |
+| Object                    | Primary id | Human-stable id              | Concurrency token                                        |
+| ------------------------- | ---------- | ---------------------------- | -------------------------------------------------------- |
+| Project                   | UUID       | `key` (unique per workspace) | row `version` where applicable                           |
+| Record (Model instance)   | UUID       | `{PREFIX}-NNNN` identifier   | record metadata version                                  |
+| Notebook block            | UUID       | —                            | block `version`; record `structure_version` for ordering |
+| Sheet Instance            | UUID       | name (non-unique)            | `revision` (integer, monotonic)                          |
+| Sheet Definition          | UUID       | `key`                        | definition `revision`; version `revision`                |
+| Dataset                   | UUID       | name                         | dataset `revision`                                       |
+| Dataset Version           | UUID       | —                            | immutable snapshot                                       |
+| Dataset Schema Definition | UUID       | `key`                        | definition `revision`                                    |
+| Notebook Template         | UUID       | `key`                        | template `revision`                                      |
+| File object               | UUID       | —                            | checksum + storage key                                   |
 
 **Rules:**
 

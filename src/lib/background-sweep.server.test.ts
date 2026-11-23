@@ -12,6 +12,7 @@ afterEach(() => {
 
 describe('background sweep', () => {
   it('stays off under a test runner unless it is switched on', () => {
+    vi.stubEnv('SHEETBASE_SCHEDULER_ENABLED', '')
     vi.useFakeTimers()
 
     const tick = vi.fn(() => Promise.resolve())

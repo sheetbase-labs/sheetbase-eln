@@ -9,6 +9,7 @@ import type { Client } from 'pg'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 
 import { CAPABILITIES, hasCapability } from '#/lib/capability'
+import { hasDataAccess } from '#/lib/data-access-roles'
 
 import { prepareTestDatabase } from './helpers'
 
@@ -96,4 +97,58 @@ describe('capability.ts and api.has_capability', () => {
       `${role}: the app offers these, the database ${inDatabase.length ? 'grants ' + inDatabase.join(', ') : 'grants none'}. Change src/lib/capability.ts or a new migration so both say the same.`,
     ).toEqual(inDatabase)
   })
+
+  it.each(ROLES)(
+    '%s is a workspace writer exactly when it may create records',
+    async (role) => {
+      const client = await asRole('authenticator')
+
+      clients.push(client)
+      await client.query('SET ROLE authenticated')
+      await client.query(`select set_config('request.jwt.claims',$1,false)`, [
+        JSON.stringify({
+          sub: userId(role),
+          workspace_id: WORKSPACE,
+          role: 'authenticated',
+        }),
+      ])
+
+      const result = await client.query<{ writer: boolean }>(
+        'select api.is_workspace_writer($1) as writer',
+        [WORKSPACE],
+      )
+
+      expect(
+        result.rows[0]?.writer,
+        `${role}: api.is_workspace_writer must equal the record.create capability`,
+      ).toBe(hasCapability(role, 'record.create'))
+    },
+  )
+
+  it.each(ROLES)(
+    '%s has data access in the app exactly when the database says so',
+    async (role) => {
+      const client = await asRole('authenticator')
+
+      clients.push(client)
+      await client.query('SET ROLE authenticated')
+      await client.query(`select set_config('request.jwt.claims',$1,false)`, [
+        JSON.stringify({
+          sub: userId(role),
+          workspace_id: WORKSPACE,
+          role: 'authenticated',
+        }),
+      ])
+
+      const result = await client.query<{ allowed: boolean }>(
+        'select api.has_data_access($1) as allowed',
+        [WORKSPACE],
+      )
+
+      expect(
+        result.rows[0]?.allowed,
+        `${role}: src/lib/data-access-roles.ts and api.has_data_access disagree about the default roles`,
+      ).toBe(hasDataAccess(role, null))
+    },
+  )
 })

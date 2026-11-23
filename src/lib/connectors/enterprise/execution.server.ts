@@ -14,6 +14,7 @@
 import { z } from 'zod'
 import type { DataClient } from '#/lib/data-client'
 import { env } from '#/env.server'
+import { hasCapability } from '#/lib/capability'
 import { mintPostgrestToken } from '#/lib/postgrest-token'
 import {
   postgrestInsert,
@@ -22,22 +23,6 @@ import {
   postgrestSelect,
 } from '#/lib/request-auth'
 import { ConnectorExecutionError, boundedErrorMessage } from './errors'
-
-/**
- * Roles that may execute connector work (mirrors `api.is_workspace_writer`,
- * i.e. the `record.create` capability). Viewers are read-only; secret
- * management stays owner/admin/steward inside the existing sealed-secret
- * functions.
- */
-const EXECUTOR_ROLES = new Set([
-  'owner',
-  'admin',
-  'steward',
-  'member',
-  'scientist',
-  'analyst',
-  'reviewer',
-])
 
 export interface ConnectorExecutionContext {
   userId: string
@@ -149,7 +134,8 @@ export async function resolveConnectorExecutionContext(input: {
     throw new ConnectorExecutionError('forbidden', 'No workspace selected.')
   }
 
-  if (!EXECUTOR_ROLES.has(input.role)) {
+  // Running connector work needs the same right as writing a record.
+  if (!hasCapability(input.role, 'record.create')) {
     throw new ConnectorExecutionError(
       'forbidden',
       'Your workspace role cannot execute integrations.',

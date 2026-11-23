@@ -2,8 +2,8 @@
  * Which workspace roles get data access: the technical view of the workspace
  * (keys, API routes, Postgres names) and a personal read-only SQL login.
  *
- * `api.has_data_access()` is the authority. This module only mirrors it so the
- * first render can show or hide the technical affordances. It has no React or
+ * `api.has_data_access()` is the authority, and `tests/db/capability-mirror.test.ts`
+ * fails if this module's defaults drift from it. It exists so the first render can show or hide the technical affordances. It has no React or
  * server imports so both sides can use it.
  */
 

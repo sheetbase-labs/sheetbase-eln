@@ -68,7 +68,7 @@ export interface ValueActionsProps {
    * same value, so each is shown and cleared separately.
    */
   flags?: readonly DatasetValueFlag[]
-  /** Mirrors `is_workspace_writer`: hide write actions from a non-writer. */
+  /** Hide write actions from a non-writer (`record.create`). */
   canWrite: boolean
   /** Source sample for a repeat; `null` disables the repeat action. */
   sourceSample?: RepeatSourceSample | null

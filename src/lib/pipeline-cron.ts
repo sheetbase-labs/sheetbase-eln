@@ -9,7 +9,8 @@ import { dateTimeFormat } from '#/lib/intl-cache'
  *
  * Evaluation happens on the wall clock of an explicit IANA zone, so "09:00
  * every weekday" stays at 09:00 across daylight-saving changes. The database
- * mirrors this in api.pipeline_cron_next so the RPCs can stamp next_run_at;
+ * has a copy in api.pipeline_cron_next (tests/db/pipeline-scheduling.test.ts
+ * compares them) so the RPCs can stamp next_run_at;
  * this module drives the sweep, the form's preview and the plain-language
  * label.
  */

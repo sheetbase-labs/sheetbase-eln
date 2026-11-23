@@ -2391,7 +2391,6 @@ export function buildDemoSteps(scope: DemoTarget): Array<SeedStep> {
     {
       name: 'demo SCI-006 additional experiment notebook',
       run: async (db) => {
-        // Create the instantiated experiment record
         await db
           .insert(schema.records)
           .values({

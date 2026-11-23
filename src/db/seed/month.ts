@@ -1129,7 +1129,6 @@ async function upsertReviewsAndReports(db: Parameters<SeedStep['run']>[0]) {
       const revId = uuid(0x408 + (i - 8))
       const subId = uuid(0x428 + (i - 8))
 
-      // Create revision if missing
       const existingRev = await db
         .select({ id: schema.revisions.id })
         .from(schema.revisions)

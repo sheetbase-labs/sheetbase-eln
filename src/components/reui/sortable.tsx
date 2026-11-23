@@ -219,7 +219,6 @@ function Sortable<T>({
 
       if (!over) return
 
-      // Handle item reordering
       const activeIndex = value.findIndex(
         (item: T) => getItemValue(item) === active.id,
       )

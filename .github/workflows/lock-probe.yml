@@ -1,0 +1,32 @@
+name: Lock probe
+on:
+  push:
+    branches: [tmp/lock-probe]
+permissions:
+  contents: read
+  packages: read
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11.9.0
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .node-version
+      - name: Regenerate the lockfile at 0.12.5
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          printf '//npm.pkg.github.com/:_authToken=%s\n' "$NODE_AUTH_TOKEN" > "$RUNNER_TEMP/npmrc"
+          export NPM_CONFIG_USERCONFIG="$RUNNER_TEMP/npmrc"
+          for p in advanced-search explorer shared table; do
+            sed -i "s|\"@sheetbase-labs/sheetbase-$p\": \"[^\"]*\"|\"@sheetbase-labs/sheetbase-$p\": \"0.12.5\"|" package.json
+          done
+          pnpm install --lockfile-only --ignore-scripts
+          echo "=== DIFF START"
+          git diff -U0 -- package.json pnpm-lock.yaml
+          echo "=== DIFF END"

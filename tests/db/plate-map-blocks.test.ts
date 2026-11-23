@@ -250,14 +250,19 @@ describe('SCI-005 plate-map blocks', () => {
   })
 
   it('accepts and refuses the same plate maps in the app and in the trigger', async () => {
+    // The app also reports a plate's own checks (required roles, volume
+    // limits); the trigger saves a plate that fails them, so those are left
+    // out and only the structure is compared.
+    const plate = (overrides: Record<string, unknown> = {}) =>
+      payload(undefined, { validation: {}, ...overrides })
     const well = { wellCode: 'A1', row: 0, col: 0, role: 'blank' }
 
     const cases: Array<[string, unknown, boolean]> = [
-      ['an empty plate', payload(), true],
-      ['one blank well', payload(undefined, { wells: [well] }), true],
+      ['an empty plate', plate(), true],
+      ['one blank well', plate({ wells: [well] }), true],
       [
         'a control with a volume',
-        payload(undefined, {
+        plate({
           wells: [
             {
               ...well,
@@ -268,48 +273,32 @@ describe('SCI-005 plate-map blocks', () => {
         }),
         true,
       ],
-      [
-        'rows that don’t match the format',
-        payload(undefined, { rows: 7 }),
-        false,
-      ],
-      [
-        'columns that don’t match the format',
-        payload(undefined, { cols: 13 }),
-        false,
-      ],
+      ['rows that don’t match the format', plate({ rows: 7 }), false],
+      ['columns that don’t match the format', plate({ cols: 13 }), false],
       [
         'a well code outside the plate',
-        payload(undefined, { wells: [{ ...well, wellCode: 'Z99' }] }),
+        plate({ wells: [{ ...well, wellCode: 'Z99' }] }),
         false,
       ],
-      [
-        'the same well twice',
-        payload(undefined, { wells: [well, well] }),
-        false,
-      ],
+      ['the same well twice', plate({ wells: [well, well] }), false],
       [
         'a role that doesn’t exist',
-        payload(undefined, { wells: [{ ...well, role: 'unknown' }] }),
+        plate({ wells: [{ ...well, role: 'unknown' }] }),
         false,
       ],
       [
         'a row past the last',
-        payload(undefined, { wells: [{ ...well, row: 8, wellCode: 'I1' }] }),
+        plate({ wells: [{ ...well, row: 8, wellCode: 'I1' }] }),
         false,
       ],
-      [
-        'a negative column',
-        payload(undefined, { wells: [{ ...well, col: -1 }] }),
-        false,
-      ],
-      ['wells that aren’t a list', payload(undefined, { wells: 'A1' }), false],
+      ['a negative column', plate({ wells: [{ ...well, col: -1 }] }), false],
+      ['wells that aren’t a list', plate({ wells: 'A1' }), false],
     ]
 
     for (const [index, [name, candidate, accepted]] of cases.entries()) {
       expect(
         validatePlateMapPayload(candidate).length === 0,
-        `${name}: the app's answer`,
+        `${name}: the app's answer ${JSON.stringify(validatePlateMapPayload(candidate))}`,
       ).toBe(accepted)
 
       const inTrigger = await insertBlock(

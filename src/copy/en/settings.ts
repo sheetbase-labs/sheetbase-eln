@@ -678,7 +678,7 @@ export const settings = {
   sampleData: {
     title: 'Sample data',
     description:
-      'A worked example to look around in or train people on: a stability study with samples, materials, a freezer box, a protocol, an experiment and a report. It goes in a new workspace called Demo, so this workspace is never changed.',
+      'A fully worked example to look around in or train people on: projects, registries, samples, shipments, requests, experiments, reports and quality records. It goes in a new workspace called Demo, so this workspace is never changed.',
     hint: 'Switch between Demo and your own workspace from the workspace menu.',
     add: 'Create demo workspace',
     adding: 'Adding…',

@@ -28,14 +28,17 @@ export const fetchSampleDataStatusFn = createServerFn({ method: 'POST' })
 export const addSampleDataFn = createServerFn({ method: 'POST' })
   .validator((input: { workspaceId: string }) => input)
   .handler(async ({ data }): Promise<AddSampleDataResult> => {
-    const { requireSettingsArea } = await import('#/lib/admin-platform')
-
-    const { addSampleData, sampleDataIsTheirs } =
-      await import('#/lib/sample-data.server')
-
-    const { getRequestHeaders } = await import('@tanstack/react-start/server')
-
-    const { getCurrentContext } = await import('#/lib/current-user')
+    const [
+      { requireSettingsArea },
+      { addSampleData, sampleDataIsTheirs },
+      { getRequestHeaders },
+      { getCurrentContext },
+    ] = await Promise.all([
+      import('#/lib/admin-platform'),
+      import('#/lib/sample-data.server'),
+      import('@tanstack/react-start/server'),
+      import('#/lib/current-user'),
+    ])
 
     // Asking again while their own load runs, or after it finished, is not a
     // new start: the active workspace has moved on by then.

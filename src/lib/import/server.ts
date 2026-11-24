@@ -23,7 +23,12 @@ import {
 } from '#/lib/import-parse'
 import type { ImportPreview, ImportSheet } from '#/lib/import-parse'
 import { describeImportRpcCode } from '#/lib/import-commit'
-import { importHeaderUnit, mapImportSheet } from '#/lib/import-mapping'
+import {
+  importHeaderUnit,
+  linkIdentifierKey,
+  linkIdentifiersToResolve,
+  mapImportSheet,
+} from '#/lib/import-mapping'
 import { inferImportColumns } from '#/lib/import-infer'
 import type {
   ImportColumnMapping,
@@ -161,6 +166,10 @@ interface FieldWire {
   logical_type: string
   nullable: boolean
   quantity: z.core.util.JSONType
+  /** A link column's target, as the schema version stores it. */
+  relationship?: {
+    target?: { modelKey?: string | null } | null
+  } | null
 }
 
 /** Map header→field selections onto the coercion layer's mapping shape. */
@@ -223,6 +232,7 @@ export function toTargetFields(fields: FieldWire[]): ImportTargetField[] {
     nullable: field.nullable,
     unit: fieldUnit(field.quantity),
     options: [],
+    targetModelKey: field.relationship?.target?.modelKey ?? null,
     kind: 'dataset-field' as const,
   }))
 }
@@ -315,7 +325,7 @@ export async function loadDataset(
 
   const fieldsRes = await postgrestSelect<FieldWire[]>(
     'dataset_schema_version_fields',
-    `schema_version_id=eq.${encodeURIComponent(dataset.schema_version_id)}&lifecycle=eq.active&select=field_id,label,logical_type,nullable,quantity&order=display_order.asc`,
+    `schema_version_id=eq.${encodeURIComponent(dataset.schema_version_id)}&lifecycle=eq.active&select=field_id,label,logical_type,nullable,quantity,relationship&order=display_order.asc`,
     token,
   )
 
@@ -1071,17 +1081,61 @@ interface BuiltRows {
   controlFieldId: string | null
 }
 
-function buildRows(
+/** Identifiers per lookup: 30 of them stay under the 500-character query limit. */
+const RECORD_LOOKUP_CHUNK = 30
+
+/**
+ * The records a file's link columns name, by identifier. Reads through the
+ * person's own token, so a record they cannot see is as unknown as a typo.
+ */
+async function lookUpRecordIds(
+  token: string,
+  identifiers: string[],
+): Promise<Map<string, string>> {
+  const found = new Map<string, string>()
+
+  for (let at = 0; at < identifiers.length; at += RECORD_LOOKUP_CHUNK) {
+    const chunk = identifiers.slice(at, at + RECORD_LOOKUP_CHUNK)
+
+    const quoted = chunk
+      .map((identifier) => `"${identifier.replaceAll('"', '')}"`)
+      .join(',')
+
+    const res = await postgrestSelect<
+      Array<{ id: string; identifier: string }>
+    >(
+      'records',
+      `identifier=in.(${encodeURIComponent(quoted)})&deleted_at=is.null&select=id,identifier`,
+      token,
+    )
+
+    if (Array.isArray(res.body))
+      for (const row of res.body)
+        found.set(linkIdentifierKey(row.identifier), row.id)
+  }
+
+  return found
+}
+
+async function buildRows(
   prepared: PreparedImport,
   parser: ImportParserDefinition | null,
-): BuiltRows {
+  token: string,
+): Promise<BuiltRows> {
   const targetFields = toTargetFields(prepared.fields)
   const mappings = mappingsFromDocument(prepared.mapping, targetFields)
+
+  const recordIds = await lookUpRecordIds(
+    token,
+    linkIdentifiersToResolve(prepared.sheet, mappings),
+  )
 
   const mapped = mapImportSheet(
     prepared.sheet,
     mappings,
     prepared.dataset.schema_version_id,
+    undefined,
+    recordIds,
   )
 
   mapped.rows = mapped.rows.map((row, index) => {
@@ -1188,7 +1242,12 @@ export async function handleImportReview(
   if ('error' in prepared) return prepared.error
 
   const parser = selectedReader?.definition ?? parserByKey(body.parserKey)
-  const { mapped, controlFieldId } = buildRows(prepared, parser)
+
+  const { mapped, controlFieldId } = await buildRows(
+    prepared,
+    parser,
+    context.token,
+  )
 
   if (mapped.errors.length > 0) {
     return Response.json({
@@ -1390,7 +1449,11 @@ export async function handleImportCommit(
     )
   }
 
-  const { mapped, controlFieldId } = buildRows(prepared, parser)
+  const { mapped, controlFieldId } = await buildRows(
+    prepared,
+    parser,
+    context.token,
+  )
 
   if (mapped.errors.length > 0 || mapped.rows.length === 0) {
     return Response.json({

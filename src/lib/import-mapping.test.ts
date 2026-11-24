@@ -4,6 +4,7 @@ import {
   assertPinnedSchemaVersion,
   coerceImportValue,
   datasetFieldsFromColumns,
+  linkIdentifiersToResolve,
   mapImportSheet,
   suggestImportMappings,
 } from './import-mapping'
@@ -166,5 +167,67 @@ describe('suggestImportMappings with a unit annotation', () => {
 
     const [mapping] = suggestImportMappings(['Capsid titre (vg/mL)'], fields)
     expect(mapping).toMatchObject({ kind: 'field', field: { id: 'f1' } })
+  })
+
+  describe('link columns', () => {
+    const SAMPLE_ID = '5b6a4c1e-6a43-4d6f-8f29-1e6b0c1d9a01'
+
+    const link: ImportTargetField = {
+      id: 'sample',
+      key: 'sample',
+      label: 'Sample',
+      logicalType: 'reference',
+      nullable: true,
+      targetModelKey: 'sample',
+      kind: 'dataset-field',
+    }
+
+    const sheet = {
+      name: 'Sheet1',
+      headers: ['Sample'],
+      rows: [
+        { Sample: 'SMP-2231' },
+        { Sample: 'smp-2231' },
+        { Sample: SAMPLE_ID },
+        { Sample: 'SMP-9999' },
+        { Sample: '' },
+      ],
+    }
+
+    const mappings = [{ source: 'Sample', kind: 'field' as const, field: link }]
+
+    it('asks for each identifier once, in one case, and skips ids and blanks', () => {
+      expect(linkIdentifiersToResolve(sheet, mappings)).toEqual([
+        'SMP-2231',
+        'SMP-9999',
+      ])
+    })
+
+    it('turns identifiers into record ids and flags the unknown ones', () => {
+      const mapped = mapImportSheet(
+        sheet,
+        mappings,
+        null,
+        () => 'row',
+        new Map([['SMP-2231', SAMPLE_ID]]),
+      )
+
+      expect(mapped.rows.map((row) => row.values.sample)).toEqual([
+        SAMPLE_ID,
+        SAMPLE_ID,
+        SAMPLE_ID,
+        undefined,
+        null,
+      ])
+
+      expect(mapped.errors).toEqual([
+        expect.objectContaining({
+          row: 4,
+          fieldId: 'sample',
+          code: 'unknown_record',
+          message: expect.stringContaining('SMP-9999'),
+        }),
+      ])
+    })
   })
 })

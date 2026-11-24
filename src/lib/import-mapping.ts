@@ -38,6 +38,8 @@ export interface ImportTargetField {
   options?: Array<{ id: string; key?: string; label: string }>
   /** DSET-05.3 — the Schema field's unit, shown in the map step. */
   unit?: string | null
+  /** For a link column, the record type it points at (a model key). */
+  targetModelKey?: string | null
   /** Dataset field UUID vs Record model field name / title. */
   kind: 'dataset-field' | 'record-field' | 'record-title' | 'record-status'
 }
@@ -207,11 +209,52 @@ export function recordFieldsFromModel(
   return [title, status, ...model]
 }
 
+const RECORD_UUID =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
+
+/** A link cell's identifier as the lookup keys it: case does not matter. */
+export function linkIdentifierKey(identifier: string): string {
+  return identifier.trim().toUpperCase()
+}
+
+/**
+ * Record ids by identifier (`linkIdentifierKey`), for the link columns of a
+ * file. A file names records the way people do (SMP-2231); the column stores
+ * the record's id.
+ */
+export type ImportRecordIds = ReadonlyMap<string, string>
+
+/** The identifiers a file's link columns hold, so they can be looked up once. */
+export function linkIdentifiersToResolve(
+  sheet: ImportSheet,
+  mappings: ImportColumnMapping[],
+): string[] {
+  const found = new Set<string>()
+
+  for (const mapping of mappings) {
+    if (mapping.kind !== 'field' || mapping.field.logicalType !== 'reference')
+      continue
+
+    for (const row of sheet.rows) {
+      const raw = (row[mapping.source] ?? '').trim()
+
+      if (raw !== '' && !RECORD_UUID.test(raw))
+        found.add(linkIdentifierKey(raw))
+    }
+  }
+
+  return [...found]
+}
+
+/** A link cell that names no record: flagged on its row, never dropped. */
+class UnknownRecordError extends Error {}
+
 export function mapImportSheet(
   sheet: ImportSheet,
   mappings: ImportColumnMapping[],
   schemaVersionId: string | null,
   rowIdFactory: () => string = () => crypto.randomUUID(),
+  recordIds?: ImportRecordIds,
 ): MappedImport {
   const errors: ImportRowError[] = []
 
@@ -231,7 +274,7 @@ export function mapImportSheet(
         )
 
         if (unitError) throw new Error(unitError)
-        const coerced = coerceImportValue(mapping.field, raw)
+        const coerced = coerceImportValue(mapping.field, raw, recordIds)
 
         if (mapping.field.kind === 'record-title') {
           title = String(coerced ?? '')
@@ -248,7 +291,10 @@ export function mapImportSheet(
           row: index + 1,
           source: mapping.source,
           fieldId: mapping.field.id,
-          code: 'coercion_failed',
+          code:
+            error instanceof UnknownRecordError
+              ? 'unknown_record'
+              : 'coercion_failed',
           message: error instanceof Error ? error.message : 'Invalid value.',
         })
       }
@@ -263,6 +309,7 @@ export function mapImportSheet(
 export function coerceImportValue(
   field: ImportTargetField,
   raw: string,
+  recordIds?: ImportRecordIds,
 ): ImportCellValue {
   const column: ScientificColumnWire = {
     id: field.id,
@@ -326,16 +373,20 @@ export function coerceImportValue(
       return option.id
     }
 
-    case 'reference':
-      if (
-        !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
-          trimmed,
+    case 'reference': {
+      if (RECORD_UUID.test(trimmed)) return trimmed
+
+      const recordId = recordIds?.get(linkIdentifierKey(trimmed))
+
+      if (!recordId) {
+        throw new UnknownRecordError(
+          `${field.label}: ${trimmed} is not a record you can link to in this workspace.`,
         )
-      ) {
-        throw new Error(`Invalid reference: ${field.label}`)
       }
 
-      return trimmed
+      return recordId
+    }
+
     default:
       return trimmed
   }

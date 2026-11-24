@@ -24,7 +24,7 @@ test.beforeEach(async ({ page }) => {
   await signIn(page)
 })
 
-const HEADER = 'Sample,Plate,Well,Dilution,Capsid titre\n'
+const HEADER = 'Sample label,Plate,Well,Dilution,Capsid titre\n'
 const BAD_FILE = `${HEADER}SMP-9001,P1,A1,100,5.2\nSMP-9002,P1,A2,100,not a number\nSMP-9003,P1,A3,100,4.8\n`
 const GOOD_FILE = `${HEADER}SMP-9001,P1,A1,100,5.2\nSMP-9002,P1,A2,100,5.0\nSMP-9003,P1,A3,100,4.8\n`
 

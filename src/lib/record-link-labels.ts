@@ -38,16 +38,22 @@ export async function fetchRecordLinkLabels(
   const unique = [...new Set(ids)]
   const found: Record<string, RecordLinkLabel> = {}
 
-  for (let at = 0; at < unique.length; at += IDS_PER_READ) {
-    const chunk = unique.slice(at, at + IDS_PER_READ)
+  const chunks = Array.from(
+    { length: Math.ceil(unique.length / IDS_PER_READ) },
+    (_, index) =>
+      unique.slice(index * IDS_PER_READ, (index + 1) * IDS_PER_READ),
+  )
 
-    const rows = await notebookDataClient.list<RecordLinkLabel>(
-      'records',
-      `?id=in.(${chunk.join(',')})&select=id,kind,identifier,title`,
-    )
+  const pages = await Promise.all(
+    chunks.map((chunk) =>
+      notebookDataClient.list<RecordLinkLabel>(
+        'records',
+        `?id=in.(${chunk.join(',')})&select=id,kind,identifier,title`,
+      ),
+    ),
+  )
 
-    for (const row of rows) found[row.id] = row
-  }
+  for (const rows of pages) for (const row of rows) found[row.id] = row
 
   return found
 }

@@ -23,6 +23,7 @@ import {
   designSteps,
 } from '#/db/seed/design'
 import { FIXTURE_USER_EMAIL, FIXTURE_USER_ID } from '#/db/seed/identities'
+import { seedUrl } from '#/db/seed/url'
 
 type Db = typeof appDb
 
@@ -173,6 +174,10 @@ export async function addSampleData(
     // Fully loaded for someone else, or never started: the fixed ids mean a
     // finished copy belongs to whoever joined it first.
     if (await isLoaded(db)) return { ok: false, reason: 'loaded_elsewhere' }
+
+    // The seed writes as the PostgREST login, the same actor the app uses, so
+    // the app needs its connection string. Say so now, before any half load.
+    seedUrl(process.env.PGRST_DB_URI ?? '', 'PGRST_DB_URI')
 
     inflight = loadSample(db, userId).finally(() => {
       inflight = undefined

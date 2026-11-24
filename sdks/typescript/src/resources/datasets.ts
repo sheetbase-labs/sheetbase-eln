@@ -196,6 +196,52 @@ export class DatasetsResource {
     return fromDatasetRowPage(result);
   }
 
+  async measurementTableSources(params: {
+    measurementTableId: string;
+    includeSubtypes?: boolean;
+  }): Promise<Record<string, any>[]> {
+    return this.transport.post("/api/db/rpc/measurement_table_sources", {
+      jsonBody: {
+        p_schema_definition_id: params.measurementTableId,
+        p_include_subtypes: params.includeSubtypes ?? true,
+      },
+    });
+  }
+
+  /**
+   * Read one kind of result across every dataset you can open. `mode` is
+   * "live" or "latest_snapshot"; `pins` maps a dataset id to the snapshot id to
+   * read it at. Each row says which dataset and snapshot it came from.
+   */
+  async queryMeasurementTable(params: {
+    measurementTableId: string;
+    mode?: "live" | "latest_snapshot";
+    datasets?: string[];
+    pins?: Record<string, string>;
+    includeSubtypes?: boolean;
+    recordId?: string;
+    filters?: Record<string, any>[];
+    sort?: Record<string, string>;
+    limit?: number;
+    offset?: number;
+  }): Promise<Record<string, any>> {
+    const pQuery: Record<string, unknown> = { mode: params.mode ?? "live" };
+    if (params.datasets?.length) pQuery.datasets = params.datasets;
+    if (params.pins) pQuery.pins = params.pins;
+    if (params.includeSubtypes === false) pQuery.includeSubtypes = false;
+    if (params.recordId) pQuery.recordId = params.recordId;
+    if (params.filters?.length) pQuery.filters = params.filters;
+    if (params.sort) pQuery.sort = params.sort;
+    return this.transport.post("/api/db/rpc/query_measurement_table_rows", {
+      jsonBody: {
+        p_schema_definition_id: params.measurementTableId,
+        p_query: pQuery,
+        p_limit: params.limit ?? 200,
+        p_offset: params.offset ?? 0,
+      },
+    });
+  }
+
   async queryVersionRows(params: {
     datasetVersionId: string;
     limit?: number;

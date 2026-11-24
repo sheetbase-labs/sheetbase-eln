@@ -17,5 +17,5 @@ export const copy = {
   summary: '{rows} rows from {datasets} read',
   leftOut: '{names} left out: no snapshot yet.',
   more: 'Showing the first {shown} of {total} rows.',
-  loadError: 'Could not read the results.',
+  loadError: 'Couldn’t read the results.',
 } as const

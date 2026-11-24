@@ -1229,6 +1229,12 @@
       "typescript": "resource"
     },
     {
+      "name": "measurement_table_sources",
+      "resource": "datasets",
+      "python": "resource",
+      "typescript": "resource"
+    },
+    {
       "name": "move_block",
       "resource": "records",
       "python": "resource",
@@ -1332,6 +1338,12 @@
     },
     {
       "name": "query_dataset_version_transfer",
+      "resource": "datasets",
+      "python": "resource",
+      "typescript": "resource"
+    },
+    {
+      "name": "query_measurement_table_rows",
       "resource": "datasets",
       "python": "resource",
       "typescript": "resource"

@@ -30,7 +30,9 @@ already set up. Their own workspace is never touched: it stays empty until
 they set it up (lab setup without the demo) and fill it themselves. The seed
 uses fixed ids, so it loads once per install; asking again opens the same Demo
 workspace, and a second person is told it is loaded elsewhere. It takes about a
-minute. `tests/db/first-run.test.ts` fails when the Demo workspace holds less
+minute. The app needs `PGRST_DB_URI` (the PostgREST login's connection string)
+in its environment, because the seed writes as that actor; without it the demo
+is refused before anything is written. `tests/db/first-run.test.ts` fails when the Demo workspace holds less
 than the full seed.
 
 **First run** (`pnpm db:seed --first-run`) is what the hosted open demo

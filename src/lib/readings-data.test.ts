@@ -122,13 +122,13 @@ describe('reading field transport', () => {
 })
 
 describe('reading field resolution', () => {
-  it('binds the sample by reference before falling back to a sample text field', () => {
+  it('binds the sample through its link column, never a text column named sample', () => {
     expect(sampleBindingField(fields)?.field_id).toBe(SAMPLE_REF)
     const withoutReference = fields.filter((f) => f.field_id !== SAMPLE_REF)
-    expect(sampleBindingField(withoutReference)?.field_id).toBe(SAMPLE_TEXT)
+    expect(sampleBindingField(withoutReference)).toBeNull()
   })
 
-  it('recognises a sample text field by key or label', () => {
+  it('does not take a text column for the sample, whatever it is called', () => {
     const byLabel = [
       field({
         field_id: SAMPLE_TEXT,
@@ -138,7 +138,21 @@ describe('reading field resolution', () => {
       }),
     ]
 
-    expect(sampleBindingField(byLabel)?.field_id).toBe(SAMPLE_TEXT)
+    expect(sampleBindingField(byLabel)).toBeNull()
+  })
+
+  it('does not take a link to another kind of record for the sample', () => {
+    const toMaterial = [
+      field({
+        field_id: 'field-material',
+        key: 'sample',
+        label: 'Sample',
+        logical_type: 'reference',
+        relationship: { target: { kind: 'model', modelKey: 'material' } },
+      }),
+    ]
+
+    expect(sampleBindingField(toMaterial)).toBeNull()
   })
 
   it('finds the numeric dilution field and ignores non-numeric matches', () => {
@@ -223,7 +237,7 @@ describe('buildReadingValues', () => {
     })
   })
 
-  it('uses the stable identifier for a sample text binding', () => {
+  it('leaves the sample out when the dataset has no sample link column', () => {
     const values = buildReadingValues({
       fields: fields.filter((f) => f.field_id !== SAMPLE_REF),
       measurementFieldId: TITRE,
@@ -233,8 +247,8 @@ describe('buildReadingValues', () => {
       dilutionFactor: null,
     })
 
-    expect(values[SAMPLE_TEXT]).toBe('SMP-0001')
-    expect(values[SAMPLE_REF]).toBeUndefined()
+    expect(values[SAMPLE_TEXT]).toBeUndefined()
+    expect(values).toEqual({ [TITRE]: 1 })
   })
 
   it('refuses a non-numeric measurement field', () => {

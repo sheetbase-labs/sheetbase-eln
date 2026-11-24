@@ -3133,8 +3133,8 @@ export const data = {
     numericFields: 'No numeric fields',
     openDataset: 'Open dataset',
     hasSampleFieldSo:
-      '{name} has no sample field, so the reading won’t be linked to the sample. Choose another dataset if you need that link.',
-    sampleField: 'No sample field',
+      '{name} has no column that links to a sample, so the reading won’t be linked to one. Choose another dataset, or add a link to a sample on the dataset’s model.',
+    sampleField: 'No sample link',
     measurement: 'Measurement',
     measurementField: 'No measurement field',
     value: 'Value',

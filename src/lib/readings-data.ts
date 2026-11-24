@@ -150,22 +150,19 @@ function targetModelKey(field: ReadingFieldWire): string | null {
   return field.validation?.targetModelKey || null
 }
 
-/** Schema field that carries the sample identity (reference or sample text). */
+/**
+ * The column that links a reading to its sample: a link to a sample record.
+ * A dataset without one cannot take a bench reading, and says so, rather than
+ * guessing at a text column named "sample".
+ */
 export function sampleBindingField(
   fields: readonly ReadingFieldWire[],
 ): ReadingFieldWire | null {
-  const reference = fields.find(
-    (field) =>
-      field.logical_type === 'reference' && targetModelKey(field) === 'sample',
-  )
-
-  if (reference) return reference
-
   return (
     fields.find(
       (field) =>
-        field.logical_type === 'text' &&
-        (/sample/i.test(field.key) || /sample/i.test(field.label)),
+        field.logical_type === 'reference' &&
+        targetModelKey(field) === 'sample',
     ) ?? null
   )
 }
@@ -283,8 +280,7 @@ export interface BuildReadingValuesInput {
 
 /**
  * Fold the bench inputs into the canonical `values` object keyed by field id.
- * The sample identity value is chosen from the binding field type (record id
- * for a reference field, stable identifier for a sample text field).
+ * The sample is the record id the dataset's sample link column holds.
  */
 export function buildReadingValues(input: BuildReadingValuesInput) {
   const measurement = input.fields.find(
@@ -305,14 +301,7 @@ export function buildReadingValues(input: BuildReadingValuesInput) {
 
   const binding = sampleBindingField(input.fields)
 
-  if (binding) {
-    values.set(
-      binding.field_id,
-      binding.logical_type === 'reference'
-        ? input.sample.id
-        : input.sample.identifier,
-    )
-  }
+  if (binding) values.set(binding.field_id, input.sample.id)
 
   if (input.dilutionFieldId && input.dilutionFactor != null) {
     if (input.dilutionFieldId === measurement.field_id) {

@@ -160,7 +160,7 @@ describe('validateDraft', () => {
       row('sample', { label: 'Sample', logicalType: 'reference' }),
     ])
 
-    expect(issues.get('row-sample')).toMatch(/link field needs a target/i)
+    expect(issues.get('row-sample')).toMatch(/link column needs a record type/i)
   })
 })
 

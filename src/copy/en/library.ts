@@ -1176,11 +1176,11 @@ export const library = {
         'Choose what you need to capture. Fields become available for new data only after publication.',
       captureStructure: 'Capture structure',
       identifiableEntitiesSuchAsCell:
-        'Identifiable entities such as cell banks, with their own records and links.',
+        'A record type: things you register and track, such as cell banks, each with its own records and links.',
       rowsOfObservationsSuchAs:
-        'Rows of observations such as cell bank readings, stored in datasets.',
-      measurementTableDatasetSchema: 'Measurement table',
-      recordTypeRecordModel: 'Record type',
+        'A measurement table: results you record as rows in datasets, such as cell bank readings.',
+      measurementTableDatasetSchema: 'Kind of result',
+      recordTypeRecordModel: 'Kind of thing',
       recordIdPrefix: 'Record ID prefix',
       uniqueInThisWorkspaceE:
         'Unique in this workspace, e.g. CB for cell banks.',
@@ -1612,10 +1612,10 @@ export const library = {
       recordIds: 'Record IDs',
       yourWorkspaceRoleCannotCreate:
         'Your role can’t create models. Ask an admin or data steward.',
-      builtInRecordType: 'Built-in record type',
+      builtInRecordType: 'Built-in kind of thing',
       subtypeOf: 'Subtype of {parentName}',
-      recordType: 'Record type',
-      measurementTable: 'Measurement table',
+      recordType: 'Kind of thing',
+      measurementTable: 'Kind of result',
       noActiveWorkspace: 'No active workspace',
       modelCreated: 'Model “{name}” created',
       recordTypeCreatedOpenVersions:
@@ -1811,9 +1811,14 @@ export const library = {
       usedForNewRowsOnly:
         'Used for new rows only. Leave blank for no default. Many-valued fields can’t have defaults.',
       clearDefault: 'Clear default',
-      targetModelKey: 'Target model key',
+      targetModelKey: 'Links to',
       theRecordModelKeyWhose:
-        'The record model key whose records this field can reference.',
+        'The kind of record each value points at. A value is one record of that kind, and it opens that record.',
+      recordTypeNoun: 'record type',
+      linkToARecord: 'Link to a record',
+      chooseARecordType: 'Choose a record type',
+      builtInRecordTypes: 'Built in',
+      yourRecordTypes: 'Your record types',
       cardinality: 'Number of values',
       oneValueOrANon: 'A single value, or a list of values.',
       oneValue: 'One value',
@@ -3129,8 +3134,7 @@ export const library = {
       sectionRemoved: 'Section removed',
       sheetRePinnedToA: 'Sheet re-pinned to a newer definition version',
       noMatchingSheetInThis: 'No matching sheet in this notebook',
-      sheetDefinitionChangedIncompatibly:
-        'Sheet definition changed incompatibly',
+      sheetDefinitionChangedIncompatibly: 'Sheet layout changed incompatibly',
       keepAsItIs: 'Keep as it is',
       leaveThisPartOnIts:
         'Leave this part on its current definition; nothing here changes.',

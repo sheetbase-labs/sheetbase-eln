@@ -196,7 +196,7 @@ export function validateDraft(
     if (row.logicalType === 'reference' && !relationship.success) {
       issues.set(
         row.rowKey,
-        'A link field needs a target. Enter its target model key in Configuration.',
+        'A link column needs a record type. Choose it in Configuration.',
       )
     }
 

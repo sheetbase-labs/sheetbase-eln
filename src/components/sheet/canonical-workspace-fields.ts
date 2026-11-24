@@ -77,6 +77,15 @@ export function canonicalWorkspaceGridColumn(
     }
   }
 
+  // A link column the person cannot edit still shows the record, not its id.
+  if (kind === 'record-picker') {
+    return {
+      ...base,
+      type: 'text',
+      displayText: (value) => recordCellDisplayText(labels(), value),
+    }
+  }
+
   if (kind === 'category-select' && column.field) {
     const options = selectableFieldOptions(column.field, null).map(
       (option) => option.label,

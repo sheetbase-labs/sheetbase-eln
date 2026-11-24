@@ -114,4 +114,64 @@ describe('record_sample_measurement', () => {
       code: '42501',
     })
   })
+
+  it('keeps the measurement as a dataset row that links to the sample', async () => {
+    const owner = await actor(OWNER, WS)
+    const { rows } = await owner.query(
+      `select api.record_sample_measurement($1,'Purity',98.5,'%','HPLC') as m`,
+      [SAMPLE],
+    )
+    const id = rows[0].m.id ?? rows[0].m.replace(/[()]/g, '').split(',')[0]
+
+    const stored = await migrator.query(
+      `select d.name as dataset, d.display_id, f.key, v.reference_id, v.text_value, v.numeric_value
+         from api.dataset_rows r
+         join api.datasets d on d.id = r.dataset_id
+         join api.dataset_row_values v on v.row_id = r.id
+         join api.dataset_schema_version_fields f
+           on f.schema_version_id = d.schema_version_id and f.field_id = v.field_id
+        where r.id = $1 order by f.display_order`,
+      [id],
+    )
+    expect(stored.rows.every((r) => r.dataset === 'Sample measurements')).toBe(
+      true,
+    )
+    const byKey = Object.fromEntries(stored.rows.map((r) => [r.key, r]))
+    expect(byKey.sample.reference_id).toBe(SAMPLE)
+    expect(byKey.measurement.text_value).toBe('Purity')
+    expect(Number(byKey.value.numeric_value)).toBe(98.5)
+    expect(byKey.unit.text_value).toBe('%')
+    expect(byKey.method.text_value).toBe('HPLC')
+    expect(byKey.recorded_by.text_value).toBe('Owner')
+
+    // The old name is a view over the same row.
+    const view = await owner.query(
+      `select name, value::float as value, unit, sample_record_id from api.sample_measurements where id = $1`,
+      [id],
+    )
+    expect(view.rows[0]).toEqual({
+      name: 'Purity',
+      value: 98.5,
+      unit: '%',
+      sample_record_id: SAMPLE,
+    })
+
+    // Every measurement in a workspace goes to the one dataset.
+    const datasets = await migrator.query(
+      `select count(*)::int as n from api.datasets d
+         join api.dataset_schema_versions v on v.id = d.schema_version_id
+         join api.dataset_schema_definitions s on s.id = v.schema_id
+        where d.workspace_id = $1 and s.key = 'builtin_sample_measurement'`,
+      [WS],
+    )
+    expect(datasets.rows[0].n).toBe(1)
+  })
+
+  it('does not show another workspace its measurements', async () => {
+    const outsider = await actor(OUTSIDER, OTHER_WS)
+    const { rows } = await outsider.query(
+      `select count(*)::int as n from api.sample_measurements`,
+    )
+    expect(rows[0].n).toBe(0)
+  })
 })

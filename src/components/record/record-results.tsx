@@ -36,6 +36,15 @@ import type {
   RecordResultValue,
 } from '#/lib/record-results'
 
+/** What a column sorts and exports by: the plain value, never an object. */
+const SCALAR = z.union([z.string(), z.number(), z.boolean()])
+
+function sortText(cell: RecordResultValue | undefined): string {
+  const scalar = SCALAR.safeParse(cell?.value)
+
+  return scalar.success ? String(scalar.data) : ''
+}
+
 function ResultValue({
   cell,
   labels,
@@ -117,9 +126,7 @@ function useGroupColumns(group: RecordResultGroup, labels: RecordLinkLabels) {
         id: `field:${column.key}`,
         header: column.unit ? `${column.label} (${column.unit})` : column.label,
         accessorFn: (row) =>
-          String(
-            row.values.find((value) => value.key === column.key)?.value ?? '',
-          ),
+          sortText(row.values.find((value) => value.key === column.key)),
         cell: ({ row }) => (
           <ResultValue
             cell={row.original.values.find((value) => value.key === column.key)}

@@ -59,9 +59,10 @@ export async function runRecordResultsReadTool(
       `?${UUID.test(ref) ? 'id' : 'identifier'}=eq.${encodeURIComponent(ref)}&select=id,identifier,title&limit=1`,
     )
 
-    const record = found[0]
+    if (found.length === 0)
+      return { text: `No record found for ${ref}.`, isError: true }
 
-    if (!record) return { text: `No record found for ${ref}.`, isError: true }
+    const [record] = found
 
     const results = await client.rpc<RecordResults>('record_results', {
       p_record_id: record.id,

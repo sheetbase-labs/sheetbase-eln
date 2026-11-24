@@ -1954,7 +1954,7 @@ Receive, use, move, split, reserve and dispose of samples, and manage the freeze
 | ---------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `sample_events`        | The history of a sample: every receive, use, move, edit, release, quarantine and disposal, with the quantity before and after. Written only by the sample actions, never edited. |
 | `sample_reservations`  | Volume of a sample held for an experiment. `state` is active, cancelled or fulfilled.                                                                                            |
-| `sample_measurements`  | A value measured on a sample, with its unit, method and when it was measured.                                                                                                    |
+| `sample_measurements`  | A value measured on a sample, with its unit, method and when it was measured. Read-only: these are the rows of the Sample measurements dataset.                                  |
 | `sample_release_rules` | The checks a sample of a type must pass before it can be released. A row with no sample type is the workspace default.                                                           |
 | `storage_sites`        | A site: the building or campus a freezer is in. The top of the storage tree.                                                                                                     |
 | `storage_rooms`        | A room inside a site.                                                                                                                                                            |
@@ -3657,7 +3657,7 @@ Scope: `lab:write`.
 
 #### `record_sample_measurement`
 
-Record a measurement on a sample. Adds a measured value (concentration, purity and so on) to a sample.
+Record a measurement on a sample. Adds a measured value (concentration, purity and so on) to a sample. The measurement is a new row of the workspace's **Sample measurements** dataset, linked to the sample, so it also reads through the datasets API and shows with the sample's other results.
 
 Scope: `lab:write`.
 

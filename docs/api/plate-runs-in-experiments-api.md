@@ -46,7 +46,9 @@ Sends `step_result` (see the event catalogue) with `resultType` `plate_run`.
 Gives a plate run’s results to its samples. For a run read by a standard curve
 (`config.method` of `quantify`), each sample that read inside the standards, and
 is linked to a sample record, gets its concentration as a sample measurement, so
-the result shows on the sample’s page. The dilution is already applied. Running
+the result shows on the sample’s page. A measurement is a row of the workspace’s
+Sample measurements dataset (its Plate run column holds the run’s `PLR-` number),
+linked to the sample. The dilution is already applied. Running
 it again replaces the measurements this run wrote earlier; measurements from
 anywhere else are left alone. Also a pipeline action.
 

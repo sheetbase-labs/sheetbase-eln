@@ -64,7 +64,7 @@ export const SAMPLE_LAB_TABLES = {
   },
   sample_measurements: {
     summary:
-      'A value measured on a sample, with its unit, method and when it was measured.',
+      'A value measured on a sample, with its unit, method and when it was measured. Read-only: these are the rows of the Sample measurements dataset.',
     columns: [
       ['id', 'uuid', 1],
       ['workspace_id', 'uuid', 1],

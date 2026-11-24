@@ -16,6 +16,7 @@ import { Notice } from '#/components/ui/alert'
 import { Field, Input } from '#/components/ui/input'
 import { EmptyState } from '#/components/ui/empty-state'
 import { Select } from '#/components/ui/select'
+import { RecordTypeSelect } from '#/components/models/record-type-select'
 import { Textarea } from '#/components/inventory/list'
 import {
   Table,
@@ -1021,7 +1022,7 @@ function DraftFieldsTable({
                       >
                         {DATASET_FIELD_TYPES.map((type) => (
                           <option key={type} value={type}>
-                            {type}
+                            {fieldTypeName(type)}
                           </option>
                         ))}
                       </Select>
@@ -1345,7 +1346,7 @@ function FieldEditor({
             >
               {DATASET_FIELD_TYPES.map((type) => (
                 <option key={type} value={type}>
-                  {type}
+                  {fieldTypeName(type)}
                 </option>
               ))}
             </Select>
@@ -1822,6 +1823,11 @@ function FieldBooleanDefault({
   )
 }
 
+/** A column type as people read it: a link is "a record", not "reference". */
+function fieldTypeName(type: string): string {
+  return type === 'reference' ? t('library.models.edit.linkToARecord') : type
+}
+
 function FieldCardinalityEditor({
   field,
   locked,
@@ -1837,15 +1843,15 @@ function FieldCardinalityEditor({
           label={t('library.models.edit.targetModelKey')}
           hint={t('library.models.edit.theRecordModelKeyWhose')}
         >
-          <Input
-            aria-label={t('library.models.edit.targetModelKey')}
+          <RecordTypeSelect
+            ariaLabel={t('library.models.edit.targetModelKey')}
             disabled={locked}
             value={targetModelKey}
-            onChange={(event) =>
+            onValueChange={(modelKey) =>
               onPatch({
                 relationship: {
                   ...relationship,
-                  target: { kind: 'model', modelKey: event.target.value },
+                  target: { kind: 'model', modelKey },
                   cardinality: field.cardinality ?? 'one',
                 },
               })

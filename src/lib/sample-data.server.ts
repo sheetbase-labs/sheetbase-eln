@@ -1,24 +1,28 @@
 /**
- * Optional sample data: the Lentivector Stability Study (project, samples,
- * materials, a freezer box, a protocol, an experiment with a notebook and a
- * report). It lives in a workspace of its own called Demo, owned by the person
- * who asked for it, so their own workspace is never touched. It is the same
- * demonstration data `pnpm db:seed --demo` loads, not a second seed.
+ * Optional sample data: the full demonstration seed (projects, registries,
+ * samples, shipments, requests, experiments, reports, quality records and
+ * more). It is the same data `pnpm db:seed --design` loads, not a second seed.
+ * The person gets it as a workspace called Demo that they own, so their own
+ * workspace is never touched.
+ *
+ * The seed's workspaces and people have fixed ids, so it can be loaded once
+ * per install: a second person is told it is loaded elsewhere.
  */
-import { and, eq } from 'drizzle-orm'
+import { and, eq, sql } from 'drizzle-orm'
 
 import { db as appDb } from '#/db/client.server'
 import {
-  projects,
+  user,
   workspaceMemberships,
   workspaceSettings,
   workspaces,
 } from '#/db/schema'
-import { buildDemoSteps } from '#/db/seed/demo-steps'
 import {
-  DEMO_VIRUS_STABILITY_PROJECT_ID,
-  DEMO_VIRUS_STABILITY_PROJECT_KEY,
-} from '#/db/seed/identities'
+  DESIGN_USER_IDS,
+  DESIGN_WORKSPACE_IDS,
+  designSteps,
+} from '#/db/seed/design'
+import { FIXTURE_USER_EMAIL, FIXTURE_USER_ID } from '#/db/seed/identities'
 
 type Db = typeof appDb
 
@@ -26,39 +30,83 @@ export interface SampleDataStatus {
   loaded: boolean
   /** The person's Demo workspace, once it exists. */
   demoWorkspaceId: string | null
-  projectKey: string
 }
 
 export type AddSampleDataResult =
   { ok: true; workspaceId: string } | { ok: false; reason: 'loaded_elsewhere' }
 
-/**
- * The seed marks nothing of its own; the sample project is the marker. Steps
- * that keep a deliberately broken file (missing bytes, quarantined) are left
- * out: they exist for testing file states, not for a lab to look at.
- */
-const SKIPPED_STEP = /^demo file attachments/
+/** The seed's main workspace is the Demo workspace. */
+export const DEMO_WORKSPACE_ID = DESIGN_WORKSPACE_IDS.processDevelopment
 
-export function demoWorkspaceSlug(userId: string): string {
-  return `demo-${userId}`
+/**
+ * Where the person joins the seed: after access, follows and favourites exist
+ * and before anyone is certified to sign, so they are certified with the rest.
+ */
+const JOIN_BEFORE_STEP = 'design demo file bytes'
+
+/**
+ * Makes the person the demo's lead scientist. The seed's own person (Gareth P.)
+ * owns the workspace and its projects; the requester gets the same standing:
+ * owner of the workspace, the same project access, groups, favourites and
+ * followed items. Without the project access, Projects, Experiments and every
+ * list built on them would be empty for them.
+ */
+async function joinDemoAsLead(db: Db, userId: string): Promise<void> {
+  const workspaceId = DEMO_WORKSPACE_ID
+  const lead = DESIGN_USER_IDS.gareth
+
+  await db
+    .insert(workspaceMemberships)
+    .values({ workspaceId, userId, role: 'owner' })
+    .onConflictDoUpdate({
+      target: [workspaceMemberships.workspaceId, workspaceMemberships.userId],
+      set: { role: 'owner' },
+    })
+
+  if (userId === lead) return
+
+  await db.execute(sql`
+    INSERT INTO api.project_access
+      (workspace_id, project_id, user_id, access_level, granted_by_user_id,
+       can_view, can_edit, can_review, client_portal, can_manage, project_role)
+    SELECT workspace_id, project_id, ${userId}, access_level, granted_by_user_id,
+           can_view, can_edit, can_review, client_portal, can_manage, project_role
+      FROM api.project_access
+     WHERE workspace_id = ${workspaceId} AND user_id = ${lead}`)
+  await db.execute(sql`
+    INSERT INTO api.workspace_group_memberships (workspace_id, group_id, user_id)
+    SELECT workspace_id, group_id, ${userId}
+      FROM api.workspace_group_memberships
+     WHERE workspace_id = ${workspaceId} AND user_id = ${lead}
+    ON CONFLICT DO NOTHING`)
+  await db.execute(sql`
+    INSERT INTO api.user_favourites (workspace_id, user_id, object_kind, object_id)
+    SELECT workspace_id, ${userId}, object_kind, object_id
+      FROM api.user_favourites
+     WHERE workspace_id = ${workspaceId} AND user_id = ${lead}
+    ON CONFLICT DO NOTHING`)
+  await db.execute(sql`
+    INSERT INTO api.work_item_follows (workspace_id, user_id, record_id)
+    SELECT workspace_id, ${userId}, record_id
+      FROM api.work_item_follows
+     WHERE workspace_id = ${workspaceId} AND user_id = ${lead}
+    ON CONFLICT DO NOTHING`)
 }
 
-/** The Demo workspace this person already has, when the sample is in it. */
+/** The Demo workspace this person is in, when the sample is loaded. */
 async function findDemoWorkspace(
   db: Db,
   userId: string,
 ): Promise<string | null> {
   const rows = await db
-    .select({ id: projects.workspaceId })
-    .from(projects)
-    .innerJoin(
-      workspaceMemberships,
+    .select({ id: workspaceMemberships.workspaceId })
+    .from(workspaceMemberships)
+    .where(
       and(
-        eq(workspaceMemberships.workspaceId, projects.workspaceId),
+        eq(workspaceMemberships.workspaceId, DEMO_WORKSPACE_ID),
         eq(workspaceMemberships.userId, userId),
       ),
     )
-    .where(eq(projects.id, DEMO_VIRUS_STABILITY_PROJECT_ID))
     .limit(1)
 
   return rows.at(0)?.id ?? null
@@ -70,17 +118,12 @@ export async function sampleDataStatus(
 ): Promise<SampleDataStatus> {
   const demoWorkspaceId = await findDemoWorkspace(db, userId)
 
-  return {
-    loaded: demoWorkspaceId !== null,
-    demoWorkspaceId,
-    projectKey: DEMO_VIRUS_STABILITY_PROJECT_KEY,
-  }
+  return { loaded: demoWorkspaceId !== null, demoWorkspaceId }
 }
 
 /**
- * Creates the Demo workspace and fills it. Asking again returns the one that
- * exists. The demo project's id is fixed, so another person's copy on this
- * install is refused rather than shared.
+ * Loads the full seed and makes the person the owner of its Demo workspace.
+ * Asking again returns the one that exists.
  */
 export async function addSampleData(
   input: { userId: string },
@@ -92,36 +135,54 @@ export async function addSampleData(
   if (existing) return { ok: true, workspaceId: existing }
 
   const elsewhere = await db
-    .select({ workspaceId: projects.workspaceId })
-    .from(projects)
-    .where(eq(projects.id, DEMO_VIRUS_STABILITY_PROJECT_ID))
+    .select({ id: workspaces.id })
+    .from(workspaces)
+    .where(eq(workspaces.id, DEMO_WORKSPACE_ID))
     .limit(1)
 
   if (elsewhere.length > 0) return { ok: false, reason: 'loaded_elsewhere' }
 
-  const slug = demoWorkspaceSlug(userId)
-
-  const [created] = await db
-    .insert(workspaces)
-    .values({ slug, name: 'Demo' })
-    .onConflictDoUpdate({
-      target: workspaces.slug,
-      set: { name: 'Demo' },
+  // The seed names this person as the signing-identity verifier.
+  await db
+    .insert(user)
+    .values({
+      id: FIXTURE_USER_ID,
+      name: 'Fixture Owner',
+      email: FIXTURE_USER_EMAIL,
+      emailVerified: true,
     })
-    .returning({ id: workspaces.id })
+    .onConflictDoNothing()
 
-  const workspaceId = created.id
+  for (const step of designSteps) {
+    if (step.name === JOIN_BEFORE_STEP) await joinDemoAsLead(db, userId)
+
+    // react-doctor-disable-next-line react-doctor/async-await-in-loop -- The steps build on each other (workspaces, then projects, then their records and data), so each one is written before the next reads it.
+    await step.run(db)
+  }
 
   await db
-    .insert(workspaceMemberships)
-    .values({ workspaceId, userId, role: 'owner' })
-    .onConflictDoNothing()
+    .update(workspaces)
+    .set({ name: 'Demo' })
+    .where(eq(workspaces.id, DEMO_WORKSPACE_ID))
+
+  // The seed leaves its fixture person as an Admin; nobody in the demo should
+  // see a test account in Members or Signatures.
+  if (userId !== FIXTURE_USER_ID) {
+    await db
+      .delete(workspaceMemberships)
+      .where(
+        and(
+          eq(workspaceMemberships.workspaceId, DEMO_WORKSPACE_ID),
+          eq(workspaceMemberships.userId, FIXTURE_USER_ID),
+        ),
+      )
+  }
 
   // The demo is already set up, so lab setup does not open inside it.
   await db
     .insert(workspaceSettings)
     .values({
-      workspaceId,
+      workspaceId: DEMO_WORKSPACE_ID,
       createdByUserId: userId,
       setupCompletedAt: new Date(),
     })
@@ -130,11 +191,5 @@ export async function addSampleData(
       set: { setupCompletedAt: new Date() },
     })
 
-  for (const step of buildDemoSteps({ workspaceId, userId })) {
-    if (SKIPPED_STEP.test(step.name)) continue
-    // react-doctor-disable-next-line react-doctor/async-await-in-loop -- The steps build on each other (a project, then its records, then their data), so each one is written before the next reads it.
-    await step.run(db)
-  }
-
-  return { ok: true, workspaceId }
+  return { ok: true, workspaceId: DEMO_WORKSPACE_ID }
 }

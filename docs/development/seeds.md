@@ -17,13 +17,21 @@ a CORE-03 ad-hoc Sheet Instance with six local fields and 32 stability rows,
 created through `insert_sheet_instance_block` and
 `mutate_sheet_instance_local_state`. It is not a scientific table.
 
-**Sample data lives in a workspace of its own.** The Virus Stability example is
-what a person gets when they choose the demo in lab setup ("Explore a demo
+**Sample data lives in a workspace of its own.** The full demonstration seed
+is what a person gets when they choose the demo in lab setup ("Explore a demo
 workspace instead", or Settings → General → Sample data). It is the same
-`buildDemoSteps` the `--demo` flag uses, written into a new workspace called
-Demo that the person owns and that is already set up. Their own workspace is
-never touched: it stays empty until they set it up (lab setup without the
-demo) and fill it themselves. Asking again opens the same Demo workspace.
+`designSteps` that `--design` runs (registries, shipments, requests, reports,
+quality, plates and the rest), loaded by `addSampleData`
+(`src/lib/sample-data.server.ts`), not a smaller copy. The seed's Process
+Development workspace becomes the person's Demo workspace: they become its
+owner with the same project access, groups, favourites and follows as the
+seed's lead, and are certified to sign with the other demo people. It is
+already set up. Their own workspace is never touched: it stays empty until
+they set it up (lab setup without the demo) and fill it themselves. The seed
+uses fixed ids, so it loads once per install; asking again opens the same Demo
+workspace, and a second person is told it is loaded elsewhere. It takes about a
+minute. `tests/db/first-run.test.ts` fails when the Demo workspace holds less
+than the full seed.
 
 **First run** (`pnpm db:seed --first-run`) is what the hosted open demo
 (sheetbase.dev) is seeded with: the auth-free person and their session, and one

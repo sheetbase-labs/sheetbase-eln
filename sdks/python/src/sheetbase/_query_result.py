@@ -118,3 +118,44 @@ class SearchPage:
                 "deep_link": r.deep_link,
             })
         return pd.DataFrame(records)
+
+
+class MeasurementResultPage:
+    """One page of ``query_measurement_table_rows``: one kind of result read
+    across datasets, each row with the dataset and snapshot it came from."""
+
+    def __init__(self, data: dict[str, Any]) -> None:
+        self.table_id: str = data["tableId"]
+        self.table_key: str = data["tableKey"]
+        self.table_name: str = data["tableName"]
+        self.schema_version: int = data["schemaVersion"]
+        self.mode: str = data["mode"]
+        self.columns: list[dict[str, Any]] = data.get("columns", [])
+        #: Each dataset (and snapshot, or live) that was read.
+        self.sources: list[dict[str, Any]] = data.get("sources", [])
+        #: Datasets left out, and why (``no_snapshot`` for ``latest_snapshot``).
+        self.skipped: list[dict[str, Any]] = data.get("skipped", [])
+        self.offset: int = data["offset"]
+        self.limit: int = data["limit"]
+        self.total_count: int = data["totalCount"]
+        self.has_more: bool = data["hasMore"]
+        #: Raw rows: ``rowId``, ``datasetId``, ``datasetDisplayId``,
+        #: ``datasetVersionId``, ``snapshotLabel``, ``live``, ``values`` ...
+        self.rows: list[dict[str, Any]] = data.get("rows", [])
+
+    def to_dataframe(self):
+        """A pandas DataFrame with one column per measurement table column,
+        plus ``dataset``, ``snapshot`` (``live`` or the snapshot label) and
+        ``row_id`` provenance columns."""
+        import pandas as pd
+
+        records: list[dict[str, Any]] = []
+        for row in self.rows:
+            record: dict[str, Any] = {
+                "dataset": row.get("datasetDisplayId") or row.get("datasetName"),
+                "snapshot": "live" if row.get("live") else row.get("snapshotLabel"),
+                "row_id": row.get("rowId"),
+            }
+            record.update(row.get("values") or {})
+            records.append(record)
+        return pd.DataFrame(records)

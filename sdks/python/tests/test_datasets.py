@@ -494,3 +494,88 @@ class TestSchemaFields:
             f"aaa11111-2222-3333-4444-{n:012d}" for n in range(1, 5)
         ]
         assert offsets == [0, 2]
+
+
+class TestMeasurementTableResults:
+    TABLE = "11111111-1111-4111-8111-111111111111"
+
+    def _page(self):
+        return {
+            "tableId": self.TABLE,
+            "tableKey": "vicell_viability",
+            "tableName": "ViCell viability",
+            "schemaVersion": 2,
+            "mode": "live",
+            "columns": [{"key": "viability", "label": "Viability"}],
+            "sources": [{"datasetId": "d1", "displayId": "DS-0297", "live": True}],
+            "skipped": [],
+            "offset": 0,
+            "limit": 200,
+            "totalCount": 2,
+            "hasMore": False,
+            "rows": [
+                {
+                    "rowId": "r1",
+                    "datasetId": "d1",
+                    "datasetDisplayId": "DS-0297",
+                    "datasetName": "ViCell, harvest timing",
+                    "datasetVersionId": None,
+                    "snapshotLabel": None,
+                    "live": True,
+                    "values": {"viability": 92.6},
+                },
+                {
+                    "rowId": "r2",
+                    "datasetId": "d2",
+                    "datasetDisplayId": "DS-0303",
+                    "datasetName": "ViCell, transfection sweep",
+                    "datasetVersionId": "v2",
+                    "snapshotLabel": "Final",
+                    "live": False,
+                    "values": {"viability": 88.4},
+                },
+            ],
+        }
+
+    def test_query_sends_the_query_and_reads_provenance(self, mock_transport):
+        route = mock_transport.post("/api/db/rpc/query_measurement_table_rows").respond(
+            200, json=self._page()
+        )
+        with SheetbaseClient(BASE_URL, CREDENTIAL, ["datasets:read"]) as client:
+            page = client.datasets.query_measurement_table(
+                self.TABLE,
+                mode="latest_snapshot",
+                record_id="22222222-2222-4222-8222-222222222222",
+                filters=[{"field": "viability", "operator": "gte", "value": 80}],
+            )
+        body = json.loads(route.calls.last.request.content)
+        assert body["p_schema_definition_id"] == self.TABLE
+        assert body["p_query"] == {
+            "mode": "latest_snapshot",
+            "recordId": "22222222-2222-4222-8222-222222222222",
+            "filters": [{"field": "viability", "operator": "gte", "value": 80}],
+        }
+        assert page.total_count == 2
+        assert [row["datasetDisplayId"] for row in page.rows] == ["DS-0297", "DS-0303"]
+
+    def test_dataframe_has_provenance_columns(self, mock_transport):
+        mock_transport.post("/api/db/rpc/query_measurement_table_rows").respond(
+            200, json=self._page()
+        )
+        with SheetbaseClient(BASE_URL, CREDENTIAL, ["datasets:read"]) as client:
+            df = client.datasets.query_measurement_table(self.TABLE).to_dataframe()
+        assert list(df["dataset"]) == ["DS-0297", "DS-0303"]
+        assert list(df["snapshot"]) == ["live", "Final"]
+        assert list(df["viability"]) == [92.6, 88.4]
+
+    def test_sources(self, mock_transport):
+        route = mock_transport.post("/api/db/rpc/measurement_table_sources").respond(
+            200, json=[{"datasetId": "d1", "snapshots": []}]
+        )
+        with SheetbaseClient(BASE_URL, CREDENTIAL, ["datasets:read"]) as client:
+            sources = client.datasets.measurement_table_sources(self.TABLE)
+        assert sources[0]["datasetId"] == "d1"
+        assert json.loads(route.calls.last.request.content) == {
+            "p_schema_definition_id": self.TABLE,
+            "p_include_subtypes": True,
+        }

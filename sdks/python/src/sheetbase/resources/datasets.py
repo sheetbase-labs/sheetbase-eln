@@ -16,7 +16,11 @@ from typing import Any, Optional, Sequence
 
 from sheetbase._http import HttpTransport
 from sheetbase._pagination import iter_rpc, iter_rpc_by_total_count, iter_table
-from sheetbase._query_result import DatasetRowPage, DatasetVersionRowPage
+from sheetbase._query_result import (
+    DatasetRowPage,
+    DatasetVersionRowPage,
+    MeasurementResultPage,
+)
 from sheetbase.errors import StaleVersionError
 from sheetbase.types import (
     CommitResult,
@@ -191,6 +195,62 @@ class DatasetsResource:
             "/api/db/rpc/query_dataset_rows", json_body=body
         )
         return DatasetRowPage(result)
+
+    def measurement_table_sources(
+        self, measurement_table_id: str, *, include_subtypes: bool = True
+    ) -> list[dict[str, Any]]:
+        """The datasets (and their snapshots) that hold a measurement table."""
+        return self._transport.post(
+            "/api/db/rpc/measurement_table_sources",
+            json_body={
+                "p_schema_definition_id": measurement_table_id,
+                "p_include_subtypes": include_subtypes,
+            },
+        )
+
+    def query_measurement_table(
+        self,
+        measurement_table_id: str,
+        *,
+        mode: str = "live",
+        datasets: Optional[list[str]] = None,
+        pins: Optional[dict[str, str]] = None,
+        include_subtypes: bool = True,
+        record_id: Optional[str] = None,
+        filters: Optional[list[dict[str, Any]]] = None,
+        sort: Optional[dict[str, str]] = None,
+        limit: int = 200,
+        offset: int = 0,
+    ) -> MeasurementResultPage:
+        """Read one kind of result across every dataset you can open.
+
+        ``mode`` is ``"live"`` or ``"latest_snapshot"``; ``pins`` maps a dataset
+        id to the snapshot id to read it at. Each row says which dataset and
+        snapshot it came from.
+        """
+        p_query: dict[str, Any] = {"mode": mode}
+        if datasets:
+            p_query["datasets"] = datasets
+        if pins:
+            p_query["pins"] = pins
+        if not include_subtypes:
+            p_query["includeSubtypes"] = False
+        if record_id:
+            p_query["recordId"] = record_id
+        if filters:
+            p_query["filters"] = filters
+        if sort:
+            p_query["sort"] = sort
+        result = self._transport.post(
+            "/api/db/rpc/query_measurement_table_rows",
+            json_body={
+                "p_schema_definition_id": measurement_table_id,
+                "p_query": p_query,
+                "p_limit": limit,
+                "p_offset": offset,
+            },
+        )
+        return MeasurementResultPage(result)
 
     def query_version_rows(
         self,

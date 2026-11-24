@@ -2,7 +2,7 @@ import { createFileRoute, Link } from '@tanstack/react-router'
 import { useQuery } from '@tanstack/react-query'
 
 import { Button } from '#/components/ui/button'
-import { EmptyState } from '#/components/ui/empty-state'
+import { RecordResults } from '#/components/record/record-results'
 import { TableBox } from '#/components/ui/table'
 import {
   RegistryGrid,
@@ -19,15 +19,15 @@ import {
 import type { SampleMeasurement, SamplePlateResult } from '#/lib/samples'
 import { notebookDataClient } from '#/lib/notebook-data'
 import { samplePath } from '#/lib/navigation'
-import { rich, t } from '#/copy'
+import { t } from '#/copy'
 import { formatDate } from '#/lib/format-date'
 
 /**
- * LAB-03: the sample Measurements tab is a read-only view of authoritative
- * values. Each value is aggregated from a Dataset row linked to the sample or
- * from an integration/QC result, and links back to its source row. Values
- * cannot be typed here; the standalone bench-reading surface lives elsewhere
- * (MOB-02).
+ * The sample Results tab is a read-only view of authoritative values: every
+ * dataset row that links to the sample, grouped by measurement table (the same
+ * panel every record shows), then the QC checks instruments ran on it and what
+ * plates read. Values cannot be typed here; the standalone bench-reading
+ * surface lives elsewhere (MOB-02).
  */
 export const Route = createFileRoute('/samples/$sampleId/measurements')({
   component: MeasurementsTab,
@@ -41,7 +41,10 @@ function MeasurementsTab() {
     queryFn: () => fetchSampleMeasurements(notebookDataClient, sampleId),
   })
 
-  const rows = measurements.data ?? []
+  // Dataset values are in the results above; this table keeps instrument QC.
+  const rows = (measurements.data ?? []).filter(
+    (m) => m.provenance.kind === 'integration',
+  )
 
   const plateResults = useQuery({
     queryKey: samplePlateResultsQueryKey(sampleId),
@@ -148,71 +151,63 @@ function MeasurementsTab() {
   ]
 
   return (
-    <div className="flex min-w-0 flex-1 flex-col gap-[26px] px-4 py-[22px] md:px-8">
-      <div className="flex items-center gap-2">
-        <h2 className="text-section">
-          {rich('library.samples.measurements.measurements', {
-            rows: rows.length,
-            span: (text) => <span className="num text-fg-muted">{text}</span>,
-          })}
-        </h2>
-        <Button
-          size="sm"
-          className="ml-auto"
-          nativeButton={false}
-          render={
-            <Link
-              to="/readings/new"
-              search={{ sample: sampleId, returnTo: samplePath(sampleId) }}
-            />
-          }
-        >
-          {t('library.samples.measurements.recordReading')}
-        </Button>
+    <div className="flex min-w-0 flex-1 flex-col">
+      <RecordResults
+        recordId={sampleId}
+        action={
+          <Button
+            size="sm"
+            nativeButton={false}
+            render={
+              <Link
+                to="/readings/new"
+                search={{ sample: sampleId, returnTo: samplePath(sampleId) }}
+              />
+            }
+          >
+            {t('library.samples.measurements.recordReading')}
+          </Button>
+        }
+      />
+
+      <div className="flex min-w-0 flex-col gap-[26px] px-4 pb-[22px] md:px-8">
+        {rows.length ? (
+          <>
+            <h2 className="text-section">
+              {t('library.samples.measurements.qcTitle')}
+            </h2>
+            <TableBox>
+              <RegistryGrid
+                label={t('library.samples.measurements.qcTitle')}
+                rows={rows}
+                columns={columns}
+                getRowId={(m) => m.id}
+                selectable={false}
+              />
+            </TableBox>
+          </>
+        ) : null}
+
+        {plateRows.length ? (
+          <>
+            <h2 className="text-section">
+              {t('features.plateRuns.sampleResults.title')}
+            </h2>
+            <p className="m-0 -mt-4 text-label text-fg-muted">
+              {t('features.plateRuns.sampleResults.hint')}
+            </p>
+            <TableBox>
+              <RegistryGrid
+                label={t('features.plateRuns.sampleResults.title')}
+                rows={plateRows}
+                columns={plateColumns}
+                getRowId={(m) => m.id}
+                selectable={false}
+              />
+            </TableBox>
+          </>
+        ) : null}
       </div>
-      <p className="m-0 -mt-4 text-label text-fg-muted">
-        {t('library.samples.measurements.valuesComeFromDatasetsAnd')}
-      </p>
-
-      {rows.length ? (
-        <TableBox>
-          <RegistryGrid
-            label={t('library.samples.measurements.measurements2')}
-            rows={rows}
-            columns={columns}
-            getRowId={(m) => m.id}
-            selectable={false}
-          />
-        </TableBox>
-      ) : (
-        <EmptyState
-          className="py-2"
-          title={t('library.samples.measurements.noMeasurementsYet')}
-          description={t(
-            'library.samples.measurements.valuesRecordedAgainstThisSample',
-          )}
-        />
-      )}
-
-      {plateRows.length ? (
-        <>
-          <h2 className="text-section">
-            {t('features.plateRuns.sampleResults.title')}
-          </h2>
-          <p className="m-0 -mt-4 text-label text-fg-muted">
-            {t('features.plateRuns.sampleResults.hint')}
-          </p>
-          <TableBox>
-            <RegistryGrid
-              label={t('features.plateRuns.sampleResults.title')}
-              rows={plateRows}
-              columns={plateColumns}
-              getRowId={(m) => m.id}
-              selectable={false}
-            />
-          </TableBox>
-        </>
-      ) : null}
     </div>
   )
 }

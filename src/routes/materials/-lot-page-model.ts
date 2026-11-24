@@ -22,7 +22,7 @@ export const LOT_PAGE_FIELDS = [
 ] as const
 
 /** The sections the lot page offers. */
-export const lotTabSchema = z.enum(['details', 'ledger', 'used'])
+export const lotTabSchema = z.enum(['details', 'ledger', 'used', 'results'])
 
 export type LotTab = z.infer<typeof lotTabSchema>
 

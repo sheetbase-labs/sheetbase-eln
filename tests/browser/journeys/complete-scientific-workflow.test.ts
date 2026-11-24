@@ -337,7 +337,7 @@ test('an imported plate analysis remains reconstructable after independent revie
     await open(page, `/experiments/${experimentId}/notebook`)
     await expect(importBlock.getByText(/current dataset/)).toBeVisible()
     await importBlock
-      .getByRole('link', { name: 'Choose a sheet definition', exact: true })
+      .getByRole('link', { name: 'Choose a sheet layout', exact: true })
       .click()
     await expect(page).toHaveURL(/\/sheets\/new\?/)
     expect(new URL(page.url()).searchParams.get('dataset')).toBe(datasetId)
@@ -345,7 +345,7 @@ test('an imported plate analysis remains reconstructable after independent revie
       experimentId,
     )
     await page
-      .getByRole('combobox', { name: /^Sheet definition/ })
+      .getByRole('combobox', { name: /^Sheet layout/ })
       .selectOption(definition.version.id)
     await page
       .getByLabel('Name', { exact: true })

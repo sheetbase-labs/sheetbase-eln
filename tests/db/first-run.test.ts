@@ -100,9 +100,24 @@ describe('first run on the open demo', () => {
   })
 
   it('creates a separate Demo workspace on request and leaves their own empty', async () => {
-    const { addSampleData } = await import('#/lib/sample-data.server')
+    const { addSampleData, sampleDataStatus } =
+      await import('#/lib/sample-data.server')
+
     const [own] = await workspacesOf(DEV_USER.id)
-    const result = await addSampleData({ userId: DEV_USER.id }, db)
+
+    let result = await addSampleData({ userId: DEV_USER.id }, db, 1000)
+
+    // The load outlives one request: until it finishes the person is told to
+    // ask again, and the demo does not count as loaded.
+    let asks = 1
+
+    while (!result.ok && result.reason === 'loading') {
+      expect((await sampleDataStatus(DEV_USER.id, db)).loaded).toBe(false)
+      result = await addSampleData({ userId: DEV_USER.id }, db, 1000)
+      asks += 1
+    }
+
+    expect(asks).toBeGreaterThan(1)
 
     expect(result.ok).toBe(true)
 

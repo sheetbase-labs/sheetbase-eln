@@ -687,6 +687,7 @@ export const settings = {
     setupTitle: 'Explore a demo workspace instead',
     elsewhere:
       'The demo already lives in another person’s workspace on this install.',
+    slow: 'The demo is taking longer than usual to load. Give it a minute and try again.',
     error: 'Couldn’t add the sample data. Try again.',
   },
   joinDomains: {

@@ -5,6 +5,7 @@ import { Notice } from '#/components/ui/alert'
 import { Button, buttonVariants } from '#/components/ui/button'
 import { Section } from '#/components/ui/layout'
 import { toast } from '#/components/ui/sonner'
+import type { AddSampleDataResult } from '#/lib/sample-data'
 import {
   addSampleDataFn,
   fetchSampleDataStatusFn,
@@ -28,7 +29,7 @@ export function useOpenDemoWorkspace(workspaceId: string) {
 
   return useMutation({
     mutationFn: async () => {
-      const result = await addSampleDataFn({ data: { workspaceId } })
+      const result = await loadSampleData(workspaceId)
 
       if (!result.ok)
         throw new SampleDataError(describeSampleDataFailure(result))
@@ -46,6 +47,22 @@ export function useOpenDemoWorkspace(workspaceId: string) {
 }
 
 class SampleDataError extends Error {}
+
+/** The load takes about a minute: each ask waits a little, then asks again. */
+const LOAD_ATTEMPTS = 60
+
+async function loadSampleData(
+  workspaceId: string,
+): Promise<AddSampleDataResult> {
+  for (let attempt = 0; attempt < LOAD_ATTEMPTS; attempt += 1) {
+    // react-doctor-disable-next-line react-doctor/async-await-in-loop -- Each ask depends on the last answer: it stops as soon as the load is done.
+    const result = await addSampleDataFn({ data: { workspaceId } })
+
+    if (result.ok || result.reason !== 'loading') return result
+  }
+
+  return { ok: false, reason: 'loading' }
+}
 
 function sampleDataErrorMessage(error: Error): string {
   return error instanceof SampleDataError

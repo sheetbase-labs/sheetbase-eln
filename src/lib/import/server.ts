@@ -1094,25 +1094,33 @@ async function lookUpRecordIds(
 ): Promise<Map<string, string>> {
   const found = new Map<string, string>()
 
-  for (let at = 0; at < identifiers.length; at += RECORD_LOOKUP_CHUNK) {
-    const chunk = identifiers.slice(at, at + RECORD_LOOKUP_CHUNK)
+  const chunks = Array.from(
+    { length: Math.ceil(identifiers.length / RECORD_LOOKUP_CHUNK) },
+    (_, index) =>
+      identifiers.slice(
+        index * RECORD_LOOKUP_CHUNK,
+        (index + 1) * RECORD_LOOKUP_CHUNK,
+      ),
+  )
 
-    const quoted = chunk
-      .map((identifier) => `"${identifier.replaceAll('"', '')}"`)
-      .join(',')
+  const responses = await Promise.all(
+    chunks.map((chunk) => {
+      const quoted = chunk
+        .map((identifier) => `"${identifier.replaceAll('"', '')}"`)
+        .join(',')
 
-    const res = await postgrestSelect<
-      Array<{ id: string; identifier: string }>
-    >(
-      'records',
-      `identifier=in.(${encodeURIComponent(quoted)})&deleted_at=is.null&select=id,identifier`,
-      token,
-    )
+      return postgrestSelect<Array<{ id: string; identifier: string }>>(
+        'records',
+        `identifier=in.(${encodeURIComponent(quoted)})&deleted_at=is.null&select=id,identifier`,
+        token,
+      )
+    }),
+  )
 
+  for (const res of responses)
     if (Array.isArray(res.body))
       for (const row of res.body)
         found.set(linkIdentifierKey(row.identifier), row.id)
-  }
 
   return found
 }

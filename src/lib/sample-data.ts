@@ -30,13 +30,25 @@ export const addSampleDataFn = createServerFn({ method: 'POST' })
   .handler(async ({ data }): Promise<AddSampleDataResult> => {
     const { requireSettingsArea } = await import('#/lib/admin-platform')
 
+    const { addSampleData, sampleDataIsTheirs } =
+      await import('#/lib/sample-data.server')
+
+    const { getRequestHeaders } = await import('@tanstack/react-start/server')
+
+    const { getCurrentContext } = await import('#/lib/current-user')
+
+    // Asking again while their own load runs, or after it finished, is not a
+    // new start: the active workspace has moved on by then.
+    const context = await getCurrentContext(getRequestHeaders())
+
+    if (context && (await sampleDataIsTheirs(context.user.id)))
+      return addSampleData({ userId: context.user.id })
+
     const { userId } = await requireSettingsArea(
       data.workspaceId,
       'general',
       'manage',
     )
-
-    const { addSampleData } = await import('#/lib/sample-data.server')
 
     return addSampleData({ userId })
   })

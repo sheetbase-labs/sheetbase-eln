@@ -219,7 +219,7 @@ describe('preview_dataset_model_upgrade', () => {
       ['cardinality', 'one', readings],
       [
         'relationship',
-        { target: { kind: 'model', modelKey: 'reagent' }, cardinality: 'one' },
+        { target: { kind: 'model', modelKey: 'material' }, cardinality: 'one' },
         reference,
       ],
       ['nullable', false, mass],

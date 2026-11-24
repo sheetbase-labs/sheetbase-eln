@@ -1911,12 +1911,14 @@ export const RPC_CONTRACTS: RpcContractCatalogue = {
     result: { type: 'null', nullable: true, description: 'No content.' },
   },
   search_sheet_records: {
-    summary: 'Search Model records for Sheet write-back',
+    summary: 'Search records of one record type for a link',
     description:
       '`p_limit` is clamped to 1–50 (default 25). `p_query` matches identifier, title and custom field text (ILIKE). No offset; raise limit or narrow `p_query`.',
     required: ['p_model_key'],
     properties: {
-      p_model_key: text('Model key backed by `api.records`.'),
+      p_model_key: text(
+        'Record type key: a built-in kind such as `sample`, or a record type the workspace defined such as `cell_bank`.',
+      ),
       p_query: text('Substring match. Empty browses.', { default: '' }),
       p_limit: int('Clamped 1–50.', { minimum: 1, maximum: 50, default: 25 }),
       p_include_archived: bool('Include archived records.'),

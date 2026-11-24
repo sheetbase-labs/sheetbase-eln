@@ -134,9 +134,7 @@ describe('NotebookTemplateUpdateView', () => {
       screen.getByText('Sheet re-pinned to a newer definition version'),
     ).toBeDefined()
     expect(screen.getByText('No matching sheet in this notebook')).toBeDefined()
-    expect(
-      screen.getByText('Sheet definition changed incompatibly'),
-    ).toBeDefined()
+    expect(screen.getByText('Sheet layout changed incompatibly')).toBeDefined()
     // Both conflicts state their permitted outcomes.
     expect(screen.getAllByText('Keep as it is')).toHaveLength(2)
     expect(screen.getByText('Take the new definition')).toBeDefined()

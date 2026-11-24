@@ -220,7 +220,7 @@ describe('CanonicalSheetLifecyclePanel', () => {
       screen.getByRole('button', { name: 'Link data and reuse this sheet' }),
     )
     await user.click(screen.getByRole('button', { name: 'Extract draft' }))
-    await screen.findByRole('link', { name: 'Review sheet definition' })
+    await screen.findByRole('link', { name: 'Review sheet layout' })
     expect(selections[0]).toMatchObject({
       bindings: configuration.bindings.map((binding) => ({
         bindingId: binding.id,
@@ -247,7 +247,7 @@ describe('CanonicalSheetLifecyclePanel', () => {
     await user.click(screen.getByRole('button', { name: 'Extract draft' }))
 
     const link = await screen.findByRole('link', {
-      name: 'Review sheet definition',
+      name: 'Review sheet layout',
     })
 
     expect(link.getAttribute('href')).toContain(

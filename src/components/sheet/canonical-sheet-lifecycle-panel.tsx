@@ -767,7 +767,7 @@ function LifecycleContent({
             {t('notebook.canonicalSheetLifecyclePanel.sheetDefinition')}
           </span>
           <PickerSelect
-            noun="sheet definition"
+            noun="sheet layout"
             aria-label={t(
               'notebook.canonicalSheetLifecyclePanel.sheetDefinition',
             )}

@@ -2202,10 +2202,10 @@ export const settings = {
       'Query, commit, snapshot and archive datasets. Can’t change a dataset’s structure.',
     governedSchema: 'Structure',
     catalogueGetGatedDescription:
-      'Record types and their fields, choices and rules, sheet definitions, templates and dataset structures. Write adds and changes drafts; publish makes a version live. The person the key belongs to still needs the right to do it.',
+      'Record types and their fields, choices and rules, sheet layouts, templates and dataset structures. Write adds and changes drafts; publish makes a version live. The person the key belongs to still needs the right to do it.',
     sheets: 'Sheets',
     sheetInstanceReadsDescription:
-      'Read and change sheets and their records. Changing a sheet definition needs Structure.',
+      'Read and change sheets and their records. Changing a sheet layout needs Structure.',
     models: 'Models',
     modelRecordSearchDescription:
       'Search records of any type, write their field values and change a record’s type. Changing the fields themselves needs Structure.',

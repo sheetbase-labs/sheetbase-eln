@@ -151,9 +151,7 @@ describe('ProjectSheets', () => {
     expect(
       (await screen.findAllByText('Cell count 14 Oct')).length,
     ).toBeGreaterThan(0)
-    expect(
-      screen.getAllByText('From a sheet definition').length,
-    ).toBeGreaterThan(0)
+    expect(screen.getAllByText('From a sheet layout').length).toBeGreaterThan(0)
   })
 
   it('renames with the sheet’s current revision', async () => {

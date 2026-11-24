@@ -1380,7 +1380,7 @@ export const notebook = {
     countImportedObservationsPinned:
       '{count} imported observations · pinned dataset snapshot',
     openInASheet: 'Open in a sheet',
-    chooseSheetDefinition: 'Choose a sheet definition',
+    chooseSheetDefinition: 'Choose a sheet layout',
     showInASheet: 'Show in a sheet',
     makingSheet: 'Making the sheet…',
     sheetAddedBelow: 'Sheet added below the import',
@@ -2143,10 +2143,10 @@ export const notebook = {
     bindADatasetTo: 'Bind a dataset to this sheet',
     bindingShowsADataset:
       'Binding shows a dataset beside your own columns. It doesn’t move any column into the dataset; to do that, choose Add to dataset on the column itself.',
-    sheetDefinition: 'Sheet definition',
+    sheetDefinition: 'Sheet layout',
     selectDefinition: 'Select definition',
     publishedVersion: 'Published version',
-    ariaLabel: 'Published sheet definition version',
+    ariaLabel: 'Published sheet layout version',
     selectVersion: 'Select version',
     datasetForLabel: 'Dataset for {label}',
     datasetBindingAriaLabel: 'Dataset binding',
@@ -2165,7 +2165,7 @@ export const notebook = {
     previewMaterialise: 'Preview',
     applyMaterialise: 'Save',
     openTheNewDataset: 'Open the new dataset',
-    reviewSheetDefinition: 'Review sheet definition',
+    reviewSheetDefinition: 'Review sheet layout',
     thisSheetIsNot:
       'This sheet isn’t backed by a definition, so it can’t be saved as a dataset as it stands. To keep its data, add a column to a dataset from the column menu.',
     aDefinitionNeedsOne:
@@ -2178,10 +2178,9 @@ export const notebook = {
     adoptedDefinitionCountLocal:
       'Adopted definition. {count} local rows are unmatched.',
     adoptedDefinitionOnThis: 'Adopted definition on this sheet.',
-    theSourceSheetDefinition:
-      'The source sheet definition version is unavailable.',
+    theSourceSheetDefinition: 'The source sheet layout version is unavailable.',
     extractedDraftDefinitionName:
-      'Extracted draft definition “{name}”. Review and publish the sheet definition.',
+      'Extracted draft definition “{name}”. Review and publish the sheet layout.',
     publishedDefinitionVersionVersion:
       'Published definition version {version}.',
     countUpgradeConflictS:
@@ -2321,7 +2320,7 @@ export const notebook = {
     from: 'From',
     matchedOn: 'Matched on {columns}',
     ownRows: 'The sheet’s own rows',
-    fromDefinition: 'A sheet definition',
+    fromDefinition: 'A sheet layout',
     fromDuplicate: 'A copy of another sheet',
     fromAdHoc: 'Ad hoc, no definition',
     liveTitle: 'Live, not pinned',
@@ -2895,29 +2894,29 @@ export const notebook = {
     meta: 'Requests to add a sheet column to a dataset. Approving doesn’t move data; adding it does.',
   },
   sheetDefinitionPage: {
-    title: 'Sheet definition',
+    title: 'Sheet layout',
     backToSourceSheet: 'Back to source sheet',
     version: 'Version',
     definitionLifecycle: 'Definition: {lifecycle}',
     publishVersionVersion: 'Publish version {version}',
-    loadingSheetDefinition: 'Loading sheet definition…',
+    loadingSheetDefinition: 'Loading sheet layout…',
     checkYourWorkspaceAccess: 'Check your workspace access and connection.',
-    sheetDefinitionCouldNotTitle: 'Sheet definition couldn’t be loaded',
+    sheetDefinitionCouldNotTitle: 'Sheet layout couldn’t be loaded',
     itMayNotExist:
       'It may not exist or may not be accessible in this workspace.',
-    sheetDefinitionUnavailableTitle: 'Sheet definition unavailable',
+    sheetDefinitionUnavailableTitle: 'Sheet layout unavailable',
     reviewTheInputsBindings:
       'Review the inputs, bindings and calculations before publishing. Publishing makes this version immutable; it doesn’t change existing sheets or frozen notebook evidence.',
     reusableSheetStructureNotTitle:
       'Reusable sheet structure, not a record model',
     inputsTitle: 'Inputs',
-    caption: 'Sheet definition inputs',
+    caption: 'Sheet layout inputs',
     input: 'Input',
     type: 'Type',
     requirement: 'Requirement',
     noParameters: 'No parameters',
     columnsTitle: 'Columns',
-    caption2: 'Sheet definition columns',
+    caption2: 'Sheet layout columns',
     column: 'Column',
     storageUnit: 'Storage unit',
     source: 'Source',
@@ -2931,8 +2930,7 @@ export const notebook = {
     theRequestedVersionIs:
       'The requested version isn’t available. No other version has been substituted.',
     versionUnavailableTitle: 'Version unavailable',
-    publishSheetDefinitionVersion:
-      'Publish sheet definition version {version}?',
+    publishSheetDefinitionVersion: 'Publish sheet layout version {version}?',
     thisVersionBecomesImmutable:
       'This version becomes immutable and available for reuse. Existing sheets and submitted evidence stay unchanged.',
     publishing: 'Publishing…',
@@ -2988,7 +2986,7 @@ export const notebook = {
     madeFromColumnsTitle: 'The sheet shows the dataset’s columns',
     madeFromColumns:
       'No saved sheet layout fits this dataset, so Sheetbase makes one from its columns. Every column and row is there to open.',
-    label: 'Sheet definition',
+    label: 'Sheet layout',
     hint: 'Decides which of the dataset’s columns the sheet shows.',
     projectLabel: 'Project',
     nameLabel: 'Name',
@@ -3065,7 +3063,7 @@ export const notebook = {
     sheetNotFound: 'Sheet not found',
     sheetUnavailable: 'Sheet unavailable',
     selectASheet: 'Select a sheet…',
-    fromASheetDefinition: ' (from a sheet definition)',
+    fromASheetDefinition: ' (from a sheet layout)',
     adHocSheet: ' (ad hoc sheet)',
     linkSheet: 'Link sheet',
     couldNotLoadThe2: 'Couldn’t load the submitted notebook.',

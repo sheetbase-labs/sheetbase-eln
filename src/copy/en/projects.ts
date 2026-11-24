@@ -44,7 +44,7 @@ export const projects = {
   },
   projectSheets: {
     origin: {
-      definition: 'From a sheet definition',
+      definition: 'From a sheet layout',
       copy: 'Copy of another sheet',
       working: 'Working sheet',
     },

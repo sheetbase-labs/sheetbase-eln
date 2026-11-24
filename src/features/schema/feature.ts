@@ -1,5 +1,5 @@
 /**
- * Record types (models), their fields, choices and rules; sheet definitions
+ * Record types (models), their fields, choices and rules; sheet layouts
  * and their versions; notebook templates and their versions; and the sheets
  * made from them, on the API, MCP, the assistant, pipelines, webhooks and
  * steward SQL. Authoring is open behind `schema:write`, publishing behind
@@ -33,7 +33,7 @@ export const feature = defineFeature({
     is_model_field_admin:
       'Whether the person may edit record types: the database asks it inside every field call, so a caller never needs to.',
     is_sheet_definition_admin:
-      'Whether the person may edit sheet definitions: the database asks it inside every definition call, so a caller never needs to.',
+      'Whether the person may edit sheet layouts: the database asks it inside every definition call, so a caller never needs to.',
     validate_notebook_sheet_block:
       'A trigger function that checks sheet blocks as they are saved; it cannot be called.',
     sheet_cell_search:

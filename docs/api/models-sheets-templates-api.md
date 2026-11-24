@@ -1,6 +1,6 @@
 # Models, sheets and templates API
 
-Record types (models) and their fields, choices and rules; sheet definitions
+Record types (models) and their fields, choices and rules; sheet layouts
 and their versions; notebook templates and their versions; and the sheets made
 from them. Everything the settings pages and editors do is here, for a token,
 over MCP (`sheetbase.lab.act`, `sheetbase.canonical.read`), from a pipeline
@@ -8,14 +8,14 @@ step and, for the everyday changes, from the assistant as a confirm card.
 
 ## Scopes
 
-| Scope            | What it covers                                                                                       |
-| ---------------- | ---------------------------------------------------------------------------------------------------- |
-| `schema:read`    | Record types, fields, choices, rules, versions, and what depends on a type.                          |
-| `schema:write`   | Adding and changing record types, fields, choices, rules, sheet definitions and templates as drafts. |
-| `schema:publish` | Publishing a version of a record type, sheet definition or template, and moving open work onto it.   |
-| `sheets:read`    | Sheets and their history; searching inside sheets.                                                   |
-| `sheets:write`   | Renaming a sheet.                                                                                    |
-| `templates:read` | Templates and the notebooks made from them.                                                          |
+| Scope            | What it covers                                                                                   |
+| ---------------- | ------------------------------------------------------------------------------------------------ |
+| `schema:read`    | Record types, fields, choices, rules, versions, and what depends on a type.                      |
+| `schema:write`   | Adding and changing record types, fields, choices, rules, sheet layouts and templates as drafts. |
+| `schema:publish` | Publishing a version of a record type, sheet layout or template, and moving open work onto it.   |
+| `sheets:read`    | Sheets and their history; searching inside sheets.                                               |
+| `sheets:write`   | Renaming a sheet.                                                                                |
+| `templates:read` | Templates and the notebooks made from them.                                                      |
 
 A personal token acts as its person, so the person still needs the right to
 edit (or publish) schemas in the workspace. A service credential has no person
@@ -183,7 +183,7 @@ The same calls work for a token, the assistant, MCP or a pipeline:
 
 ### Formulas that compare and decide
 
-A calculation of a sheet definition can do more than arithmetic. It can compare
+A calculation of a sheet layout can do more than arithmetic. It can compare
 (`=`, `<>`, `<`, `<=`, `>`, `>=`), decide with `IF`, `AND`, `OR`, `NOT` and `XOR`,
 and answer with text or a boolean as well as a number. The output column's
 `logicalType` says which (`decimal`, `integer`, `text` or `boolean`).
@@ -844,7 +844,7 @@ Scope: `projects:write`. Returns `row:records`.
 
 ### `create_sheet_definition`
 
-Add a reusable sheet definition
+Add a reusable sheet layout
 
 Adds a reusable sheet layout (columns, parameters, calculations) with its first draft version. Returns `{ definition, version }`.
 
@@ -860,35 +860,35 @@ Scope: `schema:write`. Returns `json`.
 
 ### `update_sheet_definition`
 
-Rename or describe a sheet definition
+Rename or describe a sheet layout
 
-Changes a sheet definition’s name or description. `p_patch` holds only what changes. Returns the definition.
+Changes a sheet layout’s name or description. `p_patch` holds only what changes. Returns the definition.
 
 Scope: `schema:write`. Returns `row:sheet_definitions`.
 
 | Parameter             | Type   | Required | Notes                                                              |
 | --------------------- | ------ | -------- | ------------------------------------------------------------------ |
-| `p_definition_id`     | uuid   | yes      | The sheet definition (`sheet_definitions.id`).                     |
+| `p_definition_id`     | uuid   | yes      | The sheet layout (`sheet_definitions.id`).                         |
 | `p_expected_revision` | bigint | yes      | The `revision` you last read. A stale one is refused with `SB001`. |
 | `p_patch`             | json   | yes      | Only what changes: `name`, `description`.                          |
 
 ### `create_sheet_definition_version`
 
-Start a new draft version of a sheet definition
+Start a new draft version of a sheet layout
 
-Starts a draft of the next version of a sheet definition. Returns the version.
+Starts a draft of the next version of a sheet layout. Returns the version.
 
 Scope: `schema:write`. Returns `row:sheet_definition_versions`.
 
 | Parameter                        | Type   | Required | Notes                                                                                                                                 |
 | -------------------------------- | ------ | -------- | ------------------------------------------------------------------------------------------------------------------------------------- |
-| `p_definition_id`                | uuid   | yes      | The sheet definition (`sheet_definitions.id`).                                                                                        |
+| `p_definition_id`                | uuid   | yes      | The sheet layout (`sheet_definitions.id`).                                                                                            |
 | `p_expected_definition_revision` | bigint | yes      | The definition’s `revision` you last read.                                                                                            |
 | `p_configuration`                | json   | yes      | The sheet layout as JSON: `{ columns, parameters, calculations, … }`, the same shape `sheet_definition_versions.configuration` holds. |
 
 ### `update_sheet_definition_draft`
 
-Change a draft version of a sheet definition
+Change a draft version of a sheet layout
 
 Replaces the layout of a draft version. A published version cannot change. Returns the version.
 
@@ -896,13 +896,13 @@ Scope: `schema:write`. Returns `row:sheet_definition_versions`.
 
 | Parameter             | Type   | Required | Notes                                                                                                                                 |
 | --------------------- | ------ | -------- | ------------------------------------------------------------------------------------------------------------------------------------- |
-| `p_version_id`        | uuid   | yes      | The sheet definition version (`sheet_definition_versions.id`).                                                                        |
+| `p_version_id`        | uuid   | yes      | The sheet layout version (`sheet_definition_versions.id`).                                                                            |
 | `p_expected_revision` | bigint | yes      | The `revision` you last read. A stale one is refused with `SB001`.                                                                    |
 | `p_configuration`     | json   | yes      | The sheet layout as JSON: `{ columns, parameters, calculations, … }`, the same shape `sheet_definition_versions.configuration` holds. |
 
 ### `publish_sheet_definition_version`
 
-Publish a draft version of a sheet definition
+Publish a draft version of a sheet layout
 
 Makes a draft version available for new sheets and templates. Needs `schema:publish`. Returns the version.
 
@@ -910,17 +910,17 @@ Scope: `schema:publish`. Returns `row:sheet_definition_versions`.
 
 | Parameter             | Type   | Required | Notes                                                              |
 | --------------------- | ------ | -------- | ------------------------------------------------------------------ |
-| `p_version_id`        | uuid   | yes      | The sheet definition version (`sheet_definition_versions.id`).     |
+| `p_version_id`        | uuid   | yes      | The sheet layout version (`sheet_definition_versions.id`).         |
 | `p_expected_revision` | bigint | yes      | The `revision` you last read. A stale one is refused with `SB001`. |
 
 Events:
 
-- `sheet.definition.version.published`: A version of a sheet definition was published.
-- `sheet.definition.version.retired`: A version of a sheet definition was retired.
+- `sheet.definition.version.published`: A version of a sheet layout was published.
+- `sheet.definition.version.retired`: A version of a sheet layout was retired.
 
 ### `retire_sheet_definition_version`
 
-Retire a version of a sheet definition
+Retire a version of a sheet layout
 
 Stops a published version being offered for new sheets. Sheets made from it keep working. Returns the version.
 
@@ -928,40 +928,40 @@ Scope: `schema:write`. Returns `row:sheet_definition_versions`.
 
 | Parameter             | Type   | Required | Notes                                                              |
 | --------------------- | ------ | -------- | ------------------------------------------------------------------ |
-| `p_version_id`        | uuid   | yes      | The sheet definition version (`sheet_definition_versions.id`).     |
+| `p_version_id`        | uuid   | yes      | The sheet layout version (`sheet_definition_versions.id`).         |
 | `p_expected_revision` | bigint | yes      | The `revision` you last read. A stale one is refused with `SB001`. |
 
 ### `retire_sheet_definition`
 
-Retire a sheet definition
+Retire a sheet layout
 
-Stops a sheet definition being offered. Sheets made from it keep working, and it can be restored. Returns the definition.
+Stops a sheet layout being offered. Sheets made from it keep working, and it can be restored. Returns the definition.
 
 Scope: `schema:write`. Returns `row:sheet_definitions`.
 
 | Parameter             | Type   | Required | Notes                                                              |
 | --------------------- | ------ | -------- | ------------------------------------------------------------------ |
-| `p_definition_id`     | uuid   | yes      | The sheet definition (`sheet_definitions.id`).                     |
+| `p_definition_id`     | uuid   | yes      | The sheet layout (`sheet_definitions.id`).                         |
 | `p_expected_revision` | bigint | yes      | The `revision` you last read. A stale one is refused with `SB001`. |
 
 ### `restore_sheet_definition`
 
-Restore a retired sheet definition
+Restore a retired sheet layout
 
-Offers a retired sheet definition again. Returns the definition.
+Offers a retired sheet layout again. Returns the definition.
 
 Scope: `schema:write`. Returns `row:sheet_definitions`.
 
 | Parameter             | Type   | Required | Notes                                                              |
 | --------------------- | ------ | -------- | ------------------------------------------------------------------ |
-| `p_definition_id`     | uuid   | yes      | The sheet definition (`sheet_definitions.id`).                     |
+| `p_definition_id`     | uuid   | yes      | The sheet layout (`sheet_definitions.id`).                         |
 | `p_expected_revision` | bigint | yes      | The `revision` you last read. A stale one is refused with `SB001`. |
 
 ### `preview_sheet_definition_extraction`
 
 Check turning part of a sheet into a reusable definition
 
-Says what a new sheet definition made from the chosen columns of a sheet would hold, without making it. `p_selection` is `{ columnIds }`.
+Says what a new sheet layout made from the chosen columns of a sheet would hold, without making it. `p_selection` is `{ columnIds }`.
 
 Scope: `sheets:read`. Returns `json`.
 
@@ -975,7 +975,7 @@ Scope: `sheets:read`. Returns `json`.
 
 Turn part of a sheet into a reusable definition
 
-Makes a new sheet definition, as a draft, from the chosen columns of a sheet. Returns `{ definition, version }`.
+Makes a new sheet layout, as a draft, from the chosen columns of a sheet. Returns `{ definition, version }`.
 
 Scope: `schema:write`. Returns `json`.
 
@@ -1140,7 +1140,7 @@ Scope: `schema:write`. Returns `row:notebook_template_versions`.
 
 Point a sheet in a draft template at another definition version
 
-Changes which sheet definition version a sheet in a draft template is made from. Returns the template version.
+Changes which sheet layout version a sheet in a draft template is made from. Returns the template version.
 
 Scope: `schema:write`. Returns `row:notebook_template_versions`.
 
@@ -1149,7 +1149,7 @@ Scope: `schema:write`. Returns `row:notebook_template_versions`.
 | `p_version_id`                   | uuid   | yes      | The notebook template version (`notebook_template_versions.id`).   |
 | `p_expected_revision`            | bigint | yes      | The `revision` you last read. A stale one is refused with `SB001`. |
 | `p_placement_id`                 | uuid   | yes      | The sheet in the template.                                         |
-| `p_target_definition_version_id` | uuid   | yes      | The sheet definition version to use.                               |
+| `p_target_definition_version_id` | uuid   | yes      | The sheet layout version to use.                                   |
 
 ### `publish_notebook_template_version`
 

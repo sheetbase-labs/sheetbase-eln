@@ -1,6 +1,6 @@
 /**
  * Models, sheets and templates: record types (models), their fields, field
- * options and rules, sheet definitions and their versions, notebook templates
+ * options and rules, sheet layouts and their versions, notebook templates
  * and their versions, and the sheets made from them. One declaration each gives
  * the token API entry, the MCP action, the assistant tool name, the pipeline
  * action and the webhook events (see `docs/development/adding-an-operation.md`).
@@ -53,12 +53,12 @@ const MODEL_VERSION_ID = note(
 
 const SHEET_DEFINITION_ID = note(
   input('p_definition_id', 'uuid'),
-  'The sheet definition (`sheet_definitions.id`).',
+  'The sheet layout (`sheet_definitions.id`).',
 )
 
 const SHEET_VERSION_ID = note(
   input('p_version_id', 'uuid'),
-  'The sheet definition version (`sheet_definition_versions.id`).',
+  'The sheet layout version (`sheet_definition_versions.id`).',
 )
 
 const TEMPLATE_VERSION_ID = note(
@@ -955,11 +955,11 @@ export const SCHEMA_OPERATIONS = defineOperations([
     pipeline: {},
   },
 
-  // -- Sheet definitions --------------------------------------------------------
+  // -- Sheet layouts --------------------------------------------------------
   {
     name: 'create_sheet_definition',
-    label: 'Add a sheet definition',
-    summary: 'Add a reusable sheet definition',
+    label: 'Add a sheet layout',
+    summary: 'Add a reusable sheet layout',
     description:
       'Adds a reusable sheet layout (columns, parameters, calculations) with its first draft version. Returns `{ definition, version }`.',
     kind: 'write',
@@ -975,10 +975,10 @@ export const SCHEMA_OPERATIONS = defineOperations([
   },
   {
     name: 'update_sheet_definition',
-    label: 'Rename a sheet definition',
-    summary: 'Rename or describe a sheet definition',
+    label: 'Rename a sheet layout',
+    summary: 'Rename or describe a sheet layout',
     description:
-      'Changes a sheet definition’s name or description. `p_patch` holds only what changes. Returns the definition.',
+      'Changes a sheet layout’s name or description. `p_patch` holds only what changes. Returns the definition.',
     kind: 'write',
     scope: SCHEMA_WRITE,
     inputs: [
@@ -994,10 +994,10 @@ export const SCHEMA_OPERATIONS = defineOperations([
   },
   {
     name: 'create_sheet_definition_version',
-    label: 'Start a new version of a sheet definition',
-    summary: 'Start a new draft version of a sheet definition',
+    label: 'Start a new version of a sheet layout',
+    summary: 'Start a new draft version of a sheet layout',
     description:
-      'Starts a draft of the next version of a sheet definition. Returns the version.',
+      'Starts a draft of the next version of a sheet layout. Returns the version.',
     kind: 'write',
     scope: SCHEMA_WRITE,
     inputs: [
@@ -1013,8 +1013,8 @@ export const SCHEMA_OPERATIONS = defineOperations([
   },
   {
     name: 'update_sheet_definition_draft',
-    label: 'Change a draft sheet definition',
-    summary: 'Change a draft version of a sheet definition',
+    label: 'Change a draft sheet layout',
+    summary: 'Change a draft version of a sheet layout',
     description:
       'Replaces the layout of a draft version. A published version cannot change. Returns the version.',
     kind: 'write',
@@ -1025,8 +1025,8 @@ export const SCHEMA_OPERATIONS = defineOperations([
   },
   {
     name: 'publish_sheet_definition_version',
-    label: 'Publish a sheet definition',
-    summary: 'Publish a draft version of a sheet definition',
+    label: 'Publish a sheet layout',
+    summary: 'Publish a draft version of a sheet layout',
     description:
       'Makes a draft version available for new sheets and templates. Needs `schema:publish`. Returns the version.',
     kind: 'write',
@@ -1039,7 +1039,7 @@ export const SCHEMA_OPERATIONS = defineOperations([
       {
         name: 'sheet.definition.version.published',
         family: 'sheet',
-        summary: 'A version of a sheet definition was published.',
+        summary: 'A version of a sheet layout was published.',
         producer: {
           entityType: 'sheet_definition_version',
           operation: 'update',
@@ -1050,7 +1050,7 @@ export const SCHEMA_OPERATIONS = defineOperations([
       {
         name: 'sheet.definition.version.retired',
         family: 'sheet',
-        summary: 'A version of a sheet definition was retired.',
+        summary: 'A version of a sheet layout was retired.',
         producer: {
           entityType: 'sheet_definition_version',
           operation: 'update',
@@ -1062,8 +1062,8 @@ export const SCHEMA_OPERATIONS = defineOperations([
   },
   {
     name: 'retire_sheet_definition_version',
-    label: 'Retire a version of a sheet definition',
-    summary: 'Retire a version of a sheet definition',
+    label: 'Retire a version of a sheet layout',
+    summary: 'Retire a version of a sheet layout',
     description:
       'Stops a published version being offered for new sheets. Sheets made from it keep working. Returns the version.',
     kind: 'write',
@@ -1074,10 +1074,10 @@ export const SCHEMA_OPERATIONS = defineOperations([
   },
   {
     name: 'retire_sheet_definition',
-    label: 'Retire a sheet definition',
-    summary: 'Retire a sheet definition',
+    label: 'Retire a sheet layout',
+    summary: 'Retire a sheet layout',
     description:
-      'Stops a sheet definition being offered. Sheets made from it keep working, and it can be restored. Returns the definition.',
+      'Stops a sheet layout being offered. Sheets made from it keep working, and it can be restored. Returns the definition.',
     kind: 'write',
     scope: SCHEMA_WRITE,
     inputs: [SHEET_DEFINITION_ID, EXPECTED_REVISION],
@@ -1087,10 +1087,9 @@ export const SCHEMA_OPERATIONS = defineOperations([
   },
   {
     name: 'restore_sheet_definition',
-    label: 'Restore a sheet definition',
-    summary: 'Restore a retired sheet definition',
-    description:
-      'Offers a retired sheet definition again. Returns the definition.',
+    label: 'Restore a sheet layout',
+    summary: 'Restore a retired sheet layout',
+    description: 'Offers a retired sheet layout again. Returns the definition.',
     kind: 'write',
     scope: SCHEMA_WRITE,
     inputs: [SHEET_DEFINITION_ID, EXPECTED_REVISION],
@@ -1103,7 +1102,7 @@ export const SCHEMA_OPERATIONS = defineOperations([
     label: 'Check turning a sheet into a definition',
     summary: 'Check turning part of a sheet into a reusable definition',
     description:
-      'Says what a new sheet definition made from the chosen columns of a sheet would hold, without making it. `p_selection` is `{ columnIds }`.',
+      'Says what a new sheet layout made from the chosen columns of a sheet would hold, without making it. `p_selection` is `{ columnIds }`.',
     kind: 'read',
     scope: 'sheets:read',
     inputs: [
@@ -1120,7 +1119,7 @@ export const SCHEMA_OPERATIONS = defineOperations([
     label: 'Turn a sheet into a definition',
     summary: 'Turn part of a sheet into a reusable definition',
     description:
-      'Makes a new sheet definition, as a draft, from the chosen columns of a sheet. Returns `{ definition, version }`.',
+      'Makes a new sheet layout, as a draft, from the chosen columns of a sheet. Returns `{ definition, version }`.',
     kind: 'write',
     scope: SCHEMA_WRITE,
     inputs: [
@@ -1329,7 +1328,7 @@ export const SCHEMA_OPERATIONS = defineOperations([
     label: 'Point a template’s sheet at another version',
     summary: 'Point a sheet in a draft template at another definition version',
     description:
-      'Changes which sheet definition version a sheet in a draft template is made from. Returns the template version.',
+      'Changes which sheet layout version a sheet in a draft template is made from. Returns the template version.',
     kind: 'write',
     scope: SCHEMA_WRITE,
     inputs: [
@@ -1338,7 +1337,7 @@ export const SCHEMA_OPERATIONS = defineOperations([
       note(input('p_placement_id', 'uuid'), 'The sheet in the template.'),
       note(
         input('p_target_definition_version_id', 'uuid'),
-        'The sheet definition version to use.',
+        'The sheet layout version to use.',
       ),
     ],
     result: 'row:notebook_template_versions',

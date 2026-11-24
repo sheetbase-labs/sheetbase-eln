@@ -1,6 +1,6 @@
 /**
  * Words for the schema feature, read as `t('features.schema.…')`. `cards`
- * holds the buttons on the assistant's record type, sheet definition and
+ * holds the buttons on the assistant's record type, sheet layout and
  * template cards.
  */
 export const copy = {

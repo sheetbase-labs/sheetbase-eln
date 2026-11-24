@@ -24,6 +24,7 @@ import {
 } from '#/db/seed/design'
 import { FIXTURE_USER_EMAIL, FIXTURE_USER_ID } from '#/db/seed/identities'
 import { seedUrl } from '#/db/seed/url'
+import { logger } from '#/lib/logger'
 
 type Db = typeof appDb
 
@@ -203,7 +204,11 @@ export async function addSampleData(
     })
     // A failed load is reported to whoever is waiting; it must not also crash
     // the server as an unhandled rejection when nobody is.
-    inflight.catch(() => {})
+    inflight.catch((error) => {
+      logger.error('demo load failed', {
+        error: error instanceof Error ? error.message : String(error),
+      })
+    })
   }
 
   const running = inflight
@@ -235,6 +240,7 @@ async function loadSample(db: Db, userId: string): Promise<void> {
 
     // react-doctor-disable-next-line react-doctor/async-await-in-loop -- The steps build on each other (workspaces, then projects, then their records and data), so each one is written before the next reads it.
     await step.run(db)
+    logger.info('demo load step done', { step: step.name })
   }
 
   await db

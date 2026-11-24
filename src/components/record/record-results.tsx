@@ -21,12 +21,12 @@ import { useOpenRow } from '#/components/workspace/workspace-navigation'
 import { t } from '#/copy'
 import { formatDate } from '#/lib/format-date'
 import { formatQuantity } from '#/lib/format-quantity'
-import { datasetValuePath, datasetVersionPath } from '#/lib/navigation'
 import { linkedRecordIds, useRecordLinkLabels } from '#/lib/record-link-labels'
 import type { RecordLinkLabels } from '#/lib/record-link-labels'
 import {
   groupColumns,
   groupRecordResults,
+  resultRowHref,
   RECORD_RESULTS_PAGE,
   useRecordResults,
 } from '#/lib/record-results'
@@ -35,16 +35,6 @@ import type {
   RecordResultRow,
   RecordResultValue,
 } from '#/lib/record-results'
-
-/** The row in its dataset: the snapshot it is kept in, or the live rows. */
-export function resultRowHref(row: RecordResultRow): string {
-  if (row.source === 'snapshot' && row.snapshotId)
-    return `${datasetVersionPath(row.datasetId, row.snapshotId)}&row=${encodeURIComponent(row.rowId)}`
-
-  const link = row.values.find((value) => value.linksHere)
-
-  return datasetValuePath(row.datasetId, row.rowId, link?.fieldId ?? '')
-}
 
 function ResultValue({
   cell,

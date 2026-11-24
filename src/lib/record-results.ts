@@ -7,6 +7,7 @@ import { useQuery } from '@tanstack/react-query'
 import { z } from 'zod'
 
 import type { DataClient } from './data-client'
+import { datasetValuePath, datasetVersionPath } from './navigation'
 import { notebookDataClient } from './notebook-data'
 
 const resultValueSchema = z.object({
@@ -82,6 +83,16 @@ export function useRecordResults(
       fetchRecordResults(notebookDataClient, recordId ?? '', includeSnapshots),
     enabled: Boolean(recordId),
   })
+}
+
+/** The row in its dataset: the snapshot it is kept in, or the live rows. */
+export function resultRowHref(row: RecordResultRow): string {
+  if (row.source === 'snapshot' && row.snapshotId)
+    return `${datasetVersionPath(row.datasetId, row.snapshotId)}&row=${encodeURIComponent(row.rowId)}`
+
+  const link = row.values.find((value) => value.linksHere)
+
+  return datasetValuePath(row.datasetId, row.rowId, link?.fieldId ?? '')
 }
 
 export interface RecordResultGroup {

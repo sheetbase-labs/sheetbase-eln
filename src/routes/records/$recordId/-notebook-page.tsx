@@ -76,6 +76,8 @@ import { NotebookDocument } from '#/components/notebook'
 import type { NotebookDocumentProps, SaveResult } from '#/components/notebook'
 import { NotebookCellProperties } from '#/components/notebook/notebook-inspector'
 import { canonicalCellFacts } from '#/components/notebook/inspector-cell-facts'
+import { RecordResults } from '#/components/record/record-results'
+import { useRecordResults } from '#/lib/record-results'
 import type { NotebookInspectorCellFacts } from '#/components/notebook/notebook-inspector'
 import type { SheetCellSelection } from '#/components/sheet/canonical-sheet-workspace'
 import { CommentPanel } from '#/components/comments'
@@ -4586,6 +4588,7 @@ export function NotebookInspector(
   props: Parameters<typeof useNotebookInspectorModel>[0],
 ) {
   const model = useNotebookInspectorModel(props)
+  const resultCount = useRecordResults(props.record.id).data?.total
 
   const {
     record,
@@ -4638,6 +4641,12 @@ export function NotebookInspector(
           requiredSections={requiredSections}
         />
       ),
+    },
+    {
+      id: 'results',
+      label: t('features.recordResults.tab'),
+      badge: resultCount || undefined,
+      content: <RecordResults recordId={record.id} variant="panel" />,
     },
     {
       id: 'history',

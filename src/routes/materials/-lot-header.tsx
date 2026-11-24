@@ -39,6 +39,7 @@ export function LotHeader({
   tab,
   ledgerCount,
   usedCount,
+  resultCount,
   onTabChange,
   onRegisterReplacement,
   onUse,
@@ -58,6 +59,7 @@ export function LotHeader({
   tab: LotTab
   ledgerCount: number | undefined
   usedCount: number | undefined
+  resultCount?: number | undefined
   onTabChange: (tab: LotTab) => void
   onRegisterReplacement: () => void
   onUse: () => void
@@ -147,6 +149,11 @@ export function LotHeader({
               key: 'used',
               label: t('library.materials.lot.usedIn'),
               count: usedCount,
+            },
+            {
+              key: 'results',
+              label: t('features.recordResults.tab'),
+              count: resultCount,
             },
           ]}
         />

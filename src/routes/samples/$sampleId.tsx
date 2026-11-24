@@ -16,6 +16,7 @@ import { useRecentViewTracking } from '#/lib/recents'
 import { Status } from '#/components/ui/status'
 import { PageHeader, Inspector, InspectorSection } from '#/components/ui/layout'
 import { Tabs } from '#/components/ui/tabs'
+import { useRecordResults } from '#/lib/record-results'
 import { Field, Input } from '#/components/ui/input'
 import {
   Dialog,
@@ -939,18 +940,12 @@ function SamplePageHeader({
   page: SamplePage
   sample: SampleRecord
 }) {
-  const {
-    setDialog,
-    events,
-    names,
-    derivedSamples,
-    parentCount,
-    measurements,
-    project,
-  } = page
+  const { setDialog, events, names, derivedSamples, parentCount, project } =
+    page
 
   const flags = samplePageFlags(page, sample)
   const { status, params, withdrawable, hasReading, usageCount } = flags
+  const resultCount = useRecordResults(sample.id).data?.total
 
   return (
     <div className="flex min-w-0 flex-1 flex-col">
@@ -1021,7 +1016,7 @@ function SamplePageHeader({
               },
               {
                 label: t('library.samples.record.measurements'),
-                count: measurements.data?.length ?? undefined,
+                count: resultCount,
                 link: { to: '/samples/$sampleId/measurements', params },
               },
               {

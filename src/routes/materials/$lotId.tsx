@@ -24,6 +24,8 @@ import {
 } from './-lot-dialogs'
 import { isLotUsable, lotLabelSource } from './-lot-page-model'
 import type { LotTab } from './-lot-page-model'
+import { RecordResults } from '#/components/record/record-results'
+import { useRecordResults } from '#/lib/record-results'
 import { useLotPageData } from './-lot-page-data'
 
 /**
@@ -86,6 +88,7 @@ function LotPage() {
   const canEdit = useHasCapability('record.create')
   const safety = useMaterialSafety(lotId)
   const labelChoice = useLabelTemplateChoice('material')
+  const results = useRecordResults(reagent?.id)
 
   if (!reagent) {
     return (
@@ -146,6 +149,7 @@ function LotPage() {
         tab={tab}
         ledgerCount={ledger.data ? ledgerCount : undefined}
         usedCount={usage.data ? usedCount : undefined}
+        resultCount={results.data?.total}
         onTabChange={setTab}
         onRegisterReplacement={() => setReplacementOpen(true)}
         onUse={() => setUseOpen(true)}
@@ -175,6 +179,7 @@ function LotPage() {
               userLabel={userLabel}
             />
           ) : null}
+          {tab === 'results' ? <RecordResults recordId={reagent.id} /> : null}
           {tab === 'used' ? (
             <LotUsedTab
               preparedWith={preparedWith.data}

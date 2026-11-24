@@ -2870,7 +2870,7 @@ export const library = {
       details: 'Details',
       lineage: 'Lineage',
       usage: 'Usage',
-      measurements: 'Measurements',
+      measurements: 'Results',
       sequences: 'Sequences',
       history: 'History',
       sampleContext: 'Sample context',
@@ -2988,14 +2988,8 @@ export const library = {
       source: 'Source',
       result: 'Result',
       measured: 'Measured',
-      measurements: 'Measurements <span>{rows}</span>',
       recordReading: 'Record reading',
-      valuesComeFromDatasetsAnd:
-        'Values come from datasets and QC. Record reading writes into a planned dataset row for this sample, and that row is the source listed below.',
-      measurements2: 'Measurements',
-      noMeasurementsYet: 'No measurements yet',
-      valuesRecordedAgainstThisSample:
-        'Values recorded against this sample in a dataset or QC appear here, with a link to their source row.',
+      qcTitle: 'Instrument QC checks',
     },
     usage: {
       reservationCancelled: 'Reservation cancelled',

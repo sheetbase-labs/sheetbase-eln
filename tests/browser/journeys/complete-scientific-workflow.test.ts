@@ -161,7 +161,7 @@ test('an imported plate analysis remains reconstructable after independent revie
     // Consecutive observations 1..96 in ×10¹¹ cp/mL have n=96 and mean/median=48.5.
     // The expectation is independent of the application's statistics code.
     const csv = [
-      'Sample,Plate,Well,Dilution,Capsid titre',
+      'Sample label,Plate,Well,Dilution,Capsid titre',
       ...Array.from({ length: 96 }, (_, index) => {
         const well = `${String.fromCharCode(65 + Math.floor(index / 12))}${(index % 12) + 1}`
         return `SMP-${index + 1},P1,${well},100,${index + 1}`
@@ -253,7 +253,7 @@ test('an imported plate analysis remains reconstructable after independent revie
     })
     const parameterId = crypto.randomUUID()
     const bindingId = crypto.randomUUID()
-    const columns = ['Sample', 'Capsid titre'].map((label) => {
+    const columns = ['Sample label', 'Capsid titre'].map((label) => {
       const field = fields.find((candidate) => candidate.label === label)
       if (!field) throw new Error(`Imported Dataset has no ${label} field`)
       const id = crypto.randomUUID()

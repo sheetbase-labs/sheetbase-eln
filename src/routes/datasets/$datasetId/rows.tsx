@@ -15,9 +15,12 @@ import { RegistryGrid, useRowFocus } from '#/components/inventory/registry-grid'
 import type { RegistryColumn } from '#/components/inventory/registry-grid'
 import { ColumnInspector } from '#/components/datasets/column-inspector'
 import { ValueActions } from '#/components/datasets/value-actions'
+import { RecordLinkValue } from '#/components/datasets/record-link-value'
 import type { RepeatSourceSample } from '#/components/datasets/value-actions'
 import { formatSelectedValue } from '#/components/datasets/value-action-presentation'
 import { hasCapability } from '#/lib/capability'
+import { linkedRecordIds, useRecordLinkLabels } from '#/lib/record-link-labels'
+import type { RecordLinkLabels } from '#/lib/record-link-labels'
 import { flagKey } from '#/lib/dataset-flags'
 import type { DatasetValueFlag } from '#/lib/dataset-flags'
 import type { DatasetRowValues } from '#/lib/dataset-product'
@@ -147,6 +150,28 @@ function Rows() {
   const rowFocus = useRowFocus(selected?.rowId ?? null, focusRow)
   const versionId = version?.id
 
+  // A link column holds record ids; the grid and the details show each record's
+  // identifier, looked up once for the rows on screen.
+  const linkFieldIds = useMemo(
+    () =>
+      fields
+        .filter((f) => f.logical_type === 'reference')
+        .map((f) => f.field_id),
+    [fields],
+  )
+
+  const linkIds = useMemo(
+    () =>
+      linkedRecordIds(
+        visible.flatMap((row) =>
+          'values' in row ? linkFieldIds.map((id) => row.values[id]) : [],
+        ),
+      ),
+    [visible, linkFieldIds],
+  )
+
+  const recordLabels: RecordLinkLabels = useRecordLinkLabels(linkIds).data ?? {}
+
   // One grid column per schema field, right-aligned unless the field is text —
   // the bespoke table's own rule — plus the row-number column the snapshot
   // shows. A value cell carries the flag colour of its own row and field.
@@ -156,6 +181,7 @@ function Rows() {
     flaggedRowIds,
     flagIndex,
     unitless,
+    recordLabels,
     selectedColumn: search.col,
     onToggleColumn,
   })
@@ -224,6 +250,7 @@ function Rows() {
           selectedPosition={selectedPosition}
           canWrite={canWrite}
           sourceSample={sourceSample.data ?? null}
+          recordLabels={recordLabels}
           onSelectField={onSelectField}
           onChanged={() => refresh(versionId)}
         />
@@ -339,6 +366,7 @@ function useDatasetRowColumns(input: {
   flaggedRowIds: ReadonlySet<string>
   flagIndex: ReadonlyMap<string, DatasetValueFlag>
   unitless: ReadonlySet<string>
+  recordLabels: RecordLinkLabels
   selectedColumn: string | undefined
   onToggleColumn: (fieldId: string) => void
 }): RegistryColumn<RowGridRow>[] {
@@ -348,6 +376,7 @@ function useDatasetRowColumns(input: {
     flaggedRowIds,
     flagIndex,
     unitless,
+    recordLabels,
     selectedColumn,
     onToggleColumn,
   } = input
@@ -375,7 +404,10 @@ function useDatasetRowColumns(input: {
     return [
       rowNumber,
       ...fields.map((f) => {
-        const align = f.logical_type === 'text' ? undefined : 'right'
+        const align =
+          f.logical_type === 'text' || f.logical_type === 'reference'
+            ? undefined
+            : 'right'
 
         return {
           id: f.field_id,
@@ -406,7 +438,11 @@ function useDatasetRowColumns(input: {
 
             return (
               <span className={cn(flagged && 'text-danger-text')}>
-                {formatSelectedValue(value)}
+                {f.logical_type === 'reference' ? (
+                  <RecordLinkValue value={value} labels={recordLabels} />
+                ) : (
+                  formatSelectedValue(value)
+                )}
               </span>
             )
           },
@@ -426,6 +462,7 @@ function useDatasetRowColumns(input: {
     visible,
     selectedColumn,
     unitless,
+    recordLabels,
     onToggleColumn,
   ])
 }
@@ -545,6 +582,7 @@ function RowsInspector(props: {
   selectedPosition: number | null
   canWrite: boolean
   sourceSample: RepeatSourceSample | null
+  recordLabels: RecordLinkLabels
   onSelectField: (fieldId: string) => void
   onChanged: () => void
 }) {
@@ -608,7 +646,9 @@ function RowsInspector(props: {
                 <span
                   className={cn('num truncate', cellFlag && 'text-danger-text')}
                 >
-                  {formatSelectedValue(value)}
+                  {f.logical_type === 'reference'
+                    ? linkedText(linkedRecordIds([value]), props.recordLabels)
+                    : formatSelectedValue(value)}
                   {cellFlag ? ' •' : ''}
                 </span>
               </button>
@@ -621,7 +661,14 @@ function RowsInspector(props: {
         <InspectorSection title={t('data.datasetRows.selectedValue')}>
           <div className="mb-2 flex items-baseline gap-2">
             <span className="num text-title font-medium">
-              {formatSelectedValue(props.selectedValue)}
+              {selectedField.logical_type === 'reference' ? (
+                <RecordLinkValue
+                  value={props.selectedValue}
+                  labels={props.recordLabels}
+                />
+              ) : (
+                formatSelectedValue(props.selectedValue)
+              )}
             </span>
             <span className="text-label text-fg-muted">
               {selectedField.label}
@@ -761,4 +808,15 @@ function RowsFallback(props: {
       />
     </div>
   )
+}
+
+/** A link value as plain text, for places already inside a button. */
+function linkedText(ids: readonly string[], labels: RecordLinkLabels): string {
+  const names = ids.flatMap((id) => {
+    const label = labels[id]
+
+    return label ? [label.identifier] : []
+  })
+
+  return names.length > 0 ? names.join(', ') : '—'
 }

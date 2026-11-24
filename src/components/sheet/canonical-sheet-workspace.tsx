@@ -153,6 +153,7 @@ import {
 } from '#/lib/sheet-record-search'
 import { linkSheetRecordReference } from '#/lib/sheet-record-link'
 import { RECORD_REFERENCE_CELL_FORMAT } from '#/lib/record-reference-cell'
+import { linkedRecordIds, useRecordLinkLabels } from '#/lib/record-link-labels'
 import {
   nextSheetRecordGridError,
   sheetRecordGridErrorsFromValidation,
@@ -579,6 +580,23 @@ function useCanonicalWorkspaceSession({
   useLayoutEffect(() => {
     matrixRef.current = matrix
   }, [matrix])
+
+  // A link column holds record ids. Look up the records the sheet shows so a
+  // cell reads SMP-2231, not a UUID, whether or not the column can be edited.
+  const linkedIds = useMemo(
+    () =>
+      linkedRecordIds(
+        matrix.columns.flatMap((column, index) =>
+          column.presentation.kind === 'record-picker'
+            ? matrix.data.map((row) => row[index])
+            : [],
+        ),
+      ),
+    [matrix],
+  )
+
+  const linkedLabels = useRecordLinkLabels(linkedIds).data
+  const [labelsVersion, setLabelsVersion] = useState(0)
   // QA-156: the grid's latest selection report, so a menu action confirmed
   // later still clears what the user selected.
   const selectionRef = useRef<SheetbaseGridSelection | null>(null)
@@ -1512,8 +1530,15 @@ function useCanonicalWorkspaceSession({
           details,
         ),
       ),
-    [matrix, canWrite, details],
+    // `labelsVersion` rebuilds the columns when linked records' names arrive.
+    [matrix, canWrite, details, labelsVersion],
   )
+
+  useEffect(() => {
+    if (!linkedLabels) return
+    Object.assign(recordLabelsRef.current, linkedLabels)
+    setLabelsVersion((version) => version + 1)
+  }, [linkedLabels])
 
   const columnKeys = useMemo(
     () =>

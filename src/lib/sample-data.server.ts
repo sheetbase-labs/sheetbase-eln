@@ -33,7 +33,10 @@ export interface SampleDataStatus {
 }
 
 export type AddSampleDataResult =
-  { ok: true; workspaceId: string } | { ok: false; reason: 'loaded_elsewhere' }
+  | { ok: true; workspaceId: string }
+  | { ok: false; reason: 'loaded_elsewhere' }
+  /** Still loading: ask again in a few seconds. */
+  | { ok: false; reason: 'loading' }
 
 /** The seed's main workspace is the Demo workspace. */
 export const DEMO_WORKSPACE_ID = DESIGN_WORKSPACE_IDS.processDevelopment
@@ -93,11 +96,27 @@ async function joinDemoAsLead(db: Db, userId: string): Promise<void> {
     ON CONFLICT DO NOTHING`)
 }
 
-/** The Demo workspace this person is in, when the sample is loaded. */
+/**
+ * The load ends by marking the workspace set up, so a workspace without that
+ * mark is a load that was cut off, never a finished one.
+ */
+async function isLoaded(db: Db): Promise<boolean> {
+  const rows = await db
+    .select({ at: workspaceSettings.setupCompletedAt })
+    .from(workspaceSettings)
+    .where(eq(workspaceSettings.workspaceId, DEMO_WORKSPACE_ID))
+    .limit(1)
+
+  return rows.at(0)?.at != null
+}
+
+/** The Demo workspace this person is in, when the sample is fully loaded. */
 async function findDemoWorkspace(
   db: Db,
   userId: string,
 ): Promise<string | null> {
+  if (!(await isLoaded(db))) return null
+
   const rows = await db
     .select({ id: workspaceMemberships.workspaceId })
     .from(workspaceMemberships)
@@ -121,27 +140,61 @@ export async function sampleDataStatus(
   return { loaded: demoWorkspaceId !== null, demoWorkspaceId }
 }
 
+/** The load in progress, so a second ask joins it instead of starting another. */
+let inflight: Promise<void> | undefined
+
+/** For tests: forget a load that was left behind. */
+export function resetSampleDataLoad(): void {
+  inflight = undefined
+}
+
+/** How long one ask waits before telling the page to ask again. */
+const WAIT_MS = 20_000
+
 /**
  * Loads the full seed and makes the person the owner of its Demo workspace.
- * Asking again returns the one that exists.
+ * The seed takes about a minute, more than a proxy waits for one request, so
+ * the load runs on its own and is not tied to the request that started it:
+ * an ask returns the workspace once it is ready, or `loading` for the page
+ * to ask again. Asking again after it is done opens the same Demo workspace.
  */
 export async function addSampleData(
   input: { userId: string },
   db: Db = appDb,
+  waitMs: number = WAIT_MS,
 ): Promise<AddSampleDataResult> {
   const { userId } = input
-  const existing = await findDemoWorkspace(db, userId)
 
-  if (existing) return { ok: true, workspaceId: existing }
+  if (!inflight) {
+    const existing = await findDemoWorkspace(db, userId)
 
-  const elsewhere = await db
-    .select({ id: workspaces.id })
-    .from(workspaces)
-    .where(eq(workspaces.id, DEMO_WORKSPACE_ID))
-    .limit(1)
+    if (existing) return { ok: true, workspaceId: existing }
 
-  if (elsewhere.length > 0) return { ok: false, reason: 'loaded_elsewhere' }
+    // Fully loaded for someone else, or never started: the fixed ids mean a
+    // finished copy belongs to whoever joined it first.
+    if (await isLoaded(db)) return { ok: false, reason: 'loaded_elsewhere' }
 
+    inflight = loadSample(db, userId).finally(() => {
+      inflight = undefined
+    })
+    // A failed load is reported to whoever is waiting; it must not also crash
+    // the server as an unhandled rejection when nobody is.
+    inflight.catch(() => {})
+  }
+
+  const running = inflight
+
+  const outcome = await Promise.race([
+    running.then(() => 'done' as const),
+    new Promise<'wait'>((resolve) => setTimeout(() => resolve('wait'), waitMs)),
+  ])
+
+  if (outcome === 'wait') return { ok: false, reason: 'loading' }
+
+  return { ok: true, workspaceId: DEMO_WORKSPACE_ID }
+}
+
+async function loadSample(db: Db, userId: string): Promise<void> {
   // The seed names this person as the signing-identity verifier.
   await db
     .insert(user)
@@ -178,7 +231,8 @@ export async function addSampleData(
       )
   }
 
-  // The demo is already set up, so lab setup does not open inside it.
+  // Last, and only now: this mark is what says the load finished. The demo is
+  // already set up, so lab setup does not open inside it.
   await db
     .insert(workspaceSettings)
     .values({
@@ -190,6 +244,4 @@ export async function addSampleData(
       target: workspaceSettings.workspaceId,
       set: { setupCompletedAt: new Date() },
     })
-
-  return { ok: true, workspaceId: DEMO_WORKSPACE_ID }
 }

@@ -4930,46 +4930,10 @@ export const datasetValueFlags = api.table(
 )
 
 /**
- * sample_measurements (RM-112) — a measured value recorded for a sample
- * (concentration, titre, viability). Members read; writes go through
- * `record_sample_measurement`.
+ * `api.sample_measurements` is a read-only view over the rows of the
+ * workspace's built-in "Sample measurement" dataset (migration
+ * 20261125000100). It has no table of its own, so nothing is declared here.
  */
-export const sampleMeasurements = api.table(
-  'sample_measurements',
-  {
-    id: uuid('id').primaryKey().defaultRandom(),
-    workspaceId: uuid('workspace_id')
-      .notNull()
-      .references(() => workspaces.id, { onDelete: 'cascade' }),
-    sampleRecordId: uuid('sample_record_id')
-      .notNull()
-      .references(() => records.id, { onDelete: 'cascade' }),
-    name: text('name').notNull(),
-    value: numeric('value').notNull(),
-    unit: text('unit'),
-    method: text('method'),
-    measuredAt: timestamp('measured_at', {
-      withTimezone: true,
-      mode: 'date',
-    }).notNull(),
-    notes: text('notes'),
-    createdByUserId: text('created_by_user_id').references(() => user.id, {
-      onDelete: 'set null',
-    }),
-    ...timestamps,
-  },
-  (table) => [
-    check(
-      'chk_sample_measurements_name',
-      sql`length(btrim(${table.name})) BETWEEN 1 AND 200`,
-    ),
-    index('idx_sample_measurements_sample').on(
-      table.sampleRecordId,
-      table.measuredAt,
-    ),
-    index('idx_sample_measurements_workspace').on(table.workspaceId),
-  ],
-)
 
 /**
  * work_item_views (RM-116) — which Inbox work items a person has seen, so

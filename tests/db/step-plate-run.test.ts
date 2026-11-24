@@ -258,10 +258,9 @@ describe('publish_plate_run_measurements', () => {
     const s1 = await sample('Titre A')
     const s2 = await sample('Titre B')
     const run = await quantified([s1, s2])
-    await migrator.query(
-      `insert into api.sample_measurements(workspace_id,sample_record_id,name,value,unit,measured_at)
-       values($1,$2,'Manual',1,'x',now())`,
-      [WS, s1],
+    await owner.query(
+      `select api.record_sample_measurement($1,'Manual',1,'x')`,
+      [s1],
     )
     const first = await owner.query(
       `select api.publish_plate_run_measurements($1,'Capsid titre') as r`,

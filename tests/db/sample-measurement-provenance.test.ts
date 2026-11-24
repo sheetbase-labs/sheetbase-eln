@@ -10,7 +10,7 @@
  *  - a value from a row linked by a sample-keyed text field appears too;
  *  - an unlinked row in the same Dataset does not appear;
  *  - an integration/QC value appears with its run/instrument source;
- *  - the standalone `sample_measurements` bench surface is not aggregated;
+ *  - a recorded measurement is a row of the Sample measurements dataset, so it is aggregated like any other linked row, named by its Measurement column;
  *  - another workspace's data is invisible and a non-member is refused.
  */
 import type { Client } from 'pg'
@@ -253,11 +253,11 @@ beforeAll(async () => {
     [QC, WS, RUN],
   )
 
-  // --- Standalone bench-reading surface: must NOT be aggregated ---
-  await migrator.query(
-    `insert into api.sample_measurements(workspace_id,sample_record_id,name,value,unit,measured_at)
-     values ($1,$2,'Bench reading',42,'TU/mL',now())`,
-    [WS, SAMPLE],
+  // --- A bench reading is a row of the built-in Sample measurements dataset ---
+  const writer = await actor(OWNER, WS)
+  await writer.query(
+    `select api.record_sample_measurement($1,'Bench reading',42,'TU/mL')`,
+    [SAMPLE],
   )
 })
 
@@ -271,7 +271,7 @@ describe('sample_measurement_provenance', () => {
     const owner = await actor(OWNER, WS)
     const rows = await provenance(owner, SAMPLE)
 
-    expect(rows).toHaveLength(3)
+    expect(rows).toHaveLength(4)
 
     const titre = rows.find(
       (m) =>
@@ -340,15 +340,20 @@ describe('sample_measurement_provenance', () => {
     expect(rows.some((m) => m.value === 777)).toBe(false)
   })
 
-  it('does not aggregate the standalone sample_measurements surface', async () => {
+  it('lists a recorded measurement by its own name and unit', async () => {
     const owner = await actor(OWNER, WS)
     const rows = await provenance(owner, SAMPLE)
-    expect(rows.some((m) => m.measurement === 'Bench reading')).toBe(false)
+    const bench = rows.find((m) => m.measurement === 'Bench reading')
+    expect(bench).toMatchObject({
+      value: 42,
+      unit: 'TU/mL',
+      provenance: { kind: 'dataset', datasetName: 'Sample measurements' },
+    })
   })
 
   it('lets a viewer read and refuses a non-member', async () => {
     const viewer = await actor(VIEWER, WS)
-    await expect(provenance(viewer, SAMPLE)).resolves.toHaveLength(3)
+    await expect(provenance(viewer, SAMPLE)).resolves.toHaveLength(4)
 
     const outsider = await actor(OUTSIDER, WS)
     await expect(provenance(outsider, SAMPLE)).rejects.toMatchObject({

@@ -3145,7 +3145,16 @@ const DESIGN_PROJECTS: ReadonlyArray<{
 interface DesignDatasetField {
   key: string
   label: string
-  logicalType: 'text' | 'integer' | 'decimal' | 'boolean' | 'date' | 'timestamp'
+  logicalType:
+    | 'text'
+    | 'integer'
+    | 'decimal'
+    | 'boolean'
+    | 'date'
+    | 'timestamp'
+    | 'reference'
+  /** A `reference` column links to records of this record type (model key). */
+  targetModelKey?: string
   unit?: string
   required?: boolean
   /** Canonical field validation wire, e.g. soft `extensions.systemFlags`. */
@@ -3214,7 +3223,16 @@ const AMBR_FIELDS: ReadonlyArray<DesignDatasetField> = [
 ]
 
 const ELISA_FIELDS: ReadonlyArray<DesignDatasetField> = [
-  { key: 'sample', label: 'Sample', logicalType: 'text', required: true },
+  // A link to the sample record the well measured. Wells that hold a standard,
+  // a blank or an unregistered tube have no record, so their tag lives in
+  // `sample_label` and this column stays empty.
+  {
+    key: 'sample',
+    label: 'Sample',
+    logicalType: 'reference',
+    targetModelKey: 'sample',
+  },
+  { key: 'sample_label', label: 'Sample label', logicalType: 'text' },
   { key: 'plate', label: 'Plate', logicalType: 'text', required: true },
   { key: 'well', label: 'Well', logicalType: 'text', required: true },
   { key: 'condition', label: 'Condition', logicalType: 'text' },
@@ -3258,7 +3276,13 @@ const ELISA_FIELDS: ReadonlyArray<DesignDatasetField> = [
  * above-max value is accepted and gets a `system` flag rather than failing.
  */
 const BENCH_READING_FIELDS: ReadonlyArray<DesignDatasetField> = [
-  { key: 'sample', label: 'Sample', logicalType: 'text', required: true },
+  {
+    key: 'sample',
+    label: 'Sample',
+    logicalType: 'reference',
+    targetModelKey: 'sample',
+    required: true,
+  },
   { key: 'well', label: 'Well', logicalType: 'text' },
   { key: 'dilution', label: 'Dilution', logicalType: 'integer' },
   {
@@ -3819,8 +3843,12 @@ function elisaRows(): ReturnType<DesignDataset['rows']> {
       const a260 = Number((0.52 + (wellIndex % 5) * 0.03).toFixed(3))
       const a280 = Number((0.31 + (wellIndex % 4) * 0.02).toFixed(3))
       const outOfRange = turbidity !== null && turbidity > 50
+      // Only registered samples (SMP-…) are records; the rest keep their tag.
+      const isRecord = sample.startsWith('SMP-')
+
       rows.push({
-        sample,
+        sample: isRecord ? sample : null,
+        sample_label: isRecord ? null : sample,
         condition: reading?.condition ?? null,
         plate,
         well,
@@ -3913,6 +3941,13 @@ function datasetFieldsWire(dataset: DesignDataset) {
     logical_type: field.logicalType,
     nullable: !field.required,
     validation: field.validation ?? {},
+    relationship:
+      field.logicalType === 'reference' && field.targetModelKey
+        ? {
+            target: { kind: 'model', modelKey: field.targetModelKey },
+            cardinality: 'one',
+          }
+        : undefined,
     quantity: field.unit
       ? {
           kind: 'quantity',
@@ -4033,13 +4068,48 @@ async function seedDesignDatasets(
           ]),
         )
 
+        // A link column holds the record's id; the seed rows name it by its
+        // identifier (SMP-2231), so look each one up in this workspace.
+        const linkTargets = new Map(
+          dataset.fields
+            .filter((field) => field.logicalType === 'reference')
+            .map((field) => [field.key, field.targetModelKey]),
+        )
+
+        const recordIds = new Map<string, string>()
+
+        for (const row of dataset.rows()) {
+          for (const [key, value] of Object.entries(row)) {
+            const link = z.string().safeParse(value)
+
+            if (!linkTargets.has(key) || !link.success) continue
+
+            if (recordIds.has(link.data)) continue
+
+            const found = await client.query(
+              'select id from api.records where workspace_id = $1 and identifier = $2 and deleted_at is null',
+              [dataset.workspaceId, link.data],
+            )
+
+            if (!(found.rowCount ?? 0)) {
+              throw new Error(
+                `${dataset.displayId} links ${link.data}, which is not a record`,
+              )
+            }
+
+            recordIds.set(link.data, found.rows[0].id)
+          }
+        }
+
         const rows = dataset.rows().map((row) => ({
           rowId: randomUUID(),
           operation: 'create',
           values: Object.fromEntries(
             Object.entries(row).map(([key, value]) => [
               fieldIdByKey.get(key),
-              value,
+              linkTargets.has(key) && z.string().safeParse(value).success
+                ? recordIds.get(String(value))
+                : value,
             ]),
           ),
         }))

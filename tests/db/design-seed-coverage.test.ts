@@ -73,15 +73,18 @@ it('rejects unrelated identities, title citations and unmatched screen identifie
       { can_view: true, can_edit: true, can_review: true, can_manage: false },
     ])
     const readings = await actor.query(
-      `select max(v.text_value) filter(where f.key='sample') as sample,
+      `select coalesce(max(rec.identifier) filter(where f.key='sample'),
+                       max(v.text_value) filter(where f.key='sample_label')) as sample,
           max(v.text_value) filter(where f.key='condition') as condition,
           max(v.numeric_value) filter(where f.key='turbidity') as turbidity,
           max(v.numeric_value) filter(where f.key='capsid_titre') as titre
        from api.dataset_row_values v join api.dataset_rows r on r.id=v.row_id
        join api.datasets d on d.id=r.dataset_id
        join api.dataset_schema_version_fields f on f.schema_version_id=d.schema_version_id and f.field_id=v.field_id
+       left join api.records rec on rec.id=v.reference_id
        where d.display_id='DS-0311' group by v.row_id
-       having max(v.text_value) filter(where f.key='sample') in ('SMP-2248','SMP-2249','BLANK','STD-4')
+       having coalesce(max(rec.identifier) filter(where f.key='sample'),
+                       max(v.text_value) filter(where f.key='sample_label')) in ('SMP-2248','SMP-2249','BLANK','STD-4')
        order by sample,turbidity nulls last,titre`,
     )
     expect(

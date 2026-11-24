@@ -290,6 +290,20 @@ describe('results recorded for a run', () => {
       [s.id],
     )
     expect(mine.rows[0].r.passed).toBe(true)
+    // The reading is also a measurement of the sample, in the one dataset every
+    // measurement goes to, with the run as its method.
+    const reading = await owner.query(
+      `select name, value::float as value, unit, method from api.sample_measurements where sample_record_id = $1`,
+      [s.id],
+    )
+    expect(reading.rows).toEqual([
+      {
+        name: 'Turbidity',
+        value: 12.4,
+        unit: 'NTU',
+        method: expect.stringContaining('run-1'),
+      },
+    ])
     // The same run says nothing about the other sample.
     const theirs = await owner.query(
       `select api.sample_release_check_status($1) as r`,

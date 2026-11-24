@@ -143,10 +143,27 @@ export async function sampleDataStatus(
 
 /** The load in progress, so a second ask joins it instead of starting another. */
 let inflight: Promise<void> | undefined
+let inflightFor: string | undefined
 
 /** For tests: forget a load that was left behind. */
 export function resetSampleDataLoad(): void {
   inflight = undefined
+  inflightFor = undefined
+}
+
+/**
+ * Whether this person's own load is running or finished. The seed switches the
+ * active workspace partway (it has its own signed-in fixtures), so asks that
+ * follow the first can't be checked against the workspace the page started in;
+ * they are checked against the person who started the load instead.
+ */
+export async function sampleDataIsTheirs(
+  userId: string,
+  db: Db = appDb,
+): Promise<boolean> {
+  if (inflight && inflightFor === userId) return true
+
+  return (await findDemoWorkspace(db, userId)) !== null
 }
 
 /** How long one ask waits before telling the page to ask again. */
@@ -179,8 +196,10 @@ export async function addSampleData(
     // the app needs its connection string. Say so now, before any half load.
     seedUrl(process.env.PGRST_DB_URI ?? '', 'PGRST_DB_URI')
 
+    inflightFor = userId
     inflight = loadSample(db, userId).finally(() => {
       inflight = undefined
+      inflightFor = undefined
     })
     // A failed load is reported to whoever is waiting; it must not also crash
     // the server as an unhandled rejection when nobody is.

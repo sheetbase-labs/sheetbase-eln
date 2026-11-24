@@ -30,7 +30,7 @@ const workspace = (): OperationInput => ({
 })
 
 const FIELDS_NOTE =
-  'JSON array of fields, each `{ key, label, logical_type, nullable?, description?, quantity?, category?, validation?, default_value?, relationship? }`. `logical_type` is `text`, `integer`, `decimal`, `boolean`, `date`, `timestamp`, `category`, `quantity` or `reference`. Give an existing field its `field_id` to keep it the same field across versions.'
+  'JSON array of fields, each `{ key, label, logical_type, nullable?, description?, quantity?, category?, validation?, default_value?, relationship? }`. `logical_type` is `text`, `integer`, `decimal`, `boolean`, `date`, `timestamp`, `category`, `quantity` or `reference`. Give an existing field its `field_id` to keep it the same field across versions. A column that links to a record is `{ logical_type: "reference", relationship: { target: { kind: "model", modelKey: "<record type key>" }, cardinality: "one" } }`: the `modelKey` is a built-in kind (`sample`, `material`) or a record type the workspace defined (`cell_bank`), a value is the id of the record, and a write is refused unless that record is in the workspace and of that type.'
 
 const fields = (required = true): OperationInput => ({
   ...input('p_fields', 'json', required),

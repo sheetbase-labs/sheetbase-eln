@@ -58,14 +58,15 @@ const dataset = z
 
 const column = (about: string) => z.string().min(1).max(120).describe(about)
 
-const analysisFields = {
-  dataset,
+const analysisSettingFields = {
   snapshot: z
     .string()
     .min(1)
     .max(200)
     .optional()
-    .describe('The snapshot by its label. The latest one if left out.'),
+    .describe(
+      'The snapshot by its label. The latest one if left out. With `table`, "latest" reads each dataset’s newest snapshot and anything else reads the datasets live.',
+    ),
   kind: z
     .enum(ANALYSIS_KINDS)
     .describe(
@@ -92,7 +93,49 @@ const analysisFields = {
     .describe('dose_response: the dose unit for the axis, such as nM.'),
 }
 
-export const analysisRunSchema = z.strictObject(analysisFields)
+const analysisFields = { dataset, ...analysisSettingFields }
+
+/**
+ * The run tool reads one dataset, or one measurement table across every
+ * dataset that holds it (`table`), with the dataset and snapshot of each row in
+ * the columns `source_dataset` and `source_snapshot`.
+ */
+export const analysisRunSchema = z
+  .strictObject({
+    dataset: dataset
+      .optional()
+      .describe(
+        'One dataset by name or display id. Give this or `table`, not both.',
+      ),
+    table: z
+      .string()
+      .min(1)
+      .max(200)
+      .optional()
+      .describe(
+        'One kind of result across datasets: a measurement table by name or key (for example ViCell or ddpcr_titre). Every dataset that holds it is read together, and each row says which dataset and snapshot it came from (columns source_dataset and source_snapshot, so they can be a group). Give this or `dataset`.',
+      ),
+    tableDatasets: z
+      .array(z.string().min(1).max(200))
+      .max(50)
+      .optional()
+      .describe(
+        'With `table`: only these datasets, by name or display id such as DS-0297.',
+      ),
+    tableRecord: z
+      .string()
+      .min(1)
+      .max(200)
+      .optional()
+      .describe(
+        'With `table`: only rows that link to this record, by identifier such as SMP-2231.',
+      ),
+    ...analysisSettingFields,
+  })
+  .refine((value) => Boolean(value.dataset) !== Boolean(value.table), {
+    message: 'give exactly one of dataset and table',
+    path: ['dataset'],
+  })
 
 export const proposeAnalysisAddSchema = z.strictObject({
   title,

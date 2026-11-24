@@ -1,6 +1,8 @@
 import { readFile } from 'node:fs/promises'
 import { join } from 'node:path'
 
+import type { z } from 'zod'
+
 import type { LoadedInput } from './code-cells/run.server'
 import {
   findExperiment,
@@ -12,6 +14,11 @@ import type { LabToolContext } from './assistant-lab-tools.server'
 import type { ProviderToolDef } from './ai-providers/types'
 import type { AssistantProposal } from './assistant-proposals'
 import { snapshotDataset } from './dataset-product'
+import { readAllResultRows } from '#/features/measurement-results/data'
+import {
+  findMeasurementTable,
+  resultQueryFor,
+} from '#/features/measurement-results/reads.server'
 import { recordDestination } from './navigation'
 import {
   ANALYSIS_ADD_SAVED_TOOL,
@@ -69,7 +76,7 @@ export function analysisReadDefs(): ProviderToolDef[] {
   return [
     toolDef(
       ANALYSIS_RUN_TOOL,
-      'Analyse the rows of a dataset with Python and answer with the numbers: fit a four-parameter dose-response curve per group (EC50, slope, bottom, top, R²), read samples off a standard curve, or compare groups with a t-test or ANOVA. Nothing is stored and nothing in the notebook changes. Use it first, say what the numbers mean in plain words, then propose adding the analysis to the experiment’s notebook. Name columns by their label.',
+      'Analyse the rows of a dataset, or of one kind of result (a measurement table) across all the datasets that hold it, with Python and answer with the numbers: fit a four-parameter dose-response curve per group (EC50, slope, bottom, top, R²), read samples off a standard curve, or compare groups with a t-test or ANOVA. Nothing is stored and nothing in the notebook changes. Use it first, say what the numbers mean in plain words, then propose adding the analysis to the experiment’s notebook. Name columns by their label.',
       analysisRunSchema,
     ),
   ]
@@ -197,6 +204,88 @@ async function loadDataset(
   return { ok: true, input, dataset }
 }
 
+/** The columns that say where a row of a table read across datasets came from. */
+export const SOURCE_DATASET_KEY = 'source_dataset'
+export const SOURCE_SNAPSHOT_KEY = 'source_snapshot'
+
+type TableFound =
+  | { ok: true; input: LoadedInput; description: string }
+  | { ok: false; message: string }
+
+/**
+ * One measurement table across every dataset that holds it, as an analysis
+ * input: the rows of all of them together, each with the dataset and snapshot
+ * it came from. Read as the person, so a dataset they cannot open is not in it.
+ */
+export async function loadTable(
+  context: LabToolContext,
+  args: z.infer<typeof analysisRunSchema>,
+): Promise<TableFound> {
+  const table = await findMeasurementTable(context.client, args.table ?? '')
+
+  if ('message' in table) return { ok: false, message: table.message }
+
+  const built = await resultQueryFor(context.client, {
+    datasets: args.tableDatasets,
+    record: args.tableRecord,
+    snapshots:
+      args.snapshot?.trim().toLowerCase() === 'latest' ? 'latest' : 'live',
+  })
+
+  if ('message' in built) return { ok: false, message: built.message }
+
+  const result = await readAllResultRows(context.client, table.id, built.query)
+
+  if (result.rows.length === 0)
+    return {
+      ok: false,
+      message: `${table.name} has no rows in the datasets you can open${result.skipped.length > 0 ? ` (${result.skipped.length} had no snapshot)` : ''}.`,
+    }
+
+  if (result.truncated)
+    return {
+      ok: false,
+      message: `${table.name} has ${result.totalCount} rows across datasets, which is more than an analysis reads. Choose fewer datasets.`,
+    }
+
+  const rows = result.rows.map((row) => ({
+    ...Object.fromEntries(
+      Object.entries(row.values).map(([key, value]) => [
+        key,
+        Array.isArray(value) ? value.join('; ') : value,
+      ]),
+    ),
+    [SOURCE_DATASET_KEY]: row.datasetDisplayId ?? row.datasetName,
+    [SOURCE_SNAPSHOT_KEY]: row.live
+      ? 'live'
+      : (row.snapshotLabel ?? 'snapshot'),
+  }))
+
+  return {
+    ok: true,
+    description: `${table.name} across ${result.sources.length} dataset${result.sources.length === 1 ? '' : 's'} (${result.sources
+      .map((source) => source.displayId ?? source.name)
+      .join(', ')}), ${rows.length} rows`,
+    input: {
+      alias: ANALYSIS_INPUT_ALIAS,
+      datasetVersionId: '',
+      label: table.name,
+      columns: [
+        ...result.columns.map((column) => ({
+          key: column.key,
+          label: column.label,
+          type: column.logicalType,
+        })),
+        { key: SOURCE_DATASET_KEY, label: 'Dataset', type: 'text' },
+        { key: SOURCE_SNAPSHOT_KEY, label: 'Snapshot', type: 'text' },
+      ],
+      rows,
+      rowCount: rows.length,
+      digest: '',
+    },
+  }
+}
+
 /** A column named by its label or key, as the table spells it. */
 function columnKey(input: LoadedInput, name: string): string | null {
   const lower = name.trim().toLowerCase()
@@ -280,11 +369,13 @@ export async function runAnalysisReadTool(
   if (!parsed.success) return { text: invalid(parsed.error), isError: true }
 
   try {
-    const found = await loadDataset(
-      context,
-      parsed.data.dataset,
-      parsed.data.snapshot,
-    )
+    const found = parsed.data.table
+      ? await loadTable(context, parsed.data)
+      : await loadDataset(
+          context,
+          parsed.data.dataset ?? '',
+          parsed.data.snapshot,
+        )
 
     if (!found.ok) return { text: found.message, isError: true }
     const chosen = settingsFor(found.input, parsed.data)
@@ -307,7 +398,10 @@ export async function runAnalysisReadTool(
 
     return {
       text: JSON.stringify({
-        dataset: `${label(found.dataset)} (${found.input.label}, ${found.input.rowCount} rows)`,
+        dataset:
+          'description' in found
+            ? found.description
+            : `${label(found.dataset)} (${found.input.label}, ${found.input.rowCount} rows)`,
         results: table,
         figures,
         note: 'Nothing is stored. To put this in the notebook, propose it with the add-to-notebook tool and write the summary only from these numbers.',

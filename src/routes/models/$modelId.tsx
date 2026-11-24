@@ -287,6 +287,13 @@ function DatasetModelLayout({
                 },
               },
               {
+                label: t('features.measurementResults.tab'),
+                link: {
+                  to: '/models/$modelId/results',
+                  params,
+                },
+              },
+              {
                 label: t('contracts.tab'),
                 link: {
                   to: '/models/$modelId/contract',

@@ -116,7 +116,7 @@ describe('import mapping', () => {
     )
   })
 
-  it('never relabels numeric values when the source unit is unknown or different', () => {
+  it('never relabels numeric values when the source unit is missing or of another kind', () => {
     const field = datasetFieldsFromColumns([
       column({ unit: { storageUnit: 'mg/mL' } }),
     ])[0]
@@ -133,17 +133,27 @@ describe('import mapping', () => {
       )
 
     expect(map('mg/mL').rows[0]?.values[field.id]).toBe(0.125)
+    // The same kind of unit is sent as typed, for the database to convert.
+    expect(map('µg/mL').rows[0]?.values[field.id]).toBe('0.125 µg/mL')
+    expect(map('mg/ml').rows[0]?.values[field.id]).toBe(0.125)
 
-    for (const unit of [null, 'g/L', 'cells/mL', 'MG/ML']) {
+    for (const unit of [null, 'cells/mL', 'MG/ML']) {
       const result = map(unit)
       expect(result.rows[0]?.values).toEqual({})
       expect(result.errors[0]?.message).toMatch(
-        /Declare the source unit|Convert the source values/,
+        /Declare the source unit|can't be converted/,
       )
     }
 
-    expect(map(null, 'Concentration (g/L)').errors[0]?.message).toContain(
-      'source unit g/L',
+    // g/L and mg/mL are the same size, so nothing needs converting.
+    expect(map(null, 'Concentration (g/L)').rows[0]?.values[field.id]).toBe(
+      0.125,
+    )
+    expect(map(null, 'Concentration (ng/mL)').rows[0]?.values[field.id]).toBe(
+      '0.125 ng/mL',
+    )
+    expect(map(null, 'Concentration (cells/mL)').errors[0]?.message).toContain(
+      'source unit cells/mL',
     )
     expect(map(null, 'Concentration [mg/mL]').rows[0]?.values[field.id]).toBe(
       0.125,

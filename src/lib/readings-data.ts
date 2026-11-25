@@ -398,6 +398,7 @@ const READING_ERROR_MESSAGES = new Map(
     invalid_value_type: 'The value type does not match the field.',
     invalid_reference: 'The linked record was not found in this workspace.',
     invalid_person: 'Choose someone in this workspace.',
+    wrong_unit: 'That unit measures something else. Use the field’s unit.',
     invalid_category_option: 'The category option is invalid.',
     invalid_cardinality: 'The number of values is wrong for this field.',
   }),

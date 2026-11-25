@@ -66,6 +66,7 @@ export class AttachFileError extends Error {
 const PROJECT_UPLOAD_META = z.object({
   fileRecordId: z.string(),
   fileObjectId: z.string(),
+  fileIdentifier: z.string().optional(),
 })
 
 /** What `POST /api/files/upload-authorize` answers for a block attachment. */
@@ -161,6 +162,8 @@ export async function uploadProjectFile(args: {
 }): Promise<{
   fileObjectId: string
   fileRecordId: string
+  /** The file's identifier, such as FILE-0008. */
+  identifier: string
   displayName: string
 }> {
   const checked = validateFileForUpload(args.file)
@@ -203,6 +206,7 @@ export async function uploadProjectFile(args: {
   return {
     fileObjectId: meta.fileObjectId,
     fileRecordId: meta.fileRecordId,
+    identifier: meta.fileIdentifier ?? '',
     displayName: args.file.name,
   }
 }

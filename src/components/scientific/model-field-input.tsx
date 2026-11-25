@@ -699,8 +699,8 @@ function ReferenceRow({
   )
 }
 
-/** Upload a file from the device into a File field. */
-function UploadFileButton({
+/** Upload a file from the device into a File field or File sheet cell. */
+export function UploadFileButton({
   upload,
   replace,
 }: {

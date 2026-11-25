@@ -1,6 +1,7 @@
 import { SearchableSelect } from '#/components/record-picker/searchable-select'
 import { t } from '#/copy'
-import { FILE_RELATIONSHIP } from '#/lib/file-field'
+import { FILE_MODEL_KEY, FILE_RELATIONSHIP } from '#/lib/file-field'
+import { uploadProjectFile } from '#/lib/file-attach'
 import { usePaneReadOnly } from '#/components/workspace/workspace-navigation'
 import {
   createContext,
@@ -65,7 +66,10 @@ import { BenchCalculatorDialog } from '#/components/calculators/bench-calculator
 import { ComposedSheetRecordToolbar } from '#/components/sheet/composed-sheet-record-toolbar'
 import { CanonicalSheetLifecyclePanel } from '#/components/sheet/canonical-sheet-lifecycle-panel'
 import { CellConflictPanel } from '#/components/sheet/cell-conflict-panel'
-import { ModelFieldInput } from '#/components/scientific/model-field-input'
+import {
+  ModelFieldInput,
+  UploadFileButton,
+} from '#/components/scientific/model-field-input'
 import {
   usePeopleOptions,
   usePersonNames,
@@ -4117,6 +4121,50 @@ function CanonicalWorkspaceDialogs() {
   )
 }
 
+/** A File column's cell: upload a file from the device straight into it. */
+function SheetCellFileUpload({
+  projectId,
+  onUploaded,
+}: {
+  projectId: string
+  onUploaded: (uploaded: {
+    fileRecordId: string
+    identifier: string
+    displayName: string
+  }) => void
+}) {
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  async function upload(file: File) {
+    setBusy(true)
+    setError(null)
+
+    try {
+      onUploaded(await uploadProjectFile({ projectId, file }))
+    } catch (caught) {
+      setError(
+        caught instanceof Error && caught.message
+          ? caught.message
+          : t('notebook.modelFieldInput.uploadFailed'),
+      )
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  return (
+    <div className="flex flex-wrap items-center gap-2 px-3 pt-2">
+      <UploadFileButton upload={{ busy, onFile: upload }} replace={false} />
+      {error ? (
+        <span role="alert" className="text-label text-danger-text">
+          {error}
+        </span>
+      ) : null}
+    </div>
+  )
+}
+
 function CanonicalWorkspaceRecords() {
   const {
     canWrite,
@@ -4141,7 +4189,24 @@ function CanonicalWorkspaceRecords() {
   return (
     <>
       {canWrite && picker && picker.modelKey ? (
-        <div className="border-t">
+        // Capped so the grid keeps its rows on screen while a picker is open.
+        <div className="max-h-[45%] shrink-0 overflow-y-auto border-t">
+          {picker.modelKey === FILE_MODEL_KEY && projectId ? (
+            <SheetCellFileUpload
+              projectId={projectId}
+              onUploaded={(uploaded) => {
+                recordLabelsRef.current[uploaded.fileRecordId] = {
+                  identifier: uploaded.identifier,
+                  title: uploaded.displayName,
+                }
+
+                if (picker.cell) picker.editor?.commit(uploaded.fileRecordId)
+                else link.mutate(uploaded.fileRecordId)
+
+                setPicker(null)
+              }}
+            />
+          ) : null}
           <SheetRecordPicker
             modelKey={picker.modelKey}
             results={sheetRecordSearchHitsAsNotebookRecords(

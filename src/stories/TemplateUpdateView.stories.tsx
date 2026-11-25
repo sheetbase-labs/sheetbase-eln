@@ -165,7 +165,7 @@ export const Preview: Story = {
 export const RetargetSelected: Story = {
   render: () => <View preview={preview} />,
   play: async () => {
-    await userEvent.click(await screen.findByText('Take the new definition'))
+    await userEvent.click(await screen.findByText('Take the new sheet layout'))
     await screen.findByText('Map to a new column')
   },
 }

@@ -54,6 +54,6 @@ export const AdHoc: Story = {
   args: {
     columns: [column('Condition', 'local', 'This experiment')],
     rowsMatchedOn: [],
-    from: 'Ad hoc, no definition',
+    from: 'Ad hoc, no sheet layout',
   },
 }

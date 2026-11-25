@@ -131,13 +131,13 @@ describe('NotebookTemplateUpdateView', () => {
 
     expect(screen.getByText('Section added')).toBeDefined()
     expect(
-      screen.getByText('Sheet re-pinned to a newer definition version'),
+      screen.getByText('Sheet moved to a newer sheet layout version'),
     ).toBeDefined()
     expect(screen.getByText('No matching sheet in this notebook')).toBeDefined()
     expect(screen.getByText('Sheet layout changed incompatibly')).toBeDefined()
     // Both conflicts state their permitted outcomes.
     expect(screen.getAllByText('Keep as it is')).toHaveLength(2)
-    expect(screen.getByText('Take the new definition')).toBeDefined()
+    expect(screen.getByText('Take the new sheet layout')).toBeDefined()
   })
 
   it('J-NBK-02 turns Apply off for a signed notebook and says to amend first', () => {
@@ -162,7 +162,7 @@ describe('NotebookTemplateUpdateView', () => {
 
     // Take the new definition: the nested column map conflict keeps its
     // default mapping to the replacement column.
-    await user.click(screen.getByText('Take the new definition'))
+    await user.click(screen.getByText('Take the new sheet layout'))
     await user.click(screen.getByRole('button', { name: 'Apply v4' }))
 
     await waitFor(() => expect(onApply).toHaveBeenCalledTimes(1))

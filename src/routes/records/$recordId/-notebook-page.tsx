@@ -403,7 +403,7 @@ export function useNotebookCellFacts(options: { enabled?: boolean } = {}) {
   )
 
   const people = usePersonNames(
-    selection?.column?.field?.logicalType === 'person',
+    selection?.column.field?.logicalType === 'person',
   )
 
   const cell = useMemo(

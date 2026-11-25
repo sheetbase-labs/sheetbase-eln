@@ -297,8 +297,16 @@ const collab = createCollabHost({
 globalThis.__sheetbaseCollab = collab
 
 server.on('upgrade', (request, socket, head) => {
-  // A crawler that renders a page opens its live-editing socket too.
-  const release = isCrawler(request) ? undefined : idleGate?.hold()
+  // A crawler that renders a page opens its live-editing socket too. It has
+  // no use for one, and an open socket keeps pinging, so the host never sees
+  // the app go quiet: refuse it.
+  if (isCrawler(request)) {
+    socket.destroy()
+
+    return
+  }
+
+  const release = idleGate?.hold()
   socket.once('close', () => release?.())
 
   if (!collab.handleUpgrade(request, socket, head)) socket.destroy()

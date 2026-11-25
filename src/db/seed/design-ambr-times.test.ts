@@ -7,6 +7,7 @@ describe('ambr seed rows', () => {
     const times = ambrRows().map((row) => String(row.time))
 
     expect(times.length).toBeGreaterThan(0)
+
     for (const time of times) {
       expect(time).toMatch(/^([01]\d|2[0-3]):[0-5]\d$/)
     }

@@ -26,7 +26,7 @@ import {
   useTemplateVersions,
 } from '#/components/templates/templates-data'
 import { PARAMETER_VALUE_TYPES } from '#/lib/parameter'
-import type { ParameterValueType,Parameter } from '#/lib/parameter'
+import type { ParameterValueType, Parameter } from '#/lib/parameter'
 import type { NotebookTemplateVersion } from '#/lib/notebook-template-data'
 import type {
   NotebookTemplateConfiguration,

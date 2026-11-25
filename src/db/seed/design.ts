@@ -3154,6 +3154,8 @@ interface DesignDatasetField {
     | 'timestamp'
     | 'time'
     | 'duration'
+    | 'well'
+    | 'person'
     | 'reference'
   /** A `reference` column links to records of this record type (model key). */
   targetModelKey?: string

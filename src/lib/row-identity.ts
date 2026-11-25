@@ -1,3 +1,4 @@
+import { parseWellPosition } from './well-person'
 import { parseDuration, parseTimeOfDay } from './time-duration'
 import { z } from 'zod'
 
@@ -18,6 +19,8 @@ export type RowIdentityLogicalType =
   | 'timestamp'
   | 'time'
   | 'duration'
+  | 'well'
+  | 'person'
   | 'category'
   | 'reference'
 
@@ -107,6 +110,14 @@ const identityValueSchemas = {
     .number()
     .refine((value) => parseDuration(value) !== null)
     .transform((value) => `p:${value}`),
+  well: z
+    .string()
+    .refine((value) => parseWellPosition(value) !== null)
+    .transform((value) => `w:${parseWellPosition(value)}`),
+  person: z
+    .string()
+    .min(1)
+    .transform((value) => `u:${value}`),
   category: referenceIdentity,
   reference: referenceIdentity,
 } satisfies Record<RowIdentityLogicalType, z.ZodType<string>>

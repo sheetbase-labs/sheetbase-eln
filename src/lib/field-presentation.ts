@@ -21,6 +21,8 @@ export type FieldEditorKind =
   | 'datetime-local'
   | 'time'
   | 'duration'
+  | 'well'
+  | 'person-picker'
   | 'text'
   | 'record-picker'
 
@@ -55,6 +57,10 @@ export function fieldEditorPresentation(
       return { kind: 'time', inputType: 'time' }
     case 'duration':
       return { kind: 'duration', inputType: 'text' }
+    case 'well':
+      return { kind: 'well', inputType: 'text' }
+    case 'person':
+      return { kind: 'person-picker', inputType: null }
     case 'reference':
       if (options?.relationshipTarget === 'model') {
         return { kind: 'record-picker', inputType: 'text' }

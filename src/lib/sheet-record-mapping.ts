@@ -5,6 +5,7 @@
  * infer a target. Calculated columns cannot supply values. Record IDs stay
  * Model-generated; UUID identity is separate.
  */
+import { isWellPosition } from './well-person'
 import { z } from 'zod'
 import { isTimeOfDay } from './time-duration'
 
@@ -159,6 +160,10 @@ function typeOk(
       return z.string().refine(isTimeOfDay).safeParse(value).success
     case 'duration':
       return z.number().finite().min(0).safeParse(value).success
+    case 'well':
+      return z.string().refine(isWellPosition).safeParse(value).success
+    case 'person':
+      return z.string().min(1).safeParse(value).success
   }
 }
 

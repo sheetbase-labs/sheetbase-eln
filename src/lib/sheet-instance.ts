@@ -139,6 +139,8 @@ const resolvedRowIdentity = z
           'timestamp',
           'time',
           'duration',
+          'well',
+          'person',
           'category',
           'reference',
         ]),

@@ -116,6 +116,7 @@ export const data = {
       typeTimestamp: 'Date and time',
       typeTime: 'Time',
       typeDuration: 'Duration',
+      typeWell: 'Well position',
       noteMadeFromFile:
         'This makes a new measurement table that anyone in the lab can import into again. A data steward can tidy its columns later in Models.',
       back: 'Back',
@@ -349,6 +350,8 @@ export const data = {
     dateTime: 'Date and time',
     time: 'Time',
     duration: 'Duration',
+    well: 'Well position',
+    person: 'Person',
     recordLink: 'Record link',
     valuesSeen: 'Values seen',
     number: 'Number',

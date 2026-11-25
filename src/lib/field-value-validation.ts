@@ -1,3 +1,4 @@
+import { isWellPosition } from './well-person'
 import { z } from 'zod'
 
 import type { FieldDefinition } from './field-definition'
@@ -263,6 +264,20 @@ export function fieldScalarError(
       return seconds.success &&
         seconds.data >= 0 &&
         seconds.data <= MAX_DURATION_SECONDS
+        ? null
+        : 'invalid_value'
+    }
+
+    case 'well': {
+      const well = scalarSchemas.text.safeParse(value)
+
+      return well.success && isWellPosition(well.data) ? null : 'invalid_value'
+    }
+
+    case 'person': {
+      const person = scalarSchemas.text.safeParse(value)
+
+      return person.success && person.data.trim() !== ''
         ? null
         : 'invalid_value'
     }

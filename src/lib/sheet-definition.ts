@@ -1,3 +1,4 @@
+import { isWellPosition } from './well-person'
 import { z } from 'zod'
 import { MAX_DURATION_SECONDS, isTimeOfDay } from './time-duration'
 
@@ -105,6 +106,10 @@ function scalarValueSchema(valueType: (typeof FIELD_LOGICAL_TYPES)[number]) {
       return z.string().refine(isTimeOfDay, 'Invalid time of day.')
     case 'duration':
       return z.number().finite().min(0).max(MAX_DURATION_SECONDS)
+    case 'well':
+      return z.string().refine(isWellPosition, 'Invalid well position.')
+    case 'person':
+      return z.string().trim().min(1)
     case 'category':
     case 'reference':
       return uuid

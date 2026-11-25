@@ -72,6 +72,7 @@ import { cn } from '#/lib/utils'
 import { useInheritedFieldGroups } from './model-subtype-ui'
 import { InheritedLabel, InheritedTableRows } from './inherited-fields-table'
 import { t } from '#/copy'
+import { FILE_MODEL_KEY, isFileField } from '#/lib/file-field'
 import { draftCopyReducer, initialDraftCopy } from './record-model-draft-state'
 
 const KEY_PATTERN = /^[a-z][a-z0-9_]{0,59}$/
@@ -89,6 +90,7 @@ type FieldKind =
   | 'person'
   | 'boolean'
   | 'link'
+  | 'file'
 
 const KIND_OPTIONS: { value: FieldKind; label: string }[] = [
   { value: 'text', label: t('library.models.recordModelEdit.text') },
@@ -105,6 +107,7 @@ const KIND_OPTIONS: { value: FieldKind; label: string }[] = [
   { value: 'person', label: t('library.models.recordModelEdit.person') },
   { value: 'boolean', label: t('library.models.recordModelEdit.yesOrNo') },
   { value: 'link', label: t('library.models.recordModelEdit.link') },
+  { value: 'file', label: t('library.models.recordModelEdit.file') },
 ]
 
 const SOURCES = [
@@ -122,7 +125,13 @@ function kindOf(field: ModelVersionField): FieldKind {
     case 'category':
       return 'choice'
     case 'reference':
-      return 'link'
+      return isFileField({
+        logicalType: field.logical_type,
+        relationship: field.relationship,
+        validation: field.validation,
+      })
+        ? 'file'
+        : 'link'
     case 'text':
     case 'date':
     case 'timestamp':
@@ -608,7 +617,14 @@ function useDraftEditor({
       base.logical_type = decimalPlaces(field) > 0 ? 'decimal' : 'integer'
     else if (kind === 'choice') base.logical_type = 'category'
     else if (kind === 'link') base.logical_type = 'reference'
-    else base.logical_type = kind
+    else if (kind === 'file') {
+      base.logical_type = 'reference'
+      base.validation = { ...field.validation, targetModelKey: FILE_MODEL_KEY }
+      base.relationship = {
+        target: { kind: 'model', modelKey: FILE_MODEL_KEY },
+        cardinality: 'one',
+      }
+    } else base.logical_type = kind
     patch(field.id, base)
   }
 

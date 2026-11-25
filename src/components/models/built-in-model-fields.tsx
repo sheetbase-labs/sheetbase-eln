@@ -58,8 +58,9 @@ import {
 import { modelsQueryKeys } from './models-data'
 import { t } from '#/copy'
 import {
-  AUTHORED_TYPES,
-  TYPE_LABELS,
+  authoredFieldStorage,
+  authoredTypeLabel,
+  authoredTypesFor,
   fieldTypeName,
   fieldShowsOn,
   withArticle,
@@ -462,11 +463,11 @@ function useBuiltInFieldDraft({
     label: t('library.models.builtInModelFields.startingValue'),
     description: null,
     displayOrder: 0,
-    logicalType: type,
+    logicalType: authoredFieldStorage(type).logicalType,
     nullable: true,
     defaultValue: null,
     unit: unit ? { symbol: unit } : null,
-    validation: {},
+    validation: authoredFieldStorage(type).validation,
     lifecycle: 'draft',
     options: options.map((option, index) => ({
       id: option.key,
@@ -519,7 +520,7 @@ function useBuiltInFieldDraft({
         fieldName: fieldKeyFromLabel(label.trim(), keys),
         label: label.trim(),
         description: description.trim() || null,
-        logicalType: type,
+        logicalType: authoredFieldStorage(type).logicalType,
         required,
         // An unticked optional yes/no field starts empty, not as "No".
         defaultValue:
@@ -528,7 +529,7 @@ function useBuiltInFieldDraft({
             : startValue === ''
               ? null
               : parseModelFieldInput(draft, startValue),
-        validation: {},
+        validation: authoredFieldStorage(type).validation,
         unit:
           (type === 'decimal' || type === 'integer') && unit.trim()
             ? unit.trim()
@@ -683,6 +684,7 @@ function BuiltInFieldDialog(props: Parameters<typeof useBuiltInFieldDraft>[0]) {
             </Field>
             {!editing ? (
               <BuiltInFieldType
+                types={authoredTypesFor(model.host)}
                 type={type}
                 unit={unit}
                 setUnit={setUnit}
@@ -805,11 +807,13 @@ function BuiltInFieldDialog(props: Parameters<typeof useBuiltInFieldDraft>[0]) {
 }
 
 function BuiltInFieldType({
+  types,
   type,
   unit,
   setUnit,
   onTypeChange,
 }: {
+  types: readonly AuthoredType[]
   type: AuthoredType
   unit: string
   setUnit: (value: string) => void
@@ -821,16 +825,16 @@ function BuiltInFieldType({
         <Select
           value={type}
           onChange={(event) => {
-            const selectedType = AUTHORED_TYPES.find(
+            const selectedType = types.find(
               (value) => value === event.target.value,
             )
 
             if (selectedType) onTypeChange(selectedType)
           }}
         >
-          {AUTHORED_TYPES.map((value) => (
+          {types.map((value) => (
             <option key={value} value={value}>
-              {TYPE_LABELS[value]}
+              {authoredTypeLabel(value)}
             </option>
           ))}
         </Select>

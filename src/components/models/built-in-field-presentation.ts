@@ -4,8 +4,10 @@ import type {
 } from '#/lib/model-fields'
 import { fieldKeyFromLabel } from '#/lib/built-in-models'
 import { t } from '#/copy'
+import { FILE_MODEL_KEY, isFileField } from '#/lib/file-field'
 
-export type AuthoredType = Exclude<ModelFieldLogicalType, 'reference'>
+/** A type people pick when adding a field; `file` is a link to an uploaded file. */
+export type AuthoredType = Exclude<ModelFieldLogicalType, 'reference'> | 'file'
 
 export const TYPE_LABELS: Record<ModelFieldLogicalType, string> = {
   text: t('library.models.builtInModelFields.text'),
@@ -34,10 +36,39 @@ export const AUTHORED_TYPES: AuthoredType[] = [
   'well',
   'person',
   'category',
+  'file',
 ]
+
+/** The types a model can hold: links, files among them, need a record model. */
+export function authoredTypesFor(host: string): AuthoredType[] {
+  return host === 'record'
+    ? AUTHORED_TYPES
+    : AUTHORED_TYPES.filter((type) => type !== 'file')
+}
+
+export function authoredTypeLabel(type: AuthoredType): string {
+  return type === 'file'
+    ? t('library.models.builtInModelFields.file')
+    : TYPE_LABELS[type]
+}
+
+/** What an authored type is stored as. */
+export function authoredFieldStorage(type: AuthoredType): {
+  logicalType: ModelFieldLogicalType
+  validation: Record<string, string>
+} {
+  return type === 'file'
+    ? {
+        logicalType: 'reference',
+        validation: { targetModelKey: FILE_MODEL_KEY },
+      }
+    : { logicalType: type, validation: {} }
+}
 
 export function fieldTypeName(field: ModelFieldDefinition): string {
   const unit = field.unit?.symbol ? ` · ${field.unit.symbol}` : ''
+
+  if (isFileField(field)) return t('library.models.builtInModelFields.file')
 
   return `${TYPE_LABELS[field.logicalType]}${unit}`
 }

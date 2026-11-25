@@ -103,7 +103,8 @@ export interface NewBuiltInField extends FieldPlacement {
   fieldName: string
   label: string
   description: string | null
-  logicalType: Exclude<ModelFieldLogicalType, 'reference'>
+  /** A reference only as a File field, whose validation names the file target. */
+  logicalType: ModelFieldLogicalType
   required: boolean
   defaultValue: ModelFieldDefinition['defaultValue']
   validation: ModelFieldDefinition['validation']

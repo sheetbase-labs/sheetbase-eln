@@ -204,6 +204,8 @@ export type AgentOperation =
         | 'boolean'
         | 'date'
         | 'timestamp'
+        | 'time'
+        | 'duration'
         | 'category'
         | 'reference'
       nullable?: boolean

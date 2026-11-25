@@ -1091,6 +1091,8 @@ const OPERATION_TOOLS: AgentToolEntry[] = [
         'boolean',
         'date',
         'timestamp',
+        'time',
+        'duration',
         'category',
         'reference',
       ]),

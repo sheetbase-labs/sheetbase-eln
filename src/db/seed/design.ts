@@ -3698,7 +3698,14 @@ const AMBR_DAY = {
   },
 } as const
 
-function ambrRows(): ReturnType<DesignDataset['rows']> {
+function clockTime(totalMinutes: number): string {
+  const hours = Math.floor(totalMinutes / 60) % 24
+  const minutes = totalMinutes % 60
+
+  return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}`
+}
+
+export function ambrRows(): ReturnType<DesignDataset['rows']> {
   const vessels = ['V01', 'V02', 'V03', 'V04'] as const
   const rows: ReturnType<DesignDataset['rows']> = []
 
@@ -3710,8 +3717,8 @@ function ambrRows(): ReturnType<DesignDataset['rows']> {
       const time = exact
         ? day === 5
           ? `08:${50 + vesselIndex * 2}`
-          : `09:0${6 + vesselIndex * 2}`
-        : `08:${String(40 + minute).padStart(2, '0')}`
+          : `09:${String(6 + vesselIndex * 2).padStart(2, '0')}`
+        : clockTime(8 * 60 + 40 + minute)
 
       const [
         vcd,

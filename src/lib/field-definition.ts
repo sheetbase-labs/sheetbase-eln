@@ -9,6 +9,8 @@ export const FIELD_LOGICAL_TYPES = [
   'timestamp',
   'time',
   'duration',
+  'well',
+  'person',
   'category',
   'reference',
 ] as const

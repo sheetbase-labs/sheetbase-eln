@@ -397,6 +397,7 @@ const READING_ERROR_MESSAGES = new Map(
     text_validation: 'The text does not match the field’s rules.',
     invalid_value_type: 'The value type does not match the field.',
     invalid_reference: 'The linked record was not found in this workspace.',
+    invalid_person: 'Choose someone in this workspace.',
     invalid_category_option: 'The category option is invalid.',
     invalid_cardinality: 'The number of values is wrong for this field.',
   }),

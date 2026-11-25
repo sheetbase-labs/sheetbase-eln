@@ -1,5 +1,6 @@
 import { z } from 'zod'
 
+import { wellFromText } from './well-person'
 import { composedSheetGridMatrix } from './composed-sheet-grid'
 import type { ComposedSheetGridColumn } from './composed-sheet-grid'
 import type {
@@ -247,6 +248,9 @@ export function parseSheetCellInput<Input>(
       Input | SheetLocalValue
 
   const text = z.string().safeParse(raw)
+
+  if (field.logicalType === 'well' && text.success)
+    return wellFromText(text.data)
 
   if (field.logicalType === 'timestamp' && text.success) {
     const coerced = canonicalTimestampInput(text.data)

@@ -17,6 +17,8 @@ export const ADDABLE_COLUMN_TYPES = [
   'timestamp',
   'time',
   'duration',
+  'well',
+  'person',
 ] as const
 
 export type AddableColumnType = (typeof ADDABLE_COLUMN_TYPES)[number]

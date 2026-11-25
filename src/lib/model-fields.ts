@@ -1,4 +1,5 @@
 import type { DataClient } from '#/lib/data-client'
+import { personName, wellFromText } from './well-person'
 import { z } from 'zod'
 import {
   pipelineJsonObjectSchema,
@@ -424,6 +425,8 @@ export function parseModelFieldInput(
   )
     return timeOrDurationFromText(definition.logicalType, value)
 
+  if (definition.logicalType === 'well') return wellFromText(value)
+
   return value
 }
 
@@ -477,8 +480,13 @@ export function displayModelFieldValue(
   definition: ModelFieldDefinition,
   // oxlint-disable-next-line anti-slop/no-unknown-parameters -- Public field renderer decodes legacy/plugin input to finite JSON before display.
   value: unknown,
+  /** Workspace members' names by user id, for person fields. */
+  people?: ReadonlyMap<string, string>,
 ): string {
   if (value === null || value === undefined || value === '') return '—'
+
+  if (definition.logicalType === 'person')
+    return personName(modelFieldValueText(value), people)
 
   if (definition.logicalType === 'boolean') return value === true ? 'Yes' : 'No'
 

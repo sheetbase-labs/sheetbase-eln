@@ -20,4 +20,5 @@ export function idleAfterMsFromEnv(
 export function gateIntervals(
   gate: IdleGate,
   target?: IntervalTarget,
+  onChange?: (idle: boolean) => void,
 ): () => void

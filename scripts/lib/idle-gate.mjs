@@ -48,14 +48,22 @@ export function idleAfterMsFromEnv(env = process.env) {
  * Wraps `setInterval` on `target` so a tick is skipped while the gate is
  * idle. Returns a function that puts the original back.
  */
-export function gateIntervals(gate, target = globalThis) {
+export function gateIntervals(gate, target = globalThis, onChange) {
   const original = target.setInterval
+  let wasIdle = false
 
   target.setInterval = function gatedSetInterval(callback, delay, ...args) {
     return original.call(
       target,
       (...tickArgs) => {
-        if (gate.isIdle()) return
+        const idle = gate.isIdle()
+
+        if (idle !== wasIdle) {
+          wasIdle = idle
+          onChange?.(idle)
+        }
+
+        if (idle) return
 
         return callback(...tickArgs)
       },

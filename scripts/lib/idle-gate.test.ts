@@ -71,4 +71,30 @@ describe('idle gate', () => {
     expect(runs).toBe(2)
     restore()
   })
+
+  it('reports when ticks start and stop being skipped', () => {
+    let tick = () => {}
+
+    const target = {
+      setInterval: (callback: () => void) => {
+        tick = callback
+
+        return 0
+      },
+    }
+
+    let clock = 0
+    const changes: boolean[] = []
+    const gate = createIdleGate({ idleAfterMs: 1000, now: () => clock })
+
+    gateIntervals(gate, target, (idle) => changes.push(idle))
+    target.setInterval(() => {})
+    tick()
+    clock = 2000
+    tick()
+    tick()
+    gate.touch()
+    tick()
+    expect(changes).toEqual([true, false])
+  })
 })

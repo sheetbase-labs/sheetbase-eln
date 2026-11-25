@@ -206,6 +206,8 @@ export type AgentOperation =
         | 'timestamp'
         | 'time'
         | 'duration'
+        | 'well'
+        | 'person'
         | 'category'
         | 'reference'
       nullable?: boolean

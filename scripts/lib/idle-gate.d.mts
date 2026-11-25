@@ -1,7 +1,11 @@
 export interface IdleGate {
-  touch(): void
-  hold(): () => void
-  isIdle(): boolean
+  touch: () => void
+  hold: () => () => void
+  isIdle: () => boolean
+}
+
+export interface IntervalTarget {
+  setInterval: (callback: () => void, delay?: number) => unknown
 }
 
 export function createIdleGate(options: {
@@ -15,5 +19,5 @@ export function idleAfterMsFromEnv(
 
 export function gateIntervals(
   gate: IdleGate,
-  target?: { setInterval: typeof setInterval },
+  target?: IntervalTarget,
 ): () => void

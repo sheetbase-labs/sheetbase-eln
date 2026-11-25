@@ -428,7 +428,7 @@ Scope: `schema:read`. Returns `json`.
 
 Add a draft field to a record type
 
-Adds a field to a record type as a draft. It does nothing on records until it is switched on (`activate_model_field`). A `well` field holds a plate address such as `A1`, and a `person` field holds a workspace member's user id. `p_logical_type` is `text`, `integer`, `decimal`, `boolean`, `date`, `timestamp`, `time`, `duration`, `well`, `person`, `category` or `reference`. Returns the field.
+Adds a field to a record type as a draft. It does nothing on records until it is switched on (`activate_model_field`). A `well` field holds a plate address such as `A1`, and a `person` field holds a workspace member's user id. A file field is a `reference` whose `p_validation` names `{ "targetModelKey": "file" }`; its value is an uploaded file's record id (see [File columns](datasets-api.md#file-columns)). `p_logical_type` is `text`, `integer`, `decimal`, `boolean`, `date`, `timestamp`, `time`, `duration`, `well`, `person`, `category` or `reference`. Returns the field.
 
 Scope: `schema:write`. Returns `row:record_field_definitions`.
 

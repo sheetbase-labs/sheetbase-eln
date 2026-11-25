@@ -100,7 +100,7 @@ function SettingsLayout() {
   const clusters = sections.reduce<
     { title: string | undefined; items: SettingsNavItem[] }[]
   >((groups, i) => {
-    const last = groups[groups.length - 1]
+    const last = groups.at(-1)
 
     if (last && last.title === i.cluster) last.items.push(i)
     else groups.push({ title: i.cluster, items: [i] })

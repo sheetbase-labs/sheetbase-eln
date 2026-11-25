@@ -568,6 +568,7 @@ function BreakdownTable({
         columns={columns}
         getRowId={(row) => row.id}
         selectable={false}
+        sortable={false}
       />
     </div>
   )

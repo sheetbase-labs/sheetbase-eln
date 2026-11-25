@@ -25,6 +25,14 @@ import { EmptyState } from '#/components/ui/empty-state'
 import { Notice } from '#/components/ui/alert'
 import { SettingsHeader } from '#/components/settings/settings-page'
 import { Tabs } from '#/components/ui/tabs'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuGroup,
+  DropdownMenuLabel,
+  DropdownMenuLinkItem,
+  DropdownMenuTrigger,
+} from '#/components/ui/dropdown-menu'
 import { settingsAccessOf } from '#/lib/settings-access'
 import { signInRedirect } from '#/lib/sign-in-redirect'
 import { t } from '#/copy'
@@ -87,6 +95,19 @@ function SettingsLayout() {
   const place: SettingsPlace = current?.place ?? 'account'
   const places = settingsPlaces.filter((p) => nav[p.key].length > 0)
   const sections = nav[place]
+
+  // The sections in their clusters, for the phone's section menu.
+  const clusters = sections.reduce<
+    { title: string | undefined; items: SettingsNavItem[] }[]
+  >((groups, i) => {
+    const last = groups[groups.length - 1]
+
+    if (last && last.title === i.cluster) last.items.push(i)
+    else groups.push({ title: i.cluster, items: [i] })
+
+    return groups
+  }, [])
+
   const allowed = !current || canOpenSettingsItem(current, role, access)
 
   // A section opened through its area at "view" is read-only; one a role may
@@ -161,21 +182,48 @@ function SettingsLayout() {
             </div>
           ))}
         </nav>
-        <Tabs
-          mode="url"
-          variant="chip"
-          label={t('settings.page.settingsSections')}
-          className="shrink-0 border-b border-border-subtle px-4 py-2 md:px-6 lg:hidden"
-          // The nav's own item predicate decides the current section: a rail
-          // item's `match` covers a subtree (`/settings/workspace/members` and
-          // the pages under it), which no path comparison could restate.
-          value={sections.find((i) => i.match(pathname))?.label}
-          items={sections.map((i) => ({
-            key: i.label,
-            label: i.label,
-            link: i.link,
-          }))}
-        />
+        <div className="shrink-0 border-b border-border-subtle px-4 py-2 md:px-6 lg:hidden">
+          <DropdownMenu>
+            <DropdownMenuTrigger
+              render={
+                <Button
+                  aria-label={t('settings.page.settingsSections')}
+                  className="w-full justify-between"
+                />
+              }
+            >
+              <span className="truncate">
+                {sections.find((i) => i.match(pathname))?.label ??
+                  t('settings.page.settingsSections')}
+              </span>
+              <Icon name="chevronDown" size={14} />
+            </DropdownMenuTrigger>
+            <DropdownMenuContent
+              align="start"
+              className="max-h-[70dvh] w-(--anchor-width) min-w-[240px] overflow-y-auto"
+            >
+              {clusters.map((group) => (
+                <DropdownMenuGroup key={group.title}>
+                  {group.title ? (
+                    <DropdownMenuLabel>{group.title}</DropdownMenuLabel>
+                  ) : null}
+                  {group.items.map((i) => (
+                    <DropdownMenuLinkItem
+                      key={i.label}
+                      render={<Link {...i.link} />}
+                      aria-current={i.match(pathname) ? 'page' : undefined}
+                      className={cn(
+                        i.match(pathname) && 'bg-nav-selected font-medium',
+                      )}
+                    >
+                      {i.label}
+                    </DropdownMenuLinkItem>
+                  ))}
+                </DropdownMenuGroup>
+              ))}
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
         <div className="relative flex min-h-0 min-w-0 flex-1 flex-col overflow-auto max-md:pb-20">
           {!allowed ? (
             <>

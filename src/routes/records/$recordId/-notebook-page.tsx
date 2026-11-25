@@ -3480,6 +3480,22 @@ function EditableNotebook(props: Parameters<typeof useEditableNotebook>[0]) {
     embedAfterBlockId,
   } = useEditableNotebook(props)
 
+  const latestUnsavedWorkChange = useRef(onUnsavedWorkChange)
+
+  useEffect(() => {
+    latestUnsavedWorkChange.current = onUnsavedWorkChange
+  }, [onUnsavedWorkChange])
+
+  // One stable function, so the document announces unsaved work only when it
+  // changes, not after every render of this page.
+  const handleUnsavedWorkChange = useCallback(
+    (value: boolean) => {
+      setHasUnsavedWork(value)
+      latestUnsavedWorkChange.current?.(value)
+    },
+    [setHasUnsavedWork],
+  )
+
   return (
     <>
       {record.kind === 'protocol_template' ? (
@@ -3496,10 +3512,7 @@ function EditableNotebook(props: Parameters<typeof useEditableNotebook>[0]) {
         blocks={shownBlocks}
         onSaveBlock={handleSave}
         offline={offline}
-        onUnsavedWorkChange={(value) => {
-          setHasUnsavedWork(value)
-          onUnsavedWorkChange?.(value)
-        }}
+        onUnsavedWorkChange={handleUnsavedWorkChange}
         onInsertBlock={handleInsert}
         onPinProtocol={handlePinProtocol}
         onAttachFile={handleAttachFile}

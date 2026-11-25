@@ -786,6 +786,38 @@ describe('NotebookDocument — insert-block menu', () => {
   })
 })
 
+describe('NotebookDocument — unsaved-work signal', () => {
+  it('announces unsaved work when it changes, not when the owner passes a new callback', () => {
+    const first = vi.fn()
+    const second = vi.fn()
+
+    const view = (onUnsavedWorkChange: () => void) => (
+      <NotebookDocument
+        record={record}
+        blocks={[]}
+        readOnly
+        onSaveBlock={vi.fn()}
+        onUnsavedWorkChange={onUnsavedWorkChange}
+        onInsertBlock={vi.fn()}
+        onDuplicateBlock={vi.fn()}
+        onDeleteBlock={vi.fn()}
+      />
+    )
+
+    const { rerender } = render(view(first))
+    expect(first).toHaveBeenCalledTimes(1)
+    expect(first).toHaveBeenLastCalledWith(false)
+
+    // An owner that builds its callback inline hands over a new one on every
+    // render. Announcing again each time made an owner that sets state from
+    // it render without end (React error 185).
+    rerender(view(second))
+    rerender(view(vi.fn()))
+    expect(second).not.toHaveBeenCalled()
+    expect(first).toHaveBeenCalledTimes(1)
+  })
+})
+
 describe('NotebookDocument — autosave state across block navigation', () => {
   it('keeps an unselected draft and its conflict resolution mounted', async () => {
     const user = userEvent.setup()

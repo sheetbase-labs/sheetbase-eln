@@ -85,6 +85,8 @@ type FieldKind =
   | 'timestamp'
   | 'time'
   | 'duration'
+  | 'well'
+  | 'person'
   | 'boolean'
   | 'link'
 
@@ -99,6 +101,8 @@ const KIND_OPTIONS: { value: FieldKind; label: string }[] = [
   },
   { value: 'time', label: t('library.models.recordModelEdit.time') },
   { value: 'duration', label: t('library.models.recordModelEdit.duration') },
+  { value: 'well', label: t('library.models.recordModelEdit.well') },
+  { value: 'person', label: t('library.models.recordModelEdit.person') },
   { value: 'boolean', label: t('library.models.recordModelEdit.yesOrNo') },
   { value: 'link', label: t('library.models.recordModelEdit.link') },
 ]
@@ -124,6 +128,8 @@ function kindOf(field: ModelVersionField): FieldKind {
     case 'timestamp':
     case 'time':
     case 'duration':
+    case 'well':
+    case 'person':
     case 'boolean':
       return field.logical_type
     default:

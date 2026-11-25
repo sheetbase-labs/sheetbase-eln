@@ -167,6 +167,8 @@ export interface WorkspaceMemberIdentity {
   user_id: string
   name: string
   role: string
+  /** Set for a client's guest, who sees shared work but is not lab staff. */
+  client_id?: string | null
 }
 
 export async function fetchProjectMembers(

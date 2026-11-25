@@ -1,4 +1,6 @@
 import { t } from '#/copy'
+import { z } from 'zod'
+import { personFromText } from '#/lib/well-person'
 import {
   parseSheetCellInput,
   sheetWriteError,
@@ -14,10 +16,13 @@ export function prepareCanonicalWorkspaceWrite({
   columns,
   changes,
   source,
+  people,
 }: {
   columns: readonly CanonicalSheetGridColumn[]
   changes: SheetbaseGridCellChange[]
   source: SheetbaseGridWriteSource
+  /** Workspace members' names by user id; a person cell takes a name. */
+  people?: ReadonlyMap<string, string>
 }): { result: false; status: string } | { result: undefined; status: null } {
   const columnsById = new Map(columns.map((column) => [column.id, column]))
 
@@ -43,7 +48,13 @@ export function prepareCanonicalWorkspaceWrite({
     }
 
     if (!column) continue
-    const value = parseSheetCellInput(column.field, change.next)
+    const typed = z.string().safeParse(change.next)
+
+    const value =
+      column.field?.logicalType === 'person' && typed.success
+        ? personFromText(typed.data, people)
+        : parseSheetCellInput(column.field, change.next)
+
     const invalid = sheetWriteError(column, value)
 
     if (invalid) {

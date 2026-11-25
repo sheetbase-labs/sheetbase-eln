@@ -18,6 +18,8 @@ const postgresType = {
   timestamp: 'timestamptz',
   time: 'time',
   duration: 'numeric',
+  well: 'text',
+  person: 'text',
   category: 'uuid',
   reference: 'uuid',
 } satisfies Record<ScientificColumnWire['logical_type'], string>
@@ -31,6 +33,8 @@ const restType = {
   timestamp: t('notebook.scientificApiInspector.iso8601String'),
   time: t('notebook.scientificApiInspector.timeString'),
   duration: t('notebook.scientificApiInspector.durationSeconds'),
+  well: t('notebook.scientificApiInspector.wellString'),
+  person: t('notebook.scientificApiInspector.personUserId'),
   category: t('notebook.scientificApiInspector.optionUuidString'),
   reference: t('notebook.scientificApiInspector.referencedRowUuidString'),
 } satisfies Record<ScientificColumnWire['logical_type'], string>

@@ -36,6 +36,8 @@ import type {
   RecordResultValue,
 } from '#/lib/record-results'
 import { displayTimeOrDuration } from '#/lib/time-duration'
+import { personName } from '#/lib/well-person'
+import { usePersonNames } from '#/components/models/person-names'
 
 /** What a column sorts and exports by: the plain value, never an object. */
 const SCALAR = z.union([z.string(), z.number(), z.boolean()])
@@ -53,6 +55,8 @@ function ResultValue({
   cell: RecordResultValue | undefined
   labels: RecordLinkLabels
 }) {
+  const people = usePersonNames(cell?.type === 'person')
+
   if (!cell || cell.value === null || cell.value === undefined) return <>—</>
 
   if (cell.type === 'reference')
@@ -63,6 +67,8 @@ function ResultValue({
   const shown = items.map((item) => {
     if (cell.type === 'time' || cell.type === 'duration')
       return displayTimeOrDuration(cell.type, item)
+
+    if (cell.type === 'person') return personName(String(item), people)
 
     const num = z.number().safeParse(item)
 

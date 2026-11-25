@@ -44,6 +44,10 @@ function typeLabel(logicalType: string): string {
       return 'Time'
     case 'duration':
       return 'Duration'
+    case 'well':
+      return 'Well position'
+    case 'person':
+      return 'Person'
     case 'category':
       return 'Choice'
     default:

@@ -39,6 +39,8 @@ const TYPE_LABELS: Record<AddableColumnType, () => string> = {
   timestamp: () => t('library.templates.addSheetColumn.types.timestamp'),
   time: () => t('library.templates.addSheetColumn.types.time'),
   duration: () => t('library.templates.addSheetColumn.types.duration'),
+  well: () => t('library.templates.addSheetColumn.types.well'),
+  person: () => t('library.templates.addSheetColumn.types.person'),
 }
 
 function numberOrUndefined(text: string): number | undefined {

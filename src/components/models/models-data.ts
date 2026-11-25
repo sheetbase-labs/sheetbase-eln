@@ -971,6 +971,9 @@ function typedValueError(field: ModelFieldDefinition, error: string): string {
   if (field.logicalType === 'time')
     return t('library.models.builtInModelFields.timeInvalid')
 
+  if (field.logicalType === 'well')
+    return t('library.models.builtInModelFields.wellInvalid')
+
   return error
 }
 
@@ -981,6 +984,7 @@ const MODEL_FIELD_ERROR_MESSAGES = new Map([
   ['invalid_value_type', 'The value type does not match the field.'],
   ['invalid_value', 'That value is not allowed.'],
   ['invalid_reference', 'The linked record was not found in this workspace.'],
+  ['invalid_person', 'Choose someone in this workspace.'],
   ['invalid_category_option', 'That category option is not available.'],
   ['invalid_cardinality', 'The number of values is wrong for this field.'],
 ])

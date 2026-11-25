@@ -6,6 +6,7 @@ import type { CanonicalSheetGridColumn } from '#/lib/canonical-sheet-grid'
 import { benchRangeBreach } from '#/components/sheet/sheet-bench-fields'
 import type { FieldDefinition } from '#/lib/field-definition'
 import { displayTimeOrDuration } from '#/lib/time-duration'
+import { personName } from '#/lib/well-person'
 import type { BoundValueState } from '#/lib/sheet-bound-columns'
 import type {
   NotebookInspectorCellFacts,
@@ -22,6 +23,8 @@ const FIELD_TYPE_LABEL: Record<FieldDefinition['logicalType'], string> = {
   timestamp: t('notebook.notebookInspector.timestamp'),
   time: t('notebook.notebookInspector.time'),
   duration: t('notebook.notebookInspector.duration'),
+  well: t('notebook.notebookInspector.well'),
+  person: t('notebook.notebookInspector.person'),
   category: t('notebook.notebookInspector.category'),
   reference: t('notebook.notebookInspector.reference'),
 }
@@ -32,6 +35,7 @@ const inspectorValue = z.json().optional()
 function formatCellValue(
   value: z.output<typeof inspectorValue>,
   field: FieldDefinition | null,
+  people?: ReadonlyMap<string, string>,
 ): string | null {
   if (value === null || value === undefined || value === '') return null
   const boolean = z.boolean().safeParse(value)
@@ -44,6 +48,9 @@ function formatCellValue(
 
   if (field?.logicalType === 'time' || field?.logicalType === 'duration')
     return displayTimeOrDuration(field.logicalType, scalar.data)
+
+  if (field?.logicalType === 'person')
+    return personName(String(scalar.data), people)
 
   if (field?.logicalType === 'decimal' || field?.logicalType === 'integer') {
     const magnitude = formatMagnitude(scalar.data)
@@ -169,6 +176,8 @@ export function canonicalCellFacts(input: {
   valueState?: BoundValueState | null
   rowLabel?: string | null
   blockLabel?: string | null
+  /** Members' names by user id, for person columns. */
+  people?: ReadonlyMap<string, string>
 }): NotebookInspectorCellFacts {
   const { column } = input
   const field = column?.field ?? null
@@ -184,7 +193,7 @@ export function canonicalCellFacts(input: {
   return {
     subject: context.length > 0 ? context.join(' · ') : null,
     value: {
-      display: formatCellValue(value, field),
+      display: formatCellValue(value, field, input.people),
       unit: fieldUnit(field),
     },
     validation,

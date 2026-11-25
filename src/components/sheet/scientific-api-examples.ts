@@ -106,6 +106,10 @@ function exampleValue(column?: ScientificColumnWire) {
       return '09:30:00'
     case 'duration':
       return 5400
+    case 'well':
+      return 'A1'
+    case 'person':
+      return '<workspace-member-user-id>'
     case 'category':
       return column.options[0]?.id ?? '<category-option-uuid>'
     default:

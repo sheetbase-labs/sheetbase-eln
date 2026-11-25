@@ -16,6 +16,8 @@ export const TYPE_LABELS: Record<ModelFieldLogicalType, string> = {
   timestamp: t('library.models.builtInModelFields.dateAndTime'),
   time: t('library.models.builtInModelFields.time'),
   duration: t('library.models.builtInModelFields.duration'),
+  well: t('library.models.builtInModelFields.well'),
+  person: t('library.models.builtInModelFields.person'),
   category: t('library.models.builtInModelFields.choice'),
   reference: t('library.models.builtInModelFields.linkToARecord'),
 }
@@ -29,6 +31,8 @@ export const AUTHORED_TYPES: AuthoredType[] = [
   'timestamp',
   'time',
   'duration',
+  'well',
+  'person',
   'category',
 ]
 

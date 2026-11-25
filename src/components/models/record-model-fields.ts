@@ -44,6 +44,10 @@ export function fieldTypeLabel(field: ModelVersionField): string {
       return 'Time'
     case 'duration':
       return 'Duration'
+    case 'well':
+      return 'Well position'
+    case 'person':
+      return 'Person'
     case 'reference':
       return 'Link'
     default:

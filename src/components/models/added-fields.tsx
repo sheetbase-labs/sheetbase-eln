@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react'
+import { AddedFieldValueCell } from './added-field-value-cell'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 
 import { Button } from '#/components/ui/button'
@@ -56,11 +57,7 @@ import {
   useTypeFields,
 } from './model-subtype-data'
 import { t } from '#/copy'
-import {
-  addedFieldDisplay,
-  addedFieldGroups,
-  addedFieldListQueryKey,
-} from './added-field-values'
+import { addedFieldGroups, addedFieldListQueryKey } from './added-field-values'
 import { addedFieldColumns } from './added-field-columns'
 
 /**
@@ -343,7 +340,15 @@ function AddedFieldsDescription({
           : []),
         ...fields.map<[React.ReactNode, React.ReactNode]>((field) => [
           field.label,
-          isLoading ? '…' : addedFieldDisplay(field, stored[field.fieldName]),
+          isLoading ? (
+            '…'
+          ) : (
+            <AddedFieldValueCell
+              key={field.fieldName}
+              field={field}
+              value={stored[field.fieldName]}
+            />
+          ),
         ]),
       ]}
     />

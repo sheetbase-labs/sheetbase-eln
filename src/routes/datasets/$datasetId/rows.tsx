@@ -18,6 +18,7 @@ import { ValueActions } from '#/components/datasets/value-actions'
 import { RecordLinkValue } from '#/components/datasets/record-link-value'
 import type { RepeatSourceSample } from '#/components/datasets/value-actions'
 import { formatDatasetValue } from '#/components/datasets/value-action-presentation'
+import { usePersonNames } from '#/components/models/person-names'
 import { hasCapability } from '#/lib/capability'
 import { linkedRecordIds, useRecordLinkLabels } from '#/lib/record-link-labels'
 import type { RecordLinkLabels } from '#/lib/record-link-labels'
@@ -381,6 +382,8 @@ function useDatasetRowColumns(input: {
     onToggleColumn,
   } = input
 
+  const people = usePersonNames(fields.some((f) => f.logical_type === 'person'))
+
   return useMemo<RegistryColumn<RowGridRow>[]>(() => {
     const rowNumber: RegistryColumn<RowGridRow> = {
       id: 'row',
@@ -441,7 +444,7 @@ function useDatasetRowColumns(input: {
                 {f.logical_type === 'reference' ? (
                   <RecordLinkValue value={value} labels={recordLabels} />
                 ) : (
-                  formatDatasetValue(f.logical_type, value)
+                  formatDatasetValue(f.logical_type, value, people)
                 )}
               </span>
             )
@@ -464,6 +467,7 @@ function useDatasetRowColumns(input: {
     unitless,
     recordLabels,
     onToggleColumn,
+    people,
   ])
 }
 
@@ -588,6 +592,10 @@ function RowsInspector(props: {
 }) {
   const { columnField, selected, selectedField } = props
 
+  const people = usePersonNames(
+    props.fields.some((f) => f.logical_type === 'person'),
+  )
+
   if (columnField)
     return (
       <Inspector
@@ -648,7 +656,7 @@ function RowsInspector(props: {
                 >
                   {f.logical_type === 'reference'
                     ? linkedText(linkedRecordIds([value]), props.recordLabels)
-                    : formatDatasetValue(f.logical_type, value)}
+                    : formatDatasetValue(f.logical_type, value, people)}
                   {cellFlag ? ' •' : ''}
                 </span>
               </button>
@@ -670,6 +678,7 @@ function RowsInspector(props: {
                 formatDatasetValue(
                   selectedField.logical_type,
                   props.selectedValue,
+                  people,
                 )
               )}
             </span>

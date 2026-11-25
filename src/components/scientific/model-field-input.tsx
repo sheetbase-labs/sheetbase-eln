@@ -24,12 +24,19 @@ import {
 import type { RecordReferenceSnapshot } from '#/lib/record-reference-cell'
 import { PluginFieldInput } from '#/components/extensions/plugin-field-input'
 import type { PluginFieldInputSource } from '#/components/extensions/plugin-field-input'
-import { EntityPickerDialog } from '#/components/record-picker/entity-picker'
+import {
+  EntityPickerDialog,
+  PickerSelect,
+} from '#/components/record-picker/entity-picker'
+import { usePeopleOptions } from '#/components/models/person-names'
 import type {
   PickerOption,
   PickerSearchResult,
 } from '#/components/record-picker/entity-picker'
-import { modelRecordSearch } from '#/components/record-picker/entity-options'
+import {
+  modelRecordSearch,
+  personOption,
+} from '#/components/record-picker/entity-options'
 import { pickerStatus } from '#/components/record-picker/record-picker-data'
 import type { SheetRecordSearchHit } from '#/lib/sheet-record-search'
 import { isReferenceTargetAllowed } from '#/lib/model-relationships'
@@ -105,6 +112,16 @@ export function ModelFieldInput({
       />
     )
 
+  if (presentation.kind === 'person-picker')
+    return (
+      <PersonField
+        definition={definition}
+        value={value}
+        onChange={onChange}
+        showLabel={showLabel}
+      />
+    )
+
   if (presentation.kind === 'record-picker') {
     const targetModelKey =
       field.relationship?.target.kind === 'model'
@@ -142,7 +159,9 @@ export function ModelFieldInput({
         placeholder ??
         (presentation.kind === 'duration'
           ? t('library.models.builtInModelFields.durationPlaceholder')
-          : undefined)
+          : presentation.kind === 'well'
+            ? t('library.models.builtInModelFields.wellPlaceholder')
+            : undefined)
       }
     />
   )
@@ -208,6 +227,40 @@ function CategorySelectField({
         ))}
       </Select>
     </label>
+  )
+}
+
+/** Someone in the workspace, chosen by name and stored as their user id. */
+function PersonField({
+  definition,
+  value,
+  onChange,
+  showLabel,
+}: {
+  definition: ModelFieldDefinition
+  value: string | boolean
+  onChange: (value: string | boolean) => void
+  showLabel: boolean
+}) {
+  const people = usePeopleOptions(true)
+
+  return (
+    <div className="text-xs text-fg-muted">
+      {showLabel ? definition.label : null}
+      {showLabel && !definition.nullable ? ' *' : ''}
+      <PickerSelect
+        noun="person"
+        className={showLabel ? 'mt-1' : undefined}
+        aria-label={definition.label}
+        placeholder={t('library.models.builtInModelFields.personPlaceholder')}
+        value={String(value)}
+        onChange={(id) => onChange(id)}
+        clearLabel={
+          definition.nullable ? t('notebook.modelFieldInput.notSet') : undefined
+        }
+        options={people.map((person) => personOption(person.id, person.label))}
+      />
+    </div>
   )
 }
 

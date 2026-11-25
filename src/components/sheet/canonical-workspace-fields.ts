@@ -12,6 +12,7 @@ import { categoryCellDisplayText } from '#/lib/canonical-sheet-grid'
 import { selectableFieldOptions } from '#/lib/field-presentation'
 import { formatMagnitude } from '#/lib/format-numbers'
 import { displayTimeOrDuration, formatDuration } from '#/lib/time-duration'
+import { personName } from '#/lib/well-person'
 import type { SheetPromoteLocalField } from './sheet-promote'
 
 /** Known labels are display-only; stored identity remains the Record UUID. */
@@ -42,6 +43,10 @@ export function canonicalWorkspaceGridColumn(
    * name only.
    */
   details = true,
+  /** Workspace members' names by user id, for person columns. */
+  people?: ReadonlyMap<string, string>,
+  /** The names a person column offers: lab members, not client guests. */
+  peopleChoices?: readonly string[],
 ): SheetbaseGridColumn {
   const kind = column.presentation.kind
   const unit = column.field?.quantity?.storageUnit
@@ -99,6 +104,23 @@ export function canonicalWorkspaceGridColumn(
     }
 
   if (kind === 'datetime-local') return { ...base, type: 'datetime' }
+
+  // A person is picked by name and stored as their user id.
+  if (kind === 'person-picker')
+    return {
+      ...base,
+      type: 'select',
+      options: [...(peopleChoices ?? people?.values() ?? [])].sort((a, b) =>
+        a.localeCompare(b),
+      ),
+      displayText: (value) => {
+        const userId = z.string().safeParse(value)
+
+        return userId.success && userId.data !== ''
+          ? personName(userId.data, people)
+          : undefined
+      },
+    }
 
   if (kind === 'record-picker' && canWrite) {
     return {

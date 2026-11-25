@@ -114,6 +114,8 @@ export const data = {
       typeBoolean: 'Yes or no',
       typeDate: 'Date',
       typeTimestamp: 'Date and time',
+      typeTime: 'Time',
+      typeDuration: 'Duration',
       noteMadeFromFile:
         'This makes a new measurement table that anyone in the lab can import into again. A data steward can tidy its columns later in Models.',
       back: 'Back',
@@ -345,6 +347,8 @@ export const data = {
     number0Dp: 'Number, 0 dp',
     yesOrNo: 'Yes or no',
     dateTime: 'Date and time',
+    time: 'Time',
+    duration: 'Duration',
     recordLink: 'Record link',
     valuesSeen: 'Values seen',
     number: 'Number',

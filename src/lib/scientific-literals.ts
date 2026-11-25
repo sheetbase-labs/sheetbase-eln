@@ -1,5 +1,6 @@
 import { z } from 'zod'
 import type { ScientificLogicalType } from './scientific-sheet-data'
+import { parseDuration, parseTimeOfDay } from './time-duration'
 
 export const SHEETBASE_LITERAL_PROFILE = 'sheetbase-literal-v1' as const
 
@@ -167,7 +168,40 @@ export function encodeScientificLiteral(
       return dateSerial(literalTextInput.parse(value))
     case 'timestamp':
       return timestampSerial(literalTextInput.parse(value))
+    case 'time':
+      return timeSerial(literalTextInput.parse(value))
+    case 'duration':
+      return durationSeconds(value)
   }
+}
+
+/** A time of day is a fraction of a day, as spreadsheets count it. */
+function timeSerial(value: string) {
+  const canonical = parseTimeOfDay(value)
+
+  if (!canonical) throw new Error('Time must be HH:MM or HH:MM:SS.')
+  const [hours, minutes, seconds] = canonical.split(':').map(Number)
+
+  return (hours * 3_600 + minutes * 60 + seconds) / 86_400
+}
+
+/** A duration enters formulas as its seconds. */
+function durationSeconds(
+  // oxlint-disable-next-line anti-slop/no-unknown-parameters -- Raw literal boundary; anything other than a stored seconds value is refused.
+  value: unknown,
+) {
+  if (!isNumber(value) || parseDuration(value) === null)
+    throw new Error('Duration must be a number of seconds, zero or more.')
+
+  return value
+}
+
+/** HH:MM:SS for a fraction of a day; whole days wrap round the clock. */
+function timeFromSerial(serial: number) {
+  const total = Math.round((((serial % 1) + 1) % 1) * 86_400) % 86_400
+  const pad = (n: number) => String(n).padStart(2, '0')
+
+  return `${pad(Math.floor(total / 3_600))}:${pad(Math.floor((total % 3_600) / 60))}:${pad(total % 60)}`
 }
 
 /**
@@ -249,6 +283,16 @@ export function decodeScientificResult(
           throw new Error('Expected a timestamp serial.')
 
         return { ok: true, value: isoTimestamp(value) }
+      case 'time':
+        if (!isNumber(value) || !Number.isFinite(value))
+          throw new Error('Expected a time of day serial.')
+
+        return { ok: true, value: timeFromSerial(value) }
+      case 'duration':
+        if (!isNumber(value) || parseDuration(value) === null)
+          throw new Error('Expected a duration of zero or more seconds.')
+
+        return { ok: true, value }
     }
   } catch (error) {
     return {

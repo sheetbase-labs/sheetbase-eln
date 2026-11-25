@@ -1,6 +1,23 @@
 import { z } from 'zod'
 
-import { FIELD_LOGICAL_TYPES } from './field-definition'
+import type { FIELD_LOGICAL_TYPES } from './field-definition'
+
+/**
+ * The value types a scalar parameter can take: every field type except time
+ * of day and duration, which only columns and fields carry.
+ */
+export const PARAMETER_VALUE_TYPES = [
+  'text',
+  'integer',
+  'decimal',
+  'boolean',
+  'date',
+  'timestamp',
+  'category',
+  'reference',
+] as const satisfies ReadonlyArray<(typeof FIELD_LOGICAL_TYPES)[number]>
+
+export type ParameterValueType = (typeof PARAMETER_VALUE_TYPES)[number]
 
 export const parameterUuidSchema = z
   .string()
@@ -57,9 +74,7 @@ export const rfc3339TimestampSchema = z
     )
   }, 'Invalid RFC3339 timestamp.')
 
-export function scalarParameterValueSchema(
-  valueType: (typeof FIELD_LOGICAL_TYPES)[number],
-) {
+export function scalarParameterValueSchema(valueType: ParameterValueType) {
   switch (valueType) {
     case 'text':
       return z.string()
@@ -164,7 +179,7 @@ function textSatisfiesConstraints(
 }
 
 function scalarSatisfiesConstraints(
-  valueType: (typeof FIELD_LOGICAL_TYPES)[number],
+  valueType: ParameterValueType,
   value: ScalarValue,
   constraints: ParameterConstraints,
 ): boolean {
@@ -194,7 +209,7 @@ export const parameterSchema = z
     type: z.discriminatedUnion('kind', [
       z.strictObject({
         kind: z.literal('scalar'),
-        valueType: z.enum(FIELD_LOGICAL_TYPES),
+        valueType: z.enum(PARAMETER_VALUE_TYPES),
       }),
       z.strictObject({ kind: z.literal('record'), modelKey: key }),
       z.strictObject({

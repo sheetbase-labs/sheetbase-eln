@@ -6,6 +6,10 @@ import {
 } from './pipelines/types'
 import { listByIds } from '#/lib/chunk-ids'
 import { fieldDefinitionFromModelField } from '#/lib/field-definition'
+import {
+  displayTimeOrDuration,
+  timeOrDurationFromText,
+} from '#/lib/time-duration'
 import type {
   FieldCardinality,
   FieldDefinition,
@@ -414,6 +418,12 @@ export function parseModelFieldInput(
     return value
   }
 
+  if (
+    definition.logicalType === 'time' ||
+    definition.logicalType === 'duration'
+  )
+    return timeOrDurationFromText(definition.logicalType, value)
+
   return value
 }
 
@@ -471,6 +481,12 @@ export function displayModelFieldValue(
   if (value === null || value === undefined || value === '') return '—'
 
   if (definition.logicalType === 'boolean') return value === true ? 'Yes' : 'No'
+
+  if (
+    definition.logicalType === 'time' ||
+    definition.logicalType === 'duration'
+  )
+    return displayTimeOrDuration(definition.logicalType, value)
 
   if (definition.logicalType === 'category') {
     return (

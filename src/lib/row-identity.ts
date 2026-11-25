@@ -1,3 +1,4 @@
+import { parseDuration, parseTimeOfDay } from './time-duration'
 import { z } from 'zod'
 
 export const ROW_IDENTITY_FORMAT_VERSION = 1 as const
@@ -15,6 +16,8 @@ export type RowIdentityLogicalType =
   | 'boolean'
   | 'date'
   | 'timestamp'
+  | 'time'
+  | 'duration'
   | 'category'
   | 'reference'
 
@@ -96,6 +99,14 @@ const identityValueSchemas = {
     .string()
     .refine(isTimestamp)
     .transform((value) => `t:${value}`),
+  time: z
+    .string()
+    .refine((value) => parseTimeOfDay(value) !== null)
+    .transform((value) => `h:${parseTimeOfDay(value)}`),
+  duration: z
+    .number()
+    .refine((value) => parseDuration(value) !== null)
+    .transform((value) => `p:${value}`),
   category: referenceIdentity,
   reference: referenceIdentity,
 } satisfies Record<RowIdentityLogicalType, z.ZodType<string>>

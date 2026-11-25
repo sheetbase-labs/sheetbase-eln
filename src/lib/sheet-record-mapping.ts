@@ -6,6 +6,7 @@
  * Model-generated; UUID identity is separate.
  */
 import { z } from 'zod'
+import { isTimeOfDay } from './time-duration'
 
 import type { DataClient } from './data-client'
 import type { FieldDefinition, FieldLogicalType } from './field-definition'
@@ -154,6 +155,10 @@ function typeOk(
       return z.number().finite().safeParse(value).success
     case 'boolean':
       return z.boolean().safeParse(value).success
+    case 'time':
+      return z.string().refine(isTimeOfDay).safeParse(value).success
+    case 'duration':
+      return z.number().finite().min(0).safeParse(value).success
   }
 }
 

@@ -1,3 +1,4 @@
+import { displayTimeOrDuration } from '#/lib/time-duration'
 import { z } from 'zod'
 import { modelFieldValueText, parseModelFieldInput } from '#/lib/model-fields'
 import type {
@@ -20,7 +21,13 @@ export function initialModelFieldValues(
     } else {
       values.set(
         field.fieldName,
-        raw === null || raw === undefined ? '' : modelFieldValueText(raw),
+        raw === null || raw === undefined
+          ? ''
+          : field.logicalType === 'duration'
+            ? displayTimeOrDuration('duration', raw)
+            : field.logicalType === 'time'
+              ? displayTimeOrDuration('time', raw).slice(0, 8)
+              : modelFieldValueText(raw),
       )
     }
   }

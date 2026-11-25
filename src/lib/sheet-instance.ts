@@ -137,6 +137,8 @@ const resolvedRowIdentity = z
           'boolean',
           'date',
           'timestamp',
+          'time',
+          'duration',
           'category',
           'reference',
         ]),

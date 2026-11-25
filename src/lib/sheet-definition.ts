@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import { MAX_DURATION_SECONDS, isTimeOfDay } from './time-duration'
 
 import {
   FIELD_LOGICAL_TYPES,
@@ -100,6 +101,10 @@ function scalarValueSchema(valueType: (typeof FIELD_LOGICAL_TYPES)[number]) {
       return isoDate
     case 'timestamp':
       return isoTimestamp
+    case 'time':
+      return z.string().refine(isTimeOfDay, 'Invalid time of day.')
+    case 'duration':
+      return z.number().finite().min(0).max(MAX_DURATION_SECONDS)
     case 'category':
     case 'reference':
       return uuid

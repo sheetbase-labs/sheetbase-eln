@@ -40,18 +40,36 @@ const outgoingColumns: RegistryColumn<OutgoingRow>[] = [
   {
     id: 'endpoint',
     header: t('settings.webhookSections.outgoingWebhook'),
-    cell: ({ row }) => (
-      <span className="flex min-w-0 flex-col">
-        <span className="truncate">{endpointName(row.original.sub)}</span>
-        <span className="truncate text-label text-fg-muted">
-          {destinationLabel(row.original.sub)}
+    meta: { cellClassName: 'max-md:whitespace-normal max-md:py-2' },
+    cell: ({ row }) => {
+      const summary = lastDeliverySummary(row.original.sub, row.original.health)
+
+      return (
+        <span className="flex min-w-0 flex-col">
+          <span className="truncate max-md:whitespace-normal">
+            {endpointName(row.original.sub)}
+          </span>
+          <span className="truncate text-label text-fg-muted max-md:break-all max-md:whitespace-normal">
+            {destinationLabel(row.original.sub)}
+          </span>
+          {/* On a phone the other columns fold in here, so none is cut. */}
+          <span className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 md:hidden">
+            <Status tone={summary.tone}>{summary.text}</Status>
+            <Link
+              to="/settings/workspace/integrations/webhooks/$subscriptionId"
+              params={{ subscriptionId: row.original.sub.id }}
+            >
+              {t('settings.webhookSections.deliveries')}
+            </Link>
+          </span>
         </span>
-      </span>
-    ),
+      )
+    },
   },
   {
     id: 'events',
     header: 'Events',
+    meta: { headerClassName: 'max-md:hidden', cellClassName: 'max-md:hidden' },
     cell: ({ row }) =>
       row.original.sub.eventTypes.length
         ? row.original.sub.eventTypes.join(', ')
@@ -60,6 +78,7 @@ const outgoingColumns: RegistryColumn<OutgoingRow>[] = [
   {
     id: 'last',
     header: t('settings.webhookSections.lastDelivery'),
+    meta: { headerClassName: 'max-md:hidden', cellClassName: 'max-md:hidden' },
     cell: ({ row }) => {
       const s = lastDeliverySummary(row.original.sub, row.original.health)
 
@@ -69,6 +88,7 @@ const outgoingColumns: RegistryColumn<OutgoingRow>[] = [
   {
     id: 'deliveries',
     header: '',
+    meta: { headerClassName: 'max-md:hidden', cellClassName: 'max-md:hidden' },
     cell: ({ row }) => (
       <Link
         to="/settings/workspace/integrations/webhooks/$subscriptionId"
@@ -122,6 +142,7 @@ export function OutgoingWebhooks({ workspaceId }: { workspaceId: string }) {
           columns={outgoingColumns}
           getRowId={(row) => row.sub.id}
           selectable={false}
+          sortable={false}
         />
       ) : subscriptions.isLoading ? (
         <Muted className="px-4 py-3 md:px-6">

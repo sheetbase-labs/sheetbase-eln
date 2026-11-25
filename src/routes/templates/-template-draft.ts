@@ -14,7 +14,7 @@ import {
 import type { TemplatePart } from '#/components/templates/template-parts'
 import { createNotebookTemplateVersion } from '#/lib/notebook-template-data'
 import type { NotebookTemplateVersion } from '#/lib/notebook-template-data'
-import type { ParameterValueType,Parameter } from '#/lib/parameter'
+import type { ParameterValueType, Parameter } from '#/lib/parameter'
 import { notebookTemplateConfigurationSchema } from '#/lib/notebook-template'
 import type {
   NotebookTemplateConfiguration,

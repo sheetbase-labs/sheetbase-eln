@@ -97,7 +97,9 @@ export function parseDuration(input: string | number): number | null {
 
   if (clock)
     return bounded(
-      Number(clock[1]) * 3_600 + Number(clock[2]) * 60 + Number(clock.at(3) ?? 0),
+      Number(clock[1]) * 3_600 +
+        Number(clock[2]) * 60 +
+        Number(clock.at(3) ?? 0),
     )
 
   const iso =

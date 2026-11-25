@@ -30,6 +30,8 @@ const TYPE_LABEL = new Map([
   ['boolean', t('data.columnInspector.yesOrNo')],
   ['date', t('data.columnInspector.date')],
   ['timestamp', t('data.columnInspector.dateTime')],
+  ['time', t('data.columnInspector.time')],
+  ['duration', t('data.columnInspector.duration')],
   ['category', t('data.columnInspector.choice')],
   ['reference', t('data.columnInspector.recordLink')],
 ])

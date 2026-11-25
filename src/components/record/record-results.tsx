@@ -35,6 +35,7 @@ import type {
   RecordResultRow,
   RecordResultValue,
 } from '#/lib/record-results'
+import { displayTimeOrDuration } from '#/lib/time-duration'
 
 /** What a column sorts and exports by: the plain value, never an object. */
 const SCALAR = z.union([z.string(), z.number(), z.boolean()])
@@ -60,6 +61,9 @@ function ResultValue({
   const items = Array.isArray(cell.value) ? cell.value : [cell.value]
 
   const shown = items.map((item) => {
+    if (cell.type === 'time' || cell.type === 'duration')
+      return displayTimeOrDuration(cell.type, item)
+
     const num = z.number().safeParse(item)
 
     if (num.success) return formatQuantity(num.data)

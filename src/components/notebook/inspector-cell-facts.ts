@@ -5,6 +5,7 @@ import { formatMagnitude } from '#/lib/format-numbers'
 import type { CanonicalSheetGridColumn } from '#/lib/canonical-sheet-grid'
 import { benchRangeBreach } from '#/components/sheet/sheet-bench-fields'
 import type { FieldDefinition } from '#/lib/field-definition'
+import { displayTimeOrDuration } from '#/lib/time-duration'
 import type { BoundValueState } from '#/lib/sheet-bound-columns'
 import type {
   NotebookInspectorCellFacts,
@@ -19,6 +20,8 @@ const FIELD_TYPE_LABEL: Record<FieldDefinition['logicalType'], string> = {
   boolean: t('notebook.notebookInspector.boolean'),
   date: t('notebook.notebookInspector.date'),
   timestamp: t('notebook.notebookInspector.timestamp'),
+  time: t('notebook.notebookInspector.time'),
+  duration: t('notebook.notebookInspector.duration'),
   category: t('notebook.notebookInspector.category'),
   reference: t('notebook.notebookInspector.reference'),
 }
@@ -38,6 +41,9 @@ function formatCellValue(
   const scalar = z.union([z.string(), z.number()]).safeParse(value)
 
   if (!scalar.success) return JSON.stringify(value)
+
+  if (field?.logicalType === 'time' || field?.logicalType === 'duration')
+    return displayTimeOrDuration(field.logicalType, scalar.data)
 
   if (field?.logicalType === 'decimal' || field?.logicalType === 'integer') {
     const magnitude = formatMagnitude(scalar.data)

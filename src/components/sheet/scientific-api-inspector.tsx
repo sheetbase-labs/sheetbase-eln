@@ -16,6 +16,8 @@ const postgresType = {
   boolean: 'boolean',
   date: 'date',
   timestamp: 'timestamptz',
+  time: 'time',
+  duration: 'numeric',
   category: 'uuid',
   reference: 'uuid',
 } satisfies Record<ScientificColumnWire['logical_type'], string>
@@ -27,6 +29,8 @@ const restType = {
   boolean: t('notebook.scientificApiInspector.jsonBoolean'),
   date: t('notebook.scientificApiInspector.yyyyMmDdString'),
   timestamp: t('notebook.scientificApiInspector.iso8601String'),
+  time: t('notebook.scientificApiInspector.timeString'),
+  duration: t('notebook.scientificApiInspector.durationSeconds'),
   category: t('notebook.scientificApiInspector.optionUuidString'),
   reference: t('notebook.scientificApiInspector.referencedRowUuidString'),
 } satisfies Record<ScientificColumnWire['logical_type'], string>

@@ -102,6 +102,10 @@ function exampleValue(column?: ScientificColumnWire) {
       return '2026-07-20'
     case 'timestamp':
       return '2026-07-20T12:00:00Z'
+    case 'time':
+      return '09:30:00'
+    case 'duration':
+      return 5400
     case 'category':
       return column.options[0]?.id ?? '<category-option-uuid>'
     default:

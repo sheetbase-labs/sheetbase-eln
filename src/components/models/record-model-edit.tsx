@@ -78,7 +78,15 @@ const KEY_PATTERN = /^[a-z][a-z0-9_]{0,59}$/
 
 /** What an author picks; `decimal_places` decides integer or decimal. */
 type FieldKind =
-  'text' | 'number' | 'choice' | 'date' | 'timestamp' | 'boolean' | 'link'
+  | 'text'
+  | 'number'
+  | 'choice'
+  | 'date'
+  | 'timestamp'
+  | 'time'
+  | 'duration'
+  | 'boolean'
+  | 'link'
 
 const KIND_OPTIONS: { value: FieldKind; label: string }[] = [
   { value: 'text', label: t('library.models.recordModelEdit.text') },
@@ -89,6 +97,8 @@ const KIND_OPTIONS: { value: FieldKind; label: string }[] = [
     value: 'timestamp',
     label: t('library.models.recordModelEdit.dateAndTime'),
   },
+  { value: 'time', label: t('library.models.recordModelEdit.time') },
+  { value: 'duration', label: t('library.models.recordModelEdit.duration') },
   { value: 'boolean', label: t('library.models.recordModelEdit.yesOrNo') },
   { value: 'link', label: t('library.models.recordModelEdit.link') },
 ]
@@ -112,6 +122,8 @@ function kindOf(field: ModelVersionField): FieldKind {
     case 'text':
     case 'date':
     case 'timestamp':
+    case 'time':
+    case 'duration':
     case 'boolean':
       return field.logical_type
     default:

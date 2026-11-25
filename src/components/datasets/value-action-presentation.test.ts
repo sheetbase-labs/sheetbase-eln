@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 
 import {
+  formatDatasetValue,
   formatProvenanceValue,
   formatRuleThreshold,
   formatSelectedValue,
@@ -304,5 +305,14 @@ describe('value action presentation', () => {
         },
       }),
     ).toThrow('native refusal')
+  })
+})
+
+describe('formatDatasetValue', () => {
+  it('shows times and durations the way people read them', () => {
+    expect(formatDatasetValue('time', '09:18:00')).toBe('09:18')
+    expect(formatDatasetValue('duration', 5400)).toBe('1 h 30 min')
+    expect(formatDatasetValue('duration', null)).toBe('—')
+    expect(formatDatasetValue('decimal', 1.5)).toBe('1.5')
   })
 })

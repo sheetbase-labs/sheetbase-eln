@@ -2,6 +2,7 @@ import { z } from 'zod'
 
 import { t } from '#/copy'
 import type { DatasetSystemFlagProvenance } from '#/lib/dataset-flags'
+import { displayTimeOrDuration } from '#/lib/time-duration'
 import type { MarkOutOfRangeDialogProps } from './value-actions'
 
 interface RuleThresholdMembers {
@@ -38,6 +39,17 @@ export function formatSelectedValue(
 ): string {
   // oxlint-disable-next-line typescript/no-base-to-string -- Selected native values retain String's string hint, object/custom stringification and symbol support; only nullish values display an em dash.
   return value == null ? '—' : String(value)
+}
+
+/** A dataset cell as people read it: times as 09:10, durations as 2 h 30 min. */
+export function formatDatasetValue(
+  logicalType: string,
+  value: MarkOutOfRangeDialogProps['value'],
+): string {
+  if (value != null && (logicalType === 'time' || logicalType === 'duration'))
+    return displayTimeOrDuration(logicalType, value)
+
+  return formatSelectedValue(value)
 }
 
 /** Rule summaries preserve each rule's original property reads and coercion. */

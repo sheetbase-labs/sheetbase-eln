@@ -78,6 +78,11 @@ export interface SheetbaseGridColumn {
    * Returning `undefined` keeps the engine's default rendering.
    */
   displayText?: (value: SheetbaseGridCellValue) => string | undefined
+  /**
+   * The text an edit of a stored value starts from, when people type the value
+   * differently from how it is stored (a duration kept in seconds).
+   */
+  editText?: (storedValue: string) => string
   /** Editable cells in this column open the formula-reference editor. */
   formula?: boolean
 }

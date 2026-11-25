@@ -138,7 +138,12 @@ export function ModelFieldInput({
       value={value}
       onChange={onChange}
       showLabel={showLabel}
-      placeholder={placeholder}
+      placeholder={
+        placeholder ??
+        (presentation.kind === 'duration'
+          ? t('library.models.builtInModelFields.durationPlaceholder')
+          : undefined)
+      }
     />
   )
 }
@@ -217,7 +222,7 @@ function TextField({
 }: {
   definition: ModelFieldDefinition
   presentation: {
-    inputType: 'number' | 'date' | 'datetime-local' | 'text' | null
+    inputType: 'number' | 'date' | 'datetime-local' | 'time' | 'text' | null
     step?: '1' | 'any'
   }
   value: string | boolean

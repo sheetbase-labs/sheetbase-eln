@@ -74,7 +74,7 @@ async function assertStartupReady() {
     }
 
     writeLog('warn', 'waiting for the database and API to be ready')
-    await new Promise((resolve) => setTimeout(resolve, 2_000))
+    await new Promise((done) => setTimeout(done, 2_000))
   }
 }
 

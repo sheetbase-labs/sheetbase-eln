@@ -46,11 +46,11 @@ describe('idle gate', () => {
     const ticks: Array<() => void> = []
 
     const target = {
-      setInterval: ((callback: () => void) => {
+      setInterval: (callback: () => void) => {
         ticks.push(callback)
 
         return 0
-      }) as unknown as typeof setInterval,
+      },
     }
 
     let clock = 0
@@ -60,7 +60,7 @@ describe('idle gate', () => {
 
     target.setInterval(() => {
       runs += 1
-    }, 10)
+    })
     ticks[0]()
     expect(runs).toBe(1)
     clock = 2000

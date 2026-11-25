@@ -52,9 +52,6 @@ export function gateIntervals(gate, target = globalThis) {
   const original = target.setInterval
 
   target.setInterval = function gatedSetInterval(callback, delay, ...args) {
-    if (typeof callback !== 'function')
-      return original.call(target, callback, delay, ...args)
-
     return original.call(
       target,
       (...tickArgs) => {

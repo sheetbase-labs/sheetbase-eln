@@ -12,7 +12,14 @@ import { createCollabHost } from './lib/collab-host.mjs'
 import { gateStartedIntervals } from './lib/idle-gate-install.mjs'
 
 // Before the app module starts its background sweeps (see lib/idle-gate.mjs).
-const idleGate = gateStartedIntervals()
+const idleGate = gateStartedIntervals(process.env, (idle) => {
+  writeLog(
+    'info',
+    idle
+      ? 'idle: background sweeps paused'
+      : 'active: background sweeps resumed',
+  )
+})
 
 const { default: application } = await import('../.output/server/index.mjs')
 

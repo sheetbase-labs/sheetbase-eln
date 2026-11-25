@@ -106,13 +106,27 @@ describe('quantity storage-unit safety', () => {
     ).toBe(1234)
   })
 
-  it('rejects other units and case changes even when metadata lists them', () => {
-    for (const input of ['1 g', '1 Mg', '1 MG', '1 µg']) {
+  it('keeps another unit of the same kind as typed for the database to convert', () => {
+    for (const logicalType of ['decimal', 'integer'] as const) {
+      const definition = { ...field, logicalType }
+      expect(parseQuantityNumericValue(definition, ' 1 g ')).toBe('1 g')
+      expect(validateFieldValue(definition, '1 g')).toBeNull()
+    }
+
+    // 1 µg is 0.001 mg: fine as a decimal, not a whole number.
+    expect(validateFieldValue(field, '1 µg')).toBeNull()
+    expect(
+      validateFieldValue({ ...field, logicalType: 'integer' }, '1 µg'),
+    ).toBe('invalid_value')
+  })
+
+  it('refuses units of another kind and changed case', () => {
+    for (const input of ['1 Mg', '1 MG', '1 mL']) {
       for (const logicalType of ['decimal', 'integer'] as const) {
         const definition = { ...field, logicalType }
         const parsed = parseQuantityNumericValue(definition, input)
         expect(parsed).toBe(input)
-        expect(validateFieldValue(definition, parsed)).toBe('invalid_value')
+        expect(validateFieldValue(definition, parsed)).toBe('wrong_unit')
       }
     }
   })

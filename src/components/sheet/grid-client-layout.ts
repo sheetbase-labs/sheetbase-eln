@@ -21,6 +21,10 @@ export function cellAddress(row: number, column: number): string {
 function dataTypeOf(
   column: SheetbaseGridColumn,
 ): DatasetFieldHeader['dataType'] {
+  // Typed as text (a duration, a number with its unit): the engine must not
+  // refuse the text before the sheet reads it.
+  if (column.editText !== undefined && column.type === 'number') return 'text'
+
   switch (column.type) {
     case 'number':
       return 'number'

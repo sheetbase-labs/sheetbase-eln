@@ -4,6 +4,7 @@ import { z } from 'zod'
 
 import type { ModelFieldDefinition } from '#/lib/model-fields'
 import { definitionOfModelField } from '#/lib/model-fields'
+import { fieldDisplayUnit } from '#/lib/field-value-validation'
 import { Button } from '#/components/ui/button'
 import { Icon } from '#/components/icons'
 import { uploadProjectFile } from '#/lib/file-attach'
@@ -155,24 +156,62 @@ export function ModelFieldInput({
     )
   }
 
+  const box = textBox(
+    presentation,
+    fieldDisplayUnit(field, definition.unit?.symbol),
+  )
+
   return (
     <TextField
       definition={definition}
-      presentation={presentation}
+      presentation={box.presentation}
       value={value}
       onChange={onChange}
       showLabel={showLabel}
-      placeholder={
-        placeholder ??
-        (presentation.kind === 'duration'
-          ? t('library.models.builtInModelFields.durationPlaceholder')
-          : presentation.kind === 'well'
-            ? t('library.models.builtInModelFields.wellPlaceholder')
-            : undefined)
-      }
+      placeholder={placeholder ?? box.placeholder}
     />
   )
 }
+
+/**
+ * The input and hint for a typed value. A number with a unit takes "2 g" as
+ * well as a number, so it is typed as text: a number box would drop the
+ * unit. The database converts it.
+ */
+function textBox(
+  presentation: ReturnType<typeof fieldEditorPresentation>,
+  unit: string | null,
+): TextBox {
+  if (presentation.kind === 'number' && unit)
+    return {
+      presentation: { inputType: 'text' },
+      placeholder: t('library.models.builtInModelFields.unitPlaceholder', {
+        unit,
+      }),
+    }
+
+  if (presentation.kind === 'duration')
+    return {
+      presentation,
+      placeholder: t('library.models.builtInModelFields.durationPlaceholder'),
+    }
+
+  if (presentation.kind === 'well')
+    return {
+      presentation,
+      placeholder: t('library.models.builtInModelFields.wellPlaceholder'),
+    }
+
+  return { presentation }
+}
+
+interface TextBox {
+  presentation: { inputType: TextInputType; step?: '1' | 'any' }
+  placeholder?: string
+}
+
+type TextInputType =
+  'number' | 'date' | 'datetime-local' | 'time' | 'text' | null
 
 /** A true/false field: one box with its label beside it. */
 function CheckboxField({
@@ -282,7 +321,7 @@ function TextField({
 }: {
   definition: ModelFieldDefinition
   presentation: {
-    inputType: 'number' | 'date' | 'datetime-local' | 'time' | 'text' | null
+    inputType: TextInputType
     step?: '1' | 'any'
   }
   value: string | boolean

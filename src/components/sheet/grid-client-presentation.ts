@@ -77,12 +77,39 @@ const filterValueSchema = z.union([
   z.boolean(),
 ])
 
+/**
+ * A number column with a unit edits as text so "2 g" can be typed, and the
+ * grid then hands its filter values back as text; a filter on it still
+ * compares numbers.
+ */
+function numberFilterValue(
+  value: string | number | boolean,
+  numeric: boolean,
+): string | number | boolean {
+  if (!numeric) return value
+  const number = numericFilterText.safeParse(value)
+
+  return number.success ? number.data : value
+}
+
+const numericFilterText = z
+  .string()
+  .trim()
+  .min(1)
+  .pipe(z.coerce.number<string>().finite())
+
 export function captureGridFilters(
   next: readonly FilterClause[],
   props: SheetbaseGridProps,
 ): SheetbaseGridFilter[] {
   const captured: SheetbaseGridFilter[] = []
   const capturedIds = new Set<string>()
+
+  const numberIds = new Set(
+    props.columns.flatMap((column) =>
+      column.type === 'number' ? [column.id] : [],
+    ),
+  )
 
   for (const clause of next) {
     const operator = neutralOperator(clause.operator)
@@ -92,7 +119,9 @@ export function captureGridFilters(
     captured.push({
       columnId: clause.fieldId,
       operator,
-      value: value.success ? value.data : undefined,
+      value: value.success
+        ? numberFilterValue(value.data, numberIds.has(clause.fieldId))
+        : undefined,
     })
     capturedIds.add(clause.fieldId)
   }

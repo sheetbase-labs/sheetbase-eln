@@ -64,12 +64,18 @@ export function canonicalWorkspaceGridColumn(
 
   if (kind === 'checkbox') return { ...base, type: 'checkbox' }
 
-  if (kind === 'number')
+  if (kind === 'number' && unit)
     return {
       ...base,
       type: 'number',
-      displayText: unit ? (value) => withUnit(value, unit) : formatMagnitude,
+      displayText: (value) => withUnit(value, unit),
+      // A column with a unit takes "2 g" as well as a number, so it edits as
+      // text; the number editor would drop the unit.
+      editText: (stored) => stored,
     }
+
+  if (kind === 'number')
+    return { ...base, type: 'number', displayText: formatMagnitude }
 
   if (kind === 'date') return { ...base, type: 'date' }
 

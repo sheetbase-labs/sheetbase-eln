@@ -1041,4 +1041,19 @@ describe('external query boundary', () => {
       { columnId: 'alpha', operator: 'equals', value: false },
     ])
   })
+
+  it('compares numbers when a number column hands its filter back as text', () => {
+    expect(
+      captureGridFilters(
+        [
+          { fieldId: 'beta', operator: 'eq', value: '1200' },
+          { fieldId: 'alpha', operator: 'eq', value: '1200' },
+        ],
+        baseProps(),
+      ),
+    ).toEqual([
+      { columnId: 'beta', operator: 'equals', value: 1200 },
+      { columnId: 'alpha', operator: 'equals', value: '1200' },
+    ])
+  })
 })

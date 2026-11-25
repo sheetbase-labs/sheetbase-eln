@@ -7,6 +7,7 @@ import { z } from 'zod'
 import { coerceDatasetCellValue } from './dataset-product'
 import { FIELD_LOGICAL_TYPES } from './field-definition'
 import { parseDuration, parseTimeOfDay } from './time-duration'
+import { convertQuantity, sameUnit } from './lab-units'
 import type { ImportSheet } from './import-parse'
 import type { ScientificColumnWire } from './scientific-sheet-data'
 
@@ -66,7 +67,11 @@ export function importHeaderUnit(header: string): string | null {
   )
 }
 
-/** No conversion engine exists here. Fail closed instead of relabelling. */
+/**
+ * A source unit must be declared for a number field. One of the same kind as
+ * the field's unit ("g" into mg) is converted by the database as the rows are
+ * written, and what the file held is kept; any other unit is refused.
+ */
 export function importUnitError(
   field: ImportTargetField,
   sourceUnit?: string | null,
@@ -79,9 +84,35 @@ export function importUnitError(
   if (source === target) return null
 
   if (!source)
-    return `Declare the source unit for ${field.label}. The Dataset stores ${target}; confirm that unit only if the file already uses it.`
+    return `Declare the source unit for ${field.label}. The Dataset stores ${target}; the file can use ${target} or another unit of the same kind.`
 
-  return `${field.label}: source unit ${source} does not match storage unit ${target ?? '(unitless)'}. Convert the source values to ${target ?? 'a unitless value'} before uploading, or choose a field with the correct storage unit. No automatic conversion is available.`
+  if (target && convertQuantity(1, source, target) !== null) return null
+
+  if (!target)
+    return `${field.label}: this field has no unit, so values in ${source} can't be stored in it. Choose a field stored in ${source} or a unit of the same kind.`
+
+  return `${field.label}: source unit ${source} does not match storage unit ${target} and can't be converted to it. Choose a field stored in a unit of the same kind as ${source}.`
+}
+
+/** A number from a file in another unit of the field's kind, for the database to convert. */
+function inSourceUnit(
+  field: ImportTargetField,
+  value: ImportCellValue,
+  sourceUnit: string | null | undefined,
+): ImportCellValue {
+  const source = sourceUnit?.trim() || null
+  const target = field.unit ?? null
+
+  if (
+    !source ||
+    !target ||
+    source === target ||
+    sameUnit(source, target) ||
+    !z.number().safeParse(value).success
+  )
+    return value
+
+  return `${String(value)} ${source}`
 }
 
 export interface ImportRowError {
@@ -270,13 +301,18 @@ export function mapImportSheet(
       const raw = sourceRow[mapping.source] ?? ''
 
       try {
-        const unitError = importUnitError(
-          mapping.field,
-          mapping.sourceUnit ?? importHeaderUnit(mapping.source),
-        )
+        const sourceUnit =
+          mapping.sourceUnit ?? importHeaderUnit(mapping.source)
+
+        const unitError = importUnitError(mapping.field, sourceUnit)
 
         if (unitError) throw new Error(unitError)
-        const coerced = coerceImportValue(mapping.field, raw, recordIds)
+
+        const coerced = inSourceUnit(
+          mapping.field,
+          coerceImportValue(mapping.field, raw, recordIds),
+          sourceUnit,
+        )
 
         if (mapping.field.kind === 'record-title') {
           title = String(coerced ?? '')

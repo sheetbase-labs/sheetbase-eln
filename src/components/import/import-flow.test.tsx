@@ -765,7 +765,7 @@ describe('ImportMapCheckFlow', () => {
     await user.type(unit, 'g/L')
     expect(
       await screen.findByText(
-        /source unit g\/L does not match storage unit NTU/,
+        /source unit g\/L does not match storage unit NTU and can't be converted/,
       ),
     ).toBeTruthy()
     expect(

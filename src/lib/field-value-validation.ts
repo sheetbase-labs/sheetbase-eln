@@ -3,6 +3,8 @@ import { z } from 'zod'
 
 import type { FieldDefinition } from './field-definition'
 import { MAX_DURATION_SECONDS, isTimeOfDay } from './time-duration'
+import { convertQuantity, quantityEntry } from './lab-units'
+import type { QuantityEntry } from './lab-units'
 
 /**
  * MODEL-02 shared field-value semantics.
@@ -77,9 +79,34 @@ export function isValidTimestamp(value: string): boolean {
   )
 }
 
-/** Only the storage-unit suffix is safe without a unit converter. */
+/** The unit a number field stores, as a list (empty when it has none). */
 export function fieldUnitSymbols(field: FieldDefinition): string[] {
   return field.quantity?.storageUnit ? [field.quantity.storageUnit] : []
+}
+
+/**
+ * What a typed value means in a number field with a unit: "2 g" in an mg
+ * field is converted (the database stores 2000 and keeps "2 g"), "2 mL" is
+ * the wrong kind of unit. Null for a field without a unit or a value that
+ * isn't typed text.
+ */
+export function fieldQuantityEntry(
+  field: FieldDefinition,
+  // oxlint-disable-next-line anti-slop/no-unknown-parameters -- Record inputs and Sheet cells arrive as raw text or JSON; only text with a unit is read here.
+  raw: unknown,
+): QuantityEntry | null {
+  const [unit] = fieldUnitSymbols(field)
+
+  if (
+    !unit ||
+    (field.logicalType !== 'integer' && field.logicalType !== 'decimal')
+  )
+    return null
+  const text = scalarSchemas.text.safeParse(raw)
+
+  if (!text.success) return null
+
+  return quantityEntry(text.data, unit)
 }
 
 /** Raw stored magnitudes must be labelled with their storage unit. */
@@ -88,6 +115,23 @@ export function fieldDisplayUnit(
   legacySymbol?: string | null,
 ): string | null {
   return field.quantity?.storageUnit ?? legacySymbol ?? null
+}
+
+/**
+ * A stored number as people read it: in the field's display unit when it has
+ * one of the same kind as its storage unit, otherwise in the storage unit.
+ */
+export function displayQuantity(field: FieldDefinition, value: number) {
+  const stored = field.quantity?.storageUnit || null
+  const display = field.quantity?.preferredDisplayUnit || null
+
+  if (stored && display && display !== stored) {
+    const converted = convertQuantity(value, stored, display)
+
+    if (converted !== null) return { value: converted, unit: display }
+  }
+
+  return { value, unit: stored }
 }
 
 function stripUnitSuffix(trimmed: string, symbols: string[]): string {
@@ -110,8 +154,9 @@ function stripUnitSuffix(trimmed: string, symbols: string[]): string {
  * Shared numeric coercion for integer/decimal fields. Strips the exact
  * storage-unit suffix (`12.5 mg/mL` → 12.5), then applies the canonical
  * plain/thousands-separated parsing both Record and Sheet inputs share.
- * Other units stay unparsed: allowed/preferred metadata is not a converter.
- * Returns the raw input when it does not coerce so validation fails closed.
+ * Another unit of the same kind ("2 g" in mg) is returned as typed for the
+ * database to convert. Returns the raw input when it does not coerce so
+ * validation fails closed.
  */
 export function parseQuantityNumericValue(
   field: FieldDefinition,
@@ -126,6 +171,11 @@ export function parseQuantityNumericValue(
   const text = scalarSchemas.text.safeParse(raw)
 
   if (!text.success) return raw
+
+  // Another unit of the same kind stays as typed: the database converts it
+  // and keeps what was typed.
+  if (fieldQuantityEntry(field, text.data)?.kind === 'converted')
+    return text.data.trim()
 
   const withoutUnit = stripUnitSuffix(
     text.data.trim(),
@@ -213,6 +263,9 @@ export function fieldScalarError(
     }
 
     case 'integer': {
+      const quantity = typedQuantityError(field, value)
+
+      if (quantity !== undefined) return quantity
       const integer = scalarSchemas.integer.safeParse(value)
 
       if (!integer.success) return 'invalid_value'
@@ -223,6 +276,9 @@ export function fieldScalarError(
     }
 
     case 'decimal': {
+      const quantity = typedQuantityError(field, value)
+
+      if (quantity !== undefined) return quantity
       const decimal = scalarSchemas.decimal.safeParse(value)
 
       if (!decimal.success) return 'invalid_value'
@@ -290,6 +346,28 @@ export function fieldScalarError(
         : 'invalid_value'
     }
   }
+}
+
+/**
+ * The check for text with a unit in a number field, or undefined when the
+ * value is not such text. A converted value is checked as the number it
+ * becomes; a unit of another kind is `wrong_unit`.
+ */
+function typedQuantityError(
+  field: FieldDefinition,
+  // oxlint-disable-next-line anti-slop/no-unknown-parameters -- The raw value from fieldScalarError; only typed text is read.
+  value: unknown,
+): string | null | undefined {
+  const entry = fieldQuantityEntry(field, value)
+
+  if (entry?.kind === 'wrong-unit') return 'wrong_unit'
+
+  if (entry?.kind !== 'converted') return undefined
+
+  if (field.logicalType === 'integer' && !Number.isInteger(entry.value))
+    return 'invalid_value'
+
+  return outsideNumericRange(field, entry.value) ? 'numeric_validation' : null
 }
 
 function outsideNumericRange(field: FieldDefinition, value: number): boolean {

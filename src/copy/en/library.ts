@@ -942,6 +942,7 @@ export const library = {
       durationInvalid: 'Give a unit, such as 90 min or 1 h 30 min.',
       wellInvalid: 'Use a well position such as A1 or H12.',
       wellPlaceholder: 'For example A1',
+      unitPlaceholder: 'In {unit}. Another unit of the same kind is converted.',
       personPlaceholder: 'Choose someone',
       timeInvalid: 'Use a time on a 24-hour clock, such as 09:30.',
       choice: 'Choice',

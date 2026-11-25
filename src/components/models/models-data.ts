@@ -985,6 +985,7 @@ const MODEL_FIELD_ERROR_MESSAGES = new Map([
   ['invalid_value', 'That value is not allowed.'],
   ['invalid_reference', 'The linked record was not found in this workspace.'],
   ['invalid_person', 'Choose someone in this workspace.'],
+  ['wrong_unit', 'That unit measures something else. Use the field’s unit.'],
   ['invalid_category_option', 'That category option is not available.'],
   ['invalid_cardinality', 'The number of values is wrong for this field.'],
 ])

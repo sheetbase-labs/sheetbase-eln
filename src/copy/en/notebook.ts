@@ -2482,6 +2482,11 @@ export const notebook = {
     verbRejectedInvalidIn:
       '{verb} rejected: {invalid} in {label}. The cell kept its previous value.',
     invalidValueInvalidIn: 'Invalid value ({invalid}) in {label}.',
+    wrongUnit:
+      '{verb} rejected: {label} is stored in {unit}. Type it in {unit} or a unit like {units}.',
+    wrongUnitOnly:
+      '{verb} rejected: {label} is stored in {unit}. Type it in {unit}.',
+    unitConverted: '{entered} is stored as {stored} in {label}.',
     localWriteSheetcellwriteerror: 'Local write {sheetCellWriteError}.',
     nothingToClearThe:
       'Nothing to clear: the selection has no editable, non-empty cells.',

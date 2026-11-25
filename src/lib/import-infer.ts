@@ -4,10 +4,11 @@
  * a type and a unit for each, read from the header and the values. Pure, so the
  * server can run it over every row and tests can pin the rules.
  */
+import { parseWellPosition } from './well-person'
 import { importHeaderUnit } from '#/lib/import-mapping'
 import { parseDuration, parseTimeOfDay } from '#/lib/time-duration'
 
-/** Types a table made from a file can have; the database accepts these eight. */
+/** Types a table made from a file can have; the database accepts these nine. */
 export const INFERRED_TYPES = [
   'text',
   'integer',
@@ -17,6 +18,7 @@ export const INFERRED_TYPES = [
   'timestamp',
   'time',
   'duration',
+  'well',
 ] as const
 
 export type InferredType = (typeof INFERRED_TYPES)[number]
@@ -83,6 +85,9 @@ export function inferColumnType(values: string[]): InferredType {
     )
   )
     return 'duration'
+
+  // Plate readers export a well column (A1, B12); nothing else looks like one.
+  if (values.every((value) => parseWellPosition(value) !== null)) return 'well'
 
   return 'text'
 }

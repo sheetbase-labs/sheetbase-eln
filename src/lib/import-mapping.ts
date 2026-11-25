@@ -1,6 +1,7 @@
 /**
  * DATA-01 column mapping and fail-closed coercion against a pinned schema.
  */
+import { parseWellPosition } from './well-person'
 import { z } from 'zod'
 
 import { coerceDatasetCellValue } from './dataset-product'
@@ -381,6 +382,28 @@ export function coerceImportValue(
         )
 
       return seconds
+    }
+
+    case 'well': {
+      const well = parseWellPosition(trimmed)
+
+      if (!well)
+        throw new Error(
+          `${field.label}: use a well position such as A1 or H12, not ${trimmed}.`,
+        )
+
+      return well
+    }
+
+    // A name or user id; the database checks the person is in the workspace.
+    case 'person': {
+      const person = (field.options ?? []).find(
+        (item) =>
+          item.id === trimmed ||
+          item.label.trim().toLowerCase() === trimmed.toLowerCase(),
+      )
+
+      return person?.id ?? trimmed
     }
 
     case 'category': {

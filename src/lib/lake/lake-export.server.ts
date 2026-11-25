@@ -125,6 +125,7 @@ function datasetType(logicalType: string): LakeType {
     case 'integer':
       return 'int64'
     case 'decimal':
+    case 'duration':
       return 'float64'
     case 'boolean':
       return 'boolean'

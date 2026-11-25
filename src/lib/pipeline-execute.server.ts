@@ -130,6 +130,7 @@ import {
   RESULT_CELL_LIMIT,
   EXECUTION_TIMEOUT_SECONDS,
 } from './pipeline-limits'
+import { parseDuration, parseTimeOfDay } from './time-duration'
 
 export type PipelineErrorCode =
   | 'workspace_membership_required'
@@ -2663,6 +2664,10 @@ function pgTypeFor(logicalType: string): string {
       return 'date'
     case 'timestamp':
       return 'timestamptz'
+    case 'time':
+      return 'time'
+    case 'duration':
+      return 'numeric'
     case 'category':
     case 'reference':
       return 'uuid'
@@ -2711,6 +2716,7 @@ async function materializeInputRows(
       case 'integer':
         return 'integer_value'
       case 'decimal':
+      case 'duration':
         return 'numeric_value'
       case 'boolean':
         return 'boolean_value'
@@ -4134,6 +4140,58 @@ function coerceValue(
 
       if (text.success && !Number.isNaN(Date.parse(text.data))) {
         return new Date(text.data).toISOString()
+      }
+
+      return COERCE_ERROR
+    }
+
+    case 'time': {
+      const text = z.string().safeParse(raw)
+
+      return (text.success && parseTimeOfDay(text.data)) || COERCE_ERROR
+    }
+
+    // Seconds, a number of them as text, `2 h 30 min`, or a PostgreSQL
+    // interval (`end_time - start_time`), which the driver reads as parts.
+    case 'duration': {
+      const seconds = z.number().safeParse(raw)
+
+      if (seconds.success) return parseDuration(seconds.data) ?? COERCE_ERROR
+
+      const text = z.string().safeParse(raw)
+
+      if (text.success) {
+        const trimmed = text.data.trim()
+        const numeric = trimmed !== '' && Number.isFinite(Number(trimmed))
+
+        return (
+          parseDuration(numeric ? Number(trimmed) : trimmed) ?? COERCE_ERROR
+        )
+      }
+
+      const interval = z
+        .looseObject({
+          days: z.number().optional(),
+          hours: z.number().optional(),
+          minutes: z.number().optional(),
+          seconds: z.number().optional(),
+          milliseconds: z.number().optional(),
+        })
+        .safeParse(raw)
+
+      if (interval.success) {
+        const { days = 0, hours = 0, minutes = 0 } = interval.data
+        const { seconds: secs = 0, milliseconds = 0 } = interval.data
+
+        return (
+          parseDuration(
+            days * 86_400 +
+              hours * 3_600 +
+              minutes * 60 +
+              secs +
+              milliseconds / 1000,
+          ) ?? COERCE_ERROR
+        )
       }
 
       return COERCE_ERROR

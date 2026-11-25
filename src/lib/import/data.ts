@@ -1,3 +1,4 @@
+import type { InferredType } from '#/lib/import-infer'
 /**
  * DSET-05 — browser data module for the import flow. Thick file work (store,
  * parse, review, commit) runs on the server at /api/import/*; the browser only
@@ -160,7 +161,7 @@ export interface StructureFieldInput {
   fieldId: string
   key: string
   label: string
-  logicalType: 'text' | 'integer' | 'decimal' | 'boolean' | 'date' | 'timestamp'
+  logicalType: InferredType
   unit: string | null
 }
 

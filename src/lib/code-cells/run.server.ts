@@ -183,6 +183,8 @@ const SQL_TYPES = new Map<string, string>([
   ['boolean', 'boolean'],
   ['date', 'date'],
   ['timestamp', 'timestamptz'],
+  ['time', 'time'],
+  ['duration', 'numeric'],
 ])
 
 function quote(identifier: string): string {

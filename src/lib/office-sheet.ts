@@ -15,6 +15,7 @@ import { unzipSync } from 'fflate'
 import { z } from 'zod'
 
 import { columnKeyFromName, inferColumnType } from '#/lib/import-infer'
+import { timeOrDurationFromText } from '#/lib/time-duration'
 import type { SheetInstanceState } from '#/lib/sheet-instance'
 
 export interface OfficeCell {
@@ -721,7 +722,9 @@ export function buildSheetState(
           ? String(raw).slice(0, 100_000)
           : logical === 'boolean'
             ? raw === true
-            : raw
+            : logical === 'time' || logical === 'duration'
+              ? timeOrDurationFromText(logical, display(raw).trim())
+              : raw
 
       ;(values[rowIds[i]] ??= {})[m.id] = value
     })

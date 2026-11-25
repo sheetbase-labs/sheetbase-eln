@@ -28,6 +28,8 @@ const TYPE_LABELS = new Map(
     boolean: t('notebook.sheetPromote.yesNo'),
     date: t('notebook.sheetPromote.date'),
     timestamp: t('notebook.sheetPromote.dateAndTime'),
+    time: t('notebook.sheetPromote.time'),
+    duration: t('notebook.sheetPromote.duration'),
     category: t('notebook.sheetPromote.choice'),
     reference: t('notebook.sheetPromote.reference'),
   }),

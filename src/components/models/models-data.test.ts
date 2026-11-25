@@ -342,6 +342,21 @@ describe('modelFieldInputErrors', () => {
     )
   })
 
+  it('says how to write a time or a duration', () => {
+    const spin = modelField({ fieldName: 'spin', logicalType: 'duration' })
+    const thaw = modelField({ fieldName: 'thaw', logicalType: 'time' })
+
+    expect(
+      modelFieldInputErrors([spin, thaw], { spin: '90', thaw: '25:00' }),
+    ).toEqual({
+      spin: 'Give a unit, such as 90 min or 1 h 30 min.',
+      thaw: 'Use a time on a 24-hour clock, such as 09:30.',
+    })
+    expect(
+      modelFieldInputErrors([spin, thaw], { spin: '90 min', thaw: '9:30' }),
+    ).toEqual({})
+  })
+
   it('reports a value of the wrong type', () => {
     expect(
       modelFieldInputErrors([requiredInteger], { passage: 'twelve' }),

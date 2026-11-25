@@ -20,6 +20,7 @@ import { sheetLocalScalarSchema, sheetLocalValueSchema } from './sheet-instance'
 import type { SheetLocalValue, SheetPresentation } from './sheet-instance'
 import { sheetLocalValueError } from './sheet-local-data'
 import type { SheetInstanceCalculationResult } from './sheet-local-data'
+import { coerceTimeOrDurationInput } from './time-duration'
 
 export type CanonicalSheetColumnOrigin = 'bound' | 'local' | 'calculation'
 
@@ -186,6 +187,27 @@ function canonicalCategoryOption(
 /** Preserve raw editor values, including immutable JSON and Date, until the
  * canonical field validator accepts or rejects them. Coercion does not make
  * an otherwise invalid input a persisted local value. */
+/**
+ * A cell value after the grid has stored it. The grid keeps every cell as
+ * text, so a duration already read as seconds comes back as `"9000"`; that is
+ * the stored value, not a typed bare number (which `parseSheetCellInput`
+ * refuses as ambiguous).
+ */
+export function parseSheetStoredCell<Input>(
+  field: FieldDefinition | null,
+  stored: Input,
+): Input | SheetLocalValue {
+  const seconds = z
+    .string()
+    .regex(/^\d+(?:\.\d+)?$/)
+    .safeParse(stored)
+
+  if (field?.logicalType === 'duration' && seconds.success)
+    return Number(seconds.data)
+
+  return parseSheetCellInput(field, stored)
+}
+
 export function parseSheetCellInput<Input>(
   field: FieldDefinition | null,
   raw: Input,
@@ -217,6 +239,12 @@ export function parseSheetCellInput<Input>(
 
     return raw
   }
+
+  if (field.logicalType === 'time' || field.logicalType === 'duration')
+    // SAFETY: the coercion returns either the raw input unchanged or a
+    // stored time string or duration number, both SheetLocalValue members.
+    return coerceTimeOrDurationInput(field.logicalType, raw) as
+      Input | SheetLocalValue
 
   const text = z.string().safeParse(raw)
 

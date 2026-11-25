@@ -11,6 +11,7 @@ import type {
 import { categoryCellDisplayText } from '#/lib/canonical-sheet-grid'
 import { selectableFieldOptions } from '#/lib/field-presentation'
 import { formatMagnitude } from '#/lib/format-numbers'
+import { displayTimeOrDuration, formatDuration } from '#/lib/time-duration'
 import type { SheetPromoteLocalField } from './sheet-promote'
 
 /** Known labels are display-only; stored identity remains the Record UUID. */
@@ -66,6 +67,36 @@ export function canonicalWorkspaceGridColumn(
     }
 
   if (kind === 'date') return { ...base, type: 'date' }
+
+  if (kind === 'time')
+    return {
+      ...base,
+      type: 'text',
+      displayText: (value) =>
+        value === null || value === ''
+          ? undefined
+          : displayTimeOrDuration('time', value),
+    }
+
+  // A duration is typed as text (`2 h 30 min`) and stored as seconds; the
+  // grid's number editor would refuse the units, and its sort is numeric-aware.
+  if (kind === 'duration')
+    return {
+      ...base,
+      type: 'text',
+      displayText: (value) => {
+        const seconds = z.coerce.number().safeParse(value)
+
+        return value === null || value === '' || !seconds.success
+          ? undefined
+          : formatDuration(seconds.data)
+      },
+      editText: (stored) => {
+        const seconds = z.coerce.number().safeParse(stored)
+
+        return seconds.success ? formatDuration(seconds.data) : stored
+      },
+    }
 
   if (kind === 'datetime-local') return { ...base, type: 'datetime' }
 

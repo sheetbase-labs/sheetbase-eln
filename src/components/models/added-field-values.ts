@@ -83,10 +83,18 @@ export function addedFieldSortValue(
 
   if (raw == null || raw === '') return undefined
 
-  if (field.logicalType === 'date' || field.logicalType === 'timestamp')
+  if (
+    field.logicalType === 'date' ||
+    field.logicalType === 'timestamp' ||
+    field.logicalType === 'time'
+  )
     return modelFieldValueText(raw)
 
-  if (field.logicalType === 'integer' || field.logicalType === 'decimal') {
+  if (
+    field.logicalType === 'integer' ||
+    field.logicalType === 'decimal' ||
+    field.logicalType === 'duration'
+  ) {
     const number = Number(raw)
 
     if (Number.isFinite(number)) return number

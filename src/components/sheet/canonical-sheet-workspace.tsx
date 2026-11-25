@@ -104,7 +104,7 @@ import { createDataClient } from '#/lib/data-client'
 import {
   applySheetPresentation,
   canonicalSheetGridMatrix,
-  parseSheetCellInput,
+  parseSheetStoredCell,
   sheetWriteError,
 } from '#/lib/canonical-sheet-grid'
 import type {
@@ -191,6 +191,11 @@ import { useCanonicalWorkspaceComments } from './canonical-workspace-comments'
 import { prepareCanonicalWorkspaceWrite } from './canonical-workspace-write-policy'
 
 const client = createDataClient()
+
+/** The types a person can pick for a column they add to a sheet. */
+const LOCAL_COLUMN_TYPES = ['text', 'decimal', 'time', 'duration'] as const
+
+type LocalColumnType = (typeof LOCAL_COLUMN_TYPES)[number]
 
 /** GRID-04: keep persisted column widths inside the canonical 40–2000 range. */
 function clampColumnWidth(width: number): number {
@@ -395,7 +400,7 @@ function useCanonicalWorkspaceSession({
     })
 
   const [columnLabel, setColumnLabel] = useState('')
-  const [columnType, setColumnType] = useState<'text' | 'decimal'>('text')
+  const [columnType, setColumnType] = useState<LocalColumnType>('text')
   const [calculatorOpen, setCalculatorOpen] = useState(false)
 
   const [pasteOpen, setPasteOpen] = useState(
@@ -1680,7 +1685,7 @@ function useCanonicalWorkspaceSession({
           created.set(change.rowIndex, rowKey)
         }
 
-        const value = parseSheetCellInput(column.field, change.next)
+        const value = parseSheetStoredCell(column.field, change.next)
         // GRID-03 safety net: beforeChange already rejected and reverted
         // invalid values for every write source, so this branch only fires if
         // a change reaches the change handler without passing through it.
@@ -2909,7 +2914,9 @@ function CanonicalWorkspaceAuthoring() {
             value={columnType}
             onChange={(event) =>
               setColumnType(
-                event.target.value === 'decimal' ? 'decimal' : 'text',
+                LOCAL_COLUMN_TYPES.find(
+                  (type) => type === event.target.value,
+                ) ?? 'text',
               )
             }
           >
@@ -2918,6 +2925,12 @@ function CanonicalWorkspaceAuthoring() {
             </option>
             <option value="decimal">
               {t('notebook.canonicalSheetWorkspace.number')}
+            </option>
+            <option value="time">
+              {t('notebook.canonicalSheetWorkspace.time')}
+            </option>
+            <option value="duration">
+              {t('notebook.canonicalSheetWorkspace.duration')}
             </option>
           </Select>
           <Button

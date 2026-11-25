@@ -37,6 +37,8 @@ const TYPE_LABELS: Record<AddableColumnType, () => string> = {
   boolean: () => t('library.templates.addSheetColumn.types.boolean'),
   date: () => t('library.templates.addSheetColumn.types.date'),
   timestamp: () => t('library.templates.addSheetColumn.types.timestamp'),
+  time: () => t('library.templates.addSheetColumn.types.time'),
+  duration: () => t('library.templates.addSheetColumn.types.duration'),
 }
 
 function numberOrUndefined(text: string): number | undefined {

@@ -40,6 +40,10 @@ function typeLabel(logicalType: string): string {
       return 'Date'
     case 'timestamp':
       return 'Date and time'
+    case 'time':
+      return 'Time'
+    case 'duration':
+      return 'Duration'
     case 'category':
       return 'Choice'
     default:

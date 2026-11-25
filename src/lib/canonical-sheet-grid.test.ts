@@ -1,6 +1,7 @@
 import { describe, expect, expectTypeOf, it } from 'vitest'
 
 import {
+  parseSheetStoredCell,
   applySheetPresentation,
   canonicalSheetColumnHeader,
   canonicalSheetGridMatrix,
@@ -271,6 +272,20 @@ describe('parseSheetCellInput', () => {
     expect(parseSheetCellInput(integer, '12')).toBe(12)
     expect(parseSheetCellInput(flag, 'true')).toBe(true)
     expect(parseSheetCellInput(integer, '')).toBeNull()
+  })
+
+  it('reads typed durations, and stored seconds from the grid as seconds', () => {
+    const duration = {
+      ...instance().state.localFields[0],
+      logicalType: 'duration' as const,
+    }
+
+    expect(parseSheetCellInput(duration, '2h30m')).toBe(9000)
+    expect(
+      validateCanonicalCell(duration, parseSheetCellInput(duration, '90')),
+    ).toBe('invalid_value')
+    expect(parseSheetStoredCell(duration, '9000')).toBe(9000)
+    expect(parseSheetStoredCell(duration, '10 min')).toBe(600)
   })
 })
 

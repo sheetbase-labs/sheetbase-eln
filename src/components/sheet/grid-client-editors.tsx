@@ -2,6 +2,7 @@ import type { SpreadsheetCustomEditor } from '@sheetbase-labs/sheetbase-table'
 import { useEffect, useMemo, useRef } from 'react'
 
 import { createFormulaReferenceEditor } from './formula-reference-editor-factory'
+import { TypedTextEditorCell } from './typed-text-editor'
 import type { SheetbaseGridProps } from './sheetbase-grid'
 import type { GridClientLayout } from './grid-client-layout'
 
@@ -73,6 +74,42 @@ export function useGridEditors(
           return column?.formula === true && column.readOnly !== true
         }),
       )
+    }
+
+    if (
+      layout.columns.some(
+        (column) => column.editText !== undefined && column.readOnly !== true,
+      )
+    ) {
+      editors.push({
+        matches: ({ point }) => {
+          const column = layout.columns.at(point.column)
+
+          return column?.editText !== undefined && column.readOnly !== true
+        },
+        render: (context) => {
+          const column = layout.columns.at(context.point.column)
+
+          // Opened on the cell (Enter, double-click): start from the readable
+          // text. Opened by typing: keep what was typed.
+          const draft =
+            context.initialDraft === context.storedValue &&
+            context.storedValue !== ''
+              ? (column?.editText?.(context.storedValue) ??
+                context.initialDraft)
+              : context.initialDraft
+
+          return (
+            <TypedTextEditorCell
+              key={context.address}
+              label={column?.label ?? context.address}
+              initialDraft={draft}
+              commit={context.commit}
+              cancel={context.cancel}
+            />
+          )
+        },
+      })
     }
 
     return editors.length > 0 ? editors : undefined

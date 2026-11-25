@@ -17,7 +17,7 @@ import { ColumnInspector } from '#/components/datasets/column-inspector'
 import { ValueActions } from '#/components/datasets/value-actions'
 import { RecordLinkValue } from '#/components/datasets/record-link-value'
 import type { RepeatSourceSample } from '#/components/datasets/value-actions'
-import { formatSelectedValue } from '#/components/datasets/value-action-presentation'
+import { formatDatasetValue } from '#/components/datasets/value-action-presentation'
 import { hasCapability } from '#/lib/capability'
 import { linkedRecordIds, useRecordLinkLabels } from '#/lib/record-link-labels'
 import type { RecordLinkLabels } from '#/lib/record-link-labels'
@@ -441,7 +441,7 @@ function useDatasetRowColumns(input: {
                 {f.logical_type === 'reference' ? (
                   <RecordLinkValue value={value} labels={recordLabels} />
                 ) : (
-                  formatSelectedValue(value)
+                  formatDatasetValue(f.logical_type, value)
                 )}
               </span>
             )
@@ -648,7 +648,7 @@ function RowsInspector(props: {
                 >
                   {f.logical_type === 'reference'
                     ? linkedText(linkedRecordIds([value]), props.recordLabels)
-                    : formatSelectedValue(value)}
+                    : formatDatasetValue(f.logical_type, value)}
                   {cellFlag ? ' •' : ''}
                 </span>
               </button>
@@ -667,7 +667,10 @@ function RowsInspector(props: {
                   labels={props.recordLabels}
                 />
               ) : (
-                formatSelectedValue(props.selectedValue)
+                formatDatasetValue(
+                  selectedField.logical_type,
+                  props.selectedValue,
+                )
               )}
             </span>
             <span className="text-label text-fg-muted">

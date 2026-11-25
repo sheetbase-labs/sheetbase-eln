@@ -1,4 +1,5 @@
 import { useQuery } from '@tanstack/react-query'
+import { t } from '#/copy'
 import { pipelineJsonObjectSchema } from '#/lib/pipelines/types'
 
 import type { DataClient } from '#/lib/data-client'
@@ -954,10 +955,23 @@ export function modelFieldInputErrors(
     const parsed = parseModelFieldInput(field, raw)
     const error = validateModelFieldValue(field, parsed)
 
-    if (error) errors[field.fieldName] = error
+    if (error) errors[field.fieldName] = typedValueError(field, error)
   }
 
   return errors
+}
+
+/** Time and duration say what a readable value looks like. */
+function typedValueError(field: ModelFieldDefinition, error: string): string {
+  if (error !== 'invalid_value') return error
+
+  if (field.logicalType === 'duration')
+    return t('library.models.builtInModelFields.durationInvalid')
+
+  if (field.logicalType === 'time')
+    return t('library.models.builtInModelFields.timeInvalid')
+
+  return error
 }
 
 const MODEL_FIELD_ERROR_MESSAGES = new Map([

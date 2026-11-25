@@ -50,6 +50,8 @@ const TYPE_LABEL: Record<InferredType, () => string> = {
   boolean: () => t('data.importFlow.fileColumns.typeBoolean'),
   date: () => t('data.importFlow.fileColumns.typeDate'),
   timestamp: () => t('data.importFlow.fileColumns.typeTimestamp'),
+  time: () => t('data.importFlow.fileColumns.typeTime'),
+  duration: () => t('data.importFlow.fileColumns.typeDuration'),
 }
 
 interface Row extends InferredColumn {

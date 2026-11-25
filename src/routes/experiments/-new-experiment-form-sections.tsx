@@ -147,6 +147,7 @@ export function DetailsFieldSection({ form }: { form: Form }) {
         <AddedFieldsFormSection
           draft={form.addedFields}
           showErrors={form.touched}
+          projectId={form.project.effectiveProjectId || null}
         />
       </div>
     </>

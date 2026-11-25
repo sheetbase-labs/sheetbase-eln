@@ -1,5 +1,6 @@
 import { SearchableSelect } from '#/components/record-picker/searchable-select'
 import { t } from '#/copy'
+import { FILE_RELATIONSHIP } from '#/lib/file-field'
 import { usePaneReadOnly } from '#/components/workspace/workspace-navigation'
 import {
   createContext,
@@ -204,6 +205,7 @@ const LOCAL_COLUMN_TYPES = [
   'duration',
   'well',
   'person',
+  'file',
 ] as const
 
 type LocalColumnType = (typeof LOCAL_COLUMN_TYPES)[number]
@@ -1028,13 +1030,20 @@ function useCanonicalWorkspaceSession({
       (field) => field.lifecycle === 'active',
     )
 
-    const field = {
-      ...createAdHocTextField(
-        columnLabel,
-        activeFields.map((item) => item.key),
-      ),
-      logicalType: columnType,
-    }
+    const base = createAdHocTextField(
+      columnLabel,
+      activeFields.map((item) => item.key),
+    )
+
+    // A File column links each cell to an uploaded file.
+    const field =
+      columnType === 'file'
+        ? {
+            ...base,
+            logicalType: 'reference' as const,
+            relationship: FILE_RELATIONSHIP,
+          }
+        : { ...base, logicalType: columnType }
 
     await persistLocalCells([], {
       fieldChanges: [{ operation: 'add', field }],
@@ -2969,6 +2978,9 @@ function CanonicalWorkspaceAuthoring() {
             <option value="person">
               {t('notebook.canonicalSheetWorkspace.person')}
             </option>
+            <option value="file">
+              {t('notebook.canonicalSheetWorkspace.file')}
+            </option>
           </Select>
           <Button
             type="button"
@@ -4187,6 +4199,7 @@ function CanonicalWorkspaceRecords() {
               <ModelFieldInput
                 key={field.id}
                 definition={field}
+                projectId={projectId}
                 value={custom[field.fieldName] ?? ''}
                 onChange={(value) =>
                   setCustom((current) => ({

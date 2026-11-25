@@ -9,6 +9,8 @@ import type {
   ModelFieldRecordValues,
 } from '#/lib/model-fields'
 import { displayModelFieldValue } from '#/lib/model-fields'
+import { RecordLinkValue } from '#/components/datasets/record-link-value'
+import { linkedRecordIds, useRecordLinkLabels } from '#/lib/record-link-labels'
 
 /**
  * Workspace members' names by user id, read only when a person field is on
@@ -47,7 +49,12 @@ export function usePeopleOptions(enabled: boolean) {
   )
 }
 
-/** A field value as text, with person fields shown by name. */
+const NO_IDS: readonly string[] = []
+
+/**
+ * A field value as text, with person fields shown by name and links (File
+ * fields among them) as the linked record.
+ */
 export function ModelFieldValueText({
   field,
   value,
@@ -56,6 +63,11 @@ export function ModelFieldValueText({
   value: ModelFieldRecordValues['customFields'][string] | undefined
 }) {
   const people = usePersonNames(field.logicalType === 'person')
+  const isLink = field.logicalType === 'reference'
+  const labels = useRecordLinkLabels(isLink ? linkedRecordIds([value]) : NO_IDS)
+
+  if (isLink && value != null && value !== '')
+    return <RecordLinkValue value={value} labels={labels.data ?? {}} />
 
   return displayModelFieldValue(field, value, people)
 }

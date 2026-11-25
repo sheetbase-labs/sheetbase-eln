@@ -428,22 +428,22 @@ Scope: `schema:read`. Returns `json`.
 
 Add a draft field to a record type
 
-Adds a field to a record type as a draft. It does nothing on records until it is switched on (`activate_model_field`). `p_logical_type` is `text`, `integer`, `decimal`, `boolean`, `date`, `timestamp`, `category` or `reference`. Returns the field.
+Adds a field to a record type as a draft. It does nothing on records until it is switched on (`activate_model_field`). `p_logical_type` is `text`, `integer`, `decimal`, `boolean`, `date`, `timestamp`, `time`, `duration`, `category` or `reference`. Returns the field.
 
 Scope: `schema:write`. Returns `row:record_field_definitions`.
 
-| Parameter         | Type | Required | Notes                                                                                    |
-| ----------------- | ---- | -------- | ---------------------------------------------------------------------------------------- |
-| `p_workspace_id`  | uuid | yes      | Your workspace id.                                                                       |
-| `p_model_key`     | text | yes      | Key of the record type (model), such as `cell_line`.                                     |
-| `p_field_name`    | text | yes      | Field name: lower case letters, digits and `_`.                                          |
-| `p_label`         | text | yes      |                                                                                          |
-| `p_logical_type`  | text | yes      | `text`, `integer`, `decimal`, `boolean`, `date`, `timestamp`, `category` or `reference`. |
-| `p_nullable`      | bool | no       | false makes it required.                                                                 |
-| `p_default_value` | json | no       | Default value, as JSON.                                                                  |
-| `p_validation`    | json | no       | Checks as JSON, such as `{ "min": 0, "max": 100 }`.                                      |
-| `p_unit`          | json | no       | Unit as JSON, such as `{ "symbol": "mL" }`.                                              |
-| `p_description`   | text | no       | A description.                                                                           |
+| Parameter         | Type | Required | Notes                                                                                                        |
+| ----------------- | ---- | -------- | ------------------------------------------------------------------------------------------------------------ |
+| `p_workspace_id`  | uuid | yes      | Your workspace id.                                                                                           |
+| `p_model_key`     | text | yes      | Key of the record type (model), such as `cell_line`.                                                         |
+| `p_field_name`    | text | yes      | Field name: lower case letters, digits and `_`.                                                              |
+| `p_label`         | text | yes      |                                                                                                              |
+| `p_logical_type`  | text | yes      | `text`, `integer`, `decimal`, `boolean`, `date`, `timestamp`, `time`, `duration`, `category` or `reference`. |
+| `p_nullable`      | bool | no       | false makes it required.                                                                                     |
+| `p_default_value` | json | no       | Default value, as JSON.                                                                                      |
+| `p_validation`    | json | no       | Checks as JSON, such as `{ "min": 0, "max": 100 }`.                                                          |
+| `p_unit`          | json | no       | Unit as JSON, such as `{ "symbol": "mL" }`.                                                                  |
+| `p_description`   | text | no       | A description.                                                                                               |
 
 ### `create_and_activate_model_field`
 
@@ -453,19 +453,19 @@ Adds a field and switches it on in one go, with the choices of a category field.
 
 Scope: `schema:write`. Returns `row:record_field_definitions`.
 
-| Parameter         | Type | Required | Notes                                                                                    |
-| ----------------- | ---- | -------- | ---------------------------------------------------------------------------------------- |
-| `p_workspace_id`  | uuid | yes      | Your workspace id.                                                                       |
-| `p_model_key`     | text | yes      | Key of the record type (model), such as `cell_line`.                                     |
-| `p_field_name`    | text | yes      | Field name: lower case letters, digits and `_`.                                          |
-| `p_label`         | text | yes      |                                                                                          |
-| `p_logical_type`  | text | yes      | `text`, `integer`, `decimal`, `boolean`, `date`, `timestamp`, `category` or `reference`. |
-| `p_nullable`      | bool | yes      | false makes it required.                                                                 |
-| `p_default_value` | json | yes      | Default value, as JSON, or null.                                                         |
-| `p_validation`    | json | yes      | Checks as JSON, such as `{}` or `{ "min": 0 }`.                                          |
-| `p_options`       | json | no       | Choices of a category field, as `[{ key, label }]`.                                      |
-| `p_unit`          | json | no       | Unit as JSON, such as `{ "symbol": "mL" }`.                                              |
-| `p_description`   | text | no       | A description.                                                                           |
+| Parameter         | Type | Required | Notes                                                                                                        |
+| ----------------- | ---- | -------- | ------------------------------------------------------------------------------------------------------------ |
+| `p_workspace_id`  | uuid | yes      | Your workspace id.                                                                                           |
+| `p_model_key`     | text | yes      | Key of the record type (model), such as `cell_line`.                                                         |
+| `p_field_name`    | text | yes      | Field name: lower case letters, digits and `_`.                                                              |
+| `p_label`         | text | yes      |                                                                                                              |
+| `p_logical_type`  | text | yes      | `text`, `integer`, `decimal`, `boolean`, `date`, `timestamp`, `time`, `duration`, `category` or `reference`. |
+| `p_nullable`      | bool | yes      | false makes it required.                                                                                     |
+| `p_default_value` | json | yes      | Default value, as JSON, or null.                                                                             |
+| `p_validation`    | json | yes      | Checks as JSON, such as `{}` or `{ "min": 0 }`.                                                              |
+| `p_options`       | json | no       | Choices of a category field, as `[{ key, label }]`.                                                          |
+| `p_unit`          | json | no       | Unit as JSON, such as `{ "symbol": "mL" }`.                                                                  |
+| `p_description`   | text | no       | A description.                                                                                               |
 
 ### `activate_model_field`
 

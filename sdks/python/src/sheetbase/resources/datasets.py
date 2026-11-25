@@ -22,6 +22,7 @@ from sheetbase._query_result import (
     MeasurementResultPage,
 )
 from sheetbase.errors import StaleVersionError
+from sheetbase.values import encode_value
 from sheetbase.types import (
     CommitResult,
     Dataset,
@@ -58,6 +59,11 @@ def _rows_to_dataframe(
     return df
 
 
+def _encoded(values: Optional[dict[str, Any]]) -> dict[str, Any]:
+    """Row values with times and timedeltas in their stored form."""
+    return {key: encode_value(value) for key, value in (values or {}).items()}
+
+
 class DatasetRowBatch:
     """Builder for dataset row batch operations (validate + commit)."""
 
@@ -73,7 +79,7 @@ class DatasetRowBatch:
         self._rows.append({
             "operation": "create",
             "rowId": row_id or str(_uuid.uuid4()),
-            "values": values or {},
+            "values": _encoded(values),
         })
         return self
 
@@ -88,7 +94,7 @@ class DatasetRowBatch:
             "operation": "update",
             "rowId": row_id,
             "expectedRevision": expected_revision,
-            "values": values or {},
+            "values": _encoded(values),
         })
         return self
 

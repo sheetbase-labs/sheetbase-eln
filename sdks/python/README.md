@@ -229,7 +229,7 @@ yourself, and `EVENT_NAMES` lists every event type.
 | `client.catalogues`       | Schema/sheet-definition/template reads and notebook-template instantiate/upgrade RPCs                                                                                                                                                                                           |
 | `client.agent_operations` | Agent proposal and workflow create/advance/usage/cancel RPCs plus audit-table reads                                                                                                                                                                                             |
 | `client.webhooks`         | Subscription create/update/delete/secret rotation, delivery pagination/replay and table reads                                                                                                                                                                                   |
-| `client.files`            | `upload` (bytes or a path), `upload_version`, `download`, `get`; needs a personal token with `files:write` / `files:read` |
+| `client.files`            | `upload` (bytes or a path), `upload_version`, `download`, `get`; needs a personal token with `files:write` / `files:read`                                                                                                                                                       |
 | `client.pipelines`        | List pipelines, versions, runs, run logs and outputs; trigger through the pipeline webhook; wait_for_run; create_draft, save_draft, sync_step                                                                                                                                   |
 
 Agent operation, workflow, provenance and budget dictionaries remain in the
@@ -298,6 +298,24 @@ with SheetbaseClient(base_url, credential, ["pipelines:read", "pipelines:write"]
 Saving a draft needs a personal token. The same is available from the shell:
 `sheetbase push-step analysis.py --workspace ... --pipeline ... --step analyse`
 with `SHEETBASE_URL` and `SHEETBASE_CREDENTIAL` set.
+
+## Time and duration values
+
+A `time` column holds a clock time, read as `"HH:MM:SS"`; a `duration` column
+holds seconds. `sheetbase.values` converts both:
+
+```python
+import datetime as dt
+from sheetbase.values import parse_time, to_timedelta
+
+start = parse_time(row["values"][start_field])      # datetime.time(9, 30)
+spin = to_timedelta(row["values"][spin_field])      # timedelta(minutes=10)
+
+# Writes take Python's own types and send the stored form.
+client.datasets.commit_rows(dataset_id, revision, DatasetRowBatch().create(
+    values={start_field: dt.time(9, 30), spin_field: dt.timedelta(minutes=10)},
+))
+```
 
 ## Pagination
 

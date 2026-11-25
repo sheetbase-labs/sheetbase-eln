@@ -70,6 +70,8 @@ export const FIELD_TYPES = [
   'boolean',
   'date',
   'timestamp',
+  'time',
+  'duration',
 ] as const
 
 const fieldSpec = z.strictObject({

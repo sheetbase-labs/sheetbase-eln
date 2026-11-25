@@ -522,19 +522,19 @@ export async function handleProxyRequest(
  * status from the platform.
  */
 const WAKE_RETRY_DELAY_MS = 1500
-const WAKE_CONNECT_CODES = new Set([
-  'ECONNREFUSED',
-  'ENOTFOUND',
-  'EAI_AGAIN',
-  'EHOSTUNREACH',
-  'UND_ERR_CONNECT_TIMEOUT',
-])
 
-function neverConnected(error: unknown): boolean {
-  const cause = (error as { cause?: { code?: string } } | null)?.cause
-
-  return typeof cause?.code === 'string' && WAKE_CONNECT_CODES.has(cause.code)
-}
+/** A connection that never opened: nothing reached the upstream. */
+const neverConnected = z.object({
+  cause: z.object({
+    code: z.enum([
+      'ECONNREFUSED',
+      'ENOTFOUND',
+      'EAI_AGAIN',
+      'EHOSTUNREACH',
+      'UND_ERR_CONNECT_TIMEOUT',
+    ]),
+  }),
+})
 
 async function fetchUpstreamWithWakeRetry(
   fetchFn: typeof fetch,
@@ -549,7 +549,7 @@ async function fetchUpstreamWithWakeRetry(
   try {
     response = await fetchFn(url, init)
   } catch (error) {
-    if (!neverConnected(error)) throw error
+    if (!neverConnected.safeParse(error).success) throw error
     await pause()
 
     return fetchFn(url, init)

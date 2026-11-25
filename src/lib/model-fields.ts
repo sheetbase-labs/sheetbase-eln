@@ -21,6 +21,7 @@ import type {
   FieldRelationship,
 } from '#/lib/field-definition'
 import {
+  displayQuantity,
   fieldDisplayUnit,
   parseQuantityNumericValue,
   validateFieldValue,
@@ -512,6 +513,17 @@ export function displayModelFieldValue(
     definitionOfModelField(definition),
     legacySymbol,
   )
+
+  const number = z.number().safeParse(value)
+
+  if (number.success && definitionOfModelField(definition).quantity) {
+    const shown = displayQuantity(
+      definitionOfModelField(definition),
+      number.data,
+    )
+
+    return shown.unit ? `${shown.value} ${shown.unit}` : String(shown.value)
+  }
 
   const text = modelFieldValueText(value)
 

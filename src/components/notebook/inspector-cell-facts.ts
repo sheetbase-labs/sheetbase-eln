@@ -5,6 +5,7 @@ import { formatMagnitude } from '#/lib/format-numbers'
 import type { CanonicalSheetGridColumn } from '#/lib/canonical-sheet-grid'
 import { benchRangeBreach } from '#/components/sheet/sheet-bench-fields'
 import type { FieldDefinition } from '#/lib/field-definition'
+import { displayQuantity } from '#/lib/field-value-validation'
 import { displayTimeOrDuration } from '#/lib/time-duration'
 import { personName } from '#/lib/well-person'
 import type { BoundValueState } from '#/lib/sheet-bound-columns'
@@ -71,11 +72,32 @@ function formatCellValue(
   return String(scalar.data)
 }
 
-/** Prefer the field's configured display unit to its storage unit. */
+/** The unit a column's values are stored in. */
 function fieldUnit(field: FieldDefinition | null): string | null {
-  if (!field?.quantity) return null
+  return field?.quantity?.storageUnit || null
+}
 
-  return field.quantity.preferredDisplayUnit ?? field.quantity.storageUnit
+/** A number in the column's display unit when it has one, as people read it. */
+function cellDisplay(
+  value: z.output<typeof inspectorValue>,
+  field: FieldDefinition | null,
+  people?: ReadonlyMap<string, string>,
+) {
+  const number = z.number().safeParse(value)
+
+  if (field?.quantity && number.success) {
+    const shown = displayQuantity(field, number.data)
+
+    return {
+      display: formatCellValue(shown.value, field, people),
+      unit: shown.unit,
+    }
+  }
+
+  return {
+    display: formatCellValue(value, field, people),
+    unit: fieldUnit(field),
+  }
 }
 
 function fieldValidationRule(field: FieldDefinition | null): string | null {
@@ -192,10 +214,7 @@ export function canonicalCellFacts(input: {
 
   return {
     subject: context.length > 0 ? context.join(' · ') : null,
-    value: {
-      display: formatCellValue(value, field, input.people),
-      unit: fieldUnit(field),
-    },
+    value: cellDisplay(value, field, input.people),
     validation,
     provenance: provenanceFacts(input.valueState ?? null),
     column: column

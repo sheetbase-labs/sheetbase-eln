@@ -155,15 +155,17 @@ async function serveStatic(pathname, response, headOnly, acceptEncoding = '') {
   }
 }
 
+function isCrawler(request) {
+  return /bot|crawl|spider|slurp/i.test(
+    String(request.headers['user-agent'] ?? ''),
+  )
+}
+
 const server = createServer(async (incoming, outgoing) => {
   // The demo's own webhook deliveries call this app back, and search crawlers
   // render its pages. Neither is someone using it, so neither may keep it awake.
-  const crawler = /bot|crawl|spider|slurp/i.test(
-    String(incoming.headers['user-agent'] ?? ''),
-  )
-
   const selfTraffic =
-    crawler || incoming.url?.startsWith('/api/demo/webhook-sink')
+    isCrawler(incoming) || incoming.url?.startsWith('/api/demo/webhook-sink')
 
   if (authFreeDemo) {
     // A sign-in-free demo is not for search engines.
@@ -295,7 +297,8 @@ const collab = createCollabHost({
 globalThis.__sheetbaseCollab = collab
 
 server.on('upgrade', (request, socket, head) => {
-  const release = idleGate?.hold()
+  // A crawler that renders a page opens its live-editing socket too.
+  const release = isCrawler(request) ? undefined : idleGate?.hold()
   socket.once('close', () => release?.())
 
   if (!collab.handleUpgrade(request, socket, head)) socket.destroy()

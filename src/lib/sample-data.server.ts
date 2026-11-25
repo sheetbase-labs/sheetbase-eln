@@ -207,6 +207,11 @@ export async function addSampleData(
     inflight.catch((error) => {
       logger.error('demo load failed', {
         error: error instanceof Error ? error.message : String(error),
+        // Drizzle's message is the query; the database's reason is its cause.
+        cause:
+          error instanceof Error && error.cause instanceof Error
+            ? error.cause.message
+            : undefined,
       })
     })
   }

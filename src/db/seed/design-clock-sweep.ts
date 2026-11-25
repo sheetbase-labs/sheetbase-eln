@@ -20,6 +20,7 @@
  * rolls everything back and leaves none of them off.
  */
 import { sql } from 'drizzle-orm'
+import { z } from 'zod'
 
 import type { SeedStep } from './run'
 
@@ -57,6 +58,62 @@ export async function seedDesignClockSweep(
 
   if (shift === 0 || applied.rows.length > 0) return
 
+  await retryOnLockClash(() => sweepTables(db, at, shift))
+  await shiftAuditLog(db, at, shift)
+  await db.execute(
+    sql`insert into internal.demo_clock_shift (shifted_days) values (${shift})`,
+  )
+}
+
+/**
+ * Postgres codes for a statement that lost a lock race: a deadlock, a lock
+ * that wasn't free, a serialisation failure. The sweep locks every api table
+ * in turn, so on a live app it can meet the background webhook and work
+ * sweeps; the statement rolls back whole, so trying again is safe.
+ */
+const LOCK_CLASH = new Set(['40P01', '55P03', '40001'])
+
+/** An error and what caused it, as far as the codes go. */
+const errorLink = z
+  .object({ code: z.string().optional(), cause: z.unknown().optional() })
+  .catch({})
+
+type ErrorLink = z.infer<typeof errorLink>
+
+/** Every database code along an error's cause chain, outermost first. */
+function errorCodes(link: ErrorLink, depth = 0): string[] {
+  const own = link.code === undefined ? [] : [link.code]
+
+  if (link.cause === undefined || depth >= 4) return own
+
+  return [...own, ...errorCodes(errorLink.parse(link.cause), depth + 1)]
+}
+
+/** Runs `step`, again after a short wait when it lost a lock race. */
+export async function retryOnLockClash(
+  step: () => Promise<void>,
+  attempts = 4,
+  waitMs = 500,
+): Promise<void> {
+  for (let attempt = 1; ; attempt++) {
+    try {
+      // react-doctor-disable-next-line react-doctor/async-await-in-loop -- Each try waits for the last one to roll back.
+      await step()
+
+      return
+    } catch (error) {
+      const lostRace = errorCodes(errorLink.parse(error)).some((code) =>
+        LOCK_CLASH.has(code),
+      )
+
+      if (attempt >= attempts || !lostRace) throw error
+      // react-doctor-disable-next-line react-doctor/async-await-in-loop -- The wait is the point: let the other locker finish.
+      await new Promise((resolve) => setTimeout(resolve, waitMs * attempt))
+    }
+  }
+}
+
+async function sweepTables(db: Db, at: string, shift: number): Promise<void> {
   await db.execute(sql`
     DO $sweep$
     DECLARE
@@ -146,11 +203,6 @@ export async function seedDesignClockSweep(
       END LOOP;
     END
     $sweep$`)
-
-  await shiftAuditLog(db, at, shift)
-  await db.execute(
-    sql`insert into internal.demo_clock_shift (shifted_days) values (${shift})`,
-  )
 }
 
 /** Rebuilds the audit log's hash chain after a step has re-dated entries. */

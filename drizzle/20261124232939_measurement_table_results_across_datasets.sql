@@ -62,6 +62,10 @@ END $function$;
 --> statement-breakpoint
 ALTER FUNCTION api.measurement_table_sources(uuid, boolean) OWNER TO migrator;
 --> statement-breakpoint
+REVOKE ALL ON FUNCTION api.measurement_table_sources(uuid, boolean) FROM PUBLIC;
+--> statement-breakpoint
+GRANT ALL ON FUNCTION api.measurement_table_sources(uuid, boolean) TO authenticated;
+--> statement-breakpoint
 -- The rows of a measurement table across datasets.
 --
 -- p_query (all keys optional):
@@ -333,6 +337,10 @@ BEGIN
 END $function$;
 --> statement-breakpoint
 ALTER FUNCTION api.query_measurement_table_rows(uuid, jsonb, integer, integer) OWNER TO migrator;
+--> statement-breakpoint
+REVOKE ALL ON FUNCTION api.query_measurement_table_rows(uuid, jsonb, integer, integer) FROM PUBLIC;
+--> statement-breakpoint
+GRANT ALL ON FUNCTION api.query_measurement_table_rows(uuid, jsonb, integer, integer) TO authenticated;
 --> statement-breakpoint
 -- A pipeline step may read results across datasets.
 INSERT INTO internal.pipeline_actions (operation, definition) VALUES

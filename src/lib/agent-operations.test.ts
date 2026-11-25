@@ -152,13 +152,13 @@ describe('agent operation client contract', () => {
     ] as const
 
     expect(supported.map(agentOperationLabel)).toEqual([
-      'Create Dataset Schema draft',
-      'Create Sheet Definition draft',
-      'Update Sheet Definition draft',
-      'Create Pipeline Definition',
-      'Create Pipeline draft version',
-      'Update Pipeline draft version',
-      'Commit Dataset rows',
+      'Create measurement table draft',
+      'Create sheet layout draft',
+      'Update sheet layout draft',
+      'Create pipeline',
+      'Create pipeline draft version',
+      'Update pipeline draft version',
+      'Add dataset rows',
     ])
   })
 })

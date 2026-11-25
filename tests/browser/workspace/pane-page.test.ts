@@ -60,6 +60,19 @@ async function setup(page: Page, blockers = false) {
       return
     }
 
+    if (
+      route.request().method() === 'POST' &&
+      resource === 'rpc/record_results'
+    ) {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ total: 0, rows: [] }),
+      })
+
+      return
+    }
+
     if (route.request().method() !== 'GET') {
       unexpected.push(`${route.request().method()} ${url.pathname}`)
       await route.abort('blockedbyclient')

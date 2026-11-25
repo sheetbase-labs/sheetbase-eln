@@ -1125,12 +1125,37 @@ async function lookUpRecordIds(
   return found
 }
 
+/**
+ * Person columns read names as well as user ids, so the workspace's people
+ * become the column's options.
+ */
+async function withPeople(
+  fields: ImportTargetField[],
+  token: string,
+): Promise<ImportTargetField[]> {
+  if (!fields.some((field) => field.logicalType === 'person')) return fields
+
+  const result = await postgrestRpc<Array<{ user_id: string; name: string }>>(
+    'workspace_members_list',
+    {},
+    token,
+  )
+
+  const people = Array.isArray(result.body)
+    ? result.body.map((member) => ({ id: member.user_id, label: member.name }))
+    : []
+
+  return fields.map((field) =>
+    field.logicalType === 'person' ? { ...field, options: people } : field,
+  )
+}
+
 async function buildRows(
   prepared: PreparedImport,
   parser: ImportParserDefinition | null,
   token: string,
 ): Promise<BuiltRows> {
-  const targetFields = toTargetFields(prepared.fields)
+  const targetFields = await withPeople(toTargetFields(prepared.fields), token)
   const mappings = mappingsFromDocument(prepared.mapping, targetFields)
 
   const recordIds = await lookUpRecordIds(

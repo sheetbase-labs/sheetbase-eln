@@ -36,7 +36,7 @@ describe('inferImportColumns', () => {
   const by = (source: string) => columns.find((item) => item.source === source)!
 
   it('reads types from the values', () => {
-    expect(by('Well').type).toBe('text')
+    expect(by('Well').type).toBe('well')
     expect(by('Read time').type).toBe('timestamp')
     expect(by('Signal (RFU)').type).toBe('decimal')
     expect(by('Conc [nM]').type).toBe('decimal')

@@ -16,6 +16,7 @@ import { z } from 'zod'
 
 import { columnKeyFromName, inferColumnType } from '#/lib/import-infer'
 import { timeOrDurationFromText } from '#/lib/time-duration'
+import { wellFromText } from '#/lib/well-person'
 import type { SheetInstanceState } from '#/lib/sheet-instance'
 
 export interface OfficeCell {
@@ -724,7 +725,9 @@ export function buildSheetState(
             ? raw === true
             : logical === 'time' || logical === 'duration'
               ? timeOrDurationFromText(logical, display(raw).trim())
-              : raw
+              : logical === 'well'
+                ? wellFromText(display(raw))
+                : raw
 
       ;(values[rowIds[i]] ??= {})[m.id] = value
     })

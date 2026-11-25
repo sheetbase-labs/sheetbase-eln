@@ -1,3 +1,4 @@
+import { parseWellPosition, wellFromText } from './well-person'
 import { z } from 'zod'
 import type { ScientificLogicalType } from './scientific-sheet-data'
 import { parseDuration, parseTimeOfDay } from './time-duration'
@@ -155,7 +156,10 @@ export function encodeScientificLiteral(
     case 'text':
     case 'category':
     case 'reference':
+    case 'person':
       return literalTextInput.parse(value)
+    case 'well':
+      return wellFromText(literalTextInput.parse(value))
     case 'integer':
       return safeNumber(literalTextInput.parse(value), true)
     case 'decimal':
@@ -237,9 +241,18 @@ export function decodeScientificResult(
   try {
     switch (type) {
       case 'text':
+      case 'person':
         if (!isString(value)) throw new Error('Expected text result.')
 
         return { ok: true, value }
+      case 'well': {
+        const well = isString(value) ? parseWellPosition(value) : null
+
+        if (well === null) throw new Error('Expected a well position.')
+
+        return { ok: true, value: well }
+      }
+
       case 'reference':
         if (!isString(value)) throw new Error('Expected reference UUID result.')
 

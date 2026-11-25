@@ -26,6 +26,7 @@
  * input digest replays the prior success (idempotent); a retry links a new
  * attempt to the failed run.
  */
+import { parseWellPosition } from '#/lib/well-person'
 import { z } from 'zod'
 import {
   buildResultPreview,
@@ -2668,6 +2669,9 @@ function pgTypeFor(logicalType: string): string {
       return 'time'
     case 'duration':
       return 'numeric'
+    case 'well':
+    case 'person':
+      return 'text'
     case 'category':
     case 'reference':
       return 'uuid'
@@ -4149,6 +4153,20 @@ function coerceValue(
       const text = z.string().safeParse(raw)
 
       return (text.success && parseTimeOfDay(text.data)) || COERCE_ERROR
+    }
+
+    case 'well': {
+      const text = z.string().safeParse(raw)
+
+      return (text.success && parseWellPosition(text.data)) || COERCE_ERROR
+    }
+
+    case 'person': {
+      const text = z.string().safeParse(raw)
+
+      return text.success && text.data.trim() !== ''
+        ? text.data.trim()
+        : COERCE_ERROR
     }
 
     // Seconds, a number of them as text, `2 h 30 min`, or a PostgreSQL

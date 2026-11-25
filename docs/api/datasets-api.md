@@ -300,6 +300,13 @@ file import accepts a member's name (when only one member has it) or their user
 id. Pipelines receive both as `text`. Neither type can be a physical quantity
 column.
 
+### Values in another unit
+
+A number column with a unit (its quantity's `storageUnit`) also takes a value
+in another unit of the same kind, as `"2 g"` or `{ "value": 2, "unit": "g" }`,
+and stores it in its own unit. A unit of another kind is refused with the cell
+code `wrong_unit`. See [units-api.md](units-api.md).
+
 ### File columns
 
 A file column holds an uploaded file. Each uploaded file is a record of the

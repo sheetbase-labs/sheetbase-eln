@@ -82,6 +82,15 @@ def well_sort_key(value: str) -> int:
     return _row_number(letters) * 100 + int(well[len(letters):])
 
 
+def quantity(value: float, unit: str) -> dict[str, Any]:
+    """A number in a unit, for a column stored in another unit of its kind.
+
+    ``quantity(2, "g")`` written to a column stored in mg stores 2000; the
+    database converts it and keeps what was sent.
+    """
+    return {"value": value, "unit": unit}
+
+
 def encode_value(value: Any) -> Any:
     """A value ready to send: times become ``"HH:MM:SS"`` and timedeltas seconds.
 
@@ -101,6 +110,7 @@ __all__ = [
     "from_timedelta",
     "parse_time",
     "parse_well",
+    "quantity",
     "to_timedelta",
     "well_sort_key",
 ]

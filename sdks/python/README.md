@@ -343,6 +343,25 @@ client.datasets.commit_rows(dataset_id, revision, DatasetRowBatch().create(
 ))
 ```
 
+## Units
+
+A number column with a unit takes a value in another unit of the same kind,
+as text or as `{"value", "unit"}`, and stores it in its own unit. What was
+sent is kept in the `quantity_entries` table:
+
+```python
+# Mass is stored in mg: these rows store 2000 and 500.
+client.datasets.commit_rows(dataset_id, revision, DatasetRowBatch()
+    .create(values={mass_field: "2 g"})
+    .create(values={mass_field: {"value": 500, "unit": "mg"}}))
+
+client.rpc.convert_quantity(p_value=90, p_from_unit="min", p_to_unit="h")
+# {"value": 1.5, "unit": "h", "from": {"value": 90, "unit": "min"}, "dimension": "time"}
+```
+
+A unit of another kind (`"2 mL"` in mg) is refused with the cell code
+`wrong_unit`. See `docs/api/units-api.md` for the unit table.
+
 ## Pagination
 
 All list/query methods support `limit`/`offset` for manual paging. For auto-pagination, use the `iter_*` methods which return generators:

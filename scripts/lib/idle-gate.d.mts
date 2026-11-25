@@ -5,7 +5,7 @@ export interface IdleGate {
 }
 
 export interface IntervalTarget {
-  setInterval: (callback: () => void, delay?: number) => unknown
+  setInterval: (callback: () => void, delay?: number) => number
 }
 
 export function createIdleGate(options: {

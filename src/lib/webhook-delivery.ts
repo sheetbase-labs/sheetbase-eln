@@ -730,7 +730,7 @@ async function deliverByEmail(
 export async function processChangeEvent(
   notification: NotificationPayload,
   connectionString: string = env.DATABASE_URL,
-): Promise<void> {
+): Promise<boolean> {
   // Fetch the full change event row.
   const eventClient = new PooledClient({ connectionString })
   await eventClient.connect()
@@ -746,7 +746,7 @@ export async function processChangeEvent(
       [notification.id],
     )
 
-    if (rows.length === 0) return
+    if (rows.length === 0) return false
     const row = rows[0]
     eventRow = {
       id: row.id,
@@ -774,7 +774,7 @@ export async function processChangeEvent(
     eventRow.payload,
   )
 
-  if (!eventType) return // Not in the webhook surface.
+  if (!eventType) return false // Not in the webhook surface.
 
   // Find matching subscriptions.
   const subscriptions = await findMatchingSubscriptions(
@@ -784,7 +784,7 @@ export async function processChangeEvent(
     eventRow.createdAt,
   )
 
-  if (subscriptions.length === 0) return
+  if (subscriptions.length === 0) return false
 
   // Build the payload once (same for all subscriptions).
   const eventPayload = buildEventPayload(eventRow, eventType)
@@ -863,6 +863,8 @@ export async function processChangeEvent(
       })
     }
   }
+
+  return true
 }
 
 // ---------------------------------------------------------------------------
@@ -996,9 +998,12 @@ const RECONNECT_DELAY_MS = 5_000
  * before subscription creation are not historical subscriptions/backfills.
  * Pages advance even for unsupported operations or missing signing secrets;
  * those cannot starve later events and are reconsidered on the next sweep.
+ * Pass `settled` to remember events no subscription wants, so a running engine
+ * does not re-read them every minute.
  */
 export async function reconcileWebhookDeliveries(
   connectionString: string = env.DATABASE_URL,
+  settled?: Set<string>,
 ): Promise<number> {
   const client = new PooledClient({ connectionString })
   await client.connect()
@@ -1030,6 +1035,7 @@ export async function reconcileWebhookDeliveries(
          FROM api.change_events ce
         WHERE (ce.sequence, ce.id) > ($1::bigint, $3::uuid)
           AND ce.entity_type = ANY($2::text[])
+          AND ce.id <> ALL($4::uuid[])
           AND EXISTS (
             SELECT 1 FROM api.webhook_subscriptions s
              WHERE s.workspace_id = ce.workspace_id AND s.status = 'active'
@@ -1042,7 +1048,7 @@ export async function reconcileWebhookDeliveries(
           )
         ORDER BY ce.sequence ASC, ce.id ASC
         LIMIT ${CATCHUP_BATCH_SIZE}`,
-        [afterSequence, entityTypes, afterId],
+        [afterSequence, entityTypes, afterId, [...(settled ?? [])]],
       )
 
       if (rows.length === 0) break
@@ -1051,7 +1057,7 @@ export async function reconcileWebhookDeliveries(
 
       for (const row of rows) {
         try {
-          await processChangeEvent(
+          const delivered = await processChangeEvent(
             {
               workspace_id: row.workspace_id,
               sequence: Number(row.sequence),
@@ -1061,6 +1067,10 @@ export async function reconcileWebhookDeliveries(
             },
             connectionString,
           )
+
+          // An event no subscription wants leaves no delivery row, so every
+          // sweep would find it again. Remember it for this process.
+          if (!delivered) settled?.add(row.id)
           processed++
         } catch (err) {
           logger.error('webhook catch-up: error processing event', {
@@ -1122,13 +1132,15 @@ export function startWebhookDeliveryEngine(
   let reconnectTimer: ReturnType<typeof setTimeout> | null = null
   let draining: Promise<void> | null = null
   let notifications = 0
+  // Events already looked at that no subscription wants (see reconcile).
+  const settled = new Set<string>()
 
   async function drainPending(): Promise<void> {
     let observed: number
 
     do {
       observed = notifications
-      await reconcileWebhookDeliveries(connectionString)
+      await reconcileWebhookDeliveries(connectionString, settled)
 
       while (!stopped && (await processRetries(connectionString)) > 0) {
         // Drain all due batches, not just the first 50 rows.

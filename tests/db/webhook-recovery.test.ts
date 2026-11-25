@@ -145,6 +145,21 @@ it('does not backfill events older than the subscription or let filtered events 
   expect(rows[0].change_event_id).not.toBe(older.id)
 })
 
+it('stops re-reading events no subscription wants once a sweep has settled them', async () => {
+  await db.query(
+    `update api.webhook_subscriptions set event_types='["dataset.created"]'`,
+  )
+  await event()
+  await event()
+  const settled = new Set<string>()
+  expect(await reconcileWebhookDeliveries(migratorUrl(), settled)).toBe(2)
+  expect(settled.size).toBe(2)
+  expect(await reconcileWebhookDeliveries(migratorUrl(), settled)).toBe(0)
+  // Without the memory, a sweep still looks at them (the repair path).
+  expect(await reconcileWebhookDeliveries(migratorUrl())).toBe(2)
+  expect(await count()).toBe(0)
+})
+
 it('holds atomic ownership through HTTP and settlement across overlapping workers', async () => {
   await db.query(
     `update api.webhook_subscriptions set status='disabled' where id=$1`,

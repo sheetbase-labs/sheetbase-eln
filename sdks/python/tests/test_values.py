@@ -9,6 +9,7 @@ from sheetbase.values import (
     from_timedelta,
     parse_time,
     parse_well,
+    quantity,
     to_timedelta,
     well_sort_key,
 )
@@ -65,3 +66,8 @@ def test_wells_sort_row_by_row():
         "B1",
         "AA1",
     ]
+
+
+def test_quantity_is_sent_as_value_and_unit():
+    batch = DatasetRowBatch().create(row_id="r1", values={"mass": quantity(2, "g")})
+    assert batch.rows[0]["values"] == {"mass": {"value": 2, "unit": "g"}}

@@ -3126,21 +3126,21 @@ export const library = {
     templateUpdateView: {
       sectionAdded: 'Section added',
       sectionRemoved: 'Section removed',
-      sheetRePinnedToA: 'Sheet re-pinned to a newer definition version',
+      sheetRePinnedToA: 'Sheet moved to a newer sheet layout version',
       noMatchingSheetInThis: 'No matching sheet in this notebook',
       sheetDefinitionChangedIncompatibly: 'Sheet layout changed incompatibly',
       keepAsItIs: 'Keep as it is',
       leaveThisPartOnIts:
-        'Leave this part on its current definition; nothing here changes.',
-      takeTheNewDefinition: 'Take the new definition',
+        'Leave this part on its current sheet layout; nothing here changes.',
+      takeTheNewDefinition: 'Take the new sheet layout',
       updateThisPartToThe:
         'Update this part to the target version, resolving the fields below.',
       keepTheLocalColumn: 'Keep the local column',
       theColumnLeavesTheDefinition:
-        'The column leaves the definition but stays in this sheet.',
+        'The column leaves the sheet layout but stays in this sheet.',
       mapToANewColumn: 'Map to a new column',
       pointThisColumnAtA:
-        'Point this column at a column in the new definition.',
+        'Point this column at a column in the new sheet layout.',
       defer: 'Defer',
       resolveLaterTheUpdateCannot:
         'Resolve later; the update can’t be applied while this is deferred.',

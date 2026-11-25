@@ -243,7 +243,7 @@ describe('CanonicalSheetLifecyclePanel', () => {
     await user.click(
       screen.getByRole('button', { name: 'Link data and reuse this sheet' }),
     )
-    await user.type(screen.getByLabelText('Definition key'), 'assay_results')
+    await user.type(screen.getByLabelText('Layout key'), 'assay_results')
     await user.click(screen.getByRole('button', { name: 'Extract draft' }))
 
     const link = await screen.findByRole('link', {

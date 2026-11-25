@@ -1269,7 +1269,7 @@ export const notebook = {
     loadingSheet: 'Loading sheet…',
     sheetUnavailable: 'Sheet unavailable',
     openFullSheet: 'Open full sheet',
-    sheetFromADefinition: 'Sheet from a Definition. Open the block to edit.',
+    sheetFromADefinition: 'Sheet from a sheet layout. Open the block to edit.',
     adHocSheetOpen: 'Ad hoc sheet. Open the block to edit.',
     thisSheetIsArchived: ' This sheet is archived.',
     unsupportedPayloadVersion: 'Unsupported version',
@@ -1613,7 +1613,7 @@ export const notebook = {
       'This notebook has no project, so records can’t be created or linked here. The sheet remains readable.',
     alsoUsedIn: 'Also used in',
     adHocSheet: 'Ad hoc sheet',
-    sheetDefinition: 'Sheet Definition',
+    sheetDefinition: 'Sheet layout',
     revisionInstancerevision: ' · revision {instanceRevision}',
     youDoNotHave: 'You don’t have permission to view this sheet.',
     thisSheetCouldNot:
@@ -2133,9 +2133,9 @@ export const notebook = {
     applyThisUpgradeTitle: 'Apply this upgrade?',
     body2:
       'This sheet moves to {target} and adopts changes that are already applied. A preview with conflicts is refused instead of partially applied.',
-    extractAndPublishThisTitle: 'Extract and publish this definition?',
+    extractAndPublishThisTitle: 'Extract and publish this sheet layout?',
     body3:
-      'A definition draft is extracted from this sheet and published straight away, so new sheets can start from it. It isn’t reviewed against a draft first.',
+      'A sheet layout is extracted from this sheet and published straight away, so new sheets can start from it. It isn’t reviewed as a draft first.',
     writeADatasetFromTitle: 'Save this sheet as a dataset?',
     hideSourcesAndReuse: 'Hide data links and reuse',
     sourcesExtractUpgrade: 'Link data and reuse this sheet',
@@ -2144,7 +2144,7 @@ export const notebook = {
     bindingShowsADataset:
       'Binding shows a dataset beside your own columns. It doesn’t move any column into the dataset; to do that, choose Add to dataset on the column itself.',
     sheetDefinition: 'Sheet layout',
-    selectDefinition: 'Select definition',
+    selectDefinition: 'Select sheet layout',
     publishedVersion: 'Published version',
     ariaLabel: 'Published sheet layout version',
     selectVersion: 'Select version',
@@ -2155,8 +2155,8 @@ export const notebook = {
     previewAdoption: 'Preview adoption',
     applyAdoption: 'Apply adoption',
     extractUpgradeMaterialise: 'Extract, upgrade, save as dataset',
-    definitionKey: 'Definition key',
-    definitionName: 'Definition name',
+    definitionKey: 'Layout key',
+    definitionName: 'Layout name',
     extractDraft: 'Extract draft',
     extractAndPublish: 'Extract and publish',
     previewUpgrade: 'Preview upgrade',
@@ -2167,37 +2167,37 @@ export const notebook = {
     openTheNewDataset: 'Open the new dataset',
     reviewSheetDefinition: 'Review sheet layout',
     thisSheetIsNot:
-      'This sheet isn’t backed by a definition, so it can’t be saved as a dataset as it stands. To keep its data, add a column to a dataset from the column menu.',
+      'This sheet has no sheet layout, so it can’t be saved as a dataset as it stands. To keep its data, add a column to a dataset from the column menu.',
     aDefinitionNeedsOne:
-      'A definition needs one reference column that says what each row is about, and this sheet has none. To keep its data, add a column to a dataset from the column menu.',
+      'A sheet layout needs one reference column that says what each row is about, and this sheet has none. To keep its data, add a column to a dataset from the column menu.',
     theSourceBindingParameter: 'The source binding parameter is unavailable.',
-    chooseAPublishedDefinition: 'Choose a published definition.',
+    chooseAPublishedDefinition: 'Choose a published sheet layout.',
     adoptionCompatibleCountUnmatched:
-      'Adoption compatible. {count} unmatched local row(s). Apply to compose this Instance.',
+      'Adoption compatible. {count} unmatched local row(s). Apply to use it on this sheet.',
     adoptionPreviewWasIncompatible: 'Adoption preview was incompatible.',
     adoptedDefinitionCountLocal:
-      'Adopted definition. {count} local rows are unmatched.',
-    adoptedDefinitionOnThis: 'Adopted definition on this sheet.',
+      'Adopted the sheet layout. {count} local rows are unmatched.',
+    adoptedDefinitionOnThis: 'Adopted the sheet layout on this sheet.',
     theSourceSheetDefinition: 'The source sheet layout version is unavailable.',
     extractedDraftDefinitionName:
-      'Extracted draft definition “{name}”. Review and publish the sheet layout.',
+      'Extracted draft sheet layout “{name}”. Review and publish it.',
     publishedDefinitionVersionVersion:
-      'Published definition version {version}.',
+      'Published sheet layout version {version}.',
     countUpgradeConflictS:
       '{count} upgrade conflict(s). Resolve mapping before applying.',
     countAutomaticChangeS:
-      '{count} automatic change(s). Apply to upgrade this Instance.',
+      '{count} automatic change(s). Apply to upgrade this sheet.',
     upgradedThisSheetTo:
-      'Upgraded this sheet to the selected definition version.',
+      'Upgraded this sheet to the selected sheet layout version.',
     upgradeDeferredUntilConflicts:
       'Upgrade deferred until conflicts are resolved.',
     materialisationDigestPreviewdigestConfirm:
       'Preview code {previewDigest}… Confirm to save as a dataset.',
     datasetWrittenFromThis: 'Dataset written from this sheet.',
-    theSelectedDefinition: 'the selected definition',
+    theSelectedDefinition: 'the selected sheet layout',
     adoptionIncompatible: 'Adoption is incompatible.',
     adoptionIncompatibleCode: 'Adoption is incompatible ({code}).',
-    extractedName: '{name} definition',
+    extractedName: '{name} layout',
     outputName: '{name} output',
     materialiseBody:
       'A dataset is saved from the rows this sheet holds now, as “{name}”. Later edits to the sheet don’t change that dataset.',
@@ -2322,7 +2322,7 @@ export const notebook = {
     ownRows: 'The sheet’s own rows',
     fromDefinition: 'A sheet layout',
     fromDuplicate: 'A copy of another sheet',
-    fromAdHoc: 'Ad hoc, no definition',
+    fromAdHoc: 'Ad hoc, no sheet layout',
     liveTitle: 'Live, not pinned',
     liveText:
       'These columns follow new revisions of the dataset. A snapshot is a frozen copy that notebooks cite, so signed numbers never change. Pinned to one, the columns would show it and be read-only.',
@@ -2897,7 +2897,7 @@ export const notebook = {
     title: 'Sheet layout',
     backToSourceSheet: 'Back to source sheet',
     version: 'Version',
-    definitionLifecycle: 'Definition: {lifecycle}',
+    definitionLifecycle: 'Sheet layout: {lifecycle}',
     publishVersionVersion: 'Publish version {version}',
     loadingSheetDefinition: 'Loading sheet layout…',
     checkYourWorkspaceAccess: 'Check your workspace access and connection.',

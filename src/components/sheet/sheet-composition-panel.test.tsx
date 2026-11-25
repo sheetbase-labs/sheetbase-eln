@@ -56,7 +56,7 @@ describe('SheetCompositionPanel', () => {
       <SheetCompositionPanel
         columns={columns}
         rowsMatchedOn={['Condition']}
-        from="Ad hoc, no definition"
+        from="Ad hoc, no sheet layout"
         onAddToDataset={onAddToDataset}
       />,
     )

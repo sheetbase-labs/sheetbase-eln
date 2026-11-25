@@ -101,7 +101,7 @@ describe('model field semantics flow', () => {
     expect(parseModelFieldInput(definition, 'nope')).toBe('nope')
   })
 
-  it('displays the storage unit without relabelling the raw magnitude', () => {
+  it('shows a value in its display unit, converted, never relabelled', () => {
     expect(
       displayModelFieldValue(
         field('decimal', {
@@ -111,6 +111,20 @@ describe('model field semantics flow', () => {
             dimension: 'mass/volume',
             storageUnit: 'mg/mL',
             preferredDisplayUnit: 'µg/mL',
+          },
+        }),
+        2.5,
+      ),
+    ).toBe('2500 µg/mL')
+    // A display unit of another kind is ignored: the stored unit is shown.
+    expect(
+      displayModelFieldValue(
+        field('decimal', {
+          quantity: {
+            kind: 'concentration',
+            dimension: 'mass/volume',
+            storageUnit: 'mg/mL',
+            preferredDisplayUnit: 'cells/mL',
           },
         }),
         2.5,

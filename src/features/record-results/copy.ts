@@ -19,7 +19,7 @@ export const copy = {
   emptyHint:
     'Rows in a dataset show here when one of its link columns points at this record.',
   loading: 'Loading results…',
-  error: 'Results could not be loaded.',
+  error: 'Results couldn’t be loaded.',
   retry: 'Try again',
   more: 'Showing the first {shown} of {total} results.',
   tab: 'Results',

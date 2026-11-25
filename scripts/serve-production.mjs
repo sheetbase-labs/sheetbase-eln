@@ -178,6 +178,16 @@ const server = createServer(async (incoming, outgoing) => {
 
       return
     }
+
+    // Rendering the app for a crawler reads the database every few minutes, so
+    // the database never sleeps. Turn it away before it gets that far.
+    if (isCrawler(incoming)) {
+      outgoing.statusCode = 403
+      outgoing.setHeader('content-type', 'text/plain; charset=utf-8')
+      outgoing.end('Not for crawlers.\n')
+
+      return
+    }
   }
 
   if (!selfTraffic) idleGate?.touch()

@@ -300,6 +300,22 @@ file import accepts a member's name (when only one member has it) or their user
 id. Pipelines receive both as `text`. Neither type can be a physical quantity
 column.
 
+### File columns
+
+A file column holds an uploaded file. Each uploaded file is a record of the
+built-in `file` type, so a file column is a link column to that type:
+`{ logical_type: "reference", relationship: { target: { kind: "model", modelKey: "file" }, cardinality: "one" } }`
+(on a record type's field, `p_logical_type` `reference` with
+`p_validation` `{ "targetModelKey": "file" }`). A value is the file's record
+id, the `fileRecordId` that `POST /api/files/upload-authorize` returns (see
+[Uploading and downloading files](lab-api.md#uploading-and-downloading-files)).
+A write is refused with `invalid_reference` unless the id is a file in the
+workspace. Read the file's name and bytes through `records` and
+`GET /api/files/{recordId}/download`.
+
+The app calls these columns "File", shows the file's name as a link, and lets
+people upload a file in place on forms or pick one already uploaded.
+
 ### Promoting sheet columns
 
 #### `preview_calculation_promotion`

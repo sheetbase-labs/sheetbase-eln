@@ -331,6 +331,18 @@ parse_well("b03")                                  # "B3"
 sorted(["A10", "A2", "B1"], key=well_sort_key)     # ["A2", "A10", "B1"]
 ```
 
+## File values
+
+A file column links to an uploaded file. Upload it, then write its
+`fileRecordId` into the column:
+
+```python
+stored = client.files.upload(project_id, "coa-lot42.pdf")
+client.datasets.commit_rows(dataset_id, revision, DatasetRowBatch().create(
+    values={coa_field: stored["fileRecordId"]},
+))
+```
+
 ## Pagination
 
 All list/query methods support `limit`/`offset` for manual paging. For auto-pagination, use the `iter_*` methods which return generators:

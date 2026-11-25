@@ -5,6 +5,7 @@ import { z } from 'zod'
 
 import { coerceDatasetCellValue } from './dataset-product'
 import { FIELD_LOGICAL_TYPES } from './field-definition'
+import { parseDuration, parseTimeOfDay } from './time-duration'
 import type { ImportSheet } from './import-parse'
 import type { ScientificColumnWire } from './scientific-sheet-data'
 
@@ -360,6 +361,28 @@ export function coerceImportValue(
       }
 
       return trimmed
+    case 'time': {
+      const time = parseTimeOfDay(trimmed)
+
+      if (!time)
+        throw new Error(
+          `${field.label}: use a 24-hour time such as 09:30, not ${trimmed}.`,
+        )
+
+      return time
+    }
+
+    case 'duration': {
+      const seconds = /[a-z:]/i.test(trimmed) ? parseDuration(trimmed) : null
+
+      if (seconds === null)
+        throw new Error(
+          `${field.label}: write the duration with its unit, such as 90 s, 10 min or 2 h 30 min, not ${trimmed}.`,
+        )
+
+      return seconds
+    }
+
     case 'category': {
       const option = (field.options ?? []).find(
         (item) =>

@@ -5,8 +5,9 @@
  * server can run it over every row and tests can pin the rules.
  */
 import { importHeaderUnit } from '#/lib/import-mapping'
+import { parseDuration, parseTimeOfDay } from '#/lib/time-duration'
 
-/** Types a table made from a file can have; the database accepts these six. */
+/** Types a table made from a file can have; the database accepts these eight. */
 export const INFERRED_TYPES = [
   'text',
   'integer',
@@ -14,6 +15,8 @@ export const INFERRED_TYPES = [
   'boolean',
   'date',
   'timestamp',
+  'time',
+  'duration',
 ] as const
 
 export type InferredType = (typeof INFERRED_TYPES)[number]
@@ -69,6 +72,17 @@ export function inferColumnType(values: string[]): InferredType {
   ) {
     return 'timestamp'
   }
+
+  if (values.every((value) => parseTimeOfDay(value) !== null)) return 'time'
+
+  // Only values written with units (`2 h 30 min`, `90 s`) read as durations;
+  // a bare number stays a number.
+  if (
+    values.every(
+      (value) => /[a-z]/i.test(value) && parseDuration(value) !== null,
+    )
+  )
+    return 'duration'
 
   return 'text'
 }

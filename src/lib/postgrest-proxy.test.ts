@@ -698,4 +698,74 @@ describe('PLAT-03 proxy rate limiting', () => {
       /sheetbase_db_upstream_requests_total\{category="rate_limited"\} \d+/,
     )
   })
+
+  describe('waking upstream', () => {
+    it('retries a read once when the platform answers 503', async () => {
+      let calls = 0
+
+      const response = await handleProxyRequest(
+        req('projects'),
+        'projects',
+        makeDeps({
+          retryDelayMs: 0,
+          fetchFn: async () => {
+            calls += 1
+
+            return calls === 1
+              ? new Response('waking', { status: 503 })
+              : Response.json([])
+          },
+        }),
+      )
+
+      expect(response.status).toBe(200)
+      expect(calls).toBe(2)
+    })
+
+    it('retries once when the connection was refused', async () => {
+      let calls = 0
+
+      const response = await handleProxyRequest(
+        req('rpc/create_record', { method: 'POST', body: '{}' }),
+        'rpc/create_record',
+        makeDeps({
+          retryDelayMs: 0,
+          fetchFn: async () => {
+            calls += 1
+
+            if (calls === 1) {
+              throw new TypeError('fetch failed', {
+                cause: { code: 'ECONNREFUSED' },
+              })
+            }
+
+            return Response.json({ id: 'x' })
+          },
+        }),
+      )
+
+      expect(response.status).toBe(200)
+      expect(calls).toBe(2)
+    })
+
+    it('never repeats a write that got a gateway status', async () => {
+      let calls = 0
+
+      const response = await handleProxyRequest(
+        req('rpc/create_record', { method: 'POST', body: '{}' }),
+        'rpc/create_record',
+        makeDeps({
+          retryDelayMs: 0,
+          fetchFn: async () => {
+            calls += 1
+
+            return new Response('x', { status: 503 })
+          },
+        }),
+      )
+
+      expect(response.status).toBe(503)
+      expect(calls).toBe(1)
+    })
+  })
 })

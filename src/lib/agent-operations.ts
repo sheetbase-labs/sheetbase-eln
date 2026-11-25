@@ -555,19 +555,19 @@ export const agentOperationQueryKeys = {
 export function agentOperationLabel(kind: AgentOperationKind): string {
   switch (kind) {
     case 'dataset_schema.create':
-      return 'Create Dataset Schema draft'
+      return 'Create measurement table draft'
     case 'sheet_definition.create':
-      return 'Create Sheet Definition draft'
+      return 'Create sheet layout draft'
     case 'sheet_definition.update_draft':
-      return 'Update Sheet Definition draft'
+      return 'Update sheet layout draft'
     case 'pipeline_definition.create':
-      return 'Create Pipeline Definition'
+      return 'Create pipeline'
     case 'pipeline_definition.create_version':
-      return 'Create Pipeline draft version'
+      return 'Create pipeline draft version'
     case 'pipeline_definition.update_draft':
-      return 'Update Pipeline draft version'
+      return 'Update pipeline draft version'
     case 'dataset_rows.commit':
-      return 'Commit Dataset rows'
+      return 'Add dataset rows'
     case 'notebook_block.insert':
       return 'Insert notebook block'
     case 'notebook_block.update':
@@ -581,13 +581,13 @@ export function agentOperationLabel(kind: AgentOperationKind): string {
     case 'record.custom_fields.update':
       return 'Update record fields'
     case 'sheet_instance.create':
-      return 'Create Sheet Instance'
+      return 'Create sheet'
     case 'sheet_instance.update':
-      return 'Update Sheet Instance'
+      return 'Update sheet'
     case 'sheet_instance.archive':
-      return 'Archive Sheet Instance'
+      return 'Archive sheet'
     case 'sheet_instance.restore':
-      return 'Restore Sheet Instance'
+      return 'Restore sheet'
     case 'template.instantiate':
       return 'Instantiate protocol template'
     case 'template.upgrade':
@@ -607,7 +607,7 @@ export function agentOperationLabel(kind: AgentOperationKind): string {
     case 'instrument_rate.set':
       return 'Set instrument rate'
     case 'sheet_instance.materialize':
-      return 'Materialize Sheet Instance'
+      return 'Save sheet as a dataset'
     case 'workspace_ai_settings.update':
       return 'Update workspace AI settings'
     default: {

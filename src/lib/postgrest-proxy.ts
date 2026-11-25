@@ -79,6 +79,8 @@ export interface ProxyDeps {
    */
   guardWrite?: (input: WriteGuardInput) => Promise<WriteGuardResult>
   fetchFn?: typeof fetch
+  /** Pause before the one retry of a request that met a waking upstream. */
+  retryDelayMs?: number
   /**
    * PLAT-03 — abuse bound for the data proxy. Defaults to a fixed-window
    * limiter from validated env; tests may inject their own.
@@ -473,11 +475,12 @@ export async function handleProxyRequest(
   let response: Response
 
   try {
-    response = await (deps.fetchFn ?? fetch)(upstream, {
-      method: request.method,
-      headers,
-      body: requestBody,
-    })
+    response = await fetchUpstreamWithWakeRetry(
+      deps.fetchFn ?? fetch,
+      upstream,
+      { method: request.method, headers, body: requestBody },
+      deps.retryDelayMs ?? WAKE_RETRY_DELAY_MS,
+    )
 
     if (path.kind === 'rpc') observeRpcLatency(path.resource, startedAt)
   } catch (error) {
@@ -509,6 +512,57 @@ export async function handleProxyRequest(
     )
 
   return stampRequestId(finalResponse, requestId)
+}
+
+/**
+ * A sleeping PostgREST (Railway app sleeping) wakes on the first request and
+ * answers that one with a gateway error or a refused connection. One short
+ * retry hides it. Only requests that cannot have reached the database are
+ * repeated: a connection that never opened, or a read that got a gateway
+ * status from the platform.
+ */
+const WAKE_RETRY_DELAY_MS = 1500
+const WAKE_CONNECT_CODES = new Set([
+  'ECONNREFUSED',
+  'ENOTFOUND',
+  'EAI_AGAIN',
+  'EHOSTUNREACH',
+  'UND_ERR_CONNECT_TIMEOUT',
+])
+
+function neverConnected(error: unknown): boolean {
+  const cause = (error as { cause?: { code?: string } } | null)?.cause
+
+  return typeof cause?.code === 'string' && WAKE_CONNECT_CODES.has(cause.code)
+}
+
+async function fetchUpstreamWithWakeRetry(
+  fetchFn: typeof fetch,
+  url: string | URL,
+  init: RequestInit,
+  delayMs: number,
+): Promise<Response> {
+  const pause = () => new Promise((resolve) => setTimeout(resolve, delayMs))
+  const isRead = init.method === 'GET' || init.method === 'HEAD'
+  let response: Response
+
+  try {
+    response = await fetchFn(url, init)
+  } catch (error) {
+    if (!neverConnected(error)) throw error
+    await pause()
+
+    return fetchFn(url, init)
+  }
+
+  if (isRead && [502, 503, 504].includes(response.status)) {
+    await response.body?.cancel()
+    await pause()
+
+    return fetchFn(url, init)
+  }
+
+  return response
 }
 
 /** What plugins said while letting a save through, URL-encoded and joined with ` | `. */

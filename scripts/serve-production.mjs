@@ -5,11 +5,16 @@ import { Readable } from 'node:stream'
 import { constants as zlib, createBrotliCompress, createGzip } from 'node:zlib'
 import { extname, resolve, sep } from 'node:path'
 
-import application from '../.output/server/index.mjs'
 import { acceptsEncoding } from './lib/accept-encoding.mjs'
 import { dynamicEncoding } from './lib/compress-response.mjs'
 import { applyProductionSecurityHeaders } from './lib/security-headers.mjs'
 import { createCollabHost } from './lib/collab-host.mjs'
+import { gateStartedIntervals } from './lib/idle-gate-install.mjs'
+
+// Before the app module starts its background sweeps (see lib/idle-gate.mjs).
+const idleGate = gateStartedIntervals()
+
+const { default: application } = await import('../.output/server/index.mjs')
 
 const host = process.env.HOST ?? '0.0.0.0'
 const port = Number(process.env.PORT ?? '3000')
@@ -53,12 +58,23 @@ async function assertStartupReady() {
     )
   }
 
-  const response = await application.fetch(
-    new Request(`http://${host}:${port}/api/health/ready`),
-  )
+  // The database and PostgREST may be waking from sleep or restarting beside
+  // this process: give them a while before giving up.
+  const deadline = Date.now() + 90_000
 
-  if (!response.ok) {
-    throw new Error('deployment readiness validation failed before startup')
+  for (;;) {
+    const response = await application.fetch(
+      new Request(`http://${host}:${port}/api/health/ready`),
+    )
+
+    if (response.ok) return
+
+    if (Date.now() >= deadline) {
+      throw new Error('deployment readiness validation failed before startup')
+    }
+
+    writeLog('warn', 'waiting for the database and API to be ready')
+    await new Promise((resolve) => setTimeout(resolve, 2_000))
   }
 }
 
@@ -132,6 +148,12 @@ async function serveStatic(pathname, response, headOnly, acceptEncoding = '') {
 }
 
 const server = createServer(async (incoming, outgoing) => {
+  idleGate?.touch()
+
+  // An open response (an event stream) keeps the app awake until it closes.
+  const release = idleGate?.hold()
+  outgoing.once('close', () => release?.())
+
   try {
     // Behind a hosting proxy the public scheme arrives in x-forwarded-proto;
     // without it the app would believe it is served over plain http and
@@ -243,6 +265,9 @@ const collab = createCollabHost({
 globalThis.__sheetbaseCollab = collab
 
 server.on('upgrade', (request, socket, head) => {
+  const release = idleGate?.hold()
+  socket.once('close', () => release?.())
+
   if (!collab.handleUpgrade(request, socket, head)) socket.destroy()
 })
 

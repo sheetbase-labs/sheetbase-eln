@@ -155,10 +155,14 @@ async function serveStatic(pathname, response, headOnly, acceptEncoding = '') {
 }
 
 const server = createServer(async (incoming, outgoing) => {
-  idleGate?.touch()
+  // The demo's own webhook deliveries call this app back. That is the app
+  // talking to itself, not someone using it, so it must not keep it awake.
+  const selfTraffic = incoming.url?.startsWith('/api/demo/webhook-sink')
+
+  if (!selfTraffic) idleGate?.touch()
 
   // An open response (an event stream) keeps the app awake until it closes.
-  const release = idleGate?.hold()
+  const release = selfTraffic ? undefined : idleGate?.hold()
   outgoing.once('close', () => release?.())
 
   try {

@@ -1,3 +1,4 @@
+import { ModelFieldValueText } from '#/components/models/person-names'
 import { useMemo, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { Link } from '@tanstack/react-router'
@@ -287,10 +288,10 @@ function useRecordList(modelKey: string) {
             />
           ) : (
             <span className="block max-w-[240px] truncate">
-              {displayModelFieldValue(
-                field,
-                recordFieldValue(row.original, field.fieldName),
-              )}
+              <ModelFieldValueText
+                field={field}
+                value={recordFieldValue(row.original, field.fieldName)}
+              />
             </span>
           )
         },

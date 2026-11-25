@@ -15,6 +15,7 @@
  * wrappers for the RPCs. PostgreSQL and RLS remain the authoritative
  * access-control boundary; these helpers improve errors and drive the UI.
  */
+import { ModelFieldValueText } from '#/components/models/person-names'
 import { t } from '#/copy'
 import { z } from 'zod'
 import type { ColumnDef, RowData } from '@tanstack/react-table'
@@ -32,7 +33,7 @@ import type {
   ModelFieldRecordValues,
 } from './model-fields'
 import { pipelineJsonObjectSchema } from './pipelines/types'
-import { displayModelFieldValue, modelFieldColumnId } from './model-fields'
+import { modelFieldColumnId } from './model-fields'
 import { listByIds } from '#/lib/chunk-ids'
 
 // ---------------------------------------------------------------------------
@@ -2099,11 +2100,12 @@ export function sampleColumns<T extends SampleRecord & RowData>(
       id: modelFieldColumnId(definition.fieldName),
       header: definition.label,
       accessorFn: (row) => row.customFields[definition.fieldName],
-      cell: ({ row }) =>
-        displayModelFieldValue(
-          definition,
-          row.original.customFields[definition.fieldName],
-        ),
+      cell: ({ row }) => (
+        <ModelFieldValueText
+          field={definition}
+          value={row.original.customFields[definition.fieldName]}
+        />
+      ),
       meta:
         definition.logicalType === 'integer' ||
         definition.logicalType === 'decimal'

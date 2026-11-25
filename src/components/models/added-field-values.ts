@@ -13,6 +13,7 @@ import { t } from '#/copy'
 export function addedFieldDisplay(
   field: ModelFieldDefinition,
   raw: ModelFieldRecordValues['customFields'][string] | undefined,
+  people?: ReadonlyMap<string, string>,
 ): string {
   if (field.logicalType === 'date')
     return raw == null || raw === ''
@@ -24,7 +25,7 @@ export function addedFieldDisplay(
       ? '—'
       : formatDate(modelFieldValueText(raw), { time: true })
 
-  return displayModelFieldValue(field, raw)
+  return displayModelFieldValue(field, raw, people)
 }
 
 /** First-appearance order, with the model's default heading first. */

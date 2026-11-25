@@ -314,5 +314,10 @@ describe('formatDatasetValue', () => {
     expect(formatDatasetValue('duration', 5400)).toBe('1 h 30 min')
     expect(formatDatasetValue('duration', null)).toBe('—')
     expect(formatDatasetValue('decimal', 1.5)).toBe('1.5')
+    expect(
+      formatDatasetValue('person', 'u-1', new Map([['u-1', 'Ana Silva']])),
+    ).toBe('Ana Silva')
+    expect(formatDatasetValue('person', 'u-9', new Map())).toBe('u-9')
+    expect(formatDatasetValue('well', 'H12')).toBe('H12')
   })
 })

@@ -90,6 +90,7 @@ links and recorded values, including zero, false, missing and historical choices
 | ------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | `src/components/models/built-in-field-presentation.ts` | Type-label constants and pure helpers for field presentation, choice parsing and validation. No React component or rendered UI; the built-in field inspector stories exercise its type and placement labels. |
 | `src/components/models/model-create-validation.ts`     | Model metadata length constants, input types and pure validation/error-description helpers. No React component or rendered UI; the existing model-create dialog stories render validation messages.          |
+| `src/components/models/person-names.tsx`               | Hooks that read workspace members' names, and a text node that shows a field value with person fields by name. Nothing of its own to render; the sample list and record list stories show its output.        |
 
 ## Review
 

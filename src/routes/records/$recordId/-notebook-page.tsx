@@ -76,6 +76,7 @@ import { NotebookDocument } from '#/components/notebook'
 import type { NotebookDocumentProps, SaveResult } from '#/components/notebook'
 import { NotebookCellProperties } from '#/components/notebook/notebook-inspector'
 import { canonicalCellFacts } from '#/components/notebook/inspector-cell-facts'
+import { usePersonNames } from '#/components/models/person-names'
 import { RecordResults } from '#/components/record/record-results'
 import { useRecordResults } from '#/lib/record-results'
 import type { NotebookInspectorCellFacts } from '#/components/notebook/notebook-inspector'
@@ -401,10 +402,15 @@ export function useNotebookCellFacts(options: { enabled?: boolean } = {}) {
     [],
   )
 
+  const people = usePersonNames(
+    selection?.column?.field?.logicalType === 'person',
+  )
+
   const cell = useMemo(
     () =>
       enabled && selection
         ? canonicalCellFacts({
+            people,
             column: selection.column,
             value: selection.value,
             valueState: selection.valueState,
@@ -414,7 +420,7 @@ export function useNotebookCellFacts(options: { enabled?: boolean } = {}) {
             blockLabel: selection.sheetName,
           })
         : null,
-    [enabled, selection],
+    [enabled, selection, people],
   )
 
   return { cell, onCellSelectionChange }

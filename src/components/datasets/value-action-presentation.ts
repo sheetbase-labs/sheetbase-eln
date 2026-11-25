@@ -3,6 +3,7 @@ import { z } from 'zod'
 import { t } from '#/copy'
 import type { DatasetSystemFlagProvenance } from '#/lib/dataset-flags'
 import { displayTimeOrDuration } from '#/lib/time-duration'
+import { personName } from '#/lib/well-person'
 import type { MarkOutOfRangeDialogProps } from './value-actions'
 
 interface RuleThresholdMembers {
@@ -41,13 +42,22 @@ export function formatSelectedValue(
   return value == null ? '—' : String(value)
 }
 
-/** A dataset cell as people read it: times as 09:10, durations as 2 h 30 min. */
+/**
+ * A dataset cell as people read it: times as 09:10, durations as 2 h 30 min,
+ * people by name.
+ */
 export function formatDatasetValue(
   logicalType: string,
   value: MarkOutOfRangeDialogProps['value'],
+  people?: ReadonlyMap<string, string>,
 ): string {
   if (value != null && (logicalType === 'time' || logicalType === 'duration'))
     return displayTimeOrDuration(logicalType, value)
+
+  const person = z.string().safeParse(value)
+
+  if (logicalType === 'person' && person.success)
+    return personName(person.data, people)
 
   return formatSelectedValue(value)
 }

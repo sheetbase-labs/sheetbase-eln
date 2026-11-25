@@ -1,4 +1,5 @@
 import { useFieldPluginTypes } from '#/components/extensions/table-hooks'
+import { usePersonNames } from './person-names'
 import { PluginScreen } from '#/components/extensions/plugin-screen'
 import {
   operationAccess,
@@ -441,6 +442,10 @@ function RecordDetailValues({
     limitsByField,
   } = page
 
+  const people = usePersonNames(
+    fields.some((field) => field.logicalType === 'person'),
+  )
+
   return (
     <div className="grid items-start gap-x-10 gap-y-5 md:grid-cols-2">
       <DescriptionList
@@ -498,7 +503,7 @@ function RecordDetailValues({
                       ? formatDate(
                           raw == null ? null : modelFieldValueText(raw),
                         )
-                      : displayModelFieldValue(field, raw)
+                      : displayModelFieldValue(field, raw, people)
 
                   const result = resultByField.get(field.fieldName)
                   const limits = limitsByField.get(field.fieldName)

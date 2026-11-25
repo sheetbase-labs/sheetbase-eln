@@ -65,6 +65,10 @@ import { ComposedSheetRecordToolbar } from '#/components/sheet/composed-sheet-re
 import { CanonicalSheetLifecyclePanel } from '#/components/sheet/canonical-sheet-lifecycle-panel'
 import { CellConflictPanel } from '#/components/sheet/cell-conflict-panel'
 import { ModelFieldInput } from '#/components/scientific/model-field-input'
+import {
+  usePeopleOptions,
+  usePersonNames,
+} from '#/components/models/person-names'
 import { Button } from '#/components/ui/button'
 import { BoardButton } from '#/features/pipelines/board/board'
 import { Icon } from '#/components/icons'
@@ -193,7 +197,14 @@ import { prepareCanonicalWorkspaceWrite } from './canonical-workspace-write-poli
 const client = createDataClient()
 
 /** The types a person can pick for a column they add to a sheet. */
-const LOCAL_COLUMN_TYPES = ['text', 'decimal', 'time', 'duration'] as const
+const LOCAL_COLUMN_TYPES = [
+  'text',
+  'decimal',
+  'time',
+  'duration',
+  'well',
+  'person',
+] as const
 
 type LocalColumnType = (typeof LOCAL_COLUMN_TYPES)[number]
 
@@ -585,6 +596,23 @@ function useCanonicalWorkspaceSession({
   useLayoutEffect(() => {
     matrixRef.current = matrix
   }, [matrix])
+
+  const hasPersonColumn = matrix.columns.some(
+    (column) => column.field?.logicalType === 'person',
+  )
+
+  const people = usePersonNames(hasPersonColumn)
+  const peopleOptions = usePeopleOptions(hasPersonColumn)
+
+  const peopleChoices = useMemo(
+    () => peopleOptions.map((option) => option.label),
+    [peopleOptions],
+  )
+
+  const peopleRef = useRef(people)
+  useLayoutEffect(() => {
+    peopleRef.current = people
+  }, [people])
 
   // A link column holds record ids. Look up the records the sheet shows so a
   // cell reads SMP-2231, not a UUID, whether or not the column can be edited.
@@ -1533,10 +1561,12 @@ function useCanonicalWorkspaceSession({
           canWrite,
           () => recordLabelsRef.current,
           details,
+          people,
+          peopleChoices,
         ),
       ),
     // `labelsVersion` rebuilds the columns when linked records' names arrive.
-    [matrix, canWrite, details, labelsVersion],
+    [matrix, canWrite, details, labelsVersion, people, peopleChoices],
   )
 
   useEffect(() => {
@@ -1632,6 +1662,7 @@ function useCanonicalWorkspaceSession({
         columns: matrixRef.current.columns,
         changes,
         source,
+        people: peopleRef.current,
       })
 
       if (decision.status !== null) setWriteStatus(decision.status)
@@ -2931,6 +2962,12 @@ function CanonicalWorkspaceAuthoring() {
             </option>
             <option value="duration">
               {t('notebook.canonicalSheetWorkspace.duration')}
+            </option>
+            <option value="well">
+              {t('notebook.canonicalSheetWorkspace.well')}
+            </option>
+            <option value="person">
+              {t('notebook.canonicalSheetWorkspace.person')}
             </option>
           </Select>
           <Button

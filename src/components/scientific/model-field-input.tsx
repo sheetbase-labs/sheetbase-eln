@@ -1,10 +1,13 @@
 import { t } from '#/copy'
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { z } from 'zod'
 
 import type { ModelFieldDefinition } from '#/lib/model-fields'
 import { definitionOfModelField } from '#/lib/model-fields'
 import { Button } from '#/components/ui/button'
+import { Icon } from '#/components/icons'
+import { uploadProjectFile } from '#/lib/file-attach'
+import { FILE_MODEL_KEY } from '#/lib/file-field'
 import { Checkbox } from '#/components/ui/checkbox'
 import { Input } from '#/components/ui/input'
 import { Select } from '#/components/ui/select'
@@ -53,6 +56,7 @@ export function ModelFieldInput({
   relationshipRules,
   placeholder,
   pluginInput,
+  projectId,
 }: {
   definition: ModelFieldDefinition
   value: string | boolean
@@ -75,6 +79,8 @@ export function ModelFieldInput({
   sourceModelKey?: string
   /** MODEL-03: declared relationship rules for the source Model. */
   relationshipRules?: ModelRelationshipRule[]
+  /** The project a File field's upload goes to; without one, only existing files can be picked. */
+  projectId?: string | null
 }) {
   if (pluginInput)
     return (
@@ -144,6 +150,7 @@ export function ModelFieldInput({
         resolveReferenceSnapshot={resolveReferenceSnapshot}
         sourceModelKey={sourceModelKey ?? definition.modelKey}
         relationshipRules={relationshipRules}
+        projectId={projectId ?? null}
       />
     )
   }
@@ -378,6 +385,7 @@ function ModelReferencePicker({
   resolveReferenceSnapshot,
   sourceModelKey,
   relationshipRules,
+  projectId,
 }: {
   label: string
   description: string | null
@@ -385,6 +393,7 @@ function ModelReferencePicker({
   value: string
   onChange: (value: string | boolean) => void
   showLabel: boolean
+  projectId: string | null
   targetModelKey: string
   searchReferenceRecords?: (query: string) => Promise<SheetRecordSearchHit[]>
   resolveReferenceSnapshot?: (
@@ -395,6 +404,8 @@ function ModelReferencePicker({
 }) {
   const [client] = useState(() => createDataClient())
   const [pickerOpen, setPickerOpen] = useState(false)
+  const [uploading, setUploading] = useState(false)
+  const [uploadError, setUploadError] = useState<string | null>(null)
 
   const [snapshot, setSnapshot] = useState<
     RecordReferenceSnapshot | null | undefined
@@ -543,8 +554,33 @@ function ModelReferencePicker({
     }
   }
 
+  // A File field uploads in place when the record has a project to hold it.
+  async function handleUpload(file: File) {
+    if (!projectId) return
+    setUploading(true)
+    setUploadError(null)
+
+    try {
+      const uploaded = await uploadProjectFile({ projectId, file })
+      onChange(uploaded.fileRecordId)
+    } catch (caught) {
+      setUploadError(
+        caught instanceof Error && caught.message
+          ? caught.message
+          : t('notebook.modelFieldInput.uploadFailed'),
+      )
+    } finally {
+      setUploading(false)
+    }
+  }
+
   return (
     <ReferenceRow
+      upload={
+        targetModelKey === FILE_MODEL_KEY && projectId
+          ? { busy: uploading, error: uploadError, onFile: handleUpload }
+          : null
+      }
       label={label}
       description={description}
       nullable={nullable}
@@ -578,6 +614,7 @@ function ReferenceRow({
   onPickerOpenChange,
   onClear,
   onSelect,
+  upload,
 }: {
   label: string
   description: string | null
@@ -585,6 +622,12 @@ function ReferenceRow({
   value: string
   showLabel: boolean
   targetModelKey: string
+  /** A File field's in-place upload; null where only existing files can be picked. */
+  upload: {
+    busy: boolean
+    error: string | null
+    onFile: (file: File) => void
+  } | null
   state: ReferencePickerState
   search: (next: string) => Promise<PickerSearchResult>
   pickerOpen: boolean
@@ -607,14 +650,19 @@ function ReferenceRow({
           targetModelKey={targetModelKey}
         />
         <div className="flex flex-wrap gap-1">
+          {upload ? (
+            <UploadFileButton upload={upload} replace={value !== ''} />
+          ) : null}
           <Button
             size="sm"
             variant="secondary"
             onClick={() => onPickerOpenChange(true)}
           >
-            {value === ''
-              ? t('notebook.modelFieldInput.selectRecord')
-              : t('notebook.modelFieldInput.changeRecord')}
+            {targetModelKey === FILE_MODEL_KEY
+              ? t('notebook.modelFieldInput.chooseExistingFile')
+              : value === ''
+                ? t('notebook.modelFieldInput.selectRecord')
+                : t('notebook.modelFieldInput.changeRecord')}
           </Button>
           {value !== '' && nullable ? (
             <Button size="sm" variant="quiet" onClick={onClear}>
@@ -635,6 +683,11 @@ function ReferenceRow({
             if (id) onSelect(id, option)
           }}
         />
+        {upload?.error ? (
+          <span role="alert" className="block text-[0.65rem] text-danger-text">
+            {upload.error}
+          </span>
+        ) : null}
         <span className="block text-[0.65rem]">
           {t('notebook.modelFieldInput.searchByIdOr')}
         </span>
@@ -643,6 +696,48 @@ function ReferenceRow({
         ) : null}
       </div>
     </div>
+  )
+}
+
+/** Upload a file from the device into a File field. */
+function UploadFileButton({
+  upload,
+  replace,
+}: {
+  upload: { busy: boolean; onFile: (file: File) => void }
+  replace: boolean
+}) {
+  const input = useRef<HTMLInputElement>(null)
+
+  return (
+    <>
+      <input
+        ref={input}
+        type="file"
+        className="hidden"
+        aria-hidden
+        tabIndex={-1}
+        onChange={(event) => {
+          const file = event.target.files?.[0]
+          event.target.value = ''
+
+          if (file) upload.onFile(file)
+        }}
+      />
+      <Button
+        size="sm"
+        variant="secondary"
+        disabled={upload.busy}
+        onClick={() => input.current?.click()}
+      >
+        <Icon name="upload" size={14} />{' '}
+        {upload.busy
+          ? t('notebook.modelFieldInput.uploading')
+          : replace
+            ? t('notebook.modelFieldInput.uploadAnotherFile')
+            : t('notebook.modelFieldInput.uploadFile')}
+      </Button>
+    </>
   )
 }
 
@@ -660,9 +755,11 @@ function ReferenceStateLine({
     case 'empty':
       return (
         <span className="block text-[0.65rem]">
-          {nullable
-            ? t('notebook.modelFieldInput.noRecordLinked')
-            : t('notebook.modelFieldInput.recordReferenceIsRequired')}
+          {targetModelKey === FILE_MODEL_KEY
+            ? t('notebook.modelFieldInput.noFileYet')
+            : nullable
+              ? t('notebook.modelFieldInput.noRecordLinked')
+              : t('notebook.modelFieldInput.recordReferenceIsRequired')}
         </span>
       )
     case 'invalid':

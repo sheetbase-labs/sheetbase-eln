@@ -23,6 +23,7 @@ import { Notice } from '#/components/ui/alert'
 import { Field } from '#/components/ui/input'
 import { Select } from '#/components/ui/select'
 import type { RegistryColumn } from '#/components/inventory/registry-grid'
+import { isFileField, useRecordProjectId } from '#/lib/file-field'
 import { ModelFieldInput } from '#/components/scientific/model-field-input'
 import { builtInModel, saveAddedFieldValues } from '#/lib/built-in-models'
 import type { BuiltInModel } from '#/lib/built-in-models'
@@ -537,6 +538,13 @@ function AddedFieldsEditDialog({
 }) {
   const queryClient = useQueryClient()
 
+  const recordProject = useRecordProjectId(
+    objectId,
+    model.host === 'record' && fields.some(isFileField),
+  )
+
+  const projectId = model.host === 'project' ? objectId : recordProject
+
   const initial = useMemo(
     () => initialModelFieldValues(fields, stored),
     [fields, stored],
@@ -587,6 +595,7 @@ function AddedFieldsEditDialog({
             values={merged}
             errors={errors}
             showErrors
+            projectId={projectId}
             onChange={(name, value) =>
               setValues((current) => ({ ...current, [name]: value }))
             }
@@ -625,12 +634,15 @@ export function AddedFieldInputs({
   errors,
   showErrors,
   onChange,
+  projectId,
 }: {
   fields: readonly ModelFieldDefinition[]
   values: Record<string, string | boolean>
   errors: Record<string, string>
   showErrors: boolean
   onChange: (fieldName: string, value: string | boolean) => void
+  /** Where a File field's upload is filed; without one, only existing files can be picked. */
+  projectId?: string | null
 }) {
   return (
     <div className="flex flex-col gap-3">
@@ -664,6 +676,7 @@ export function AddedFieldInputs({
                   definition={field}
                   value={value}
                   showLabel={false}
+                  projectId={projectId}
                   onChange={(next) => onChange(field.fieldName, next)}
                 />
               </>
@@ -751,9 +764,12 @@ export function useAddedFieldDraft(modelKey: string) {
 export function AddedFieldsFormSection({
   draft,
   showErrors,
+  projectId,
 }: {
   draft: ReturnType<typeof useAddedFieldDraft>
   showErrors: boolean
+  /** The project the new object goes in, for File field uploads. */
+  projectId?: string | null
 }) {
   if (draft.fields.length === 0 && draft.typeOptions.length === 0) return null
 
@@ -781,6 +797,7 @@ export function AddedFieldsFormSection({
           errors={draft.errors}
           showErrors={showErrors}
           onChange={draft.setValue}
+          projectId={projectId}
         />
       ) : null}
     </div>

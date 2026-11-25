@@ -835,6 +835,7 @@ function NewRecordFields({ form }: { form: NewRecord }) {
         <div key={field.id} className="flex flex-col gap-1">
           <ModelFieldInput
             definition={field}
+            projectId={selectedProject || null}
             placeholder={pluginPlaceholders[field.fieldName]}
             pluginInput={pluginInputs[field.fieldName]}
             value={

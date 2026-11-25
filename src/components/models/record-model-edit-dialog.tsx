@@ -11,6 +11,7 @@ import {
   DialogHeader,
 } from '#/components/ui/dialog'
 import { toast } from '#/components/ui/sonner'
+import { isFileField, useRecordProjectId } from '#/lib/file-field'
 import { ModelFieldInput } from '#/components/scientific/model-field-input'
 import {
   fetchRecordModelFieldValues,
@@ -62,6 +63,7 @@ export function RecordModelEditDialog({
   client?: typeof notebookDataClient
 }) {
   const queryClient = useQueryClient()
+  const projectId = useRecordProjectId(recordId, fields.some(isFileField))
 
   const initial = useMemo(
     () => initialModelFieldValues(fields, stored),
@@ -125,6 +127,7 @@ export function RecordModelEditDialog({
               <div key={field.id} className="flex flex-col gap-1">
                 <ModelFieldInput
                   definition={field}
+                  projectId={projectId}
                   pluginInput={pluginInputs[field.fieldName]}
                   value={merged[field.fieldName]}
                   onChange={(value) =>

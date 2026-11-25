@@ -153,12 +153,16 @@ export function validateFileForUpload(
 /**
  * Upload a file into a project's file records without attaching it to a block.
  * Returns the `file_objects` id that RPCs such as `record_instrument_calibration`
- * take as a file reference.
+ * take as a file reference, and the file's record id that a File column holds.
  */
 export async function uploadProjectFile(args: {
   projectId: string
   file: File
-}): Promise<{ fileObjectId: string; displayName: string }> {
+}): Promise<{
+  fileObjectId: string
+  fileRecordId: string
+  displayName: string
+}> {
   const checked = validateFileForUpload(args.file)
 
   if (!checked.ok) throw new AttachFileError(checked.message, checked.code)
@@ -196,7 +200,11 @@ export async function uploadProjectFile(args: {
     )
   }
 
-  return { fileObjectId: meta.fileObjectId, displayName: args.file.name }
+  return {
+    fileObjectId: meta.fileObjectId,
+    fileRecordId: meta.fileRecordId,
+    displayName: args.file.name,
+  }
 }
 
 export async function attachFileToBlock(

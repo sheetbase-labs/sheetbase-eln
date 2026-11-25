@@ -1314,7 +1314,11 @@ function RegisterSampleDialog({
               textLocations={locations}
             />
           </div>
-          <AddedFieldsFormSection draft={addedFields} showErrors={tried} />
+          <AddedFieldsFormSection
+            draft={addedFields}
+            showErrors={tried}
+            projectId={projectId || null}
+          />
         </DialogBody>
         <DialogFooter>
           <DialogClose render={<Button />}>

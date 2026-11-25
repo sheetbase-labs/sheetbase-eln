@@ -440,11 +440,20 @@ function useNotebookDocument({
   }, [blocks, selectedId, updateBlockHash])
 
   const hasUnsavedWork = unsavedBlockIds.size > 0
+  const unsavedWorkChangeRef = React.useRef(onUnsavedWorkChange)
+
   React.useEffect(() => {
-    // Publish only the committed navigation-guard signal; drafts/save/conflict lifetime remain editor-owned.
-    // react-doctor-disable-next-line react-doctor/no-pass-data-to-parent, react-doctor/no-pass-live-state-to-parent, react-doctor/no-prop-callback-in-effect
-    onUnsavedWorkChange?.(hasUnsavedWork)
-  }, [hasUnsavedWork, onUnsavedWorkChange])
+    unsavedWorkChangeRef.current = onUnsavedWorkChange
+  }, [onUnsavedWorkChange])
+
+  React.useEffect(() => {
+    // Publish the committed navigation-guard signal when it changes, not each
+    // time the owner passes a new callback: a callback that sets state in the
+    // owner would otherwise re-render the owner, hand back a new callback and
+    // run this again until React stopped it.
+    // react-doctor-disable-next-line react-doctor/no-pass-data-to-parent, react-doctor/no-pass-live-state-to-parent
+    unsavedWorkChangeRef.current?.(hasUnsavedWork)
+  }, [hasUnsavedWork])
 
   // Warn before tab close only when unsaved work genuinely remains at risk
   // (ELN-007). We cannot reliably finish async saves during unload, so the

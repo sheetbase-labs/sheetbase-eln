@@ -3152,6 +3152,8 @@ interface DesignDatasetField {
     | 'boolean'
     | 'date'
     | 'timestamp'
+    | 'time'
+    | 'duration'
     | 'reference'
   /** A `reference` column links to records of this record type (model key). */
   targetModelKey?: string
@@ -3190,7 +3192,7 @@ const AMBR_FIELDS: ReadonlyArray<DesignDatasetField> = [
     unit: 'day',
     required: true,
   },
-  { key: 'time', label: 'Time', logicalType: 'text', required: true },
+  { key: 'time', label: 'Time', logicalType: 'time', required: true },
   {
     key: 'vcd',
     label: 'VCD',

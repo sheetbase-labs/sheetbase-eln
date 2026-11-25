@@ -317,6 +317,20 @@ client.datasets.commit_rows(dataset_id, revision, DatasetRowBatch().create(
 ))
 ```
 
+## Well position and person values
+
+A `well` column holds a plate address stored as `"A1"`; a `person` column
+holds a workspace member's user id (from `workspace_members_list`).
+`parse_well` turns typed forms into the stored one and `well_sort_key` sorts
+wells row by row:
+
+```python
+from sheetbase.values import parse_well, well_sort_key
+
+parse_well("b03")                                  # "B3"
+sorted(["A10", "A2", "B1"], key=well_sort_key)     # ["A2", "A10", "B1"]
+```
+
 ## Pagination
 
 All list/query methods support `limit`/`offset` for manual paging. For auto-pagination, use the `iter_*` methods which return generators:

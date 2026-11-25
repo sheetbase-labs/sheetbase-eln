@@ -8,7 +8,9 @@ from sheetbase.values import (
     format_time,
     from_timedelta,
     parse_time,
+    parse_well,
     to_timedelta,
+    well_sort_key,
 )
 
 
@@ -40,3 +42,26 @@ def test_row_batches_send_times_and_durations_in_stored_form():
     )
     assert batch.rows[0]["values"] == {"start": "09:30:00", "spin": 600, "n": 3}
     assert encode_value("text") == "text"
+
+
+@pytest.mark.parametrize(
+    "typed,stored",
+    [("A1", "A1"), ("a01", "A1"), (" h 12 ", "H12"), ("AF48", "AF48")],
+)
+def test_a_well_is_stored_without_padding(typed, stored):
+    assert parse_well(typed) == stored
+
+
+@pytest.mark.parametrize("bad", ["", "A", "A0", "AG1", "A49", "well A1"])
+def test_a_malformed_well_is_refused(bad):
+    with pytest.raises(ValueError):
+        parse_well(bad)
+
+
+def test_wells_sort_row_by_row():
+    assert sorted(["B1", "A10", "A2", "AA1"], key=well_sort_key) == [
+        "A2",
+        "A10",
+        "B1",
+        "AA1",
+    ]

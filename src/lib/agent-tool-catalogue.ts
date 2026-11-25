@@ -1093,6 +1093,8 @@ const OPERATION_TOOLS: AgentToolEntry[] = [
         'timestamp',
         'time',
         'duration',
+        'well',
+        'person',
         'category',
         'reference',
       ]),

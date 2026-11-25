@@ -72,6 +72,8 @@ export const FIELD_TYPES = [
   'timestamp',
   'time',
   'duration',
+  'well',
+  'person',
 ] as const
 
 const fieldSpec = z.strictObject({

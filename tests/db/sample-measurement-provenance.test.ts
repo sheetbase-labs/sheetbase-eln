@@ -7,7 +7,7 @@
  *
  *  - a value from a Dataset row linked by a `sample` reference field appears
  *    with its Dataset/row/field provenance;
- *  - a value from a row linked by a sample-keyed text field appears too;
+ *  - a value from a row in a second dataset linked by its own reference column appears too;
  *  - an unlinked row in the same Dataset does not appear;
  *  - an integration/QC value appears with its run/instrument source;
  *  - a recorded measurement is a row of the Sample measurements dataset, so it is aggregated like any other linked row, named by its Measurement column;
@@ -155,7 +155,8 @@ beforeAll(async () => {
        ('00000000-0000-4000-8000-00000000ab70',$2,'method','Method','text',true,NULL,NULL,'one','active',2),
        ('00000000-0000-4000-8000-00000000ab70',$3,'capsid_titre','Capsid titre','decimal',true,
           '{"kind":"quantity","dimension":"titre","storageUnit":"cp/mL","symbol":"cp/mL"}'::jsonb,NULL,'one','active',3),
-       ('00000000-0000-4000-8000-00000000ab71',$4,'sample','Sample','text',true,NULL,NULL,'one','active',1),
+       ('00000000-0000-4000-8000-00000000ab71',$4,'sample','Sample','reference',true,NULL,
+          '{"target":{"kind":"model","modelKey":"sample"},"cardinality":"one"}'::jsonb,'one','active',1),
        ('00000000-0000-4000-8000-00000000ab71',$5,'turbidity','Turbidity','decimal',true,
           '{"kind":"quantity","dimension":"turbidity","storageUnit":"NTU","symbol":"NTU"}'::jsonb,NULL,'one','active',2),
        ('00000000-0000-4000-8000-00000000ab72',$1,'sample','Sample','reference',true,NULL,
@@ -211,10 +212,10 @@ beforeAll(async () => {
     `insert into api.dataset_row_values(row_id,field_id,ordinal,numeric_value) values ($1,$2,0,999::numeric)`,
     [ROW_UNLINKED, TITRE_FIELD],
   )
-  // Sample-keyed text link.
+  // A second dataset, linked through its own sample reference column.
   await migrator.query(
-    `insert into api.dataset_row_values(row_id,field_id,ordinal,text_value) values ($1,$2,0,'SMP-PROV')`,
-    [ROW_TEXT, TEXT_SAMPLE_FIELD],
+    `insert into api.dataset_row_values(row_id,field_id,ordinal,reference_id) values ($1,$2,0,$3)`,
+    [ROW_TEXT, TEXT_SAMPLE_FIELD, SAMPLE],
   )
   await migrator.query(
     `insert into api.dataset_row_values(row_id,field_id,ordinal,numeric_value) values ($1,$2,0,310::numeric)`,
@@ -294,7 +295,7 @@ describe('sample_measurement_provenance', () => {
       fieldId: TITRE_FIELD,
     })
 
-    // Sample-keyed text link resolves too.
+    // A second dataset's reference column resolves too.
     const turbidity = rows.find((m) => m.provenance.fieldKey === 'turbidity')
     expect(turbidity).toMatchObject({
       measurement: 'Turbidity',

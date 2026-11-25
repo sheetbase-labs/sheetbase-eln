@@ -23,6 +23,7 @@ const idleGate = gateStartedIntervals(process.env, (idle) => {
 
 const { default: application } = await import('../.output/server/index.mjs')
 
+const authFreeDemo = process.env.SHEETBASE_DEV_AUTH_FREE === 'true'
 const host = process.env.HOST ?? '0.0.0.0'
 const port = Number(process.env.PORT ?? '3000')
 const staticRoot = resolve('.output/public')
@@ -155,9 +156,27 @@ async function serveStatic(pathname, response, headOnly, acceptEncoding = '') {
 }
 
 const server = createServer(async (incoming, outgoing) => {
-  // The demo's own webhook deliveries call this app back. That is the app
-  // talking to itself, not someone using it, so it must not keep it awake.
-  const selfTraffic = incoming.url?.startsWith('/api/demo/webhook-sink')
+  // The demo's own webhook deliveries call this app back, and search crawlers
+  // render its pages. Neither is someone using it, so neither may keep it awake.
+  const crawler = /bot|crawl|spider|slurp/i.test(
+    String(incoming.headers['user-agent'] ?? ''),
+  )
+
+  const selfTraffic =
+    crawler || incoming.url?.startsWith('/api/demo/webhook-sink')
+
+  if (authFreeDemo) {
+    // A sign-in-free demo is not for search engines.
+    outgoing.setHeader('x-robots-tag', 'noindex, nofollow')
+
+    if (incoming.url === '/robots.txt') {
+      outgoing.statusCode = 200
+      outgoing.setHeader('content-type', 'text/plain; charset=utf-8')
+      outgoing.end('User-agent: *\nDisallow: /\n')
+
+      return
+    }
+  }
 
   if (!selfTraffic) idleGate?.touch()
 

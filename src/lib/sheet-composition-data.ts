@@ -70,6 +70,8 @@ export const composedSheetWireSchema = z.strictObject({
           'boolean',
           'date',
           'timestamp',
+          'time',
+          'duration',
           'category',
           'reference',
         ]),

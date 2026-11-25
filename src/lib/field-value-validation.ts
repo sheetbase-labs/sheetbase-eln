@@ -1,6 +1,7 @@
 import { z } from 'zod'
 
 import type { FieldDefinition } from './field-definition'
+import { MAX_DURATION_SECONDS, isTimeOfDay } from './time-duration'
 
 /**
  * MODEL-02 shared field-value semantics.
@@ -246,6 +247,22 @@ export function fieldScalarError(
       const timestamp = scalarSchemas.text.safeParse(value)
 
       return timestamp.success && isValidTimestamp(timestamp.data)
+        ? null
+        : 'invalid_value'
+    }
+
+    case 'time': {
+      const time = scalarSchemas.text.safeParse(value)
+
+      return time.success && isTimeOfDay(time.data) ? null : 'invalid_value'
+    }
+
+    case 'duration': {
+      const seconds = scalarSchemas.decimal.safeParse(value)
+
+      return seconds.success &&
+        seconds.data >= 0 &&
+        seconds.data <= MAX_DURATION_SECONDS
         ? null
         : 'invalid_value'
     }

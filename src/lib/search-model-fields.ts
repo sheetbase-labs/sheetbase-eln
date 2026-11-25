@@ -73,6 +73,7 @@ function dataTypeOf(type: FieldLogicalType): SheetbaseField['dataType'] {
   switch (type) {
     case 'integer':
     case 'decimal':
+    case 'duration':
       return 'number'
     case 'boolean':
       return 'boolean'

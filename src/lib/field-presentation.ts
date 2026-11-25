@@ -19,12 +19,14 @@ export type FieldEditorKind =
   | 'number'
   | 'date'
   | 'datetime-local'
+  | 'time'
+  | 'duration'
   | 'text'
   | 'record-picker'
 
 export interface FieldEditorPresentation {
   kind: FieldEditorKind
-  inputType: 'number' | 'date' | 'datetime-local' | 'text' | null
+  inputType: 'number' | 'date' | 'datetime-local' | 'time' | 'text' | null
   step?: '1' | 'any'
 }
 
@@ -49,6 +51,10 @@ export function fieldEditorPresentation(
       return { kind: 'date', inputType: 'date' }
     case 'timestamp':
       return { kind: 'datetime-local', inputType: 'datetime-local' }
+    case 'time':
+      return { kind: 'time', inputType: 'time' }
+    case 'duration':
+      return { kind: 'duration', inputType: 'text' }
     case 'reference':
       if (options?.relationshipTarget === 'model') {
         return { kind: 'record-picker', inputType: 'text' }

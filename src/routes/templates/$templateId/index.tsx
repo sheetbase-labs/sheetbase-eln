@@ -25,13 +25,13 @@ import {
   useTemplate,
   useTemplateVersions,
 } from '#/components/templates/templates-data'
-import { FIELD_LOGICAL_TYPES } from '#/lib/field-definition'
+import { PARAMETER_VALUE_TYPES } from '#/lib/parameter'
+import type { ParameterValueType,Parameter } from '#/lib/parameter'
 import type { NotebookTemplateVersion } from '#/lib/notebook-template-data'
 import type {
   NotebookTemplateConfiguration,
   NotebookTemplatePlacement,
 } from '#/lib/notebook-template'
-import type { Parameter } from '#/lib/parameter'
 import { formatDate } from '#/lib/format-date'
 import { useRegulatedLab } from '#/lib/regulated-lab'
 import { defaultAsText, useTemplateDraft } from '../-template-draft'
@@ -48,7 +48,7 @@ export const Route = createFileRoute('/templates/$templateId/')({
 /** The key format a section or parameter key has to satisfy. */
 const keyPattern = /^[a-z][a-z0-9_]{0,59}$/
 
-type ScalarValueType = (typeof FIELD_LOGICAL_TYPES)[number]
+type ScalarValueType = ParameterValueType
 
 function shownVersion(
   versions: NotebookTemplateVersion[],
@@ -929,14 +929,14 @@ function AddParameterForm({
         <Select
           value={valueType}
           onChange={(event) => {
-            const picked = FIELD_LOGICAL_TYPES.find(
+            const picked = PARAMETER_VALUE_TYPES.find(
               (type) => type === event.target.value,
             )
 
             if (picked) setValueType(picked)
           }}
         >
-          {FIELD_LOGICAL_TYPES.map((type) => (
+          {PARAMETER_VALUE_TYPES.map((type) => (
             <option key={type} value={type}>
               {type}
             </option>

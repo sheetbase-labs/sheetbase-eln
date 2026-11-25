@@ -7,6 +7,8 @@ export const FIELD_LOGICAL_TYPES = [
   'boolean',
   'date',
   'timestamp',
+  'time',
+  'duration',
   'category',
   'reference',
 ] as const

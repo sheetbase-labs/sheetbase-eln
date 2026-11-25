@@ -14,17 +14,16 @@ import {
 import type { TemplatePart } from '#/components/templates/template-parts'
 import { createNotebookTemplateVersion } from '#/lib/notebook-template-data'
 import type { NotebookTemplateVersion } from '#/lib/notebook-template-data'
-import type { FIELD_LOGICAL_TYPES } from '#/lib/field-definition'
+import type { ParameterValueType,Parameter } from '#/lib/parameter'
 import { notebookTemplateConfigurationSchema } from '#/lib/notebook-template'
 import type {
   NotebookTemplateConfiguration,
   NotebookTemplatePlacement,
 } from '#/lib/notebook-template'
-import type { Parameter } from '#/lib/parameter'
 import { t } from '#/copy'
 
 /** The scalar value types a parameter may declare. */
-type ScalarValueType = (typeof FIELD_LOGICAL_TYPES)[number]
+type ScalarValueType = ParameterValueType
 
 /** Orders are unique positive integers, so every add, remove and move rewrites
  * them as 1..n. */

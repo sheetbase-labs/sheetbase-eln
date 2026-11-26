@@ -71,6 +71,43 @@ describe('planner assistant card', () => {
     expect(isPlannerAction(built.proposal.action ?? { kind: '' })).toBe(true)
   })
 
+  it('starts from a published notebook template, so the notebook has content', async () => {
+    const built = await buildPlannerProposal(
+      PLAN_TOOL,
+      { ...base, notebookTemplate: 'TPL-0004' },
+      context({
+        notebook_templates: [
+          { id: 'tpl-1', display_id: 'TPL-0004', name: 'PicoGreen' },
+        ],
+        notebook_template_versions: [{ id: 'ver-1' }],
+      }),
+    )
+
+    expect(built.ok).toBe(true)
+
+    if (!built.ok) return
+    expect(built.proposal.action).toMatchObject({
+      plan: { experiment: { notebookTemplateVersionId: 'ver-1' } },
+    })
+  })
+
+  it('warns when the template is still a draft', async () => {
+    const built = await buildPlannerProposal(
+      PLAN_TOOL,
+      { ...base, notebookTemplate: 'TPL-0004' },
+      context({
+        notebook_templates: [
+          { id: 'tpl-1', display_id: 'TPL-0004', name: 'PicoGreen' },
+        ],
+      }),
+    )
+
+    expect(built.ok).toBe(true)
+
+    if (!built.ok) return
+    expect(JSON.stringify(built.proposal.changes)).toContain('still a draft')
+  })
+
   it('has no card for a project that does not exist', async () => {
     const built = await buildPlannerProposal(
       PLAN_TOOL,

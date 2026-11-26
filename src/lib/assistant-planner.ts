@@ -32,6 +32,13 @@ export const proposePlanSchema = z.strictObject({
     .max(200)
     .describe('The project the experiment belongs to, by name or key.'),
   experimentTitle: z.string().min(1).max(200),
+  notebookTemplate: z
+    .string()
+    .max(200)
+    .optional()
+    .describe(
+      'A notebook template to start the experiment from, by ID (TPL-0004) or name. Use it so the notebook has its content; look templates up first.',
+    ),
   protocol: z
     .string()
     .max(200)

@@ -63,5 +63,88 @@ export async function runRecordsAction(
       })
 
       return { openHref: '/materials' }
+
+    case 'material.stock':
+      await client.rpc('record_reagent_movement', {
+        p_reagent_record_id: action.recordId,
+        p_operation: action.operation,
+        p_expected_metadata_version: action.metadataVersion,
+        p_quantity_delta: action.quantity,
+        p_reason: action.reason,
+      })
+
+      return { openHref: '/materials' }
+
+    case 'sample.edit':
+      await client.rpc('edit_sample', {
+        p_record_id: action.recordId,
+        p_expected_metadata_version: action.metadataVersion,
+        p_title: action.name,
+        p_tags: action.tags,
+        p_notes: action.notes,
+      })
+
+      return { openHref: '/samples' }
+
+    case 'sample.restore':
+      await client.rpc('restore_sample', {
+        p_record_id: action.recordId,
+        p_expected_metadata_version: action.metadataVersion,
+        p_notes: action.notes,
+      })
+
+      return { openHref: '/samples' }
+
+    case 'storage.update_location':
+      await client.rpc('update_storage_location', {
+        p_level: action.level,
+        p_id: action.id,
+        p_name: action.name,
+        p_code: action.code,
+        p_temperature_min_c: action.temperatureMinC,
+        p_temperature_max_c: action.temperatureMaxC,
+      })
+
+      return { openHref: '/settings/lab/storage' }
+
+    case 'storage.archive_location':
+      await client.rpc('set_storage_location_archived', {
+        p_level: action.level,
+        p_id: action.id,
+        p_archived: action.archived,
+      })
+
+      return { openHref: '/settings/lab/storage' }
+
+    case 'dataset.archive':
+    case 'dataset.restore':
+      await client.rpc(
+        action.kind === 'dataset.archive'
+          ? 'archive_dataset'
+          : 'restore_dataset',
+        { p_dataset_id: action.id, p_expected_revision: action.revision },
+      )
+
+      return undefined
+
+    case 'sheet.archive':
+    case 'sheet.restore':
+      await client.rpc(
+        action.kind === 'sheet.archive'
+          ? 'archive_sheet_instance'
+          : 'restore_sheet_instance',
+        { p_instance_id: action.id, p_expected_revision: action.revision },
+      )
+
+      return { openHref: `/sheets/${action.id}` }
+
+    case 'sheet.duplicate':
+      await client.rpc('duplicate_sheet_instance', {
+        p_instance_id: action.id,
+        p_expected_revision: action.revision,
+        p_name: action.name,
+      })
+
+      return undefined
   }
 }

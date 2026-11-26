@@ -136,6 +136,16 @@ const ASSISTANT_PROPOSE_TOOLS_UNDECLARED = [
   'sheetbase.plan.propose',
   // A new lot of a material already in the lab (features/records).
   'sheetbase.material.add_lot',
+  'sheetbase.material.stock',
+  'sheetbase.sample.edit',
+  'sheetbase.sample.restore',
+  'sheetbase.storage.update_location',
+  'sheetbase.storage.archive_location',
+  'sheetbase.dataset.archive',
+  'sheetbase.dataset.restore',
+  'sheetbase.sheet.archive',
+  'sheetbase.sheet.restore',
+  'sheetbase.sheet.duplicate',
   // Add an analysis of a dataset (curve fit, standard curve, group comparison) to a notebook (features/results-analysis).
   'sheetbase.analysis.add_to_notebook',
   'sheetbase.notebook_block.insert',

@@ -1,3 +1,5 @@
+import { featureAssistantCardActions } from '../features/collect'
+
 /**
  * What each change-proposing tool does, in plain words that follow "a card to":
  * "Preparing a card to move a sample". One entry per tool, so the step list
@@ -270,5 +272,11 @@ export const CARD_ACTIONS = {
 
 /** The plain action for a card tool, or null when the tool has no entry. */
 export function cardAction(name: string): string | null {
-  return new Map<string, string>(Object.entries(CARD_ACTIONS)).get(name) ?? null
+  return (
+    new Map<string, string>(Object.entries(CARD_ACTIONS)).get(name) ??
+    new Map<string, string>(Object.entries(featureAssistantCardActions())).get(
+      name,
+    ) ??
+    null
+  )
 }

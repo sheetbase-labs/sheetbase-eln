@@ -59,6 +59,12 @@ export interface Feature {
   readonly agentMayDelete?: readonly string[]
   /** Read-only assistant tools this feature answers (see `assistant.server.ts`). */
   readonly assistantReadTools?: readonly string[]
+  /** Card tools this feature proposes (see `assistant.server.ts`): the gateway allows them. */
+  readonly assistantProposeTools?: readonly string[]
+  /** What each of its card tools does, in plain words after "a card to": "create a sheet". */
+  readonly assistantCardActions?: Readonly<Record<string, string>>
+  /** The writes its cards do, by database call, naming the card tool that runs each. */
+  readonly assistantCovers?: Readonly<Record<string, string>>
 }
 
 /** Who sees an event: webhooks, the SSE stream and pipeline triggers. */

@@ -53,3 +53,21 @@ export function featureAgentDeletes(): string[] {
 export function featureAssistantReadTools(): string[] {
   return features.flatMap((feature) => feature.assistantReadTools ?? [])
 }
+
+export function featureAssistantProposeTools(): string[] {
+  return features.flatMap((feature) => feature.assistantProposeTools ?? [])
+}
+
+export function featureAssistantCardActions(): Record<string, string> {
+  return features.reduce<Record<string, string>>(
+    (actions, feature) => Object.assign(actions, feature.assistantCardActions),
+    {},
+  )
+}
+
+export function featureAssistantCovers(): Record<string, string> {
+  return features.reduce<Record<string, string>>(
+    (covers, feature) => Object.assign(covers, feature.assistantCovers),
+    {},
+  )
+}

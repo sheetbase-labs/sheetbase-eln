@@ -39,7 +39,10 @@ import type { Scope } from './api-credential-scopes'
 import type { AgentOperationKind } from './agent-operations'
 import { assistantToolsFrom } from './operations/descriptor'
 import { CORE_OPERATIONS } from './operations/registry'
-import { featureAssistantReadTools } from '../features/collect'
+import {
+  featureAssistantProposeTools,
+  featureAssistantReadTools,
+} from '../features/collect'
 import { parameterUuidSchema } from './parameter'
 
 /** The operation tools a model may be offered, by wire name. */
@@ -295,6 +298,7 @@ const ASSISTANT_PROPOSE_TOOLS_UNDECLARED = [
 
 export const ASSISTANT_PROPOSE_TOOL_NAMES: readonly string[] = [
   ...ASSISTANT_PROPOSE_TOOLS_UNDECLARED,
+  ...featureAssistantProposeTools(),
   ...assistantToolsFrom(CORE_OPERATIONS, 'propose'),
 ]
 

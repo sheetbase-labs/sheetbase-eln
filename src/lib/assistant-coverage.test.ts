@@ -6,6 +6,7 @@ import {
   ASSISTANT_EXEMPT,
   ASSISTANT_GAPS,
 } from './assistant-coverage'
+import { featureAssistantCovers } from '../features/collect'
 import { EXTERNAL_RPC_SCOPES } from './external-token'
 import { CORE_OPERATIONS } from './operations/registry'
 
@@ -29,6 +30,12 @@ const writes = (): string[] => {
   return [...new Set([...fromScopes, ...fromOperations])].sort()
 }
 
+/** The writes a feature folder's cards do, beside the hand-listed ones. */
+const covered = {
+  ...ASSISTANT_COVERED,
+  ...featureAssistantCovers(),
+}
+
 const declared = new Map(
   CORE_OPERATIONS.flatMap((operation) =>
     operation.assistant ? [[operation.name, operation.assistant.tool]] : [],
@@ -40,7 +47,7 @@ describe('assistant parity', () => {
     const unaccounted = writes().filter(
       (name) =>
         !declared.has(name) &&
-        !(name in ASSISTANT_COVERED) &&
+        !(name in covered) &&
         !(name in ASSISTANT_EXEMPT) &&
         !(name in ASSISTANT_GAPS),
     )
@@ -52,7 +59,7 @@ describe('assistant parity', () => {
   })
 
   it('names only tools the assistant is allowed to offer', () => {
-    for (const [name, tool] of Object.entries(ASSISTANT_COVERED)) {
+    for (const [name, tool] of Object.entries(covered)) {
       expect(ASSISTANT_PROPOSE_TOOL_NAMES, `${name} -> ${tool}`).toContain(tool)
     }
   })
@@ -60,7 +67,7 @@ describe('assistant parity', () => {
   it('keeps the three lists honest', () => {
     const all = new Set(writes())
 
-    for (const list of [ASSISTANT_COVERED, ASSISTANT_EXEMPT, ASSISTANT_GAPS]) {
+    for (const list of [covered, ASSISTANT_EXEMPT, ASSISTANT_GAPS]) {
       for (const name of Object.keys(list)) {
         expect(all.has(name), `${name} is not a write any more`).toBe(true)
         expect(
@@ -71,9 +78,7 @@ describe('assistant parity', () => {
     }
 
     for (const name of Object.keys(ASSISTANT_GAPS)) {
-      expect(name in ASSISTANT_COVERED, `${name} is covered and a gap`).toBe(
-        false,
-      )
+      expect(name in covered, `${name} is covered and a gap`).toBe(false)
       expect(name in ASSISTANT_EXEMPT, `${name} is exempt and a gap`).toBe(
         false,
       )

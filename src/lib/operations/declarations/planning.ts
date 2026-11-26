@@ -31,6 +31,7 @@ export const PLANNING_OPERATIONS = defineOperations([
   // -- Studies and the planner ----------------------------------------------
   {
     name: 'create_study',
+    assistant: { tool: 'sheetbase.study.create' },
     label: 'Create a study',
     summary: 'Create a study',
     description:
@@ -50,6 +51,7 @@ export const PLANNING_OPERATIONS = defineOperations([
   },
   {
     name: 'edit_study',
+    assistant: { tool: 'sheetbase.study.edit' },
     label: 'Edit a study',
     summary: 'Change a study',
     description:
@@ -69,6 +71,7 @@ export const PLANNING_OPERATIONS = defineOperations([
   },
   {
     name: 'link_study_experiment',
+    assistant: { tool: 'sheetbase.study.add_experiment' },
     label: 'Add an experiment to a study',
     summary: 'Add an experiment to a study',
     description:
@@ -84,6 +87,7 @@ export const PLANNING_OPERATIONS = defineOperations([
   },
   {
     name: 'link_study_project',
+    assistant: { tool: 'sheetbase.study.add_project' },
     label: 'Add a project to a study',
     summary: 'Add a project to a study',
     description:
@@ -98,6 +102,7 @@ export const PLANNING_OPERATIONS = defineOperations([
   },
   {
     name: 'create_study_workstream',
+    assistant: { tool: 'sheetbase.study.workstream_add' },
     label: 'Add a workstream to the planner',
     summary: 'Create a workstream',
     description:
@@ -232,6 +237,7 @@ export const PLANNING_OPERATIONS = defineOperations([
   },
   {
     name: 'move_study_task_due',
+    assistant: { tool: 'sheetbase.study.task_move_due' },
     label: 'Move a task’s due date',
     summary: 'Move a planner task’s due date',
     description:
@@ -249,6 +255,7 @@ export const PLANNING_OPERATIONS = defineOperations([
   },
   {
     name: 'set_study_task_client_visible',
+    assistant: { tool: 'sheetbase.study.task_share' },
     label: 'Share a task with the client, or stop',
     summary: 'Share a planner task with a client',
     description:
@@ -265,6 +272,7 @@ export const PLANNING_OPERATIONS = defineOperations([
   },
   {
     name: 'create_dependency',
+    assistant: { tool: 'sheetbase.study.dependency_add' },
     label: 'Make one task wait for another',
     summary: 'Add a dependency between planner tasks',
     description:
@@ -282,6 +290,7 @@ export const PLANNING_OPERATIONS = defineOperations([
   },
   {
     name: 'delete_dependency',
+    assistant: { tool: 'sheetbase.study.dependency_remove' },
     label: 'Remove a dependency between tasks',
     summary: 'Remove a dependency between planner tasks',
     description: 'Removes the dependency.',
@@ -292,6 +301,7 @@ export const PLANNING_OPERATIONS = defineOperations([
   },
   {
     name: 'assign_task_resource',
+    assistant: { tool: 'sheetbase.study.task_book' },
     label: 'Book an instrument or room for a task',
     summary: 'Book a resource for a planner task',
     description:
@@ -337,6 +347,7 @@ export const PLANNING_OPERATIONS = defineOperations([
   },
   {
     name: 'update_study_deliverable',
+    assistant: { tool: 'sheetbase.study.deliverable_update' },
     label: 'Change a deliverable',
     summary: 'Change a planner deliverable',
     description:
@@ -368,6 +379,7 @@ export const PLANNING_OPERATIONS = defineOperations([
   },
   {
     name: 'reorder_study_deliverables',
+    assistant: { tool: 'sheetbase.study.deliverable_reorder' },
     label: 'Reorder the deliverables of a task',
     summary: 'Reorder planner deliverables',
     description: 'Puts a task’s deliverables in the order given.',
@@ -377,6 +389,7 @@ export const PLANNING_OPERATIONS = defineOperations([
   },
   {
     name: 'link_study_deliverable_evidence',
+    assistant: { tool: 'sheetbase.study.deliverable_evidence' },
     label: 'Attach a record as evidence for a deliverable',
     summary: 'Attach evidence to a planner deliverable',
     description:
@@ -387,6 +400,7 @@ export const PLANNING_OPERATIONS = defineOperations([
   },
   {
     name: 'snapshot_study_plan',
+    assistant: { tool: 'sheetbase.study.plan_snapshot' },
     label: 'Keep a snapshot of a study’s plan',
     summary: 'Snapshot a study’s plan',
     description:
@@ -413,6 +427,7 @@ export const PLANNING_OPERATIONS = defineOperations([
   // -- Reports --------------------------------------------------------------
   {
     name: 'create_report_definition',
+    assistant: { tool: 'sheetbase.report.create' },
     label: 'Create a report',
     summary: 'Create a report',
     description:
@@ -440,6 +455,7 @@ export const PLANNING_OPERATIONS = defineOperations([
   },
   {
     name: 'update_report_definition',
+    assistant: { tool: 'sheetbase.report.update' },
     label: 'Change a report',
     summary: 'Change a report',
     description:
@@ -467,6 +483,7 @@ export const PLANNING_OPERATIONS = defineOperations([
   },
   {
     name: 'add_report_section',
+    assistant: { tool: 'sheetbase.report.section_add' },
     label: 'Add a section to a report',
     summary: 'Add a report section',
     description:
@@ -485,6 +502,7 @@ export const PLANNING_OPERATIONS = defineOperations([
   },
   {
     name: 'update_report_section',
+    assistant: { tool: 'sheetbase.report.section_update' },
     label: 'Change a report section',
     summary: 'Change a report section',
     description:
@@ -502,6 +520,7 @@ export const PLANNING_OPERATIONS = defineOperations([
   },
   {
     name: 'bind_report_section_source',
+    assistant: { tool: 'sheetbase.report.section_bind' },
     label: 'Point a report section at its data',
     summary: 'Bind a report section to its source',
     description:
@@ -518,6 +537,7 @@ export const PLANNING_OPERATIONS = defineOperations([
   },
   {
     name: 'remove_report_section',
+    assistant: { tool: 'sheetbase.report.section_remove' },
     label: 'Remove a report section',
     summary: 'Remove a report section',
     description: 'Takes a section out of a report.',
@@ -527,6 +547,7 @@ export const PLANNING_OPERATIONS = defineOperations([
   },
   {
     name: 'reorder_report_sections',
+    assistant: { tool: 'sheetbase.report.sections_reorder' },
     label: 'Reorder a report’s sections',
     summary: 'Reorder report sections',
     description:

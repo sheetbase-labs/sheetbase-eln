@@ -24,8 +24,7 @@ import {
 import type { PlanAction } from './plan'
 
 export type PlanOutcome =
-  | { ok: true; proposal: AssistantProposal }
-  | { ok: false; message: string }
+  { ok: true; proposal: AssistantProposal } | { ok: false; message: string }
 
 const DESCRIPTION =
   'Propose several changes that depend on each other as ONE card the person approves once; the steps then run in order and stop if one fails. Use it when the request needs more than one change and a later one uses what an earlier one makes, for example "create an experiment, add samples to it, then add an analysis". Put what others depend on first (the experiment), then what goes into it (the samples, naming that experiment), then what comes after (the analysis). Each step is a card tool of its own with its arguments written as usual; name what an earlier step makes by the name you gave it. For one change use that change’s own tool. Deciding, approving and signing are never steps.'

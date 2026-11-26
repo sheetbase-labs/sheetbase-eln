@@ -361,6 +361,8 @@ const ASSISTANT_PROPOSE_TOOLS_UNDECLARED = [
   'sheetbase.worklist.complete',
   'sheetbase.template.use',
   'sheetbase.template.upgrade_notebook',
+  'sheetbase.sheet.materialize',
+  'sheetbase.sheet.adopt_layout_version',
 ] as const
 
 export const ASSISTANT_PROPOSE_TOOL_NAMES: readonly string[] = [

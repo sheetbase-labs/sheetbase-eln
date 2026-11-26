@@ -35,6 +35,7 @@ import { isUndoableTool } from '#/features/ai-undo/undo'
 import { runAssistantAction } from '#/lib/assistant-booking'
 import type { AssistantActionKind } from '#/lib/assistant-booking'
 import { describeActionError, plainDatabaseError } from '#/lib/assistant-bench'
+import { withCurrentStructureVersion } from '#/lib/assistant-fresh-operation'
 import { reportActionFailure } from '#/lib/assistant-failure-feed'
 import { describeCalendarError } from '#/lib/calendar'
 import { isPlanAction } from '#/features/plans/plan'
@@ -329,7 +330,7 @@ async function runOperation(
     workspaceId,
     title: proposal.title,
     summary: proposal.summary,
-    operation,
+    operation: await withCurrentStructureVersion(client, operation),
     provenance: {
       agentId: 'assistant',
       agentName: 'Assistant',

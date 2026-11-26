@@ -378,6 +378,45 @@ export const CARD_ACTIONS = {
   'sheetbase.sheet.restore': 'restore a sheet',
   'sheetbase.storage.archive_location': 'archive a storage location',
   'sheetbase.storage.update_location': 'change a storage location',
+  'sheetbase.instrument.queue_job': 'send a worklist to a robot',
+  'sheetbase.instrument.start_job': 'start a robot job',
+  'sheetbase.instrument.cancel_job': 'cancel a robot job',
+  'sheetbase.instrument.set_robot': 'set up an instrument as a robot',
+  'sheetbase.instrument.clear_robot': 'take the robot set-up off an instrument',
+  'sheetbase.instrument.set_feed_limits': 'change a live feed’s limits',
+  'sheetbase.instrument.remove_feed': 'remove a live feed',
+  'sheetbase.instrument.set_gate_mode':
+    'change how strict the instrument rules are',
+  'sheetbase.instrument.set_intake_method':
+    'change how an instrument’s data comes in',
+  'sheetbase.instrument.set_connection':
+    'change an instrument’s connection status',
+  'sheetbase.instrument.request_qualification':
+    'ask to be qualified on an instrument',
+  'sheetbase.instrument.dismiss_qualification_request':
+    'dismiss a qualification request',
+  'sheetbase.booking.duplicate': 'copy a booking',
+  'sheetbase.resource.create': 'add a bookable resource',
+  'sheetbase.connector.register': 'add a connector',
+  'sheetbase.connector.update': 'change a connector',
+  'sheetbase.parser.create_converter': 'add a converter parser',
+  'sheetbase.parser.create_webhook': 'add a web parser',
+  'sheetbase.parser.create_version': 'add a parser version',
+  'sheetbase.parser.save_mapping': 'save a parser mapping',
+  'sheetbase.parser.request_update': 'ask for a parser update',
+  'sheetbase.pipeline.retire_version': 'retire a pipeline version',
+  'sheetbase.pipeline.remind_run': 'remind someone a pipeline run is waiting',
+  'sheetbase.recurring.create': 'set up repeating work',
+  'sheetbase.search.update': 'change a saved search',
+  'sheetbase.search.delete': 'delete a saved search',
+  'sheetbase.webhook.update': 'change a webhook',
+  'sheetbase.webhook.delete': 'delete a webhook',
+  'sheetbase.webhook.replay_delivery': 'send a webhook delivery again',
+  'sheetbase.webhook.replay_deliveries': 'send webhook deliveries again',
+  'sheetbase.schedule.request': 'ask the scheduler for a plan',
+  'sheetbase.schedule.dismiss': 'dismiss a schedule plan',
+  'sheetbase.watcher.run': 'run a watcher now',
+  'sheetbase.events.set_retention': 'change how long the event stream is kept',
 } as const satisfies Record<string, string>
 
 /** The plain action for a card tool, or null when the tool has no entry. */

@@ -1,7 +1,7 @@
 import { z } from 'zod'
 
-import { cardWords } from '#/lib/assistant-rpc-cards'
-import type { RpcCardAction } from '#/lib/assistant-rpc-cards'
+import { cardWords } from '#/lib/assistant-call-cards'
+import type { RpcCardAction } from '#/lib/assistant-call-cards'
 
 /**
  * Pipelines and automation from the assistant: retire a pipeline version,

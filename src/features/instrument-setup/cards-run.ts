@@ -1,4 +1,4 @@
-import { runRpcCard } from '#/lib/assistant-rpc-cards'
+import { runRpcCard } from '#/lib/assistant-call-cards'
 import type { DataClient } from '#/lib/data-client'
 
 import type { FeatureActionResult } from '../define'

@@ -1,5 +1,5 @@
 /** The automation cards in the browser: which actions are ours, how they run, their words. */
-import { rpcActionGuard } from '#/lib/assistant-rpc-cards'
+import { rpcActionGuard } from '#/lib/assistant-call-cards'
 
 import { defineAssistant } from '../define'
 import { AUTOMATION_ADMIN_CARDS } from './cards'

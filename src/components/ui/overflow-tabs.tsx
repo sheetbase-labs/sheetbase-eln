@@ -70,7 +70,10 @@ export function OverflowTabs({
     observer.observe(measure)
 
     return () => observer.disconnect()
-  })
+    // The observers re-read whenever the row or its measuring copy changes
+    // size, which covers every way the tabs can change. Reading after every
+    // render instead set state from each render.
+  }, [])
 
   const activeIndex = items.findIndex((item) => item.value === value)
 

@@ -9,6 +9,8 @@ import { z } from 'zod'
 import { tabs as materialsTabs } from './-materials-page-model'
 import type { MaterialTab } from './-materials-page'
 import { signInRedirect } from '#/lib/sign-in-redirect'
+import { filterSearch } from '#/lib/list-filter'
+import type { FilterParam } from '#/lib/search-filter'
 
 /** The screen's tab, as the URL names it. */
 const tabField = z.enum(materialsTabs)
@@ -25,6 +27,7 @@ interface MaterialsSearch {
   tab?: MaterialTab
   selected?: string
   new?: true
+  filter?: FilterParam
 }
 
 export const Route = createFileRoute('/materials')({
@@ -33,6 +36,7 @@ export const Route = createFileRoute('/materials')({
     q: textField.safeParse(search.q).data,
     selected: textField.safeParse(search.selected).data,
     tab: tabField.safeParse(search.tab).data,
+    ...filterSearch(search.filter),
   }),
   beforeLoad: async ({ context: rootContext, location }) => {
     const context = rootContext.auth

@@ -136,3 +136,31 @@ export function customValueRecord(
     ]),
   )
 }
+
+/**
+ * A choice field whose options are the distinct values the rows hold: a
+ * status, a supplier, a location. Sorted, so the picker reads the same order
+ * every time.
+ */
+export function choicesFrom<T>(
+  id: string,
+  label: string,
+  rows: readonly T[],
+  valueOf: (row: T) => string | null | undefined,
+): SheetbaseField {
+  const values = new Set<string>()
+
+  for (const row of rows) {
+    const value = valueOf(row)
+
+    if (value) values.add(value)
+  }
+
+  return choiceFilter(
+    id,
+    label,
+    [...values]
+      .sort((a, b) => a.localeCompare(b))
+      .map((value) => ({ value, label: value })),
+  )
+}

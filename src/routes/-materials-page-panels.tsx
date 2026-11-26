@@ -36,6 +36,11 @@ import type {
   RegistryColumn,
   useRowFocus,
 } from '#/components/inventory/registry-grid'
+import { useClientFilter } from '#/components/inventory/use-list-filter'
+import {
+  materialFilterRecord,
+  useMaterialFilterFields,
+} from '#/components/materials/material-filter-fields'
 import {
   ListFooter,
   ListHeader,
@@ -278,7 +283,7 @@ export function MaterialsBody({
   panelTab,
   searchQuery,
   counts,
-  visible,
+  visible: allVisible,
   sel,
   view,
   bulk,
@@ -310,6 +315,13 @@ export function MaterialsBody({
   onBulkChanged: () => void
   onOpenMaterial: (row: MaterialListRow, event?: React.MouseEvent) => void
 }): React.ReactElement | null {
+  const fields = useMaterialFilterFields(allVisible)
+  const { filter, rows: visible } = useClientFilter(
+    fields,
+    allVisible,
+    materialFilterRecord,
+  )
+
   if (panelTab) return null
 
   const query = (searchQuery ?? '').trim().toLowerCase()
@@ -321,6 +333,7 @@ export function MaterialsBody({
         label={t('library.materials.page.searchMaterials')}
         placeholder={t('library.materials.page.searchByIdMaterialSupplier')}
         onSearch={onSearch}
+        filter={filter}
       />
       <RecordBulkBar
         selection={bulk}

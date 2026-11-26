@@ -20,10 +20,13 @@ import { buildRecordsProposal, recordsProposalDefs } from './cards.server'
 
 const base = { title: 'T', summary: 'S' }
 
+const urlOf = (input: Parameters<typeof fetch>[0]): URL =>
+  input instanceof Request ? new URL(input.url) : new URL(input, 'http://x')
+
 /** Answers each table by name; anything not listed is empty. */
 function context(tables: Record<string, core.util.JSONType[]>): LabToolContext {
   const fetchFixture: typeof fetch = async (input) => {
-    const path = new URL(String(input), 'http://x').pathname
+    const path = urlOf(input).pathname
 
     return Response.json(tables[path.split('/').at(-1) ?? ''] ?? [])
   }
@@ -265,7 +268,9 @@ describe('the record cards', () => {
     const calls: string[] = []
 
     const fetchFixture: typeof fetch = async (input, init) => {
-      calls.push(`${String(input)} ${String(init?.body)}`)
+      calls.push(
+        `${urlOf(input).pathname} ${init?.body instanceof Object ? '' : (init?.body ?? '')}`,
+      )
 
       return Response.json({})
     }

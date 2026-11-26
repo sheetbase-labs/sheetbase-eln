@@ -13,6 +13,7 @@ describe('selectTools', () => {
       def('sheetbase__plan__propose'),
       def('sheetbase__sample__move'),
     ]
+
     const names = selectTools(defs, 'hello', new Set()).map((d) => d.name)
 
     expect(names).toContain('sheetbase__plan__propose')

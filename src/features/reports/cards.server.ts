@@ -194,6 +194,9 @@ const KIND_WORDS = new Map<string, string>([
   ['project_status', 'Project status'],
 ])
 
+/** Whether `part` is somewhere in `text`. */
+const contains = (text: string, part: string): boolean => text.includes(part)
+
 interface RevisionRow {
   id: string
   structure_version: number
@@ -440,7 +443,7 @@ export async function buildReportsProposal(
       const wanted = input.block?.trim().toLowerCase()
 
       const matches = wanted
-        ? blocks.filter((block) => blockWords(block).includes(wanted))
+        ? blocks.filter((block) => contains(blockWords(block), wanted))
         : blocks
 
       if (matches.length !== 1 || !matches[0].id)
@@ -529,10 +532,11 @@ export async function buildReportsProposal(
       )
 
       const ids: string[] = []
+      const taken = new Set<string>()
 
       for (const wanted of input.order) {
         const lower = wanted.trim().toLowerCase()
-        const free = rows.filter((row) => !ids.includes(row.id))
+        const free = rows.filter((row) => !taken.has(row.id))
         const exact = free.filter((row) => row.title.toLowerCase() === lower)
 
         const partial = free.filter((row) =>
@@ -553,6 +557,7 @@ export async function buildReportsProposal(
               : `More than one section matches "${wanted}": ${partial.map((row) => row.title).join(', ')}. Ask which.`,
           )
         ids.push(chosen.id)
+        taken.add(chosen.id)
       }
 
       if (ids.length !== rows.length)

@@ -12,6 +12,8 @@ import {
   useRecordFilterFields,
 } from './list-filter-fields'
 
+const plainStatus = (status: string) => status
+
 /** A record's values under the ids `useNotebookRecordFilterFields` offers. */
 export function notebookRecordFilterRecord(
   r: NotebookRecord,
@@ -35,9 +37,14 @@ export function notebookRecordFilterRecord(
  */
 export function useNotebookRecordFilterFields(
   rows: readonly NotebookRecord[],
-  statusLabel: (status: string) => string = (status) => status,
+  statusLabel: (status: string) => string = plainStatus,
 ): readonly SheetbaseField[] {
   const { project, owner } = useRecordFilterFields()
+
+  const custom = useMemo(
+    () => customValueFields(rows.map((r) => r.customFields)),
+    [rows],
+  )
 
   return useMemo(
     () => [
@@ -61,8 +68,8 @@ export function useNotebookRecordFilterFields(
       textFilter('tags', t('common.filter.tags')),
       dateFilter('created', t('common.filter.created')),
       dateFilter('updated', t('common.filter.updated')),
-      ...customValueFields(rows.map((r) => r.customFields)),
+      ...custom,
     ],
-    [rows, statusLabel, project, owner],
+    [rows, statusLabel, project, owner, custom],
   )
 }

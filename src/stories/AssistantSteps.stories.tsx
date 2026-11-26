@@ -1,6 +1,7 @@
 import type { Meta, StoryObj } from '@storybook/tanstack-react'
 
-import { StepList, stepCallOf } from '#/components/assist/chat/steps'
+import { stepCallOf } from '#/components/assist/chat/step-call'
+import { StepList } from '#/components/assist/chat/steps'
 
 /**
  * The assistant's step list: what each lookup did, in words, with the records

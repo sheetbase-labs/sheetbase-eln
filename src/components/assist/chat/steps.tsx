@@ -1,6 +1,4 @@
 import type { ReactNode } from 'react'
-import { z } from 'zod'
-
 import { t } from '#/copy'
 import { Icon } from '#/components/icons'
 import { Spinner } from '#/components/ui/spinner'
@@ -20,33 +18,6 @@ import {
 import type { StepCall, StepItem, StepState } from '#/lib/assistant-steps'
 
 type StepText = (props: { text: string }) => ReactNode
-
-/** What a finished call sent back to the browser besides "it worked". */
-const outputSchema = z.looseObject({ refs: z.array(z.string()).optional() })
-
-/** The step list's view of one tool part of a streamed message. */
-export function stepCallOf(part: {
-  toolName: string
-  input?: unknown
-  state: string
-  output?: unknown
-  errorText?: string
-}): StepCall {
-  const state: StepState =
-    part.state === 'output-error'
-      ? 'failed'
-      : part.state === 'output-available'
-        ? 'done'
-        : 'running'
-
-  return {
-    toolName: part.toolName,
-    input: part.input,
-    state,
-    refs: outputSchema.safeParse(part.output).data?.refs,
-    error: part.errorText,
-  }
-}
 
 function StateIcon({ state }: { state: StepState }) {
   return state === 'running' ? (

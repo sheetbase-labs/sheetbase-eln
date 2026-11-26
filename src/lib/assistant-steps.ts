@@ -446,10 +446,12 @@ export function callLine(call: StepCall): string {
     : stepLine(words, call.state)
 }
 
-const list = (items: readonly string[]): string =>
-  new Intl.ListFormat('en-GB', { style: 'long', type: 'conjunction' }).format(
-    items,
-  )
+const listFormat = new Intl.ListFormat('en-GB', {
+  style: 'long',
+  type: 'conjunction',
+})
+
+const list = (items: readonly string[]): string => listFormat.format(items)
 
 const plural = (noun: string): string =>
   noun.endsWith('s') ? noun : `${noun}s`

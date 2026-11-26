@@ -7,6 +7,7 @@ import { toast } from '#/components/ui/sonner'
 import { getPaneRouter } from '#/router'
 import type { RouterContext } from '#/routes/__root'
 import type { ShortcutDefinition } from '#/lib/shortcuts'
+import { PaneErrorBoundary } from './pane-error-boundary'
 import { PendingEditsDialog } from './pending-edits-dialog'
 import { pendingEditsFor, runLeaveCheck } from '#/lib/pending-edits'
 import type { PendingEdit } from '#/lib/pending-edits'
@@ -329,7 +330,9 @@ function PanePageInstance({
   return (
     <PaneContext.Provider value={paneContext}>
       <ShortcutProvider definitions={noGlobalShortcuts} enabled={active}>
-        <RouterProvider router={page.router} />
+        <PaneErrorBoundary onRetry={() => void page.router.invalidate()}>
+          <RouterProvider router={page.router} />
+        </PaneErrorBoundary>
       </ShortcutProvider>
       <PendingEditsDialog
         edits={prompt?.edits ?? null}

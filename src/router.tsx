@@ -8,6 +8,7 @@ import type { RouterContext } from './routes/__root'
 import { setupRouterSsrQueryIntegration } from '@tanstack/react-router-ssr-query'
 import { createRouterContext } from './integrations/tanstack-query/router-context'
 import { NotFound } from '#/components/shell/not-found'
+import { PaneRouteError } from '#/components/workspace/pane-error-boundary'
 import { noCapabilities } from './lib/capabilities'
 import { ROOT_CONTEXT_QUERY_KEY } from './lib/root-context-cache'
 
@@ -68,6 +69,8 @@ export function getPaneRouter(context: RouterContext, href: string) {
     scrollRestoration: false,
     defaultHashScrollIntoView: false,
     defaultNotFoundComponent: NotFound,
+    // A page that throws while rendering fails inside its own pane.
+    defaultErrorComponent: PaneRouteError,
     defaultPreload: 'intent',
     defaultPreloadStaleTime: 30_000,
   })

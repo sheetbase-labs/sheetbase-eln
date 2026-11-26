@@ -1797,6 +1797,10 @@ export const projects = {
     unsaved: 'Save pending edits before closing or leaving this page.',
     title: 'Save your changes?',
     body: '{label} has changes you have not saved.',
+    failedTitle: 'This pane stopped working',
+    failedBody:
+      'The rest of the workspace is fine. Try again, or close this pane.',
+    tryAgain: 'Try again',
   },
   peek: {
     label: 'Peek {name}',

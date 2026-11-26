@@ -69,7 +69,7 @@ function frame(data: unknown): string {
   return `data: ${typeof data === 'string' ? data : JSON.stringify(data)}\n\n`
 }
 
-export async function startMockModel(): Promise<MockModel> {
+export async function startMockModel(port = 0): Promise<MockModel> {
   let script: ModelScript = () => ({ text: 'No script is set.' })
   const requests: ModelRequest[] = []
   let counter = 0
@@ -174,7 +174,9 @@ export async function startMockModel(): Promise<MockModel> {
     })
   })
 
-  await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve))
+  await new Promise<void>((resolve) =>
+    server.listen(port, '127.0.0.1', resolve),
+  )
   const address = server.address()
 
   if (!address || typeof address === 'string') throw new Error('No port')
@@ -192,3 +194,25 @@ export async function startMockModel(): Promise<MockModel> {
       }),
   }
 }
+
+/** The provider profiles a server needs to reach a scripted model at `baseUrl`. */
+export function scriptedProfiles(baseUrl: string): string {
+  return JSON.stringify({
+    profiles: [
+      {
+        id: 'scripted',
+        label: 'Scripted model',
+        kind: 'local',
+        baseUrl,
+        model: 'sheetbase-assist-1',
+        pricing: {
+          inputMicrousdPerMillionTokens: 0,
+          outputMicrousdPerMillionTokens: 0,
+        },
+      },
+    ],
+  })
+}
+
+/** Where a browser test's scripted model listens, so the app server can be told in advance. */
+export const BROWSER_MODEL_PORT = 4510

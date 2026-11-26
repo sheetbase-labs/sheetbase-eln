@@ -2,7 +2,7 @@ import { randomUUID } from 'node:crypto'
 import { Client } from 'pg'
 import type { UIMessage } from 'ai'
 
-import { startMockModel } from './mock-model'
+import { scriptedProfiles, startMockModel } from './mock-model'
 import type { MockModel, ModelScript } from './mock-model'
 import { signedIn } from './auth-mock'
 
@@ -368,21 +368,7 @@ export interface WorldOptions {
 export async function startWorld(options: WorldOptions = {}): Promise<World> {
   const model = await startMockModel()
 
-  process.env.AI_PROVIDER_PROFILES = JSON.stringify({
-    profiles: [
-      {
-        id: 'scripted',
-        label: 'Scripted model',
-        kind: 'local',
-        baseUrl: model.baseUrl,
-        model: 'sheetbase-assist-1',
-        pricing: {
-          inputMicrousdPerMillionTokens: 0,
-          outputMicrousdPerMillionTokens: 0,
-        },
-      },
-    ],
-  })
+  process.env.AI_PROVIDER_PROFILES = scriptedProfiles(model.baseUrl)
 
   const admin = new Client({ connectionString: process.env.DATABASE_URL })
   await admin.connect()

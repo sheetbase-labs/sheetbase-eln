@@ -1,4 +1,10 @@
 import { useState } from 'react'
+import type { CardOutcome } from '#/lib/assistant-card-outcomes'
+import {
+  cardOutcomeFor,
+  recordCardOutcome,
+  recordIdFromHref,
+} from '#/lib/assistant-card-outcomes'
 import { Link, useRouter } from '@tanstack/react-router'
 import { useQueryClient } from '@tanstack/react-query'
 
@@ -51,6 +57,64 @@ type CardState =
   | { phase: 'dismissed' }
   | { phase: 'signature' }
   | { phase: 'failed'; reason: string }
+
+/** A card decided in an earlier visit, from the outcome saved with its chat. */
+function savedPhase(callId: string): CardState {
+  const saved = cardOutcomeFor(callId)
+
+  if (saved?.status === 'applied') return { phase: 'applied' }
+
+  if (saved?.status === 'dismissed') return { phase: 'dismissed' }
+
+  if (saved?.status === 'failed')
+    return { phase: 'failed', reason: saved.reason ?? '' }
+
+  return { phase: 'idle' }
+}
+
+/** Tells the assistant what became of the card, and which record it made. */
+async function noteOutcome(
+  callId: string,
+  title: string,
+  state: CardState,
+  opened?: string,
+): Promise<void> {
+  const at = new Date().toISOString()
+
+  const status =
+    state.phase === 'applied'
+      ? 'applied'
+      : state.phase === 'dismissed'
+        ? 'dismissed'
+        : state.phase === 'failed'
+          ? 'failed'
+          : 'needs_signature'
+
+  const base: CardOutcome = { status, title, at }
+
+  if (state.phase === 'failed') base.reason = state.reason
+
+  if (opened) base.opened = opened
+
+  // Recorded at once, then again with the ID once the record has been read.
+  recordCardOutcome(callId, base)
+  const id = state.phase === 'applied' ? recordIdFromHref(opened) : null
+
+  if (!id) return
+
+  try {
+    const rows = await createDataClient().list<{
+      identifier: string
+      title: string
+    }>('records', `?id=eq.${id}&select=identifier,title&limit=1`)
+
+    const row = rows.at(0)
+
+    if (row) recordCardOutcome(callId, { ...base, made: row })
+  } catch {
+    // The outcome stays as recorded, without the ID.
+  }
+}
 
 /** Kept outside the component so a re-render or reopened panel remembers it. */
 const decided = new Map<string, CardState>()
@@ -461,7 +525,7 @@ function SingleProposalCard({
   proposal: AssistantProposal
 }) {
   const [state, setStateRaw] = useState<CardState>(
-    () => decided.get(callId) ?? { phase: 'idle' },
+    () => decided.get(callId) ?? savedPhase(callId),
   )
 
   // One key per card, so a double press repeats the same request instead of
@@ -480,9 +544,12 @@ function SingleProposalCard({
   const queryClient = useQueryClient()
   const router = useRouter()
 
-  function setState(next: CardState) {
+  function setState(next: CardState, madeAt?: string) {
     if (next.phase !== 'applying') decided.set(callId, next)
     setStateRaw(next)
+
+    if (next.phase !== 'applying' && next.phase !== 'idle')
+      void noteOutcome(callId, proposal.title, next, madeAt)
   }
 
   async function apply() {
@@ -546,7 +613,7 @@ function SingleProposalCard({
     }
 
     if (outcome.note) setNote(outcome.note)
-    setState({ phase: 'applied' })
+    setState({ phase: 'applied' }, outcome.opened)
     void queryClient.invalidateQueries()
     void router.invalidate()
   }

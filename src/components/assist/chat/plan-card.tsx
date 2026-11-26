@@ -1,4 +1,5 @@
 import { useRef, useState } from 'react'
+import { recordCardOutcome } from '#/lib/assistant-card-outcomes'
 import { useQueryClient } from '@tanstack/react-query'
 import { useRouter } from '@tanstack/react-router'
 
@@ -98,6 +99,27 @@ export function PlanCard({
   function save(next: Phase, at: number | null) {
     setPhaseRaw(next)
     setPausedAt(at)
+
+    if (next === 'done' || next === 'dismissed' || next === 'stopped') {
+      const doneSteps = latest.current.filter(
+        (step) => step.phase === 'done',
+      ).length
+
+      recordCardOutcome(callId, {
+        status:
+          next === 'done'
+            ? 'applied'
+            : next === 'dismissed'
+              ? 'dismissed'
+              : 'failed',
+        title: proposal.title,
+        reason:
+          next === 'stopped'
+            ? `stopped after ${doneSteps} of ${action.steps.length} steps`
+            : undefined,
+        at: new Date().toISOString(),
+      })
+    }
 
     if (next !== 'running') {
       remembered.set(callId, {

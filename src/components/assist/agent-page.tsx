@@ -19,6 +19,11 @@ import { ASSISTANT_CHAT_PATH, toChatTurns } from '#/lib/assistant-chat'
 import type { AssistantUIMessage } from '#/lib/assistant-chat'
 import { getDisplayTimeZone } from '#/lib/display-time-zone'
 import { notebookDataClient } from '#/lib/notebook-data'
+import { openPanesForRequest } from '#/lib/assistant-open-panes'
+import {
+  hydrateCardOutcomes,
+  subscribeCardOutcomes,
+} from '#/lib/assistant-card-outcomes'
 import {
   conversationKeys,
   fetchConversation,
@@ -68,6 +73,7 @@ function chatFor(
   let chat = chats.get(key)
 
   if (!chat) {
+    hydrateCardOutcomes(messages)
     chat = new Chat<AssistantUIMessage>({
       id: key,
       messages,
@@ -86,6 +92,7 @@ function chatFor(
               messages: toChatTurns(all),
               timeZone: viewerTimeZone(),
               attachments,
+              panes: openPanesForRequest(),
             },
           }
         },
@@ -379,6 +386,34 @@ function ChatBody({
         toast.error(t('features.assistantConversations.page.saveFailed'))
       })
   }, [busy, messages, id, workspaceId, queryClient, onSaved])
+
+  // A card applied or dismissed after the answer was saved is saved too, so a
+  // later chat knows what the assistant made.
+  const latestMessages = useRef(messages)
+  latestMessages.current = messages
+
+  useEffect(() => {
+    let timer: ReturnType<typeof setTimeout> | undefined
+
+    const unsubscribe = subscribeCardOutcomes(() => {
+      clearTimeout(timer)
+      timer = setTimeout(() => {
+        if (!savedOnce.current) return
+
+        saveConversation(notebookDataClient, {
+          id,
+          messages: latestMessages.current,
+        }).catch(() => {
+          toast.error(t('features.assistantConversations.page.saveFailed'))
+        })
+      }, 1500)
+    })
+
+    return () => {
+      clearTimeout(timer)
+      unsubscribe()
+    }
+  }, [id])
 
   useFailureFeed(
     useCallback((text: string) => void sendMessage({ text }), [sendMessage]),

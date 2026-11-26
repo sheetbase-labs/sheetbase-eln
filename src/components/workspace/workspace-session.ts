@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { RefObject } from 'react'
 import { browserTitle, unreadFromShellCount } from '#/lib/browser-title'
 import { registerShellRefresh } from '#/lib/shell-refresh'
+import { setOpenPanes } from '#/lib/assistant-open-panes'
 import { usePlatform } from '#/lib/use-platform'
 import { useRouter, useRouterState } from '@tanstack/react-router'
 import type { RouterHistory } from '@tanstack/react-router'
@@ -329,6 +330,18 @@ export function useWorkspaceSession({
   )
 
   const tab = activeTab(state)
+
+  // The assistant is told which pages are open, so "this" means what is on screen.
+  useEffect(() => {
+    setOpenPanes(
+      tab.panes.map((pane) => ({
+        path: pane.href,
+        title: pane.title,
+        identifier: pane.identifier,
+        active: pane.id === tab.activeId,
+      })),
+    )
+  }, [tab.panes, tab.activeId])
 
   /* The browser tab is named for the focused pane's page, with the Inbox's
      unread count in front while something waits. */

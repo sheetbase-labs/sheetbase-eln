@@ -1,6 +1,9 @@
+import { z } from 'zod'
+
 import type { DataClient } from '#/lib/data-client'
 import type { AssistantUIMessage } from '#/lib/assistant-chat'
 import { messageText } from '#/lib/assistant-chat'
+import { cardOutcomeFor } from '#/lib/assistant-card-outcomes'
 
 /**
  * The Agent page's saved conversations: the list on the left of the page and
@@ -53,12 +56,35 @@ export async function fetchConversation(
 export function messagesToSave(
   messages: readonly AssistantUIMessage[],
 ): AssistantUIMessage[] {
-  return messages.filter(
-    (message) =>
+  return messages.flatMap((message) => {
+    const kept =
       message.role === 'user' ||
       messageText(message).trim() !== '' ||
-      message.parts.some((part) => part.type === 'dynamic-tool'),
-  )
+      message.parts.some((part) => part.type === 'dynamic-tool')
+
+    return kept ? [withOutcomes(message)] : []
+  })
+}
+
+const savedOutputObject = z.looseObject({})
+
+/** A card's outcome is saved on its tool part, so a later chat can read it. */
+function withOutcomes(message: AssistantUIMessage): AssistantUIMessage {
+  if (message.role !== 'assistant') return message
+
+  return {
+    ...message,
+    parts: message.parts.map((part) => {
+      if (part.type !== 'dynamic-tool' || part.state !== 'output-available')
+        return part
+      const outcome = cardOutcomeFor(part.toolCallId)
+      const output = savedOutputObject.safeParse(part.output)
+
+      return outcome && output.success
+        ? { ...part, output: { ...output.data, outcome } }
+        : part
+    }),
+  }
 }
 
 export function saveConversation(

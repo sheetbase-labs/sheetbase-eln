@@ -3,6 +3,7 @@ import type { UIMessage } from 'ai'
 import type { AssistantSource, AssistantUsage } from './assistant'
 import type { AttachmentRef } from './assistant-attachments'
 import type { ChatTurn } from './ai-providers/types'
+import { cardLines } from './assistant-card-outcomes'
 
 /**
  * What rides alongside an assistant message in the chat stream: the sources the
@@ -41,7 +42,16 @@ export function toChatTurns(messages: UIMessage[]): ChatTurn[] {
 
   for (const message of messages) {
     if (message.role !== 'user' && message.role !== 'assistant') continue
-    const content = messageText(message).trim()
+    const text = messageText(message).trim()
+
+    // The cards this answer showed, and what became of each, so the assistant
+    // knows what was applied, dismissed or failed and what it made.
+    const cards = message.role === 'assistant' ? cardLines(message) : []
+
+    const content =
+      cards.length === 0
+        ? text
+        : `${text}\n\n[Cards you showed with this answer, and what became of them: ${cards.join('; ')}]`.trim()
 
     if (content === '') continue
     turns.push({ role: message.role, content })

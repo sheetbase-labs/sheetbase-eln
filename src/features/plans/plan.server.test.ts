@@ -74,6 +74,21 @@ describe('plan card', () => {
     expect(built.proposal.changes).toHaveLength(3)
   })
 
+  it('accepts a step tool written the provider way', async () => {
+    const built = await buildPlanProposal(
+      {
+        ...base,
+        steps: [
+          { title: 'Start it', tool: 'sheetbase__project__create', arguments: {} },
+        ],
+      },
+      context(),
+    )
+
+    if (!built.ok) throw new Error(built.message)
+    expect(built.proposal.changes).toHaveLength(1)
+  })
+
   it('follows the admin’s settings', async () => {
     const built = await buildPlanProposal(
       { ...base, steps },

@@ -83,7 +83,15 @@ export async function buildPlanProposal(
 
   if (!parsed.ok) return { ok: false, message: parsed.message }
 
-  const input = parsed.data
+  // The model sometimes writes a step's tool the way the provider spells it
+  // (`sheetbase__project__create`); a plan names tools with dots.
+  const input = {
+    ...parsed.data,
+    steps: parsed.data.steps.map((step) => ({
+      ...step,
+      tool: step.tool.replaceAll('__', '.'),
+    })),
+  }
   const allowed = planStepTools()
 
   const [pause, runAll] = await Promise.all([

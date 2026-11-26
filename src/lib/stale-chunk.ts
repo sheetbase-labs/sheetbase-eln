@@ -12,7 +12,7 @@ const RELOAD_WINDOW_MS = 30_000
 
 // oxlint-disable-next-line anti-slop/no-unknown-parameters -- A failed import is a caught throw, untyped by definition.
 export function isStaleChunkError(error: unknown): boolean {
-  const message = error instanceof Error ? error.message : String(error ?? '')
+  const message = error instanceof Error ? error.message : ''
 
   return /dynamically imported module|importing a module script failed|error loading dynamically imported module|Unable to preload CSS/i.test(
     message,

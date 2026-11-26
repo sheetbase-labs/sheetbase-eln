@@ -86,26 +86,28 @@ const MATERIAL_PROPERTIES = new Set([
   'expiry_warning_days',
 ])
 
-const MATERIAL_ALIASES: Readonly<Record<string, string>> = {
-  supplier: 'supplier',
-  vendor: 'supplier',
-  catalogno: 'catalog_no',
-  catalognumber: 'catalog_no',
-  catalogueno: 'catalog_no',
-  cataloguenumber: 'catalog_no',
-  catno: 'catalog_no',
-  lot: 'lot',
-  lotnumber: 'lot',
-  expiry: 'expiry',
-  expirydate: 'expiry',
-  quantity: 'quantity',
-  amount: 'quantity',
-  unit: 'unit',
-  storage: 'storage',
-  storagecondition: 'storage',
-  lowstockthreshold: 'low_stock_threshold',
-  expirywarningdays: 'expiry_warning_days',
-}
+const MATERIAL_ALIASES = new Map(
+  Object.entries({
+    supplier: 'supplier',
+    vendor: 'supplier',
+    catalogno: 'catalog_no',
+    catalognumber: 'catalog_no',
+    catalogueno: 'catalog_no',
+    cataloguenumber: 'catalog_no',
+    catno: 'catalog_no',
+    lot: 'lot',
+    lotnumber: 'lot',
+    expiry: 'expiry',
+    expirydate: 'expiry',
+    quantity: 'quantity',
+    amount: 'quantity',
+    unit: 'unit',
+    storage: 'storage',
+    storagecondition: 'storage',
+    lowstockthreshold: 'low_stock_threshold',
+    expirywarningdays: 'expiry_warning_days',
+  }),
+)
 
 const squash = (text: string): string =>
   text.toLowerCase().replaceAll(/[^a-z0-9]/g, '')
@@ -260,12 +262,12 @@ export async function buildRecordsProposal(
 
         const material =
           model.value.key === 'material'
-            ? (def?.fieldName ?? MATERIAL_ALIASES[squashed])
+            ? (def?.fieldName ?? MATERIAL_ALIASES.get(squashed))
             : undefined
 
         if (material && MATERIAL_PROPERTIES.has(material)) {
           properties[material] =
-            typeof value === 'boolean' ? String(value) : value
+            value === true || value === false ? String(value) : value
           changes.push({
             label: def?.label ?? wanted,
             before: null,
@@ -397,6 +399,7 @@ export async function buildRecordsProposal(
 
       if (!parsed.success) return fail(invalid(parsed.error))
       const input = parsed.data
+
       const found = await findRecord(
         client,
         input.material,

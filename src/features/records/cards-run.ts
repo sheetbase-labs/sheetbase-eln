@@ -3,12 +3,6 @@ import type { DataClient } from '#/lib/data-client'
 import type { FeatureActionResult } from '../define'
 import type { RecordsAction } from './cards'
 
-const PAGES: Record<string, string> = {
-  material: '/materials',
-  sample: '/samples',
-  experiment: '/experiments',
-}
-
 /** Runs the card in the person's own session, so their access applies. */
 export async function runRecordsAction(
   client: Pick<DataClient, 'rpc'>,
@@ -26,7 +20,9 @@ export async function runRecordsAction(
         p_custom_fields: action.customFields,
       })
 
-      return { openHref: PAGES[action.recordKind] }
+      return action.recordKind === 'material'
+        ? { openHref: '/materials' }
+        : undefined
     }
 
     case 'records.archive':

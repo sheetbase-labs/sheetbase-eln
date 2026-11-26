@@ -317,6 +317,7 @@ export function MaterialsBody({
   onOpenMaterial: (row: MaterialListRow, event?: React.MouseEvent) => void
 }): React.ReactElement | null {
   const fields = useMaterialFilterFields(allVisible)
+
   const { filter, rows: visible } = useClientFilter(
     fields,
     allVisible,

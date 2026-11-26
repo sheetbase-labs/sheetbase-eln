@@ -6,6 +6,7 @@ import type {
 } from '@sheetbase-labs/sheetbase-shared'
 
 import { filterRows } from '#/lib/list-filter'
+import type { FilterRecord } from '#/lib/list-filter'
 import { decodeFilter, encodeFilter } from '#/lib/search-filter'
 import type { ListFilter } from './list-filter'
 
@@ -28,6 +29,7 @@ export function useListFilter(fields: readonly SheetbaseField[]): ListFilter {
       tree,
       onChange: (next: GroupNode | undefined) => {
         void navigate({
+          // SAFETY: The updater keeps every key of the page's own search and replaces `filter`, which every filtered route declares; `never` only skips a per-route search type.
           // oxlint-disable-next-line anti-slop/no-unsafe-dictionary-type -- The page's own search keys pass through unchanged; only `filter` changes.
           search: ((prev: Record<string, unknown>) => ({
             ...prev,
@@ -41,6 +43,12 @@ export function useListFilter(fields: readonly SheetbaseField[]): ListFilter {
   )
 }
 
+/** A list's filter, and the rows it leaves. */
+export interface ClientFilter<T> {
+  filter: ListFilter
+  rows: T[]
+}
+
 /**
  * A filter on rows the list already holds: the URL tree decides which of
  * `rows` show. `toRecord` names each row's value for every filter field id, and
@@ -49,8 +57,8 @@ export function useListFilter(fields: readonly SheetbaseField[]): ListFilter {
 export function useClientFilter<T>(
   fields: readonly SheetbaseField[],
   rows: readonly T[],
-  toRecord: (row: T) => Record<string, unknown>,
-): { filter: ListFilter; rows: T[] } {
+  toRecord: (row: T) => FilterRecord,
+): ClientFilter<T> {
   const filter = useListFilter(fields)
 
   const filtered = useMemo(

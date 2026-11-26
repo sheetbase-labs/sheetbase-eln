@@ -504,6 +504,7 @@ function ReportsList() {
     visibleReports(rows, tab, userId, search.q ?? ''),
     rows,
   )
+
   const sel = selectedReport(visible, selectedId, search.selected)
 
   const workspaceId = context.workspace?.id ?? ''

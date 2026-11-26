@@ -3,6 +3,7 @@
  * There is no fixed incident type. A tab appears for each ticked model, and a
  * lab with none yet can start from the ready-made Incident model.
  */
+import type { FilterRecord } from '#/lib/list-filter'
 import { useClientFilter } from '#/components/inventory/use-list-filter'
 import {
   choicesFrom,
@@ -71,7 +72,7 @@ function entryMatches(entry: IncidentEntry, needle: string): boolean {
 }
 
 /** An incident's values under the ids its filter offers. */
-function incidentFilterRecord(e: IncidentEntry): Record<string, unknown> {
+function incidentFilterRecord(e: IncidentEntry): FilterRecord {
   return {
     identifier: e.identifier,
     title: e.title,

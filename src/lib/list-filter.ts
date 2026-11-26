@@ -11,7 +11,6 @@ import {
   isEmptyFilter,
   normaliseFilterParam,
 } from '#/lib/search-filter'
-import type { FilterParam } from '#/lib/search-filter'
 
 /**
  * Filters on a record list. One tree (the same one Search uses) is held in the
@@ -24,7 +23,7 @@ import type { FilterParam } from '#/lib/search-filter'
 /** What a list route adds to its `validateSearch`, so the parameter survives. */
 // Router input is untrusted until the filter decoder has inspected it.
 // oxlint-disable-next-line anti-slop/no-unknown-parameters
-export function filterSearch(raw: unknown): { filter?: FilterParam } {
+export function filterSearch(raw: unknown) {
   return { filter: normaliseFilterParam(raw) }
 }
 
@@ -33,6 +32,48 @@ export const filterParamSchema = z
   .unknown()
   .transform((raw) => normaliseFilterParam(raw))
   .optional()
+
+/** A value a filter can read from a row: text, a number, a yes/no or nothing. */
+export type FilterCell = string | number | boolean | null | undefined
+
+/** A row's values by filter field id. */
+export type FilterRecord = Readonly<Record<string, FilterCell>>
+
+/** What kind of value a cell holds, so a field can be typed by its rows. */
+export type FilterCellKind = 'number' | 'boolean' | 'date' | 'text' | 'none'
+
+const ISO_DATE = /^\d{4}-\d{2}-\d{2}(T|$)/
+
+/**
+ * Reads a stored value (any JSON a record or column holds) as a cell: text,
+ * numbers and yes/no pass, a list joins into text, anything else is nothing.
+ */
+// Stored values are untyped JSON; this is the one place they are narrowed.
+// oxlint-disable-next-line anti-slop/no-unknown-parameters
+export function filterCell(value: unknown): FilterCell {
+  if (Array.isArray(value)) return value.map(filterCell).join(' ')
+
+  // oxlint-disable-next-line anti-slop/no-runtime-typeof -- Narrowing stored JSON to the scalar kinds a filter compares.
+  if (typeof value === 'string' || typeof value === 'number') return value
+
+  // oxlint-disable-next-line anti-slop/no-runtime-typeof -- Narrowing stored JSON to the scalar kinds a filter compares.
+  if (typeof value === 'boolean') return value
+
+  return undefined
+}
+
+/** The kind of a cell: how a field built from it filters. */
+export function cellKind(value: FilterCell): FilterCellKind {
+  if (value === null || value === undefined || value === '') return 'none'
+
+  // oxlint-disable-next-line anti-slop/no-runtime-typeof -- The cell's declared scalar kinds are told apart here.
+  if (typeof value === 'number') return 'number'
+
+  // oxlint-disable-next-line anti-slop/no-runtime-typeof -- The cell's declared scalar kinds are told apart here.
+  if (typeof value === 'boolean') return 'boolean'
+
+  return ISO_DATE.test(String(value)) ? 'date' : 'text'
+}
 
 /** The finished conditions of a tree, or undefined when nothing is set. */
 export function activeFilter(
@@ -45,7 +86,7 @@ export function activeFilter(
 export function filterRows<T>(
   rows: readonly T[],
   tree: GroupNode | null | undefined,
-  toRecord: (row: T) => Record<string, unknown>,
+  toRecord: (row: T) => FilterRecord,
 ): T[] {
   const active = activeFilter(tree)
 
@@ -73,7 +114,7 @@ export type PostgrestColumns = Readonly<
 const DAY_MS = 86_400_000
 
 // PostgREST reads commas, parentheses and quotes inside a list: wrap the value.
-function quote(value: unknown): string {
+function quote(value: FilterCell): string {
   const text = String(value ?? '')
 
   return `"${text.replace(/\\/g, '\\\\').replace(/"/g, '\\"')}"`
@@ -83,10 +124,12 @@ function pattern(text: string): string {
   return text.replace(/[*%_\\]/g, (ch) => `\\${ch}`)
 }
 
-function listValues(value: ConditionNode['value']): unknown[] {
-  if (Array.isArray(value)) return value
+function listValues(value: ConditionNode['value']): FilterCell[] {
+  if (Array.isArray(value)) return value.map(filterCell)
 
-  return value === undefined || value === null ? [] : [value]
+  const cell = filterCell(value)
+
+  return cell === undefined || cell === null ? [] : [cell]
 }
 
 function condition(
@@ -97,11 +140,13 @@ function condition(
   const entry = columns[node.field]
 
   if (!entry) return undefined
+
   const { column, kind = 'text' } =
+    // oxlint-disable-next-line anti-slop/no-runtime-typeof -- A column map entry is a bare column name or a column with a kind.
     typeof entry === 'string' ? { column: entry } : entry
+
   const value = node.value
-  const scalar = Array.isArray(value) ? value[0] : value
-  const text = String(scalar ?? '')
+  const text = String(listValues(value)[0] ?? '')
 
   switch (node.operator) {
     case 'isNull':
@@ -134,6 +179,7 @@ function condition(
         ? `${column}.in.(${items.map(quote).join(',')})`
         : undefined
     }
+
     case 'between': {
       const [low, high] = listValues(value)
 
@@ -141,6 +187,7 @@ function condition(
 
       return `and(${column}.gte.${quote(low)},${column}.lte.${quote(high)})`
     }
+
     case 'withinLastDays': {
       const days = Number(text)
 
@@ -148,6 +195,7 @@ function condition(
 
       return `${column}.gte.${quote(new Date(now - days * DAY_MS).toISOString())}`
     }
+
     default:
       return undefined
   }
@@ -159,6 +207,7 @@ function group(
   now: number,
 ): string | undefined {
   if (node.type === 'condition') return condition(node, columns, now)
+
   const parts = node.children
     .map((child) => group(child, columns, now))
     .filter((part): part is string => part !== undefined)

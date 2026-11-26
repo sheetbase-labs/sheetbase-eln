@@ -775,6 +775,7 @@ function SamplesList() {
     undefined,
     filterClause,
   )
+
   const counts = tabCounts.data
 
   const onScrollLoad = useScrollLoad({

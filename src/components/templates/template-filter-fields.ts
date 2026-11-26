@@ -1,3 +1,4 @@
+import type { FilterRecord } from '#/lib/list-filter'
 import { useMemo } from 'react'
 import type { SheetbaseField } from '@sheetbase-labs/sheetbase-shared'
 
@@ -12,9 +13,7 @@ import type { TemplateRow } from './templates-data'
 import { templateLifecycle } from './templates-data'
 
 /** A template's values under the ids `useTemplateFilterFields` offers. */
-export function templateFilterRecord(
-  row: TemplateRow,
-): Record<string, unknown> {
+export function templateFilterRecord(row: TemplateRow): FilterRecord {
   return {
     key: row.displayId ?? row.key,
     name: row.name,

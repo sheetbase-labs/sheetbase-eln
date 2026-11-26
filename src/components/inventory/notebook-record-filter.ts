@@ -1,3 +1,4 @@
+import type { FilterRecord } from '#/lib/list-filter'
 import { useMemo } from 'react'
 import type { SheetbaseField } from '@sheetbase-labs/sheetbase-shared'
 
@@ -15,9 +16,7 @@ import {
 const plainStatus = (status: string) => status
 
 /** A record's values under the ids `useNotebookRecordFilterFields` offers. */
-export function notebookRecordFilterRecord(
-  r: NotebookRecord,
-): Record<string, unknown> {
+export function notebookRecordFilterRecord(r: NotebookRecord): FilterRecord {
   return {
     identifier: r.identifier,
     title: r.title,

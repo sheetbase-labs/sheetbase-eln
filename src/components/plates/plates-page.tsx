@@ -80,11 +80,13 @@ export function PlatesPage({
   )
 
   const runColumns = usePlateRunColumns()
+
   const { filter, rows: visibleRuns } = useColumnFilter(
     runColumns,
     matchingRuns,
     all,
   )
+
   const worklistColumns = usePlateWorklistColumns()
 
   if (runId) {

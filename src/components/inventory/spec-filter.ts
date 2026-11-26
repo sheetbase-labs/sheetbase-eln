@@ -8,8 +8,9 @@ import {
   textFilter,
   useRecordFilterFields,
 } from './list-filter-fields'
+import type { FilterCell } from '#/lib/list-filter'
 import { useClientFilter } from './use-list-filter'
-import type { ListFilter } from './list-filter'
+import type { ClientFilter } from './use-list-filter'
 
 /**
  * A filter for a list of typed rows: name each column to filter by, what to
@@ -23,7 +24,7 @@ export type FilterSpec<T> = Readonly<
     {
       label: string
       type: 'text' | 'number' | 'date' | 'choice' | 'project' | 'owner'
-      value: (row: T) => unknown
+      value: (row: T) => FilterCell
     }
   >
 >
@@ -37,7 +38,7 @@ export function useSpecFilter<T>(
   spec: FilterSpec<T>,
   rows: readonly T[],
   all: readonly T[] = rows,
-): { filter: ListFilter; rows: T[] } {
+): ClientFilter<T> {
   const { project, owner } = useRecordFilterFields()
 
   const fields = useMemo<SheetbaseField[]>(

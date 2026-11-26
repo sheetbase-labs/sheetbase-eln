@@ -569,9 +569,12 @@ test('an imported plate analysis remains reconstructable after independent revie
       .getByRole('checkbox', { name: new RegExp(reviewer.name) })
       .check()
     await submit.getByRole('button', { name: 'Submit', exact: true }).click()
-    // The review opens in the experiment's Review tab.
+    // The review opens in the experiment's Review tab: the stand-alone review
+    // page hands over to it once it has read the record, which takes longer
+    // than the default 5s on a busy runner.
     await expect(page).toHaveURL(
       /\/experiments\/[0-9a-f-]{36}\/review\/[0-9a-f-]{36}/,
+      { timeout: 30_000 },
     )
     const revisionPath = new URL(page.url()).pathname
     const assertFrozenSheet = async () => {

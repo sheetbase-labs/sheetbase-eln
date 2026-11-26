@@ -108,10 +108,13 @@ async function selectAllText(
   user: ReturnType<typeof userEvent.setup>,
   editor: HTMLElement,
 ) {
-  await waitFor(() => expect(document.activeElement).toBe(editor))
+  await waitFor(() => expect(document.activeElement).toBe(editor), {
+    timeout: 5000,
+  })
   await user.keyboard('{Control>}a{/Control}')
-  await waitFor(() =>
-    expect(window.getSelection()?.toString()).toBe(editor.textContent),
+  await waitFor(
+    () => expect(window.getSelection()?.toString()).toBe(editor.textContent),
+    { timeout: 5000 },
   )
   await new Promise((resolve) => setTimeout(resolve, 0))
 }

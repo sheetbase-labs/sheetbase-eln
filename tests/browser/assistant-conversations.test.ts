@@ -220,13 +220,19 @@ test('three notebook text cards apply one after another and the notebook shows t
     )
     .toContain(texts[2])
 
-  // The first visit compiles the notebook route in the dev server, which can be slow.
-  await page.goto(`/experiments/${experiment.id}/notebook`, {
-    waitUntil: 'domcontentloaded',
-  })
+  // The first visit compiles the notebook route in the dev server, and the dev
+  // server may reload the page once it has optimised a dependency: load it
+  // again until every block is there.
+  await expect(async () => {
+    await page.goto(`/experiments/${experiment.id}/notebook`, {
+      waitUntil: 'domcontentloaded',
+    })
 
-  for (const text of texts)
-    await expect(page.getByText(text).first()).toBeVisible({ timeout: 90_000 })
+    for (const text of texts)
+      await expect(page.getByText(text).first()).toBeVisible({
+        timeout: 20_000,
+      })
+  }).toPass({ timeout: 120_000 })
 })
 
 test('a plan creates a project and a reagent in it, and the project opens from the card', async ({

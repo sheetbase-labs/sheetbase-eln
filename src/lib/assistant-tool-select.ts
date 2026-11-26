@@ -107,6 +107,17 @@ const SYNONYM_TABLE = {
   delete: ['retention', 'legal_hold'],
   label: ['label_template'],
   print: ['label_template'],
+  // A new reagent, buffer or standard is a record of the material kind.
+  material: ['material', 'record'],
+  reagent: ['reagent', 'record'],
+  buffer: ['reagent', 'record'],
+  standard: ['record'],
+  consumable: ['record'],
+  link: ['record'],
+  milestone: ['part', 'gate'],
+  remember: ['preference'],
+  prefer: ['preference'],
+  note: ['preference'],
 } satisfies Record<string, string[]>
 
 const SYNONYMS: ReadonlyMap<string, readonly string[]> = new Map(
@@ -135,6 +146,30 @@ function subjectWords(name: string): string[] {
     .filter((word) => !ACTION_WORDS.has(word))
 }
 
+/** Everyday words for what a tool does, so "add a new material" favours the tools that make things. */
+const ACTION_SYNONYMS: ReadonlyMap<string, readonly string[]> = new Map([
+  ['create', ['create', 'new', 'make', 'register', 'add', 'start']],
+  ['add', ['add', 'new', 'create', 'register']],
+  ['archive', ['archive', 'retire', 'remove']],
+  ['restore', ['restore', 'unarchive']],
+  ['move', ['move', 'transfer', 'relocate']],
+  ['update', ['change', 'edit', 'update', 'rename', 'write', 'fill']],
+  ['complete', ['complete', 'finish', 'done']],
+  ['set', ['set', 'change']],
+  ['log', ['log', 'record', 'add', 'new']],
+])
+
+/** How many of a tool's own action words the person's words ask for. */
+function actionScore(name: string, textWords: ReadonlySet<string>): number {
+  return name
+    .split('__')
+    .flatMap((part) => part.split('_'))
+    .filter((part) => ACTION_SYNONYMS.has(part))
+    .filter((part) =>
+      (ACTION_SYNONYMS.get(part) ?? []).some((word) => textWords.has(word)),
+    ).length
+}
+
 /** Subjects the text points at: its own words and what they usually mean. */
 function wanted(text: string): Set<string> {
   const subjects = new Set<string>()
@@ -160,14 +195,18 @@ export function selectTools(
   enabled: ReadonlySet<string>,
 ): ProviderToolDef[] {
   const subjects = wanted(text)
+  const textWords = new Set(words(text))
 
   const scored = defs
     .flatMap((def) => {
       if (CORE_TOOLS.has(def.name) || enabled.has(def.name)) return []
 
-      const score = subjectWords(def.name).filter((word) =>
+      const subject = subjectWords(def.name).filter((word) =>
         subjects.has(word),
       ).length
+
+      // The verb only breaks ties between tools about the same subject.
+      const score = subject > 0 ? subject + actionScore(def.name, textWords) : 0
 
       return score > 0 ? [{ def, score }] : []
     })

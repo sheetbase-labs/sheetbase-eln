@@ -108,12 +108,12 @@ export function rpcFamily(cards: ReadonlyArray<RpcCard>) {
   return {
     defs: (): ProviderToolDef[] => cards.map((card) => card.def()),
     is: (name: string): boolean => byTool.has(name),
-    build(
+    build: (
       name: string,
       // oxlint-disable-next-line anti-slop/no-unknown-parameters -- Raw external tool arguments; each card parses them with its own schema.
       args: unknown,
       context: LabToolContext,
-    ): Promise<FeatureProposalOutcome> {
+    ): Promise<FeatureProposalOutcome> => {
       const card = byTool.get(name)
 
       return card

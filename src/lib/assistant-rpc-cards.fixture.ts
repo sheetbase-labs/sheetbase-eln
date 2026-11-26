@@ -22,11 +22,11 @@ const urlOf = (input: Parameters<typeof fetch>[0]): URL =>
 export function context(tables: Tables): LabToolContext {
   const fetchFixture: typeof fetch = async (input) => {
     const url = urlOf(input)
-    const answer = tables[url.pathname.split('/').at(-1) ?? '']
 
-    return Response.json(
-      Array.isArray(answer) ? answer : answer ? answer(url) : [],
-    )
+    const name = url.pathname.split('/').at(-1) ?? ''
+    const answer = Object.hasOwn(tables, name) ? tables[name] : []
+
+    return Response.json(Array.isArray(answer) ? answer : answer(url))
   }
 
   return {

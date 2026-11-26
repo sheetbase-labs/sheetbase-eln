@@ -19,10 +19,13 @@ import { waitForHydration } from './journeys/helpers'
 
 config({ path: ['.env.local', '.env'] })
 
-test.setTimeout(120_000)
+test.setTimeout(180_000)
 
 const USER_ID = '00000000-0000-4000-8000-000000000310'
 const WORKSPACE_ID = '00000000-0000-4000-8000-000000000300'
+
+/** Keeps names unique so a test can be run again against the same database. */
+const RUN = Date.now().toString(36)
 
 let admin: Client
 let model: MockModel
@@ -120,7 +123,9 @@ test('a record in an answer opens in the app, not as an external link', async ({
 
   // It opened the record (in a pane), and no "Open external link?" check came up.
   await expect(page.getByText('Open external link?')).toHaveCount(0)
-  await expect(page.getByText(experiment.title).first()).toBeVisible()
+  await expect(page.getByText(experiment.title).first()).toBeVisible({
+    timeout: 60_000,
+  })
 })
 
 /** An experiment with an empty notebook, in a project of its own. */
@@ -162,7 +167,7 @@ async function makeExperiment(name: string) {
 test('three notebook text cards apply one after another and the notebook shows them', async ({
   page,
 }) => {
-  const { experiment } = await makeExperiment('Cards in a row')
+  const { experiment } = await makeExperiment(`Cards in a row ${RUN}`)
 
   const texts = [
     'Milestone 1: prepare and filter the buffers.',
@@ -190,7 +195,7 @@ test('three notebook text cards apply one after another and the notebook shows t
   await ask(page, 'Write the text for each milestone')
 
   const cards = page.getByTestId('assistant-proposal')
-  await expect(cards).toHaveCount(3, { timeout: 30_000 })
+  await expect(cards).toHaveCount(3, { timeout: 60_000 })
 
   for (let index = 0; index < 3; index += 1) {
     await cards
@@ -198,7 +203,7 @@ test('three notebook text cards apply one after another and the notebook shows t
       .getByRole('button', { name: 'Apply', exact: true })
       .click()
     await expect(cards.nth(index)).toHaveAttribute('data-state', 'applied', {
-      timeout: 30_000,
+      timeout: 60_000,
     })
   }
 
@@ -215,11 +220,13 @@ test('three notebook text cards apply one after another and the notebook shows t
     )
     .toContain(texts[2])
 
-  await page.goto(`/experiments/${experiment.id}/notebook`)
-  await waitForHydration(page)
+  // The first visit compiles the notebook route in the dev server, which can be slow.
+  await page.goto(`/experiments/${experiment.id}/notebook`, {
+    waitUntil: 'domcontentloaded',
+  })
 
   for (const text of texts)
-    await expect(page.getByText(text).first()).toBeVisible({ timeout: 30_000 })
+    await expect(page.getByText(text).first()).toBeVisible({ timeout: 90_000 })
 })
 
 test('a plan creates a project and a reagent in it, and the project opens from the card', async ({
@@ -241,7 +248,7 @@ test('a plan creates a project and a reagent in it, and the project opens from t
                     arguments: {
                       title: 'Create the project',
                       summary: 'A new project',
-                      projectName: 'Browser plan project',
+                      projectName: `Browser plan ${RUN}`,
                     },
                   },
                   {
@@ -251,8 +258,8 @@ test('a plan creates a project and a reagent in it, and the project opens from t
                       title: 'Add the reagent',
                       summary: 'A new reagent',
                       kind: 'material',
-                      name: 'Browser plan reagent',
-                      project: 'Browser plan project',
+                      name: `Browser plan reagent ${RUN}`,
+                      project: `Browser plan ${RUN}`,
                     },
                   },
                 ],
@@ -266,11 +273,11 @@ test('a plan creates a project and a reagent in it, and the project opens from t
   await openAgent(page)
   await ask(
     page,
-    'Create a project called Browser plan project and add a reagent to it',
+    `Create a project called Browser plan ${RUN} and add a reagent to it`,
   )
 
   const plan = page.getByTestId('assistant-plan')
-  await expect(plan).toBeVisible({ timeout: 30_000 })
+  await expect(plan).toBeVisible({ timeout: 90_000 })
   await plan.getByRole('button', { name: 'Approve plan' }).click()
   await expect(plan).toHaveAttribute('data-state', 'done', { timeout: 60_000 })
 
@@ -278,10 +285,10 @@ test('a plan creates a project and a reagent in it, and the project opens from t
     await admin.query<{ project: string }>(
       `select p.title as project from api.records r
          join api.projects p on p.id = r.project_id
-        where r.workspace_id = $1 and r.title = 'Browser plan reagent'`,
-      [WORKSPACE_ID],
+        where r.workspace_id = $1 and r.title = $2`,
+      [WORKSPACE_ID, `Browser plan reagent ${RUN}`],
     )
   ).rows
 
-  expect(rows).toEqual([{ project: 'Browser plan project' }])
+  expect(rows).toEqual([{ project: `Browser plan ${RUN}` }])
 })

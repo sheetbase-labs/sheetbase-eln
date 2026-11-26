@@ -4,7 +4,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import { notebookDataClient } from '#/lib/notebook-data'
 import { renderSheetRoute } from '#/components/sheet/sheet-test-router'
 
-import { appPathFromHref, recordRefFromPath } from './assistant-link'
+import { appPathFromHref, recordRefFromPath } from '#/lib/assistant-links'
 import { MessageResponse } from './message'
 
 afterEach(cleanup)

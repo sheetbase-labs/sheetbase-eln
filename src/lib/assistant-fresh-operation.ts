@@ -22,7 +22,7 @@ export async function withCurrentStructureVersion(
   )
   const current = rows[0]?.structure_version
 
-  return typeof current === 'number'
-    ? { ...operation, expectedRevision: Number(current) }
-    : operation
+  if (current === undefined) return operation
+
+  return { ...operation, expectedRevision: Number(current) }
 }

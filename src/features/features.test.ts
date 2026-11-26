@@ -5,6 +5,10 @@ import { describe, expect, it } from 'vitest'
 import { z } from 'zod'
 
 import { en } from '#/copy/en'
+import {
+  ASSISTANT_PROPOSE_TOOL_NAMES,
+  fromWireToolName,
+} from '#/lib/agent-tool-catalogue'
 import { CORE_OPERATIONS } from '#/lib/operations/registry'
 import { FEATURE_ASSISTANTS } from './assistant.gen'
 import { FEATURE_ASSISTANT_SERVERS } from './assistant.server.gen'
@@ -89,5 +93,17 @@ describe('feature folders', () => {
         expect(seen.has(kind), kind).toBe(false)
         seen.add(kind)
       }
+  })
+})
+
+describe('feature assistant tools', () => {
+  it('are all on the gateway allowlist, or the model call is refused', () => {
+    const offered = FEATURE_ASSISTANT_SERVERS.flatMap((feature) =>
+      (feature.proposalDefs?.() ?? []).map((def) => fromWireToolName(def.name)),
+    )
+
+    for (const name of offered) {
+      expect(ASSISTANT_PROPOSE_TOOL_NAMES, name).toContain(name)
+    }
   })
 })

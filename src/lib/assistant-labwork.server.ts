@@ -264,7 +264,7 @@ interface NamedModel {
   name: string
 }
 
-async function findModel(
+export async function findModel(
   client: DataClient,
   wanted: string,
   extra = '',
@@ -305,7 +305,7 @@ interface ProjectRow {
   title: string
 }
 
-async function findProject(
+export async function findProject(
   client: DataClient,
   text: string,
 ): Promise<Lookup<ProjectRow>> {

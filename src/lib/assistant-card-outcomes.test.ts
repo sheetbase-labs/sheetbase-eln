@@ -35,7 +35,7 @@ describe('card outcomes told to the assistant', () => {
   it('says a card was not applied yet', () => {
     const [turn] = toChatTurns([card])
 
-    expect(turn?.content).toContain('shown, not applied yet')
+    expect(turn.content).toContain('shown, not applied yet')
   })
 
   it('says what an applied card made', () => {
@@ -48,8 +48,8 @@ describe('card outcomes told to the assistant', () => {
 
     const [turn] = toChatTurns([card])
 
-    expect(turn?.content).toContain('APPLIED')
-    expect(turn?.content).toContain('EXP-4302')
+    expect(turn.content).toContain('APPLIED')
+    expect(turn.content).toContain('EXP-4302')
   })
 
   it('saves the outcome with the chat and reads it back', () => {
@@ -64,7 +64,7 @@ describe('card outcomes told to the assistant', () => {
     resetCardOutcomes()
     hydrateCardOutcomes(saved)
 
-    expect(toChatTurns(saved)[0]?.content).toContain('dismissed')
+    expect(toChatTurns(saved)[0].content).toContain('dismissed')
   })
 })
 

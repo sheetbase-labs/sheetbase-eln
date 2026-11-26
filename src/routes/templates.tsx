@@ -1,3 +1,4 @@
+import { filterParamSchema } from '#/lib/list-filter'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import {
   Link,
@@ -47,6 +48,11 @@ import {
   useRowFocus,
 } from '#/components/inventory/registry-grid'
 import type { RegistryColumn } from '#/components/inventory/registry-grid'
+import { useClientFilter } from '#/components/inventory/use-list-filter'
+import {
+  templateFilterRecord,
+  useTemplateFilterFields,
+} from '#/components/templates/template-filter-fields'
 import { Tabs } from '#/components/ui/tabs'
 import {
   templateDataQueryKeys,
@@ -83,6 +89,7 @@ const templateSearchSchema = z.object({
   selected: z.string().optional().catch(undefined),
   template: z.string().optional().catch(undefined),
   protocol: z.string().optional().catch(undefined),
+  filter: filterParamSchema,
   new: z
     .union([z.literal(true), z.literal('true')])
     .transform((value) => value === true)
@@ -165,12 +172,26 @@ function TemplatesList() {
   const queryText = (search.q ?? '').trim()
   const q = queryText.toLowerCase()
 
+  const filterFields = useTemplateFilterFields(rows)
+
+  const inTabRows = useMemo(
+    () =>
+      rows
+        .filter((item) => inTab(item, tab))
+        .filter(
+          (item) => !q || `${item.key} ${item.name}`.toLowerCase().includes(q),
+        ),
+    [rows, tab, q],
+  )
+
+  const { filter, rows: filtered } = useClientFilter(
+    filterFields,
+    inTabRows,
+    templateFilterRecord,
+  )
+
   const visible = sortByName(
-    rows
-      .filter((item) => inTab(item, tab))
-      .filter(
-        (item) => !q || `${item.key} ${item.name}`.toLowerCase().includes(q),
-      ),
+    filtered,
     'Name',
     (item) => item.name,
     (item) => item.displayId ?? item.key,
@@ -231,6 +252,7 @@ function TemplatesList() {
               replace: true,
             })
           }
+          filter={filter}
         />
         <div className="min-h-0 flex-1 overflow-auto max-md:pb-20">
           {query.isPending || visible.length > 0 ? (

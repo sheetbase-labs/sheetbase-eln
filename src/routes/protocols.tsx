@@ -1,3 +1,5 @@
+import { filterSearch } from '#/lib/list-filter'
+import type { FilterParam } from '#/lib/search-filter'
 import { useCallback, useMemo, useState } from 'react'
 import {
   Link,
@@ -36,6 +38,11 @@ import {
 import { useRowFocus } from '#/components/inventory/registry-grid'
 import { useBulkSelection } from '#/components/inventory/bulk-selection'
 import { RecordBulkBar } from '#/components/inventory/record-bulk-bar'
+import { useClientFilter } from '#/components/inventory/use-list-filter'
+import {
+  notebookRecordFilterRecord,
+  useNotebookRecordFilterFields,
+} from '#/components/inventory/notebook-record-filter'
 import { Tabs } from '#/components/ui/tabs'
 import { NewProtocolDialog } from '#/components/protocols/new-protocol-dialog'
 import { useAddedFieldListColumns } from '#/components/models/added-fields'
@@ -50,6 +57,9 @@ import { formatDate } from '#/lib/format-date'
 import { t } from '#/copy'
 import { hasCapability } from '#/lib/capability'
 
+/** A protocol's status as the list words it. */
+const protocolStatusLabel = (status: string) => protocolStatus(status).label
+
 const tabs = ['effective', 'mine', 'inreview', 'reviewdue', 'archived'] as const
 
 type ProtocolTab = (typeof tabs)[number]
@@ -59,6 +69,7 @@ const protocolSearchText = z.string()
 
 /** The protocol list's search, as the URL carries it. */
 interface ProtocolsSearch {
+  filter?: FilterParam
   q?: string
   tab?: ProtocolTab
   selected?: string
@@ -92,6 +103,7 @@ export const Route = createFileRoute('/protocols')({
     // oxlint-disable-next-line anti-slop/no-unsafe-dictionary-type -- TanStack Router hands validateSearch the raw URL values as Record<string, unknown>; every value is decoded below before use.
     search: Record<string, unknown>,
   ): ProtocolsSearch => ({
+    ...filterSearch(search.filter),
     new: search.new === true || search.new === 'true' ? true : undefined,
     q: protocolSearchText.safeParse(search.q).data,
     selected: protocolSearchText.safeParse(search.selected).data,
@@ -260,7 +272,14 @@ function ProtocolsList() {
   const q = (search.q ?? '').trim().toLowerCase()
 
   // The table orders the rows; the tab and the search decide which ones.
-  const visible = visibleProtocols(rows, tabInput, tab, currentUserId, q)
+  const inTab = visibleProtocols(rows, tabInput, tab, currentUserId, q)
+  const filterFields = useNotebookRecordFilterFields(rows, protocolStatusLabel)
+
+  const { filter, rows: visible } = useClientFilter(
+    filterFields,
+    inTab,
+    notebookRecordFilterRecord,
+  )
 
   // One row drives the inspector: the checkbox selects it, and with nothing
   // checked the screen falls back to the URL's row or the first one.
@@ -320,6 +339,7 @@ function ProtocolsList() {
               replace: true,
             })
           }
+          filter={filter}
         />
         <RecordBulkBar
           selection={bulk}

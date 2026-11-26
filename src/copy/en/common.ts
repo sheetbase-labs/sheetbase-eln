@@ -6,6 +6,15 @@
 export const common = {
   /** A storage path shortened to its most specific places. */
   locationTail: '… / {tail}',
+  /** Column names every record list offers in its filter. */
+  filter: {
+    id: 'ID',
+    title: 'Title',
+    status: 'Status',
+    tags: 'Tags',
+    created: 'Created',
+    updated: 'Updated',
+  },
   readOnly: {
     cannotAdd: 'Your role can read {things} but not add them. Ask an admin.',
     cannotAddSteward:

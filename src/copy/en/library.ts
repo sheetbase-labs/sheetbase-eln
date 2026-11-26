@@ -3275,6 +3275,13 @@ export const library = {
       owner: 'Owner',
       templates: 'Templates',
       templateLists: 'Template lists',
+      filter: {
+        key: 'ID',
+        name: 'Name',
+        status: 'Status',
+        sections: 'Sections',
+        inUse: 'In use',
+      },
       searchTemplates: 'Search templates',
       noTemplatesMatch: 'No templates match “{q}”',
       noTemplatesYet: 'No templates yet',

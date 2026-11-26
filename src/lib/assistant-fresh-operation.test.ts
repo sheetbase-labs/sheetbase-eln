@@ -12,6 +12,7 @@ const insert = (expectedRevision: number): AgentOperation => ({
 
 function clientAt(version: number | null) {
   const reads: string[] = []
+
   const rows: unknown[] =
     version === null ? [] : [{ structure_version: version }]
 
@@ -49,6 +50,7 @@ describe('withCurrentStructureVersion', () => {
 
   it('leaves other operations alone and does not read anything', async () => {
     const { client, reads } = clientAt(9)
+
     const operation: AgentOperation = {
       kind: 'notebook_block.delete',
       blockId: '00000000-0000-4000-8000-000000000002',

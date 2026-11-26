@@ -405,6 +405,7 @@ interface DefinitionRow {
   id: string
   key: string
   name: string
+  display_id?: string | null
   lifecycle: string
   revision: number
 }
@@ -415,10 +416,12 @@ async function findDefinition(
   text: string,
 ): Promise<Lookup<DefinitionRow>> {
   const like = likeValue(text)
+  // Templates carry an ID (TPL-0004) people name them by; definitions do not.
+  const byId = table === 'notebook_templates'
 
   const rows = await client.list<DefinitionRow>(
     table,
-    `?or=(key.ilike.${like},name.ilike.${like})&select=id,key,name,lifecycle,revision&order=name&limit=8`,
+    `?or=(key.ilike.${like},name.ilike.${like}${byId ? `,display_id.ilike.${like}` : ''})&select=id,key,name,${byId ? 'display_id,' : ''}lifecycle,revision&order=name&limit=8`,
   )
 
   return pick(
@@ -426,7 +429,10 @@ async function findDefinition(
     text,
     table === 'sheet_definitions' ? 'sheet definition' : 'notebook template',
     (row) => `${row.name} (${row.key})`,
-    (row) => same(row.key, text) || same(row.name, text),
+    (row) =>
+      same(row.key, text) ||
+      same(row.name, text) ||
+      same(row.display_id ?? '', text),
   )
 }
 

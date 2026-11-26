@@ -138,6 +138,29 @@ usability or production acceptance. The subsystem suites cover their separate
 contracts; human scientist observation and operator recovery drills still need
 their own evidence.
 
+## Assistant conversations end to end
+
+Card, tool and prompt tests check each piece alone. The bugs people met were
+between the pieces (a tool the gateway did not allow, cards built before the
+first was applied, a plan step that could not find what the step before made),
+so whole conversations are tested too.
+
+- `tests/api/assistant/` (the API layer, `pnpm test:api`) runs the real chat
+  route against a real migrated database and PostgREST. The model is a scripted
+  server that speaks the provider protocol (`mock-model.ts`); a script is a
+  function of what the model was sent, so a step can use an id an earlier tool
+  returned. `world.ts` builds the workspace, asks questions through the route and
+  presses a card's Apply button through `src/lib/assistant-apply.ts`, the code
+  the chat card itself runs. Assert what is stored (`world.sql`) and what the
+  model was told, not the wording of an answer.
+- `tests/browser/assistant-conversations.test.ts` (CI job "assistant
+  conversations") drives the Agent page against the same scripted model, on a
+  fixed port the dev server is told about in `playwright.config.ts`.
+- To add a scenario: script the model, `world.ask(...)`, `world.apply(card)`,
+  assert the database. A scenario for a bug should fail on the code before the
+  fix; check that by reverting the fix.
+- The only stand-ins are the model and the sign-in cookie (`auth-mock.ts`).
+
 ## Rules that apply at every layer
 
 - **Isolation over seeding.** Tests create the data they need and clean up

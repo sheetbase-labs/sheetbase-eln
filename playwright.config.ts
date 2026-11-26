@@ -1,6 +1,11 @@
 import { DESIGN_CLOCK } from './src/db/seed/design'
 import { defineConfig } from 'playwright/test'
 
+import {
+  BROWSER_MODEL_PORT,
+  scriptedProfiles,
+} from './tests/api/assistant/mock-model'
+
 export default defineConfig({
   fullyParallel: false,
   workers: 1,
@@ -58,6 +63,10 @@ export default defineConfig({
       env: {
         SHEETBASE_DEV_AUTH_FREE: 'false',
         SHEETBASE_NO_ERROR_OVERLAY: 'true',
+        // The assistant browser tests script the model from the test process.
+        AI_PROVIDER_PROFILES: scriptedProfiles(
+          `http://127.0.0.1:${BROWSER_MODEL_PORT}/v1`,
+        ),
         // Pin the application's notion of now to the design clock so
         // time-dependent surfaces (hold meters, expiry windows, relative dates)
         // render deterministically instead of drifting as real time passes.

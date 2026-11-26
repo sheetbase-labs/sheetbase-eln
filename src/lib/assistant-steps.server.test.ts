@@ -35,6 +35,7 @@ import {
   proposalAction,
 } from './assistant-steps'
 import type { StepCall } from './assistant-steps'
+import { cardAction } from './assistant-card-actions'
 import { WORKSPACE_TOOL_NAME } from './assistant-workspace'
 import { FIND_TOOLS_NAME } from './assistant-tool-select'
 
@@ -108,7 +109,14 @@ describe('every tool the assistant can call has its own step wording', () => {
     expect(READ_STEP_TOOLS, name).toContain(name)
   })
 
-  it.each(PROPOSE_TOOLS)('%s says which card it prepares', (name) => {
+  it.each(PROPOSE_TOOLS)(
+    '%s says in plain words what its card does',
+    (name) => {
+      expect(cardAction(name), name).not.toBeNull()
+    },
+  )
+
+  it.each(PROPOSE_TOOLS)('%s has a usable action name', (name) => {
     expect(
       proposalAction(name).split(' ').filter(Boolean).length,
     ).toBeGreaterThan(0)
@@ -219,6 +227,17 @@ describe('step wording', () => {
     expect(callLine(call('plugin.sequence-tools.restriction_digest', {}))).toBe(
       'Used restriction digest with sequence-tools',
     )
+  })
+})
+
+describe('card steps', () => {
+  it('say what the card will do', () => {
+    expect(
+      callLine(call('sheetbase.compound.add_lot', {}, { state: 'running' })),
+    ).toBe('Preparing a card to add a lot to a compound')
+    expect(
+      callLine(call('sheetbase.sample.move', {}, { refs: ['SMP-0042'] })),
+    ).toBe('Prepared a card to move a sample SMP-0042')
   })
 })
 

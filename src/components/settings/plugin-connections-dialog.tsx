@@ -85,6 +85,8 @@ function ConnectionForm({ connection }: { connection: ConnectionWire }) {
         // Only what was typed: an untouched secret stays as it is.
         values: typed,
       }),
+    onSuccess: () =>
+      queryClient.invalidateQueries({ queryKey: connectionsQueryKey }),
     onError: (error) =>
       toast.error(
         error instanceof Error
@@ -122,7 +124,6 @@ function ConnectionForm({ connection }: { connection: ConnectionWire }) {
         onSuccess: () => {
           setValues(new Map())
           setCheck(null)
-          void queryClient.invalidateQueries({ queryKey: connectionsQueryKey })
           toast(
             t('plugins.admin.connections.saved', { name: connection.title }),
             setting.secret
@@ -130,16 +131,7 @@ function ConnectionForm({ connection }: { connection: ConnectionWire }) {
               : {
                   action: {
                     label: t('common.actions.undo'),
-                    onClick: () =>
-                      save.mutate(
-                        { [name]: before },
-                        {
-                          onSuccess: () =>
-                            void queryClient.invalidateQueries({
-                              queryKey: connectionsQueryKey,
-                            }),
-                        },
-                      ),
+                    onClick: () => save.mutate({ [name]: before }),
                   },
                 },
           )
@@ -147,32 +139,6 @@ function ConnectionForm({ connection }: { connection: ConnectionWire }) {
       },
     )
   }
-
-  const testable = connection.extensionKey === 'protocols-io'
-
-  const test = useMutation({
-    mutationFn: async () => {
-      const response = await fetch(
-        '/api/plugins/protocols-io/test-connection',
-        {
-          method: 'POST',
-        },
-      )
-
-      if (!response.ok)
-        throw new Error(t('plugins.admin.connections.testFailed'))
-
-      return z
-        .object({ works: z.boolean(), message: z.string().nullable() })
-        .parse(await response.json())
-    },
-    onSuccess: setCheck,
-    onError: () =>
-      setCheck({
-        works: false,
-        message: t('plugins.admin.connections.testFailed'),
-      }),
-  })
 
   const needs = connectionNeedsSetup(connection)
 
@@ -248,20 +214,55 @@ function ConnectionForm({ connection }: { connection: ConnectionWire }) {
           {check.message}
         </p>
       ) : null}
-      {testable ? (
-        <div>
-          <Button
-            type="button"
-            size="sm"
-            disabled={test.isPending || save.isPending}
-            onClick={() => test.mutate()}
-          >
-            {test.isPending
-              ? t('plugins.admin.connections.testing')
-              : t('plugins.admin.connections.test')}
-          </Button>
-        </div>
+      {connection.extensionKey === 'protocols-io' ? (
+        <TestConnection busy={save.isPending} onResult={setCheck} />
       ) : null}
     </section>
+  )
+}
+
+/** Asks protocols.io whether the saved token is accepted. */
+function TestConnection({
+  busy,
+  onResult,
+}: {
+  busy: boolean
+  onResult: (result: { works: boolean; message: string | null }) => void
+}) {
+  const failed = {
+    works: false,
+    message: t('plugins.admin.connections.testFailed'),
+  }
+
+  const test = useMutation({
+    mutationFn: async () => {
+      const response = await fetch(
+        '/api/plugins/protocols-io/test-connection',
+        { method: 'POST' },
+      )
+
+      if (!response.ok) return failed
+
+      return z
+        .object({ works: z.boolean(), message: z.string().nullable() })
+        .parse(await response.json())
+    },
+    onSuccess: onResult,
+    onError: () => onResult(failed),
+  })
+
+  return (
+    <div>
+      <Button
+        type="button"
+        size="sm"
+        disabled={test.isPending || busy}
+        onClick={() => test.mutate()}
+      >
+        {test.isPending
+          ? t('plugins.admin.connections.testing')
+          : t('plugins.admin.connections.test')}
+      </Button>
+    </div>
   )
 }

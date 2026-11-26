@@ -79,7 +79,11 @@ describe('plan card', () => {
       {
         ...base,
         steps: [
-          { title: 'Start it', tool: 'sheetbase__project__create', arguments: {} },
+          {
+            title: 'Start it',
+            tool: 'sheetbase__project__create',
+            arguments: {},
+          },
         ],
       },
       context(),

@@ -50,7 +50,9 @@ describe('stale script files after a deploy', () => {
   })
 
   it('passes other failures straight through', async () => {
-    const load = vi.fn<() => Promise<string>>().mockRejectedValue(new Error('no'))
+    const load = vi
+      .fn<() => Promise<string>>()
+      .mockRejectedValue(new Error('no'))
 
     await expect(loadChunk(load)).rejects.toThrow('no')
     expect(load).toHaveBeenCalledTimes(1)

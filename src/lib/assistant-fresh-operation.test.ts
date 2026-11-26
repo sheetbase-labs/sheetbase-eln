@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from 'vitest'
+import { describe, expect, it } from 'vitest'
 import type { AgentOperation } from '#/lib/agent-operations'
 import { withCurrentStructureVersion } from './assistant-fresh-operation'
 
@@ -11,13 +11,18 @@ const insert = (expectedRevision: number): AgentOperation => ({
 })
 
 function clientAt(version: number | null) {
-  const list = vi.fn(
-    async <T>(): Promise<T[]> =>
-      // SAFETY: the one query the code under test makes asks for this row shape.
-      (version === null ? [] : [{ structure_version: version }]) as T[],
-  )
+  const reads: string[] = []
+  const rows: unknown[] =
+    version === null ? [] : [{ structure_version: version }]
 
-  return { client: { list }, list }
+  async function list<T>(resource: string): Promise<T[]> {
+    reads.push(resource)
+
+    // SAFETY: the one query the code under test makes asks for this row shape.
+    return rows as T[]
+  }
+
+  return { client: { list }, reads }
 }
 
 describe('withCurrentStructureVersion', () => {
@@ -43,7 +48,7 @@ describe('withCurrentStructureVersion', () => {
   })
 
   it('leaves other operations alone and does not read anything', async () => {
-    const { client, list } = clientAt(9)
+    const { client, reads } = clientAt(9)
     const operation: AgentOperation = {
       kind: 'notebook_block.delete',
       blockId: '00000000-0000-4000-8000-000000000002',
@@ -52,6 +57,6 @@ describe('withCurrentStructureVersion', () => {
 
     expect(await withCurrentStructureVersion(client, operation)).toBe(operation)
 
-    expect(list).not.toHaveBeenCalled()
+    expect(reads).toEqual([])
   })
 })

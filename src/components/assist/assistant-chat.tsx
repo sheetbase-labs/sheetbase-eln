@@ -51,6 +51,7 @@ import { attachmentRef } from '#/lib/assistant-attachments'
 import { ProposalCard } from './chat/proposal-card'
 import { useFailureFeed } from '#/lib/assistant-failure-feed'
 import { proposalFromOutput } from '#/lib/assistant-proposals'
+import { openPanesForRequest } from '#/lib/assistant-open-panes'
 import { getDisplayTimeZone } from '#/lib/display-time-zone'
 import { pageSuggestions } from './assistant-page'
 import type { AssistantPage } from './assistant-page'
@@ -105,6 +106,7 @@ function chatFor(workspaceId: string): Chat<AssistantUIMessage> {
             // Every file in the chat, so a follow-up still sees them; a
             // picture's pixels go once, with the question it came with.
             attachments: filesForRequest(filesKeyFor(workspaceId)),
+            panes: openPanesForRequest(),
           }
 
           markChatFilesSent(filesKeyFor(workspaceId))

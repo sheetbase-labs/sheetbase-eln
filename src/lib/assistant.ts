@@ -128,6 +128,18 @@ export const assistantChatSchema = z
       .array(chatAttachmentSchema)
       .max(ATTACHMENT_MAX_FILES)
       .default([]),
+    /** Every page open in the person's panes, so "this one" resolves. */
+    panes: z
+      .array(
+        z.strictObject({
+          path: z.string().min(1).max(200),
+          title: z.string().min(1).max(80),
+          identifier: z.string().max(40).optional(),
+          active: z.boolean(),
+        }),
+      )
+      .max(8)
+      .optional(),
     /** The page the person is on, by name: "Schedule", "Requests". */
     page: z
       .strictObject({
@@ -486,6 +498,21 @@ function parseJson(text: string): z.core.util.JSONType | undefined {
  * Requests means what they are looking at. Only the page's name and address
  * are sent, never its text.
  */
+/** The pages open in the person's panes, so "the milestones you're looking at" resolves. */
+export function panesLine(panes: AssistantChatInput['panes']): string | null {
+  if (!panes || panes.length === 0) return null
+
+  const clean = (text: string) =>
+    text.replaceAll(/[^\p{L}\p{N} ·&'.,:/?=-]/gu, '')
+
+  const lines = panes.map(
+    (pane) =>
+      `- ${pane.active ? '(focused) ' : ''}${clean(pane.title)}${pane.identifier ? ` ${clean(pane.identifier)}` : ''} (${clean(pane.path)})`,
+  )
+
+  return `These pages are open in the person's panes right now. "This", "that one", "the milestones", "the notebook" mean what these show, the focused one first. To see what is in one, read that record with the record read tool; do not say you cannot see it. Never show the person an address or id from this list: name the page or its ID.\n${lines.join('\n')}`
+}
+
 export function pageLine(page: AssistantChatInput['page']): string | null {
   if (!page) return null
   const path = page.path.replaceAll(/[^\w/?=&.,:-]/g, '')
@@ -525,6 +552,7 @@ export async function streamAssistant(
       ? toolkit.instructions
       : 'You have no tools and cannot look anything up beyond the supplied context.',
     pageLine(input.page),
+    panesLine(input.panes),
     attachmentsBlock(input.attachments ?? []),
   ]
     .filter(Boolean)

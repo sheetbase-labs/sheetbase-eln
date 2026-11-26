@@ -152,8 +152,14 @@ export async function createExperiment(
 ): Promise<string> {
   const projectId = projectPath.split('/').pop() ?? ''
   await open(page, `/experiments/new?project=${projectId}`)
-  await page.getByLabel(/^title/i).fill(title)
-  await page.getByRole('button', { name: /create draft/i }).click()
+  const create = page.getByRole('button', { name: /create draft/i })
+  // A title typed before the page has hydrated is thrown away, which leaves
+  // Create draft disabled for good: type it again until the form has taken it.
+  await expect(async () => {
+    await page.getByLabel(/^title/i).fill(title)
+    await expect(create).toBeEnabled({ timeout: 3_000 })
+  }).toPass({ timeout: 45_000 })
+  await create.click()
   // Creating a draft is a server round trip that compiles its handlers on first
   // use under the dev server, so it can outlast the default 5s assertion.
   await expect(page).toHaveURL(/\/experiments\/[0-9a-f-]{36}\/notebook/, {

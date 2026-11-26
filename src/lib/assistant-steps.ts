@@ -55,7 +55,6 @@ export interface StepWords {
 /** What the browser knows about one call: its input and, once back, its result. */
 export interface StepCall {
   toolName: string
-  // oxlint-disable-next-line anti-slop/no-unknown-parameters -- A tool call's input is the model's raw JSON; the helpers below decode the few fields each wording reads.
   input: unknown
   state: StepState
   /** Identifiers of the records the result named. */

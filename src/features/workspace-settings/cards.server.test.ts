@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 
 import { ASSISTANT_PROPOSE_TOOL_NAMES } from '#/lib/agent-tool-catalogue'
+import { plainWords } from '#/lib/assistant-admin-cards.server'
 import { context } from '#/lib/assistant-admin-cards.fixture'
 
 import {
@@ -80,6 +81,26 @@ describe('the workspace settings cards', () => {
         p_review_workflow_enabled: null,
       },
     })
+  })
+
+  it('writes field names in card wording as plain words', async () => {
+    expect(plainWords('Turn on requireChangeReason and p_lock_on_sign')).toBe(
+      'Turn on require change reason and lock on sign',
+    )
+
+    const result = await buildWorkspaceSettingsProposal(
+      WORKSPACE_RULES_TOOL,
+      {
+        title: 'Set requireChangeReason',
+        summary: 'lockOnSign stays',
+        requireChangeReason: true,
+      },
+      context({ workspace_settings: [settings] }),
+    )
+
+    if (!result.ok) throw new Error(result.message)
+    expect(result.proposal.title).toBe('Set require change reason')
+    expect(result.proposal.summary).toBe('lock on sign stays')
   })
 
   it('says so when a setting already is what was asked', async () => {

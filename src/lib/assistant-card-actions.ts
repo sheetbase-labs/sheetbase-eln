@@ -109,6 +109,9 @@ export const CARD_ACTIONS = {
   'sheetbase.plate_design.track_qc': 'keep quality charts for an assay',
   'sheetbase.worklist.cancel': 'cancel a worklist',
   'sheetbase.worklist.complete': 'finish a worklist',
+  'sheetbase.sheet.materialize': 'save a sheet as a dataset',
+  'sheetbase.sheet.adopt_layout_version':
+    'move a sheet to a newer layout version',
   'sheetbase.template.use': 'start a notebook from a template',
   'sheetbase.template.upgrade_notebook':
     'update a notebook to a newer template version',

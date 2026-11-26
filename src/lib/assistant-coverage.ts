@@ -108,6 +108,9 @@ export const ASSISTANT_COVERED = {
   archive_sheet_instance: 'sheetbase.sheet.archive',
   restore_sheet_instance: 'sheetbase.sheet.restore',
   duplicate_sheet_instance: 'sheetbase.sheet.duplicate',
+  materialize_sheet_instance: 'sheetbase.sheet.materialize',
+  apply_sheet_instance_composition_adoption:
+    'sheetbase.sheet.adopt_layout_version',
   accept_schedule_proposal: 'sheetbase.schedule.accept',
   acknowledge_qc_point: 'sheetbase.qc.acknowledge',
   add_compound_lot: 'sheetbase.compound.add_lot',
@@ -380,6 +383,4 @@ export const ASSISTANT_GAPS = {
   update_pipeline_definition_version_draft: 'pipelines and automation',
   update_saved_search: 'pipelines and automation',
   update_webhook_subscription: 'pipelines and automation',
-  apply_sheet_instance_composition_adoption: 'datasets and sheets',
-  materialize_sheet_instance: 'datasets and sheets',
 } as const satisfies Readonly<Record<string, string>>

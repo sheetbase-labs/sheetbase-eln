@@ -167,6 +167,7 @@ export const SCHEMA_OPERATIONS = defineOperations([
   },
   {
     name: 'create_registry_model',
+    assistant: { tool: 'sheetbase.model.registry_create' },
     label: 'Add a registry',
     summary: 'Add a registry',
     description:
@@ -196,6 +197,7 @@ export const SCHEMA_OPERATIONS = defineOperations([
   },
   {
     name: 'create_request_model',
+    assistant: { tool: 'sheetbase.model.request_create' },
     label: 'Add a request form',
     summary: 'Add a request form',
     description:
@@ -221,6 +223,7 @@ export const SCHEMA_OPERATIONS = defineOperations([
   },
   {
     name: 'create_starter_model',
+    assistant: { tool: 'sheetbase.model.starter_create' },
     label: 'Add a record type from a starter',
     summary: 'Add a record type from a starter',
     description:
@@ -246,6 +249,7 @@ export const SCHEMA_OPERATIONS = defineOperations([
   },
   {
     name: 'set_model_registry',
+    assistant: { tool: 'sheetbase.model.registry_set' },
     label: 'Make a record type a registry',
     summary: 'Make a record type a registry, or not',
     description:
@@ -269,6 +273,7 @@ export const SCHEMA_OPERATIONS = defineOperations([
   },
   {
     name: 'set_registry_lot_kind',
+    assistant: { tool: 'sheetbase.model.registry_lot_kind' },
     label: 'Choose a registry’s lot type',
     summary: 'Choose the record type a registry’s lots are',
     description:
@@ -287,6 +292,7 @@ export const SCHEMA_OPERATIONS = defineOperations([
   },
   {
     name: 'set_registry_sameness_rule',
+    assistant: { tool: 'sheetbase.model.registry_sameness' },
     label: 'Choose a registry’s same-thing rule',
     summary: 'Choose the plugin rule that spots duplicates in a registry',
     description:
@@ -305,6 +311,7 @@ export const SCHEMA_OPERATIONS = defineOperations([
   },
   {
     name: 'set_model_incident_log',
+    assistant: { tool: 'sheetbase.model.incident_log_set' },
     label: 'Use a record type as an incident log',
     summary: 'Use a record type as an incident log, or not',
     description:
@@ -317,6 +324,7 @@ export const SCHEMA_OPERATIONS = defineOperations([
   },
   {
     name: 'set_request_form',
+    assistant: { tool: 'sheetbase.model.request_form_set' },
     label: 'Take requests on a record type',
     summary: 'Take requests on a record type, or stop',
     description:
@@ -353,6 +361,7 @@ export const SCHEMA_OPERATIONS = defineOperations([
   // -- Fields -----------------------------------------------------------------
   {
     name: 'create_model_field',
+    assistant: { tool: 'sheetbase.model_field.draft' },
     label: 'Add a draft field',
     summary: 'Add a draft field to a record type',
     description:
@@ -392,6 +401,7 @@ export const SCHEMA_OPERATIONS = defineOperations([
   },
   {
     name: 'create_and_activate_model_field',
+    assistant: { tool: 'sheetbase.model_field.add' },
     label: 'Add a field and switch it on',
     summary: 'Add a field to a record type and switch it on',
     description:
@@ -434,6 +444,7 @@ export const SCHEMA_OPERATIONS = defineOperations([
   },
   {
     name: 'activate_model_field',
+    assistant: { tool: 'sheetbase.model_field.activate' },
     label: 'Switch a field on',
     summary: 'Switch a draft field on',
     description:
@@ -447,6 +458,7 @@ export const SCHEMA_OPERATIONS = defineOperations([
   },
   {
     name: 'update_model_field',
+    assistant: { tool: 'sheetbase.model_field.update' },
     label: 'Change a field',
     summary: 'Change a field',
     description:
@@ -476,6 +488,7 @@ export const SCHEMA_OPERATIONS = defineOperations([
   },
   {
     name: 'configure_model_field_semantics',
+    assistant: { tool: 'sheetbase.model_field.semantics' },
     label: 'Say what a draft field measures',
     summary: 'Say what a draft field measures',
     description:
@@ -520,6 +533,7 @@ export const SCHEMA_OPERATIONS = defineOperations([
   },
   {
     name: 'apply_model_field_evolution',
+    assistant: { tool: 'sheetbase.model_field.evolve' },
     label: 'Change a field in use',
     summary: 'Change or retire a field that records already use',
     description:
@@ -914,6 +928,7 @@ export const SCHEMA_OPERATIONS = defineOperations([
   },
   {
     name: 'set_model_type',
+    assistant: { tool: 'sheetbase.record.set_type' },
     label: 'Change what type a record is',
     summary:
       'Change a record, project or instrument to another type in its family',
@@ -1159,6 +1174,7 @@ export const SCHEMA_OPERATIONS = defineOperations([
   },
   {
     name: 'promote_local_field',
+    assistant: { tool: 'sheetbase.model_field.promote' },
     label: 'Make a sheet column a shared field',
     summary: 'Make a sheet’s own column a shared field',
     description:

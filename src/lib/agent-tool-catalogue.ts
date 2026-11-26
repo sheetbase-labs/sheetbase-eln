@@ -149,6 +149,17 @@ const ASSISTANT_PROPOSE_TOOLS_UNDECLARED = [
   'sheetbase.sheet.archive',
   'sheetbase.sheet.restore',
   'sheetbase.sheet.duplicate',
+  // Emailed report schedules and the Supplier type, supplier list, plugin field
+  // types and registry lineage: calls with no operation declaration yet
+  // (features/reports, features/models).
+  'sheetbase.report.schedule_save',
+  'sheetbase.report.schedule_active',
+  'sheetbase.report.schedule_send',
+  'sheetbase.report.schedule_delete',
+  'sheetbase.model.supplier_create',
+  'sheetbase.model.supplier_list_set',
+  'sheetbase.model_field.plugin_type',
+  'sheetbase.registry.remove_parent',
   // Add an analysis of a dataset (curve fit, standard curve, group comparison) to a notebook (features/results-analysis).
   'sheetbase.analysis.add_to_notebook',
   'sheetbase.notebook_block.insert',

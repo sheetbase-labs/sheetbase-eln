@@ -2,6 +2,7 @@
  * The Plates page: plate reads checked against their own controls, potency
  * across plates, and the worklists that move liquid for them.
  */
+import { useColumnFilter } from '#/components/inventory/column-filter'
 import { useMemo, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 
@@ -69,13 +70,21 @@ export function PlatesPage({
   const all = useMemo(() => runs.data ?? [], [runs.data])
   const needle = q.trim().toLowerCase()
 
-  const visibleRuns = all.filter((r) => runMatches(r, needle))
+  const matchingRuns = useMemo(
+    () => all.filter((r) => runMatches(r, needle)),
+    [all, needle],
+  )
 
   const visibleWorklists = (worklists.data ?? []).filter((w) =>
     worklistMatches(w, needle),
   )
 
   const runColumns = usePlateRunColumns()
+  const { filter, rows: visibleRuns } = useColumnFilter(
+    runColumns,
+    matchingRuns,
+    all,
+  )
   const worklistColumns = usePlateWorklistColumns()
 
   if (runId) {
@@ -139,6 +148,7 @@ export function PlatesPage({
           onSearch={setQ}
           placeholder={t('plates.searchPlaceholder')}
           label={t('plates.searchPlaceholder')}
+          filter={tab === 'runs' ? filter : undefined}
         />
       ) : null}
       <PlatesBody

@@ -1,3 +1,8 @@
+import { filterParamSchema } from '#/lib/list-filter'
+import type { FilterParam } from '#/lib/search-filter'
+import type { ListFilter } from '#/components/inventory/list-filter'
+import { useSpecFilter } from '#/components/inventory/spec-filter'
+import type { FilterSpec } from '#/components/inventory/spec-filter'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { ObjectLink } from '#/components/ui/object-link'
 import {
@@ -91,6 +96,7 @@ type PipelinesSearch = {
   tab?: PipelineTab
   selected?: string
   new?: true
+  filter?: FilterParam
 }
 
 /** The board's URL state: every member falls back to absent when malformed. */
@@ -100,6 +106,7 @@ const pipelinesSearchSchema = z.object({
     .optional()
     .catch(undefined),
   q: z.string().optional().catch(undefined),
+  filter: filterParamSchema,
   selected: z.string().optional().catch(undefined),
   tab: z.enum(tabs).optional().catch(undefined),
 })
@@ -130,6 +137,7 @@ export const Route = createFileRoute('/pipelines')({
       q: parsed.q,
       selected: parsed.selected,
       tab: parsed.tab,
+      filter: parsed.filter,
     }
   },
   beforeLoad: async ({ context: rootContext, location }) => {
@@ -561,6 +569,7 @@ function PipelinesHeader({
   activeCount,
   searchQ,
   onSearch,
+  filter,
 }: {
   canManage: boolean
   workspaceId: string
@@ -573,6 +582,7 @@ function PipelinesHeader({
   activeCount: number
   searchQ?: string
   onSearch: (query: string) => void
+  filter: ListFilter
 }) {
   return (
     <>
@@ -640,9 +650,45 @@ function PipelinesHeader({
         label={t('data.pipelinesList.searchPipelines')}
         placeholder={t('data.pipelinesList.searchPipelines')}
         onSearch={onSearch}
+        filter={filter}
       />
     </>
   )
+}
+
+/** What the pipelines list can be filtered by. */
+const PIPELINE_FILTER: FilterSpec<PipelineListRow> = {
+  id: {
+    label: t('common.filter.id'),
+    type: 'text',
+    value: (p) => p.display_id ?? p.key,
+  },
+  name: { label: t('common.filter.name'), type: 'text', value: (p) => p.name },
+  state: {
+    label: t('common.filter.status'),
+    type: 'choice',
+    value: (p) => p.lifecycle,
+  },
+  owner: {
+    label: t('common.filter.owner'),
+    type: 'owner',
+    value: (p) => p.created_by_user_id,
+  },
+  runs: {
+    label: t('common.filter.count'),
+    type: 'number',
+    value: (p) => p.runCount,
+  },
+  lastRun: {
+    label: t('common.filter.lastRun'),
+    type: 'date',
+    value: (p) => p.lastRun?.created_at,
+  },
+  updated: {
+    label: t('common.filter.updated'),
+    type: 'date',
+    value: (p) => p.updated_at,
+  },
 }
 
 function PipelinesList() {
@@ -711,14 +757,28 @@ function PipelinesList() {
 
   const q = (search.q ?? '').trim().toLowerCase()
 
+  const inTabRows = useMemo(
+    () =>
+      rows
+        .filter((p) => inTab(p, tab, scheduledIds, currentUserId))
+        .filter(
+          (p) =>
+            !q ||
+            `${p.display_id ?? ''} ${p.key} ${p.name}`
+              .toLowerCase()
+              .includes(q),
+        ),
+    [rows, tab, scheduledIds, currentUserId, q],
+  )
+
+  const { filter, rows: filtered } = useSpecFilter(
+    PIPELINE_FILTER,
+    inTabRows,
+    rows,
+  )
+
   const visible = sortByName(
-    rows
-      .filter((p) => inTab(p, tab, scheduledIds, currentUserId))
-      .filter(
-        (p) =>
-          !q ||
-          `${p.display_id ?? ''} ${p.key} ${p.name}`.toLowerCase().includes(q),
-      ),
+    filtered,
     'Name',
     (p) => p.name,
     (p) => p.display_id ?? p.key,
@@ -832,6 +892,7 @@ function PipelinesList() {
           failed={query.isError}
           activeCount={rows.filter((p) => p.lifecycle !== 'retired').length}
           searchQ={search.q}
+          filter={filter}
           onSearch={(next) =>
             void navigate({
               to: '/pipelines',

@@ -1,3 +1,4 @@
+import { normaliseFilterParam } from '#/lib/search-filter'
 import { useCallback } from 'react'
 import {
   Outlet,
@@ -69,6 +70,10 @@ export const Route = createFileRoute('/instruments')({
     if (selected.success) view.selected = selected.data
 
     if (state.success) view.state = state.data
+
+    const filter = normaliseFilterParam(search.filter)
+
+    if (filter) view.filter = filter
 
     return view
   },

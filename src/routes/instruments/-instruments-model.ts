@@ -30,6 +30,8 @@ import { canManageSettings } from '#/lib/settings-access'
 import type { SettingsAccessMap } from '#/lib/settings-access'
 import { useUserNames } from '#/lib/user-names'
 import { t } from '#/copy'
+import { useColumnFilter } from '#/components/inventory/column-filter'
+import type { FilterParam } from '#/lib/search-filter'
 import { instrumentColumns } from './-instruments-columns'
 
 /** The Instruments screen's search: the tab in view, the filters applied, and any named instrument. */
@@ -41,6 +43,7 @@ export interface InstrumentsSearch {
   calibration?: string
   selected?: string
   state?: 'empty' | 'denied'
+  filter?: FilterParam
   new?: true
 }
 
@@ -231,10 +234,12 @@ export function useInstrumentsList(input: {
 
   const counts = instrumentTabCounts(rows, calFor)
 
-  const visible = visibleInstruments({ rows, tab, search, standingOf: calFor })
-
-  const sel =
-    visible.find((i) => i.id === (search.selected ?? '')) ?? visible.at(0)
+  const inTabRows = visibleInstruments({
+    rows,
+    tab,
+    search,
+    standingOf: calFor,
+  })
 
   const filtered = Boolean(
     search.q || search.type || search.connection || search.calibration,
@@ -286,6 +291,11 @@ export function useInstrumentsList(input: {
     [baseColumns, addedColumns],
   )
 
+  const { filter, rows: visible } = useColumnFilter(columns, inTabRows, rows)
+
+  const sel =
+    visible.find((i) => i.id === (search.selected ?? '')) ?? visible.at(0)
+
   const selectRow = useCallback(
     (id: string | null) =>
       void navigate({
@@ -306,6 +316,7 @@ export function useInstrumentsList(input: {
     search,
     rows,
     visible,
+    filter,
     sel,
     tab,
     counts,

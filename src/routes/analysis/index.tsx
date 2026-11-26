@@ -1,3 +1,7 @@
+import { filterParamSchema } from '#/lib/list-filter'
+import type { FilterParam } from '#/lib/search-filter'
+import { useSpecFilter } from '#/components/inventory/spec-filter'
+import type { FilterSpec } from '#/components/inventory/spec-filter'
 import { t } from '#/copy'
 import {
   analysisSorts,
@@ -68,6 +72,7 @@ interface AnalysisSearch {
   tab?: 'mine' | 'cited' | 'drafts'
   q?: string
   state?: 'denied'
+  filter?: FilterParam
 }
 
 /** A URL that names none of them usable reads as an unfiltered list. */
@@ -75,7 +80,38 @@ const analysisSearchSchema = z.object({
   tab: z.enum(['mine', 'cited', 'drafts']).optional().catch(undefined),
   q: z.string().optional().catch(undefined),
   state: z.literal('denied').optional().catch(undefined),
+  filter: filterParamSchema,
 })
+
+/** What the analysis list can be filtered by. */
+const ANALYSIS_FILTER: FilterSpec<AnalysisRow> = {
+  identifier: {
+    label: t('common.filter.id'),
+    type: 'text',
+    value: (a) => a.identifier,
+  },
+  name: { label: t('common.filter.name'), type: 'text', value: (a) => a.name },
+  detail: {
+    label: t('common.filter.type'),
+    type: 'choice',
+    value: (a) => a.detail,
+  },
+  owner: {
+    label: t('common.filter.owner'),
+    type: 'owner',
+    value: (a) => a.ownerId,
+  },
+  version: {
+    label: t('common.filter.version'),
+    type: 'number',
+    value: (a) => a.version,
+  },
+  updated: {
+    label: t('common.filter.updated'),
+    type: 'date',
+    value: (a) => a.updatedAt,
+  },
+}
 
 function viewRow(view: AnalysisViewWire): AnalysisRow {
   return {
@@ -290,7 +326,7 @@ function AnalysisHome() {
 
   const needle = (q ?? '').trim().toLowerCase()
 
-  const visible = useMemo(
+  const inTabRows = useMemo(
     () =>
       [...rows]
         .sort((a, b) =>
@@ -323,6 +359,12 @@ function AnalysisHome() {
     // to be a dependency: without it a direct load of ?tab=cited filters against
     // the empty set and never recomputes when the citations land.
     [rows, sort, tab, needle, userId, citedIds],
+  )
+
+  const { filter, rows: visible } = useSpecFilter(
+    ANALYSIS_FILTER,
+    inTabRows,
+    rows,
   )
 
   const recent = (datasets.data ?? []).slice(0, 3)
@@ -390,6 +432,7 @@ function AnalysisHome() {
         <ListToolbar
           q={q}
           label={t('data.analysisList.searchAnalyses')}
+          filter={filter}
           placeholder={t('data.analysisList.placeholderSearchAnalysesIdName')}
           views={{
             sorts: [...analysisSorts],

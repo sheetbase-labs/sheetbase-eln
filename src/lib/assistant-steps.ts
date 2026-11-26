@@ -2,6 +2,7 @@ import { z } from 'zod'
 
 import { t } from '#/copy'
 
+import { cardAction } from './assistant-card-actions'
 import { WORKSPACE_TOOL_NAME } from './assistant-workspace'
 
 /**
@@ -375,7 +376,7 @@ export function stepWords(call: StepCall): StepWords {
   return {
     verb: 'prepare',
     noun: t('notebook.assistantPanel.step.cardObject', {
-      action: proposalAction(call.toolName),
+      action: cardAction(call.toolName) ?? proposalAction(call.toolName),
     }),
     ref:
       recordArg(args, 'record', 'recordId', 'sample', 'experiment') ??

@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react'
 import { z } from 'zod'
 
 import { t } from '#/copy'
@@ -17,6 +18,8 @@ import {
   stepWords,
 } from '#/lib/assistant-steps'
 import type { StepCall, StepItem, StepState } from '#/lib/assistant-steps'
+
+type StepText = (props: { text: string }) => ReactNode
 
 /** What a finished call sent back to the browser besides "it worked". */
 const outputSchema = z.looseObject({ refs: z.array(z.string()).optional() })
@@ -56,7 +59,7 @@ function StateIcon({ state }: { state: StepState }) {
 }
 
 /** The records a finished lookup named, each a link with peek. */
-function Found({ call }: { call: StepCall }) {
+function Found({ call, Text }: { call: StepCall; Text: StepText }) {
   const line =
     call.state === 'done' && stepWords(call).lists
       ? foundLine(call.refs ?? [])
@@ -65,12 +68,12 @@ function Found({ call }: { call: StepCall }) {
   return line ? (
     <span className="text-fg-muted">
       {' · '}
-      <LinkedText text={line} />
+      <Text text={line} />
     </span>
   ) : null
 }
 
-function StepRow({ call }: { call: StepCall }) {
+function StepRow({ call, Text }: { call: StepCall; Text: StepText }) {
   return (
     <div
       className="flex items-start gap-1.5 text-label text-fg-muted"
@@ -81,14 +84,14 @@ function StepRow({ call }: { call: StepCall }) {
         <StateIcon state={call.state} />
       </span>
       <span className="min-w-0 break-words">
-        <LinkedText text={callLine(call)} />
-        <Found call={call} />
+        <Text text={callLine(call)} />
+        <Found call={call} Text={Text} />
       </span>
     </div>
   )
 }
 
-function StepGroup({ item }: { item: StepItem }) {
+function StepGroup({ item, Text }: { item: StepItem; Text: StepText }) {
   return (
     <Collapsible>
       <div
@@ -101,7 +104,7 @@ function StepGroup({ item }: { item: StepItem }) {
           <StateIcon state="done" />
         </span>
         <span className="min-w-0 break-words">
-          <LinkedText text={itemLine(item)} />
+          <Text text={itemLine(item)} />
         </span>
         <CollapsibleTrigger className="mt-px shrink-0 text-fg-muted">
           <span className="sr-only">
@@ -116,7 +119,7 @@ function StepGroup({ item }: { item: StepItem }) {
         >
           {item.calls.map((call, index) => (
             // react-doctor-disable-next-line react-doctor/no-array-index-as-key -- The calls of one group are fixed once finished and carry no id of their own here.
-            <StepRow key={index} call={call} />
+            <StepRow key={index} call={call} Text={Text} />
           ))}
         </div>
       </CollapsiblePanel>
@@ -125,16 +128,23 @@ function StepGroup({ item }: { item: StepItem }) {
 }
 
 /** A run of the assistant's lookups, with alike ones said as one line. */
-export function StepList({ calls }: { calls: readonly StepCall[] }) {
+export function StepList({
+  calls,
+  Text = LinkedText,
+}: {
+  calls: readonly StepCall[]
+  /** How a line is written out; identifiers become links by default. */
+  Text?: StepText
+}) {
   return (
     <div className="flex flex-col gap-1">
       {groupSteps(calls).map((item, index) =>
         item.calls.length > 1 ? (
           // react-doctor-disable-next-line react-doctor/no-array-index-as-key -- Items are rebuilt from an append-only list of calls, so an item keeps its position.
-          <StepGroup key={index} item={item} />
+          <StepGroup key={index} item={item} Text={Text} />
         ) : item.calls[0] ? (
           // react-doctor-disable-next-line react-doctor/no-array-index-as-key -- As above.
-          <StepRow key={index} call={item.calls[0]} />
+          <StepRow key={index} call={item.calls[0]} Text={Text} />
         ) : null,
       )}
     </div>

@@ -247,9 +247,9 @@ const READ_SPECS = {
   'sheetbase.parts.read': about('read', 'parts of experiment'),
   'sheetbase.gates.read': about('check', 'what holds back experiment'),
   'sheetbase.protocol.read': (args) =>
-    args.recordId === undefined
-      ? search('protocols')(args)
-      : open('protocol', 'recordId')(args),
+    'recordId' in args
+      ? open('protocol', 'recordId')(args)
+      : search('protocols')(args),
   'sheetbase.protocols.read': open('protocol', 'protocol'),
   'sheetbase.stock.read': search('stock'),
   'sheetbase.template.list': search('templates'),
@@ -367,8 +367,8 @@ export function stepWords(call: StepCall): StepWords {
     return {
       verb: 'use',
       noun: t('notebook.assistantPanel.step.pluginObject', {
-        tool: humane(plugin[2] ?? ''),
-        plugin: humane(plugin[1] ?? ''),
+        tool: humane(plugin[2]),
+        plugin: humane(plugin[1]),
       }),
     }
   }
@@ -459,7 +459,7 @@ const unique = (items: readonly string[]): string[] => [...new Set(items)]
 
 /** Calls that follow each other and read alike, said as one line. */
 export function mergedLine(steps: readonly StepWords[]): string {
-  const [first] = steps
+  const first = steps.at(0)
 
   if (!first) return ''
 
@@ -575,8 +575,8 @@ export function groupSteps(calls: readonly StepCall[]): StepItem[] {
 
 /** The sentence for an item: one call as itself, several as one merged line. */
 export function itemLine(item: StepItem): string {
-  const [call] = item.calls
-  const [words] = item.words
+  const call = item.calls.at(0)
+  const words = item.words.at(0)
 
   if (!call || !words) return ''
 

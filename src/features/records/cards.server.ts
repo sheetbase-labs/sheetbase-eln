@@ -230,27 +230,40 @@ async function resolveKind(
   return { ok: true, value: { ...model.value, builtIn: false } }
 }
 
+interface ChosenProject {
+  id: string
+  title: string
+  /** True when the person named none and the newest project was taken. */
+  byDefault: boolean
+}
+
+/**
+ * The project a new record goes in. A plan runs its steps without asking, so
+ * when the person named none, the project they worked in most recently is
+ * taken and the card says so; they can move the record afterwards.
+ */
 async function projectFor(
   client: DataClient,
   wanted: string | undefined,
-): Promise<Lookup<{ id: string; title: string }>> {
-  if (wanted) return findProject(client, wanted)
+): Promise<Lookup<ChosenProject>> {
+  if (wanted) {
+    const found = await findProject(client, wanted)
+
+    return found.ok
+      ? { ok: true, value: { ...found.value, byDefault: false } }
+      : found
+  }
 
   const rows = await client.list<{ id: string; title: string }>(
     'projects',
-    '?archived_at=is.null&select=id,title&order=title.asc&limit=8',
+    '?archived_at=is.null&select=id,title&order=updated_at.desc&limit=1',
   )
-
-  if (rows.length === 1) return { ok: true, value: rows[0] }
 
   if (rows.length === 0) {
     return { ok: false, message: 'There is no project to put it in yet.' }
   }
 
-  return {
-    ok: false,
-    message: `Which project does it go in? ${rows.map((row) => row.title).join(', ')}. Ask the person, naming these.`,
-  }
+  return { ok: true, value: { ...rows[0], byDefault: true } }
 }
 
 interface FoundRecord {
@@ -414,7 +427,13 @@ export async function buildRecordsProposal(
       const changes: ProposalChange[] = [
         { label: 'Type', before: null, after: model.value.name },
         { label: 'Name', before: null, after: input.name.trim() },
-        { label: 'Project', before: null, after: project.value.title },
+        {
+          label: 'Project',
+          before: null,
+          after: project.value.byDefault
+            ? `${project.value.title} (your most recent; say if it belongs elsewhere)`
+            : project.value.title,
+        },
       ]
 
       for (const [wanted, value] of Object.entries(input.fields ?? {})) {

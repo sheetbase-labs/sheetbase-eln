@@ -30,6 +30,7 @@ import {
   isBookingProposalTool,
   isLabReadTool,
   labToolDefs,
+  likeValue,
   runLabReadTool,
 } from './assistant-lab-tools.server'
 import {
@@ -102,6 +103,13 @@ import {
   isPlannerProposalTool,
   plannerProposalDefs,
 } from './assistant-planner.server'
+import {
+  RECORD_READ_TOOL,
+  isRecordReadTool,
+  readCreated,
+  readRecord,
+  recordReadDefs,
+} from './assistant-record-read.server'
 import { describeSlot, localFromInstant } from './assistant-booking'
 import {
   MAX_WORKSPACE_PANES,
@@ -239,6 +247,8 @@ const CHAT_RULES = [
   'Remember how the lab works: when the person states a standing preference ("we always put blanks in column 12", "name experiments PROJECT-date-initials") or corrects a default you chose in a way that will apply next time, propose saving it as a preference (one card, one sentence) and carry on with the job; save for the whole lab only when they say it is for everyone. Saved preferences are listed below when there are any: use them when you plan, say which one you used, and never save a one-off detail, a result, a secret or anything about what you may do. When they say a preference has changed or should go, propose changing or forgetting it.',
   'You are talking to a scientist in the app, not to a program. Name things the way the app shows them: a name, or an identifier such as EXP-12 or INS-0003. Never show an id like a UUID in your answer and never ask the person for one. When they name something, find it yourself with search or a list, and ask which one only if several really fit, naming the choices.',
   'Sheetbase covers the schedule and instrument booking, samples, experiments and their steps, series and parts, plates and worklists, quality control, reagent orders, shipments, incidents, the registry, workflows, watchers (findings in the Inbox), retention and legal holds, publishing to a repository, pipelines and notebooks with Python or SQL code cells on dataset versions, and open tables (point people to Settings > Open data and name the table from the open_tables list). A person presses Start at a robot, never you: propose sending the worklist and say it will wait for Start. A planned experiment is one card; nothing is booked until they accept the schedule. Making a publication public is the person’s own confirmation. Only a few tools are listed at first: when none fits, call the find-tools tool. To analyse an experiment’s results (a dose-response curve, a standard curve, a comparison of groups), run the analyse tool on the dataset, explain the numbers in plain words, then propose adding the analysis to the experiment’s notebook. Before saying you cannot do something, check your tools. If no tool does it but the app does, say where in the app it is done and offer to open that page; never say Sheetbase cannot do it.',
+  'Know what you did. Your earlier answers end with the cards you showed and what became of each: APPLIED (with the ID made), dismissed, failed or not applied. Trust it; for earlier chats use the assistant-created tool before denying you made something. To say what is in a record, read it with the record read tool; say if it is empty. If search finds nothing, try fewer words.',
+  'Link records by ID: [EXP-4302](/records/EXP-4302). Never show a UUID or bare address.',
   'Ask the lab: for a question about what the lab knows or has done ("have we done this before", "who worked on X", "what do we know about Y"), search by meaning first and answer only from the results, giving every experiment, dataset, file or template you mention as a link with its identifier. If nothing reads close, say so; never guess. If a search says searching by meaning is not turned on, say a workspace owner can turn it on in Settings, AI, and use the ordinary search instead. When the person asks about published work and you have the literature tool, search it, cite only the papers it returned with their DOI link, and never quote a paper from memory. To keep a paper, propose adding it to the Reference registry with the registry tool, titled "Save paper as reference": the name is the paper title and the fields are the authors, journal, year, DOI and link from the result.',
 ]
 
@@ -319,6 +329,64 @@ async function savedPreferencesBlock(client: DataClient): Promise<string> {
   }
 }
 
+/**
+ * Search needs every word to match, so a long question finds nothing even when
+ * the record is there. When a search comes back empty, try fewer words, then
+ * match the name directly, which also finds a record made a moment ago.
+ */
+async function widenEmptySearch(
+  args: Record<string, z.core.util.JSONType>,
+  first: string,
+  call: (
+    callArgs: Record<string, z.core.util.JSONType>,
+  ) => Promise<{ text: string; isError: boolean } | null>,
+  context: { client: DataClient },
+): Promise<string | null> {
+  if (/"identifier"/.test(first)) return null
+  const query = z.string().catch('').parse(args['query'])
+
+  const words = query
+    .split(/\s+/)
+    .map((word) => word.replaceAll(/[^\p{L}\p{N}-]/gu, ''))
+    .filter((word) => word.length >= 3)
+
+  const tries: string[] = []
+
+  for (let count = Math.min(words.length - 1, 3); count >= 1; count--) {
+    tries.push(words.slice(0, count).join(' '))
+  }
+
+  for (const attempt of tries) {
+    const retry = await call({ ...args, query: attempt })
+
+    if (retry && !retry.isError && /"identifier"/.test(retry.text)) {
+      return `Nothing matched every word of "${query}", so this is the search for "${attempt}":\n${retry.text}`
+    }
+  }
+
+  const like = likeValue(words[0] ?? query)
+
+  try {
+    const rows = await context.client.list<{
+      identifier: string
+      title: string
+      kind: string
+      status: string
+    }>(
+      'records',
+      `?deleted_at=is.null&or=(identifier.ilike.${like},title.ilike.${like})&select=identifier,title,kind,status&order=created_at.desc&limit=10`,
+    )
+
+    if (rows.length > 0) {
+      return `Search found nothing for "${query}", but these records have "${words[0] ?? query}" in their ID or name (newest first): ${JSON.stringify(rows)}`
+    }
+  } catch {
+    // Fall through to the plain empty answer.
+  }
+
+  return null
+}
+
 /** `null` when the workspace has switched agent reads off. */
 export async function createAssistantToolkit(deps: {
   client: DataClient
@@ -381,6 +449,7 @@ export async function createAssistantToolkit(deps: {
     ...seriesToolDefs(),
     ...partsToolDefs(),
     ...gatesToolDefs(),
+    ...recordReadDefs(),
     ...FEATURE_SERVERS.flatMap((feature) => feature.readDefs?.() ?? []),
     ...semanticToolDefs(await literatureAllowed(deps.client, deps.workspaceId)),
   )
@@ -586,6 +655,15 @@ export async function createAssistantToolkit(deps: {
         return { text: clip(result.text), isError: result.isError }
       }
 
+      if (isRecordReadTool(name)) {
+        const result =
+          name === RECORD_READ_TOOL
+            ? await readRecord(args, labContext)
+            : await readCreated(args, labContext)
+
+        return { text: clip(result.text), isError: result.isError }
+      }
+
       if (isGatesReadTool(name)) {
         const result = await readGates(args, labContext)
 
@@ -753,27 +831,43 @@ export async function createAssistantToolkit(deps: {
           : { text: 'Unknown guide topic.', isError: true }
       }
 
-      const response = await handleMcpMessage(
-        {
-          jsonrpc: '2.0',
-          id: 2,
-          method: 'tools/call',
-          params: { name, arguments: args },
-        },
-        context,
-      )
+      const call = async (
+        callArgs: Record<string, z.core.util.JSONType>,
+      ): Promise<{ text: string; isError: boolean } | null> => {
+        const response = await handleMcpMessage(
+          {
+            jsonrpc: '2.0',
+            id: 2,
+            method: 'tools/call',
+            params: { name, arguments: callArgs },
+          },
+          context,
+        )
 
-      if (!response || 'error' in response) {
-        return { text: 'The lookup failed.', isError: true }
+        if (!response || 'error' in response) return null
+        const result = toolCallResultSchema.parse(response.result)
+
+        return {
+          text: (result.content ?? [])
+            .map((part) => (part.type === 'text' ? (part.text ?? '') : ''))
+            .join('\n'),
+          isError: result.isError === true,
+        }
       }
 
-      const result = toolCallResultSchema.parse(response.result)
+      const answer = await call(args)
 
-      const text = (result.content ?? [])
-        .map((part) => (part.type === 'text' ? (part.text ?? '') : ''))
-        .join('\n')
+      if (!answer) return { text: 'The lookup failed.', isError: true }
 
-      return { text: clip(text), isError: result.isError === true }
+      if (name === 'sheetbase.search' && !answer.isError) {
+        const widened = await widenEmptySearch(args, answer.text, call, {
+          client: deps.client,
+        })
+
+        if (widened) return { text: clip(widened), isError: false }
+      }
+
+      return { text: clip(answer.text), isError: answer.isError }
     },
   }
 }

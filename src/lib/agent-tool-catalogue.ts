@@ -100,6 +100,9 @@ const CORE_ASSISTANT_READ_TOOL_NAMES = [
   'sheetbase.parts.read',
   // What holds work back in an experiment and why, read only (assistant-planning.server.ts).
   'sheetbase.gates.read',
+  // Open one record in full, and what the assistant's cards made in earlier chats, read only (assistant-record-read.server.ts).
+  'sheetbase.record.read',
+  'sheetbase.assistant.created',
   // Search by meaning over the lab's own work, and (when the workspace allows it) published papers (semantic-tools.server.ts).
   'sheetbase.search.semantic',
   'sheetbase.literature.search',

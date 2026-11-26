@@ -6,7 +6,11 @@ import type { LabToolContext } from '#/lib/assistant-lab-tools.server'
 import { createDataClient } from '#/lib/data-client'
 
 import {
+  DATASET_ARCHIVE_TOOL,
   MATERIAL_ADD_LOT_TOOL,
+  MATERIAL_STOCK_TOOL,
+  SHEET_DUPLICATE_TOOL,
+  STORAGE_UPDATE_TOOL,
   RECORDS_PROPOSE_TOOL_NAMES,
   RECORD_ARCHIVE_TOOL,
   RECORD_CREATE_TOOL,
@@ -158,6 +162,102 @@ describe('the record cards', () => {
       kind: 'material.add_lot',
       recordId: 'r1',
       lot: 'L2',
+    })
+  })
+
+  it('records a stock movement against the version it saw', async () => {
+    const result = await buildRecordsProposal(
+      MATERIAL_STOCK_TOOL,
+      { ...base, material: 'Buffer', operation: 'consume', quantity: 5 },
+      context({
+        records: [
+          {
+            id: 'r1',
+            identifier: 'MAT-1',
+            title: 'Buffer',
+            kind: 'material',
+            metadata_version: 3,
+            archived_at: null,
+          },
+        ],
+      }),
+    )
+
+    if (!result.ok) throw new Error(result.message)
+    expect(result.proposal.action).toMatchObject({
+      kind: 'material.stock',
+      operation: 'consume',
+      quantity: 5,
+      metadataVersion: 3,
+    })
+  })
+
+  it('asks how much when stock comes in or is used', async () => {
+    const result = await buildRecordsProposal(
+      MATERIAL_STOCK_TOOL,
+      { ...base, material: 'Buffer', operation: 'receive' },
+      context({}),
+    )
+
+    expect(result.ok).toBe(false)
+  })
+
+  it('renames a storage location at its level', async () => {
+    const result = await buildRecordsProposal(
+      STORAGE_UPDATE_TOOL,
+      { ...base, location: 'Freezer 2', level: 'unit', name: 'Freezer 2B' },
+      context({
+        storage_units: [
+          { id: 'u1', name: 'Freezer 2', code: 'F2', archived_at: null },
+        ],
+      }),
+    )
+
+    if (!result.ok) throw new Error(result.message)
+    expect(result.proposal.action).toMatchObject({
+      kind: 'storage.update_location',
+      level: 'unit',
+      id: 'u1',
+      name: 'Freezer 2B',
+    })
+  })
+
+  it('archives a dataset at the revision it saw', async () => {
+    const result = await buildRecordsProposal(
+      DATASET_ARCHIVE_TOOL,
+      { ...base, dataset: 'Plate reads' },
+      context({
+        datasets: [
+          { id: 'd1', name: 'Plate reads', display_id: 'DS-1', revision: 7 },
+        ],
+      }),
+    )
+
+    if (!result.ok) throw new Error(result.message)
+    expect(result.proposal.action).toEqual({
+      kind: 'dataset.archive',
+      id: 'd1',
+      revision: 7,
+    })
+  })
+
+  it('copies a sheet under the new name', async () => {
+    const result = await buildRecordsProposal(
+      SHEET_DUPLICATE_TOOL,
+      { ...base, sheet: 'Standards', name: 'Standards v2' },
+      context({
+        sheet_instances: [
+          { id: 's1', name: 'Standards', display_id: null, revision: 2 },
+        ],
+      }),
+    )
+
+    if (!result.ok) throw new Error(result.message)
+    expect(result.proposal.action).toEqual({
+      kind: 'sheet.duplicate',
+      id: 's1',
+      revision: 2,
+      name: 'Standards v2',
     })
   })
 

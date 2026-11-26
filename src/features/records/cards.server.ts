@@ -10,7 +10,26 @@ import { fetchModelFields } from '#/lib/model-fields'
 
 import type { FeatureProposalOutcome } from '../define.server'
 import {
+  DATASET_ARCHIVE_TOOL,
+  DATASET_RESTORE_TOOL,
   MATERIAL_ADD_LOT_TOOL,
+  MATERIAL_STOCK_TOOL,
+  SAMPLE_EDIT_TOOL,
+  SAMPLE_RESTORE_TOOL,
+  SHEET_ARCHIVE_TOOL,
+  SHEET_DUPLICATE_TOOL,
+  SHEET_RESTORE_TOOL,
+  STORAGE_ARCHIVE_TOOL,
+  STORAGE_LEVELS,
+  STORAGE_UPDATE_TOOL,
+  proposeDatasetStateSchema,
+  proposeMaterialStockSchema,
+  proposeSampleEditSchema,
+  proposeSampleRestoreSchema,
+  proposeSheetDuplicateSchema,
+  proposeSheetStateSchema,
+  proposeStorageArchiveSchema,
+  proposeStorageUpdateSchema,
   RECORDS_PROPOSE_TOOL_NAMES,
   RECORD_ARCHIVE_TOOL,
   RECORD_CREATE_TOOL,
@@ -64,6 +83,56 @@ export function recordsProposalDefs(): ProviderToolDef[] {
       MATERIAL_ADD_LOT_TOOL,
       `Propose registering a new lot of a material that is already in the lab, with its lot number, expiry and quantity. To add a material that is not in the lab yet, use the record tool. ${NOTE}`,
       proposeMaterialLotSchema,
+    ),
+    toolDef(
+      MATERIAL_STOCK_TOOL,
+      `Propose a stock movement on a material: stock received, some used up, or the material set aside in quarantine and brought back. ${NOTE}`,
+      proposeMaterialStockSchema,
+    ),
+    toolDef(
+      SAMPLE_EDIT_TOOL,
+      `Propose changing a sample's name or tags. ${NOTE}`,
+      proposeSampleEditSchema,
+    ),
+    toolDef(
+      SAMPLE_RESTORE_TOOL,
+      `Propose bringing an archived sample back. ${NOTE}`,
+      proposeSampleRestoreSchema,
+    ),
+    toolDef(
+      STORAGE_UPDATE_TOOL,
+      `Propose renaming a freezer, shelf, rack, box, room or site, or changing its code or temperature range. ${NOTE}`,
+      proposeStorageUpdateSchema,
+    ),
+    toolDef(
+      STORAGE_ARCHIVE_TOOL,
+      `Propose taking a storage location out of use, or bringing it back. A location that holds samples cannot be archived. ${NOTE}`,
+      proposeStorageArchiveSchema,
+    ),
+    toolDef(
+      DATASET_ARCHIVE_TOOL,
+      `Propose archiving a dataset, which hides it from everyday lists. It can be restored. ${NOTE}`,
+      proposeDatasetStateSchema,
+    ),
+    toolDef(
+      DATASET_RESTORE_TOOL,
+      `Propose bringing an archived dataset back. ${NOTE}`,
+      proposeDatasetStateSchema,
+    ),
+    toolDef(
+      SHEET_ARCHIVE_TOOL,
+      `Propose archiving a sheet. It can be restored. ${NOTE}`,
+      proposeSheetStateSchema,
+    ),
+    toolDef(
+      SHEET_RESTORE_TOOL,
+      `Propose bringing an archived sheet back. ${NOTE}`,
+      proposeSheetStateSchema,
+    ),
+    toolDef(
+      SHEET_DUPLICATE_TOOL,
+      `Propose making a copy of a sheet under a new name. ${NOTE}`,
+      proposeSheetDuplicateSchema,
     ),
   ]
 }
@@ -219,6 +288,103 @@ async function findRecord(
 }
 
 const label = (row: FoundRecord): string => `${row.identifier} · ${row.title}`
+
+const STORAGE_TABLES = new Map<string, string>([
+  ['site', 'storage_sites'],
+  ['room', 'storage_rooms'],
+  ['unit', 'storage_units'],
+  ['shelf', 'storage_shelves'],
+  ['rack', 'storage_racks'],
+  ['box', 'storage_boxes'],
+])
+
+interface FoundLocation {
+  level: (typeof STORAGE_LEVELS)[number]
+  id: string
+  name: string
+  code: string | null
+  archived: boolean
+}
+
+async function findLocation(
+  client: DataClient,
+  wanted: string,
+  level: (typeof STORAGE_LEVELS)[number] | undefined,
+  archived: boolean,
+): Promise<Lookup<FoundLocation>> {
+  const like = likeValue(wanted)
+
+  const levels = level ? [level] : [...STORAGE_LEVELS]
+
+  const found = await Promise.all(
+    levels.map(async (each) => {
+      const rows = await client.list<{
+        id: string
+        name: string
+        code: string | null
+        archived_at: string | null
+      }>(
+        STORAGE_TABLES.get(each) ?? 'storage_boxes',
+        `?archived_at=${archived ? 'not.is.null' : 'is.null'}&or=(name.ilike.${like},code.ilike.${like})&select=id,name,code,archived_at&limit=6`,
+      )
+
+      return rows.map((row): FoundLocation => ({
+        level: each,
+        id: row.id,
+        name: row.name,
+        code: row.code,
+        archived: row.archived_at !== null,
+      }))
+    }),
+  )
+
+  const lower = wanted.trim().toLowerCase()
+
+  return pick(
+    found.flat(),
+    wanted,
+    'storage location',
+    (row) => `${row.name} (${row.level})`,
+    (row) =>
+      row.name.toLowerCase() === lower || row.code?.toLowerCase() === lower,
+  )
+}
+
+interface FoundItem {
+  id: string
+  name: string
+  display_id: string | null
+  revision: number
+}
+
+async function findItem(
+  client: DataClient,
+  table: 'datasets' | 'sheet_instances',
+  wanted: string,
+  archived: boolean,
+): Promise<Lookup<FoundItem>> {
+  const like = likeValue(wanted)
+
+  const rows = await client.list<FoundItem>(
+    table,
+    `?lifecycle=${archived ? 'eq' : 'neq'}.archived&or=(name.ilike.${like},display_id.ilike.${like})&select=id,name,display_id,revision&order=updated_at.desc&limit=6`,
+  )
+
+  const lower = wanted.trim().toLowerCase()
+
+  return pick(
+    rows,
+    wanted,
+    table === 'datasets' ? 'dataset' : 'sheet',
+    (row) => (row.display_id ? `${row.display_id} · ${row.name}` : row.name),
+    (row) =>
+      row.name.toLowerCase() === lower ||
+      row.display_id?.toLowerCase() === lower,
+  )
+}
+
+const itemLabel = (row: FoundItem): string =>
+  row.display_id ? `${row.display_id} · ${row.name}` : row.name
 
 export async function buildRecordsProposal(
   name: RecordsProposeToolName,
@@ -436,6 +602,384 @@ export async function buildRecordsProposal(
             quantity: input.quantity,
             unit,
             reason: input.reason?.trim() || null,
+          },
+        },
+      }
+    }
+
+    case MATERIAL_STOCK_TOOL: {
+      const parsed = proposeMaterialStockSchema.safeParse(args)
+
+      if (!parsed.success) return fail(invalid(parsed.error))
+      const input = parsed.data
+
+      if (
+        (input.operation === 'receive' || input.operation === 'consume') &&
+        !input.quantity
+      ) {
+        return fail(`How much? ${input.operation} needs a quantity.`)
+      }
+
+      const found = await findRecord(
+        client,
+        input.material,
+        '&kind=eq.material',
+      )
+
+      if (!found.ok) return fail(found.message)
+
+      const words = {
+        receive: 'Received',
+        consume: 'Used',
+        quarantine: 'Quarantined',
+        restore: 'Back from quarantine',
+      }
+
+      return {
+        ok: true,
+        proposal: {
+          tool: name,
+          title: input.title,
+          summary: input.summary,
+          target: label(found.value),
+          deepLink: '/materials',
+          changes: [
+            {
+              label: 'Stock',
+              before: null,
+              after: input.quantity
+                ? `${words[input.operation]} ${input.quantity}`
+                : words[input.operation],
+            },
+          ],
+          action: {
+            kind: 'material.stock',
+            recordId: found.value.id,
+            metadataVersion: found.value.metadata_version,
+            operation: input.operation,
+            quantity: input.quantity ?? 0,
+            reason: input.reason?.trim() || null,
+          },
+        },
+      }
+    }
+
+    case SAMPLE_EDIT_TOOL: {
+      const parsed = proposeSampleEditSchema.safeParse(args)
+
+      if (!parsed.success) return fail(invalid(parsed.error))
+      const input = parsed.data
+
+      if (!input.name && !input.tags) {
+        return fail('Say what to change: a new name or new tags.')
+      }
+
+      const found = await findRecord(
+        client,
+        input.sample,
+        '&kind=eq.sample&archived_at=is.null',
+      )
+
+      if (!found.ok) return fail(found.message)
+      const changes: ProposalChange[] = []
+
+      if (input.name) {
+        changes.push({
+          label: 'Name',
+          before: found.value.title,
+          after: input.name.trim(),
+        })
+      }
+
+      if (input.tags) {
+        changes.push({
+          label: 'Tags',
+          before: null,
+          after: input.tags.join(', '),
+        })
+      }
+
+      return {
+        ok: true,
+        proposal: {
+          tool: name,
+          title: input.title,
+          summary: input.summary,
+          target: label(found.value),
+          deepLink: '/samples',
+          changes,
+          action: {
+            kind: 'sample.edit',
+            recordId: found.value.id,
+            metadataVersion: found.value.metadata_version,
+            name: input.name?.trim() ?? null,
+            tags: input.tags ?? null,
+            notes: input.notes?.trim() || null,
+          },
+        },
+      }
+    }
+
+    case SAMPLE_RESTORE_TOOL: {
+      const parsed = proposeSampleRestoreSchema.safeParse(args)
+
+      if (!parsed.success) return fail(invalid(parsed.error))
+      const input = parsed.data
+
+      const found = await findRecord(
+        client,
+        input.sample,
+        '&kind=eq.sample&archived_at=not.is.null',
+      )
+
+      if (!found.ok) return fail(found.message)
+
+      return {
+        ok: true,
+        proposal: {
+          tool: name,
+          title: input.title,
+          summary: input.summary,
+          target: label(found.value),
+          deepLink: '/samples',
+          changes: [{ label: 'Status', before: 'Archived', after: 'Active' }],
+          action: {
+            kind: 'sample.restore',
+            recordId: found.value.id,
+            metadataVersion: found.value.metadata_version,
+            notes: input.notes?.trim() || null,
+          },
+        },
+      }
+    }
+
+    case STORAGE_UPDATE_TOOL: {
+      const parsed = proposeStorageUpdateSchema.safeParse(args)
+
+      if (!parsed.success) return fail(invalid(parsed.error))
+      const input = parsed.data
+
+      if (
+        !input.name &&
+        !input.code &&
+        input.temperatureMinC === undefined &&
+        input.temperatureMaxC === undefined
+      ) {
+        return fail('Say what to change: its name, code or temperature range.')
+      }
+
+      const found = await findLocation(
+        client,
+        input.location,
+        input.level,
+        false,
+      )
+
+      if (!found.ok) return fail(found.message)
+      const changes: ProposalChange[] = []
+
+      if (input.name) {
+        changes.push({
+          label: 'Name',
+          before: found.value.name,
+          after: input.name.trim(),
+        })
+      }
+
+      if (input.code) {
+        changes.push({
+          label: 'Code',
+          before: found.value.code,
+          after: input.code.trim(),
+        })
+      }
+
+      if (
+        input.temperatureMinC !== undefined ||
+        input.temperatureMaxC !== undefined
+      ) {
+        changes.push({
+          label: 'Temperature (°C)',
+          before: null,
+          after: `${input.temperatureMinC ?? '…'} to ${input.temperatureMaxC ?? '…'}`,
+        })
+      }
+
+      return {
+        ok: true,
+        proposal: {
+          tool: name,
+          title: input.title,
+          summary: input.summary,
+          target: `${found.value.name} · ${found.value.level}`,
+          deepLink: '/settings/lab/storage',
+          changes,
+          action: {
+            kind: 'storage.update_location',
+            level: found.value.level,
+            id: found.value.id,
+            name: input.name?.trim() ?? null,
+            code: input.code?.trim() ?? null,
+            temperatureMinC: input.temperatureMinC ?? null,
+            temperatureMaxC: input.temperatureMaxC ?? null,
+          },
+        },
+      }
+    }
+
+    case STORAGE_ARCHIVE_TOOL: {
+      const parsed = proposeStorageArchiveSchema.safeParse(args)
+
+      if (!parsed.success) return fail(invalid(parsed.error))
+      const input = parsed.data
+
+      const found = await findLocation(
+        client,
+        input.location,
+        input.level,
+        !input.archived,
+      )
+
+      if (!found.ok) return fail(found.message)
+
+      return {
+        ok: true,
+        proposal: {
+          tool: name,
+          title: input.title,
+          summary: input.summary,
+          target: `${found.value.name} · ${found.value.level}`,
+          deepLink: '/settings/lab/storage',
+          changes: [
+            {
+              label: 'Status',
+              before: input.archived ? 'In use' : 'Archived',
+              after: input.archived ? 'Archived' : 'In use',
+            },
+          ],
+          action: {
+            kind: 'storage.archive_location',
+            level: found.value.level,
+            id: found.value.id,
+            archived: input.archived,
+          },
+        },
+      }
+    }
+
+    case DATASET_ARCHIVE_TOOL:
+    case DATASET_RESTORE_TOOL: {
+      const parsed = proposeDatasetStateSchema.safeParse(args)
+
+      if (!parsed.success) return fail(invalid(parsed.error))
+      const input = parsed.data
+      const archiving = name === DATASET_ARCHIVE_TOOL
+
+      const found = await findItem(
+        client,
+        'datasets',
+        input.dataset,
+        !archiving,
+      )
+
+      if (!found.ok) return fail(found.message)
+
+      return {
+        ok: true,
+        proposal: {
+          tool: name,
+          title: input.title,
+          summary: input.summary,
+          target: itemLabel(found.value),
+          deepLink: null,
+          changes: [
+            {
+              label: 'Status',
+              before: archiving ? 'Active' : 'Archived',
+              after: archiving ? 'Archived' : 'Active',
+            },
+          ],
+          action: {
+            kind: archiving ? 'dataset.archive' : 'dataset.restore',
+            id: found.value.id,
+            revision: found.value.revision,
+          },
+        },
+      }
+    }
+
+    case SHEET_DUPLICATE_TOOL: {
+      const parsed = proposeSheetDuplicateSchema.safeParse(args)
+
+      if (!parsed.success) return fail(invalid(parsed.error))
+      const input = parsed.data
+
+      const found = await findItem(
+        client,
+        'sheet_instances',
+        input.sheet,
+        false,
+      )
+
+      if (!found.ok) return fail(found.message)
+
+      return {
+        ok: true,
+        proposal: {
+          tool: name,
+          title: input.title,
+          summary: input.summary,
+          target: itemLabel(found.value),
+          deepLink: `/sheets/${found.value.id}`,
+          changes: [
+            { label: 'Copy named', before: null, after: input.name.trim() },
+          ],
+          action: {
+            kind: 'sheet.duplicate',
+            id: found.value.id,
+            revision: found.value.revision,
+            name: input.name.trim(),
+          },
+        },
+      }
+    }
+
+    case SHEET_ARCHIVE_TOOL:
+    case SHEET_RESTORE_TOOL: {
+      const parsed = proposeSheetStateSchema.safeParse(args)
+
+      if (!parsed.success) return fail(invalid(parsed.error))
+      const input = parsed.data
+      const archiving = name === SHEET_ARCHIVE_TOOL
+
+      const found = await findItem(
+        client,
+        'sheet_instances',
+        input.sheet,
+        !archiving,
+      )
+
+      if (!found.ok) return fail(found.message)
+
+      return {
+        ok: true,
+        proposal: {
+          tool: name,
+          title: input.title,
+          summary: input.summary,
+          target: itemLabel(found.value),
+          deepLink: `/sheets/${found.value.id}`,
+          changes: [
+            {
+              label: 'Status',
+              before: archiving ? 'Active' : 'Archived',
+              after: archiving ? 'Archived' : 'Active',
+            },
+          ],
+          action: {
+            kind: archiving ? 'sheet.archive' : 'sheet.restore',
+            id: found.value.id,
+            revision: found.value.revision,
           },
         },
       }

@@ -123,13 +123,14 @@ export function InstrumentsHeader({
 
 /** Search, and the three registry filters, in the list toolbar. */
 export function InstrumentsFilters({ list }: { list: InstrumentsListModel }) {
-  const { search, types, setParam, navigate } = list
+  const { search, types, setParam, navigate, filter } = list
 
   return (
     <ListToolbar
       q={search.q}
       label={t('library.instruments.list.searchInstruments')}
       placeholder={t('library.instruments.list.searchIdNameModelSerial')}
+      filter={filter}
       onSearch={(next) =>
         void navigate({
           to: '/instruments',

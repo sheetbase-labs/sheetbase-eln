@@ -1,3 +1,4 @@
+import { filterSearch } from '#/lib/list-filter'
 import { createFileRoute, redirect } from '@tanstack/react-router'
 
 import { RequestsPage } from '#/components/requests/requests-page'
@@ -21,6 +22,7 @@ export const Route = createFileRoute('/requests')({
       search.tab === 'triage' || search.tab === 'all' || search.tab === 'mine'
         ? search.tab
         : undefined,
+    ...filterSearch(search.filter),
   }),
   beforeLoad: async ({ context: rootContext, location }) => {
     const context = rootContext.auth

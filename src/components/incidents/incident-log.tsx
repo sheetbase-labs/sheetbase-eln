@@ -3,6 +3,14 @@
  * There is no fixed incident type. A tab appears for each ticked model, and a
  * lab with none yet can start from the ready-made Incident model.
  */
+import { useClientFilter } from '#/components/inventory/use-list-filter'
+import {
+  choicesFrom,
+  customValueFields,
+  customValueRecord,
+  dateFilter,
+  textFilter,
+} from '#/components/inventory/list-filter-fields'
 import { useMemo, useState } from 'react'
 import { Link, useNavigate } from '@tanstack/react-router'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
@@ -62,6 +70,18 @@ function entryMatches(entry: IncidentEntry, needle: string): boolean {
   return needle === '' || entryText(entry).indexOf(needle) !== -1
 }
 
+/** An incident's values under the ids its filter offers. */
+function incidentFilterRecord(e: IncidentEntry): Record<string, unknown> {
+  return {
+    identifier: e.identifier,
+    title: e.title,
+    kind: e.kind,
+    status: e.status,
+    created: e.created_at,
+    ...customValueRecord(e.custom_fields),
+  }
+}
+
 export function IncidentLog({
   canWrite,
   canEditModels,
@@ -107,8 +127,34 @@ export function IncidentLog({
 
   const needle = q.trim().toLowerCase()
 
-  const visible = inStatus.filter(
-    (e) => (kind === 'all' || e.kind === kind) && entryMatches(e, needle),
+  const inKind = useMemo(
+    () =>
+      all.filter(
+        (e) =>
+          (status === 'all' ||
+            (status === 'archived' ? e.archived_at : !e.archived_at)) &&
+          (kind === 'all' || e.kind === kind) &&
+          entryMatches(e, needle),
+      ),
+    [all, status, kind, needle],
+  )
+
+  const filterFields = useMemo(
+    () => [
+      textFilter('identifier', t('common.filter.id')),
+      textFilter('title', t('common.filter.title')),
+      choicesFrom('kind', t('common.filter.type'), inKind, (e) => e.kind),
+      choicesFrom('status', t('common.filter.status'), inKind, (e) => e.status),
+      dateFilter('created', t('common.filter.created')),
+      ...customValueFields(inKind.map((e) => e.custom_fields)),
+    ],
+    [inKind],
+  )
+
+  const { filter, rows: visible } = useClientFilter(
+    filterFields,
+    inKind,
+    incidentFilterRecord,
   )
 
   const setUp = useMutation({
@@ -249,6 +295,7 @@ export function IncidentLog({
           onSearch={setQ}
           placeholder={t('quality.incidents.searchPlaceholder')}
           label={t('quality.incidents.searchPlaceholder')}
+          filter={filter}
           right={<StatusSelect status={status} onChange={setStatus} />}
         />
       )}

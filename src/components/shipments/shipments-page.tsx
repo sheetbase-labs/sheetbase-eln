@@ -2,6 +2,7 @@
  * The Shipments page: boxes leaving the lab or arriving at it, each with a
  * manifest, followed from packing to received.
  */
+import { useColumnFilter } from '#/components/inventory/column-filter'
 import { useMemo, useState } from 'react'
 import type { ReactNode } from 'react'
 import { useQuery } from '@tanstack/react-query'
@@ -306,14 +307,20 @@ export function ShipmentsPage({ canWrite }: { canWrite: boolean }) {
 
   const needle = q.trim().toLowerCase()
 
-  const visible = inTabOf(inDirection, tab).filter(
-    (s) => needle === '' || matchesSearch(shipmentText(s), needle),
+  const inTabRows = useMemo(
+    () =>
+      inTabOf(inDirection, tab).filter(
+        (s) => needle === '' || matchesSearch(shipmentText(s), needle),
+      ),
+    [inDirection, tab, needle],
   )
 
   const columns = useMemo(
     () => shipmentColumns(counts.data, today),
     [counts.data, today],
   )
+
+  const { filter, rows: visible } = useColumnFilter(columns, inTabRows, all)
 
   const newButton = canWrite ? (
     <Button variant="primary" icon="plus" onClick={() => setCreating(true)}>
@@ -365,6 +372,7 @@ export function ShipmentsPage({ canWrite }: { canWrite: boolean }) {
         onSearch={setQ}
         placeholder={t('shipments.searchPlaceholder')}
         label={t('shipments.searchPlaceholder')}
+        filter={filter}
         right={
           <DirectionFilter direction={direction} onChange={setDirection} />
         }

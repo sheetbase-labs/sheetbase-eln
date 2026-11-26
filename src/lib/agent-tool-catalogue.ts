@@ -305,6 +305,31 @@ const ASSISTANT_PROPOSE_TOOLS_UNDECLARED = [
   // Lab watchers: dismiss or snooze a finding, turn a watcher on or off.
   'sheetbase.watcher.finding',
   'sheetbase.watcher.set',
+  // Samples, storage, plates and template versions (src/features/sample-storage, plate-assays, template-versions).
+  'sheetbase.sample.withdraw',
+  'sheetbase.sample.label_printed',
+  'sheetbase.sample.match_locations',
+  'sheetbase.storage.position_status',
+  'sheetbase.stocktake.scan',
+  'sheetbase.stocktake.resolve',
+  'sheetbase.stocktake.cancel',
+  'sheetbase.shipment.dispatch',
+  'sheetbase.shipment.update',
+  'sheetbase.material.safety',
+  'sheetbase.sample_workflow.save',
+  'sheetbase.sample_workflow.set_status',
+  'sheetbase.release_rules.set',
+  'sheetbase.plate_run.archive',
+  'sheetbase.plate_run.create',
+  'sheetbase.plate_run.update',
+  'sheetbase.plate_design.create',
+  'sheetbase.plate_design.fill',
+  'sheetbase.plate_layout.save',
+  'sheetbase.plate_design.track_qc',
+  'sheetbase.worklist.cancel',
+  'sheetbase.worklist.complete',
+  'sheetbase.template.use',
+  'sheetbase.template.upgrade_notebook',
 ] as const
 
 export const ASSISTANT_PROPOSE_TOOL_NAMES: readonly string[] = [

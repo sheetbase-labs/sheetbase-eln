@@ -303,8 +303,10 @@ interface ProjectRow {
   id: string
   key: string
   title: string
+  display_id: string | null
 }
 
+/** A project by name, key or its ID (PRJ-0008), the ways people name one. */
 export async function findProject(
   client: DataClient,
   text: string,
@@ -313,7 +315,7 @@ export async function findProject(
 
   const rows = await client.list<ProjectRow>(
     'projects',
-    `?archived_at=is.null&or=(key.ilike.${like},title.ilike.${like})&select=id,key,title&order=title.asc&limit=6`,
+    `?archived_at=is.null&or=(key.ilike.${like},title.ilike.${like},display_id.ilike.${like})&select=id,key,title,display_id&order=title.asc&limit=6`,
   )
 
   const lower = text.trim().toLowerCase()
@@ -324,7 +326,9 @@ export async function findProject(
     'project',
     (row) => row.title,
     (row) =>
-      row.key.toLowerCase() === lower || row.title.toLowerCase() === lower,
+      row.key.toLowerCase() === lower ||
+      row.title.toLowerCase() === lower ||
+      row.display_id?.toLowerCase() === lower,
   )
 }
 

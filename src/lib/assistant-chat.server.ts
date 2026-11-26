@@ -5,6 +5,7 @@ import type {
   AssistantMessageMetadata,
   AssistantUIMessage,
 } from './assistant-chat'
+import { plainProposal } from './assistant-proposals'
 import { resolveAssistantRuntime } from './assistant-actions'
 import { ModelGatewayError } from './ai-gateway'
 import { logger, redact } from './logger'
@@ -131,7 +132,7 @@ export async function handleAssistantChat(request: Request): Promise<Response> {
                 type: 'tool-output-available',
                 toolCallId: event.id,
                 output: event.proposal
-                  ? { ok: true, proposal: event.proposal }
+                  ? { ok: true, proposal: plainProposal(event.proposal) }
                   : { ok: true, refs: event.refs ?? [] },
                 dynamic: true,
               })

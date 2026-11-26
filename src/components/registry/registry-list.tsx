@@ -4,7 +4,7 @@
  * fixed registry types; a tab appears for each model that is a registry.
  */
 import { SearchableSelect } from '#/components/record-picker/searchable-select'
-import { useMemo, useState } from 'react'
+import { useCallback, useMemo, useState } from 'react'
 import { Link, useNavigate } from '@tanstack/react-router'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 
@@ -14,6 +14,9 @@ import {
   ReadOnlyNote,
 } from '#/components/inventory/list'
 import { useListView } from '#/lib/list-views'
+import { useClientFilter } from '#/components/inventory/use-list-filter'
+import { customValueRecord } from '#/components/inventory/list-filter-fields'
+import { useRegistryFilterFields } from './registry-filter-fields'
 import { RegistryGrid } from '#/components/inventory/registry-grid'
 import { useBulkSelection } from '#/components/inventory/bulk-selection'
 import { RecordBulkBar } from '#/components/inventory/record-bulk-bar'
@@ -538,8 +541,35 @@ export function RegistryList({
     (e) => status === 'all' || entryStatus(e) === status,
   )
 
-  const visible = inStatus.filter(
-    (e) => (kind === 'all' || e.kind === kind) && entryMatches(e, needle),
+  const inKind = useMemo(
+    () =>
+      all.filter(
+        (e) =>
+          (status === 'all' || entryStatus(e) === status) &&
+          (kind === 'all' || e.kind === kind) &&
+          entryMatches(e, needle),
+      ),
+    [all, status, kind, needle],
+  )
+
+  const filterFields = useRegistryFilterFields(registries, inKind)
+
+  const toFilterRecord = useCallback(
+    (e: RegistryEntry) => ({
+      identifier: e.identifier,
+      name: e.title,
+      kind: e.kind,
+      status: entryStatus(e),
+      added: e.created_at,
+      ...customValueRecord(e.custom_fields),
+    }),
+    [],
+  )
+
+  const { filter, rows: visible } = useClientFilter(
+    filterFields,
+    inKind,
+    toFilterRecord,
   )
 
   const { setUp, setUpCompounds } = useRegistryStarters()
@@ -610,6 +640,7 @@ export function RegistryList({
             onSearch={setQ}
             placeholder={t('registry.searchPlaceholder')}
             label={t('registry.searchPlaceholder')}
+            filter={filter}
             right={
               <Select
                 size="sm"

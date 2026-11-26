@@ -39,10 +39,10 @@ export function filterRows<T>(
   rows: readonly T[],
   tree: GroupNode | null | undefined,
   toRecord: (row: T) => Record<string, unknown>,
-): readonly T[] {
+): T[] {
   const active = activeFilter(tree)
 
-  if (!active) return rows
+  if (!active) return [...rows]
   const matches = buildPredicate(active)
 
   return rows.filter((row) => matches(toRecord(row)))

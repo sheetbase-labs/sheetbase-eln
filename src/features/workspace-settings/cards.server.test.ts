@@ -204,7 +204,7 @@ describe('the workspace settings cards', () => {
 
     const client = {
       rpc: (_name: string, args: Record<string, core.util.JSONType>) => {
-        calls.push(String(args.p_role))
+        calls.push(`${args.p_role}`)
 
         return args.p_role === 'member'
           ? Promise.reject(new Error('refused'))

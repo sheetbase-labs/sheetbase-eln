@@ -453,7 +453,7 @@ export async function buildWorkspaceSettingsProposal(
       const days = input.workDays
         ? [
             ...new Set(input.workDays.map((day) => WEEKDAYS.indexOf(day) + 1)),
-          ].sort()
+          ].sort((a, b) => a - b)
         : row.work_days
 
       const timezone = input.timezone ?? row.timezone

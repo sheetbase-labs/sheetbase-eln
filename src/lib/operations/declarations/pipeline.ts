@@ -58,6 +58,7 @@ export const PIPELINE_OPERATIONS = defineOperations([
       input('p_properties', 'json', false),
       input('p_custom_fields', 'json', false),
     ],
+    assistant: { tool: 'sheetbase.record.create' },
     pipeline: {},
   },
   {
@@ -76,6 +77,7 @@ export const PIPELINE_OPERATIONS = defineOperations([
     kind: 'write',
     api: 'elsewhere',
     inputs: record(),
+    assistant: { tool: 'sheetbase.record.archive' },
     pipeline: {},
   },
   {
@@ -85,6 +87,7 @@ export const PIPELINE_OPERATIONS = defineOperations([
     kind: 'write',
     api: 'elsewhere',
     inputs: record(),
+    assistant: { tool: 'sheetbase.record.restore' },
     pipeline: {},
   },
   {
@@ -101,6 +104,7 @@ export const PIPELINE_OPERATIONS = defineOperations([
       input('p_target_record_id', 'uuid', false, true),
       input('p_label', 'text', false, true),
     ],
+    assistant: { tool: 'sheetbase.record.link' },
     pipeline: {},
   },
   {

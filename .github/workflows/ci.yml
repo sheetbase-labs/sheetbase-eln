@@ -261,6 +261,7 @@ jobs:
           - name: workspace panes
             files: >-
               tests/browser/workspace-panes.test.ts
+              tests/browser/experiment-pane-render.test.ts
               tests/browser/workspace/
           # Two browsers typing in one notebook block through the bundled
           # co-editing server.

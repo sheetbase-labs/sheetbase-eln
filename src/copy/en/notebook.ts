@@ -710,6 +710,8 @@ export const notebook = {
         'This change needs a signature. Review it under Agent proposals.',
       reviewProposals: 'Agent proposals',
       failed: 'It could not be applied: {reason}',
+      updated:
+        'Sheetbase was just updated, so this page is reloading. Your chat is saved: press the card again.',
       stale:
         'It changed since this was suggested. Ask again to get an updated suggestion.',
     },

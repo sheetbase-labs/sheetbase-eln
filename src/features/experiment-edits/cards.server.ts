@@ -82,6 +82,8 @@ import {
   proposeVersionDiscardSchema,
   proposeVersionMigrateSchema,
   proposeVersionUpgradeSchema,
+  proposeModelFieldEditSchema,
+  MODEL_FIELD_EDIT_TOOL,
   isExperimentEditsAction,
 } from './cards'
 import type {
@@ -159,6 +161,8 @@ const DESCRIPTIONS: Record<ExperimentEditsProposeToolName, string> = {
     'Propose moving one record to the latest published version of its type. Values are not changed.',
   [MODEL_MIGRATE_TOOL]:
     'Propose moving every open experiment of a type to its latest published version.',
+  [MODEL_FIELD_EDIT_TOOL]:
+    'Propose changing a field of a record type in its draft version: its label, help text, or whether it is required. The type needs a draft version (start one first); publishing is a separate step.',
   [PROTOCOL_IMPORT_TOOL]:
     'Propose adding a protocol written elsewhere (such as on protocols.io) as a draft protocol, with its steps, reagents and source.',
 }
@@ -193,6 +197,7 @@ const SCHEMAS: Record<ExperimentEditsProposeToolName, z.ZodType> = {
   [MODEL_UPGRADE_TOOL]: proposeVersionUpgradeSchema,
   [MODEL_MIGRATE_TOOL]: proposeVersionMigrateSchema,
   [PROTOCOL_IMPORT_TOOL]: proposeProtocolImportSchema,
+  [MODEL_FIELD_EDIT_TOOL]: proposeModelFieldEditSchema,
 }
 
 export function experimentEditsProposalDefs(): ProviderToolDef[] {
@@ -382,6 +387,12 @@ async function findModelRow(
     (row) =>
       row.key.toLowerCase() === lower || row.name.toLowerCase() === lower,
   )
+}
+
+type FieldRow = Record<string, EditJson> & {
+  label: string
+  field_name: string
+  nullable: boolean
 }
 
 interface VersionRow {
@@ -1500,6 +1511,113 @@ const BUILDERS: Record<ExperimentEditsProposeToolName, Tool> = {
         params: {
           p_model_id: found.value.id,
           p_version_id: latest.id,
+          p_reason: input.reason.trim(),
+        },
+      }
+    },
+  ),
+
+  [MODEL_FIELD_EDIT_TOOL]: define(
+    proposeModelFieldEditSchema,
+    async (input, { client }) => {
+      const found = await findModelRow(client, input.model)
+
+      if (!found.ok) return found
+
+      const drafts = await client.list<{
+        id: string
+        revision: number
+        definition: Record<string, EditJson> & { fields?: FieldRow[] }
+      }>(
+        'record_model_versions',
+        `?model_id=eq.${encodeURIComponent(found.value.id)}&lifecycle=eq.draft&select=id,revision,definition&limit=1`,
+      )
+
+      const draft = drafts.at(0)
+
+      if (!draft) {
+        return failure(
+          `${found.value.name} has no draft version. Start a new version first.`,
+        )
+      }
+
+      const fields = draft.definition.fields ?? []
+      const lower = input.field.trim().toLowerCase()
+
+      const matches = fields.filter(
+        (field) =>
+          field.lifecycle !== 'retired' &&
+          (field.label.toLowerCase() === lower ||
+            field.field_name.toLowerCase() === lower ||
+            field.label.toLowerCase().includes(lower)),
+      )
+
+      const one = pick(
+        matches,
+        input.field,
+        'field',
+        (field) => field.label,
+        (field) =>
+          field.label.toLowerCase() === lower ||
+          field.field_name.toLowerCase() === lower,
+      )
+
+      if (!one.ok) return one
+      const target = one.value
+      const changes: ProposalChange[] = []
+
+      if (input.label) changes.push(change('Label', target.label, input.label))
+
+      if (input.description !== undefined) {
+        changes.push(
+          change(
+            'Help text',
+            target.description == null
+              ? null
+              : JSON.stringify(target.description),
+            input.description ?? 'None',
+          ),
+        )
+      }
+
+      if (input.required !== undefined) {
+        changes.push(
+          change(
+            'Required',
+            target.nullable ? 'No' : 'Yes',
+            input.required ? 'Yes' : 'No',
+          ),
+        )
+      }
+
+      if (changes.length === 0)
+        return failure('Say what to change on the field.')
+
+      const edited = fields.map((field) =>
+        field === target
+          ? {
+              ...field,
+              label: input.label ?? field.label,
+              description:
+                input.description === undefined
+                  ? (field.description ?? null)
+                  : input.description,
+              nullable:
+                input.required === undefined ? field.nullable : !input.required,
+            }
+          : field,
+      )
+
+      return {
+        ok: true,
+        target: `${found.value.name} · ${target.label}`,
+        deepLink: null,
+        changes,
+        kind: 'experiment_edits.version_edit',
+        params: {
+          p_version_id: draft.id,
+          p_expected_revision: draft.revision,
+          p_definition: { ...draft.definition, fields: edited },
           p_reason: input.reason.trim(),
         },
       }

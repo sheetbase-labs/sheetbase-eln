@@ -19,6 +19,7 @@
 
 /** A write the assistant already proposes, and the card tool that does it. */
 export const ASSISTANT_COVERED = {
+  replace_record_model_version_definition: 'sheetbase.model_field.edit',
   add_records_to_legal_hold: 'sheetbase.legal_hold.add_records',
   amend_experiment_part: 'sheetbase.part.amend',
   create_qc_series: 'sheetbase.qc.create_series',
@@ -341,7 +342,6 @@ export const ASSISTANT_EXEMPT = {
 
 /** Writes still waiting for a card, by area. Only ever shrinks. */
 export const ASSISTANT_GAPS = {
-  replace_record_model_version_definition: 'experiments',
   cancel_instrument_job: 'instruments',
   clear_instrument_robot: 'instruments',
   complete_instrument_run: 'instruments',

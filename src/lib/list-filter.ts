@@ -1,3 +1,4 @@
+import { z } from 'zod'
 import { buildPredicate } from '@sheetbase-labs/sheetbase-shared'
 import type {
   ConditionNode,
@@ -26,6 +27,12 @@ import type { FilterParam } from '#/lib/search-filter'
 export function filterSearch(raw: unknown): { filter?: FilterParam } {
   return { filter: normaliseFilterParam(raw) }
 }
+
+/** The same parameter for a route whose search is a zod object. */
+export const filterParamSchema = z
+  .unknown()
+  .transform((raw) => normaliseFilterParam(raw))
+  .optional()
 
 /** The finished conditions of a tree, or undefined when nothing is set. */
 export function activeFilter(

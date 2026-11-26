@@ -210,7 +210,7 @@ async function findAny(
 ): Promise<FoundRecord | { message: string }> {
   const { client } = context
 
-  const rows = UUID.test(text.trim())
+  const records = UUID.test(text.trim())
     ? await client.list<FoundRecord>(
         'records',
         `?id=eq.${text.trim()}&deleted_at=is.null&select=${RECORD_COLUMNS}&limit=1`,
@@ -219,6 +219,38 @@ async function findAny(
         'records',
         `?deleted_at=is.null&or=(identifier.ilike.${likeValue(text)},title.ilike.${likeValue(text)})&select=${RECORD_COLUMNS}&order=updated_at.desc&limit=6`,
       )
+
+  // Projects are not records: they have their own table and their own ID
+  // (PRJ-0008), so a project named or numbered here is looked up there.
+  const projects = await safe(
+    client.list<{
+      id: string
+      display_id: string | null
+      title: string
+      status: string
+      created_at: string
+    }>(
+      'projects',
+      `?or=(display_id.ilike.${likeValue(text)},title.ilike.${likeValue(text)})&select=id,display_id,title,status,created_at&order=updated_at.desc&limit=6`,
+    ),
+    [],
+  )
+
+  const rows: FoundRecord[] = [
+    ...records,
+    ...projects.map((project): FoundRecord => ({
+      id: project.id,
+      identifier: project.display_id ?? '',
+      title: project.title,
+      kind: 'project',
+      status: project.status,
+      project_id: project.id,
+      properties: {},
+      created_at: project.created_at,
+      created_by_user_id: null,
+      source_notebook_template_version_id: null,
+    })),
+  ]
 
   const lower = text.trim().toLowerCase()
 

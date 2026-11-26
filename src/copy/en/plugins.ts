@@ -144,7 +144,7 @@ export const plugins = {
       button: 'Connections',
       title: 'Connections for {name}',
       intro:
-        'What this plugin needs to send data out or reach another system. Secrets are sealed when you save them and are never shown again; leave a box empty to keep what is there.',
+        'What this plugin needs to send data out or reach another system. Changes save as you leave a box. Secrets are sealed and never shown again; leave a box empty to keep what is there.',
       kind: {
         connectors: 'Pulls data in',
         publishers: 'Sends data out',
@@ -157,6 +157,11 @@ export const plugins = {
       secretKept: 'Saved. Type a new value to replace it.',
       secretHint: 'Sealed when saved and never shown again.',
       saved: '{name} saved.',
+      test: 'Test connection',
+      testing: 'Checking…',
+      testFailed: 'The connection could not be tested.',
+      works: 'Working',
+      notWorking: 'Not working',
     },
     logs: {
       button: 'Logs',

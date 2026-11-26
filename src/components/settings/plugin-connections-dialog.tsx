@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
+import { z } from 'zod'
 
 import { Button } from '#/components/ui/button'
 import {
@@ -70,8 +71,13 @@ function ConnectionForm({ connection }: { connection: ConnectionWire }) {
   const queryClient = useQueryClient()
   const [values, setValues] = useState(() => new Map<string, string>())
 
+  const [check, setCheck] = useState<{
+    works: boolean
+    message: string | null
+  } | null>(null)
+
   const save = useMutation({
-    mutationFn: (typed: Record<string, string>) =>
+    mutationFn: (typed: Record<string, string | null>) =>
       saveConnection({
         extensionId: connection.extensionId,
         point: connection.point,
@@ -79,17 +85,93 @@ function ConnectionForm({ connection }: { connection: ConnectionWire }) {
         // Only what was typed: an untouched secret stays as it is.
         values: typed,
       }),
-    onSuccess: () => {
-      toast(t('plugins.admin.connections.saved', { name: connection.title }))
-      setValues(new Map())
-      void queryClient.invalidateQueries({ queryKey: connectionsQueryKey })
-    },
     onError: (error) =>
       toast.error(
         error instanceof Error
           ? error.message
           : t('plugins.admin.couldNotChange'),
       ),
+  })
+
+  // Saves as you leave a box. A plain setting can be put back with Undo; a
+  // sealed secret cannot be read, so its old value cannot be restored.
+  const commit = (name: string) => {
+    const setting = connection.settings.find((entry) => entry.name === name)
+    const typed = values.get(name)
+
+    if (!setting || typed === undefined) return
+    const before = setting.secret ? null : setting.value
+
+    if (typed === (setting.value ?? '') && !setting.secret) return
+
+    if (setting.secret && typed.trim() === '') {
+      setValues((current) => {
+        const next = new Map(current)
+
+        next.delete(name)
+
+        return next
+      })
+
+      return
+    }
+
+    save.mutate(
+      { [name]: typed },
+      {
+        onSuccess: () => {
+          setValues(new Map())
+          setCheck(null)
+          void queryClient.invalidateQueries({ queryKey: connectionsQueryKey })
+          toast(
+            t('plugins.admin.connections.saved', { name: connection.title }),
+            setting.secret
+              ? undefined
+              : {
+                  action: {
+                    label: t('common.actions.undo'),
+                    onClick: () =>
+                      save.mutate(
+                        { [name]: before },
+                        {
+                          onSuccess: () =>
+                            void queryClient.invalidateQueries({
+                              queryKey: connectionsQueryKey,
+                            }),
+                        },
+                      ),
+                  },
+                },
+          )
+        },
+      },
+    )
+  }
+
+  const testable = connection.extensionKey === 'protocols-io'
+
+  const test = useMutation({
+    mutationFn: async () => {
+      const response = await fetch(
+        '/api/plugins/protocols-io/test-connection',
+        {
+          method: 'POST',
+        },
+      )
+
+      if (!response.ok)
+        throw new Error(t('plugins.admin.connections.testFailed'))
+
+      return z
+        .object({ works: z.boolean(), message: z.string().nullable() })
+        .parse(await response.json())
+    },
+    onSuccess: setCheck,
+    onError: () =>
+      setCheck({
+        works: false,
+        message: t('plugins.admin.connections.testFailed'),
+      }),
   })
 
   const needs = connectionNeedsSetup(connection)
@@ -111,12 +193,20 @@ function ConnectionForm({ connection }: { connection: ConnectionWire }) {
               : null}
           </span>
         </div>
-        <Status tone={needs ? 'warn' : 'ok'}>
-          {t(
-            needs
-              ? 'plugins.admin.connections.needsSetup'
-              : 'plugins.admin.connections.ready',
-          )}
+        <Status
+          tone={check ? (check.works ? 'ok' : 'bad') : needs ? 'warn' : 'ok'}
+        >
+          {check
+            ? t(
+                check.works
+                  ? 'plugins.admin.connections.works'
+                  : 'plugins.admin.connections.notWorking',
+              )
+            : t(
+                needs
+                  ? 'plugins.admin.connections.needsSetup'
+                  : 'plugins.admin.connections.ready',
+              )}
         </Status>
       </div>
       <div className="grid grid-cols-1 gap-3">
@@ -145,21 +235,33 @@ function ConnectionForm({ connection }: { connection: ConnectionWire }) {
                   new Map(current).set(setting.name, event.target.value),
                 )
               }
+              onBlur={() => commit(setting.name)}
+              onKeyDown={(event) => {
+                if (event.key === 'Enter') commit(setting.name)
+              }}
             />
           </Field>
         ))}
       </div>
-      <div>
-        <Button
-          type="button"
-          variant="primary"
-          size="sm"
-          disabled={save.isPending || values.size === 0}
-          onClick={() => save.mutate(Object.fromEntries(values))}
-        >
-          {t('common.actions.save')}
-        </Button>
-      </div>
+      {check && !check.works && check.message ? (
+        <p role="alert" className="text-label text-danger-text">
+          {check.message}
+        </p>
+      ) : null}
+      {testable ? (
+        <div>
+          <Button
+            type="button"
+            size="sm"
+            disabled={test.isPending || save.isPending}
+            onClick={() => test.mutate()}
+          >
+            {test.isPending
+              ? t('plugins.admin.connections.testing')
+              : t('plugins.admin.connections.test')}
+          </Button>
+        </div>
+      ) : null}
     </section>
   )
 }

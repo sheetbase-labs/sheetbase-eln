@@ -48,17 +48,21 @@ function sources<T extends RowData>(
   })
 }
 
-function fieldFor<T>(
-  source: ColumnSource<T>,
-  rows: readonly T[],
+const plainWord = (value: string) => value
+
+/**
+ * The field a column of values makes: a number, a yes/no, a date, a short list
+ * of words to pick from, or free text. Nothing when every value is empty or the
+ * values mix kinds.
+ */
+export function fieldFromCells(
+  id: string,
+  label: string,
+  cells: readonly FilterCell[],
+  rowCount: number,
+  valueLabel: (value: string) => string = plainWord,
 ): SheetbaseField | undefined {
-  const { id, label } = source
-
-  const values = rows.flatMap((row, index) => {
-    const value = source.accessor(row, index)
-
-    return cellKind(value) === 'none' ? [] : [value]
-  })
+  const values = cells.filter((cell) => cellKind(cell) !== 'none')
 
   if (values.length === 0) return undefined
   const kinds = new Set(values.map(cellKind))
@@ -74,16 +78,28 @@ function fieldFor<T>(
 
   const words = [...new Set(values.map(String))]
 
-  if (words.length <= CHOICE_LIMIT && rows.length > 1)
+  if (words.length <= CHOICE_LIMIT && rowCount > 1)
     return choiceFilter(
       id,
       label,
       words
         .sort((x, y) => x.localeCompare(y))
-        .map((value) => ({ value, label: value })),
+        .map((value) => ({ value, label: valueLabel(value) })),
     )
 
   return { id, label, dataType: 'text' }
+}
+
+function fieldFor<T>(
+  source: ColumnSource<T>,
+  rows: readonly T[],
+): SheetbaseField | undefined {
+  return fieldFromCells(
+    source.id,
+    source.label,
+    rows.map((row, index) => source.accessor(row, index)),
+    rows.length,
+  )
 }
 
 /** The filter fields for a list's columns, and the values of one row. */

@@ -10,6 +10,7 @@ import {
 } from '#/components/ui/dropdown-menu'
 import { Icon } from '#/components/icons'
 import { ListToolbar } from '#/components/inventory/list'
+import type { ListFilter } from '#/components/inventory/list-filter'
 import { t } from '#/copy'
 
 import { projectColumnKeys, sortLabel, sorts } from './projects-page-model'
@@ -18,8 +19,6 @@ import type {
   ProjectsSearch,
   ProjectsSort,
 } from './projects-page-model'
-import { ProjectsFilterMenu } from './projects-filter-menu'
-import type { ProjectRow } from './types'
 
 /**
  * The list's controls: sort, filter, group, the search box, which columns are
@@ -31,19 +30,17 @@ export function ProjectsToolbar({
   sort,
   group,
   hidden,
-  filterCount,
+  filter,
   archived,
   search,
-  projects,
   setSearch,
 }: {
   sort: ProjectsSort
   group: 'none' | 'stage' | 'lead'
   hidden: ReadonlySet<string>
-  filterCount: number
+  filter: ListFilter
   archived: ArchivedMode
   search: ProjectsSearch
-  projects: readonly ProjectRow[]
   setSearch: (patch: Partial<ProjectsSearch>) => void
 }) {
   return (
@@ -51,6 +48,7 @@ export function ProjectsToolbar({
       q={search.q}
       label={t('projects.projectsPage.search')}
       placeholder={t('projects.projectsPage.search')}
+      filter={filter}
       onSearch={(q) => setSearch({ q: q.trim() || undefined })}
       right={
         <>
@@ -101,6 +99,18 @@ export function ProjectsToolbar({
               <Icon name="more" size={14} />
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-[220px]">
+              <DropdownMenuItem
+                closeOnClick={false}
+                icon={archived === 'exclude' ? 'check' : undefined}
+                className={archived === 'exclude' ? '' : 'pl-[30px]'}
+                onClick={() =>
+                  setSearch({
+                    archived: archived === 'exclude' ? 'include' : 'exclude',
+                  })
+                }
+              >
+                {t('projects.projectsPage.filters.statusNotArchived')}
+              </DropdownMenuItem>
               <DropdownMenuItem
                 icon="copy"
                 onClick={() =>
@@ -158,14 +168,6 @@ export function ProjectsToolbar({
           ))}
         </DropdownMenuContent>
       </DropdownMenu>
-
-      <ProjectsFilterMenu
-        archived={archived}
-        filterCount={filterCount}
-        projects={projects}
-        search={search}
-        setSearch={setSearch}
-      />
 
       <DropdownMenu>
         <DropdownMenuTrigger

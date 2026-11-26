@@ -142,12 +142,8 @@ export const projects = {
     loading: 'Loading projects…',
     sortBy: 'Sort: {sort}',
     sort: 'Sort',
-    filterCount: 'Filter · {count}',
     filters: {
       statusNotArchived: 'Status isn’t Archived',
-      stageIs: 'Stage is',
-      clientIs: 'Client is',
-      modalityIs: 'Modality is',
       removeStage: 'Remove filter: stage is {value}',
       chipStage: 'Stage is <b>{value}</b>',
       remove: {

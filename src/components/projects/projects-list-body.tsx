@@ -1,12 +1,17 @@
-import { ProjectsFilterChips } from './projects-filter-chips'
+import { useRowFilter } from '#/components/inventory/row-filter'
+import type { RowFilterOptions } from '#/components/inventory/row-filter'
 import { ProjectsFooter } from './projects-footer'
+import { groupedProjects } from './projects-page-model'
 import type { ProjectsSearch, projectsView } from './projects-page-model'
 import { ProjectsTable } from './projects-table'
 import { ProjectsToolbar } from './projects-toolbar'
 import type { useProjectSelection } from './use-project-selection'
 import type { ProjectRow } from './types'
 
-/** The loaded list: its controls, the filter chips, the table and the footer. */
+/** Plumbing the rows carry that is not something to filter by. */
+const PROJECT_FILTER: RowFilterOptions = { hide: ['updated', 'lead'] }
+
+/** The loaded list: its controls, the table and the footer. */
 export function ProjectsListBody({
   view,
   projects,
@@ -26,18 +31,10 @@ export function ProjectsListBody({
   peekId: string | null
   onPeek: (project: ProjectRow) => void
 }) {
-  const {
-    tab,
-    archived,
-    sort,
-    group,
-    hidden,
-    rows,
-    archivedMatches,
-    filterCount,
-    columns,
-    grouped,
-  } = view
+  const { tab, archived, sort, group, hidden, archivedMatches, columns } = view
+
+  const { filter, rows } = useRowFilter(view.rows, projects, PROJECT_FILTER)
+  const grouped = groupedProjects(rows, group)
 
   return (
     <>
@@ -45,16 +42,11 @@ export function ProjectsListBody({
         sort={sort}
         group={group}
         hidden={hidden}
-        filterCount={filterCount}
+        filter={filter}
         archived={archived}
         search={search}
-        projects={projects}
         setSearch={setSearch}
       />
-
-      {filterCount ? (
-        <ProjectsFilterChips search={search} setSearch={setSearch} />
-      ) : null}
 
       <ProjectsTable
         rows={rows}
@@ -75,9 +67,7 @@ export function ProjectsListBody({
         onClearFilters={() =>
           setSearch({
             q: undefined,
-            stage: undefined,
-            client: undefined,
-            modality: undefined,
+            filter: undefined,
           })
         }
       />

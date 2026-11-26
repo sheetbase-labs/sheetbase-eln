@@ -1,11 +1,7 @@
 import { filterParamSchema } from '#/lib/list-filter'
 import type { FilterParam } from '#/lib/search-filter'
 import type { ListFilter } from '#/components/inventory/list-filter'
-import { useClientFilter } from '#/components/inventory/use-list-filter'
-import {
-  datasetFilterRecord,
-  useDatasetFilterFields,
-} from '#/components/datasets/dataset-filter-fields'
+import { useRowFilter } from '#/components/inventory/row-filter'
 import { useMemo, useState } from 'react'
 import { z } from 'zod'
 import { ObjectLink } from '#/components/ui/object-link'
@@ -215,11 +211,7 @@ function DatasetsList() {
     [sorted, tab, userId, q],
   )
 
-  const { filter, rows: visible } = useClientFilter(
-    useDatasetFilterFields(rows),
-    inTabRows,
-    datasetFilterRecord,
-  )
+  const { filter, rows: visible } = useRowFilter(inTabRows, rows)
 
   const columns = useMemo<RegistryColumn<DatasetListRow>[]>(
     () => [

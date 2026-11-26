@@ -44,6 +44,7 @@ vi.mock('#/lib/workspace-access', async (importOriginal) => ({
 // oxlint-disable-next-line anti-slop/no-module-mocking -- The file-route factory is bound to the generated route tree at build time; this suite renders the page component directly with the search the router would supply.
 vi.mock('@tanstack/react-router', () => ({
   useNavigate: () => navigate,
+  useSearch: () => ({}),
   Link: ({
     to,
     children,

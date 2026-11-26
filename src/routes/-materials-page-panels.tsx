@@ -36,11 +36,7 @@ import type {
   RegistryColumn,
   useRowFocus,
 } from '#/components/inventory/registry-grid'
-import { useClientFilter } from '#/components/inventory/use-list-filter'
-import {
-  materialFilterRecord,
-  useMaterialFilterFields,
-} from '#/components/materials/material-filter-fields'
+import { useRowFilter } from '#/components/inventory/row-filter'
 import {
   ListFooter,
   ListHeader,
@@ -316,13 +312,7 @@ export function MaterialsBody({
   onBulkChanged: () => void
   onOpenMaterial: (row: MaterialListRow, event?: React.MouseEvent) => void
 }): React.ReactElement | null {
-  const fields = useMaterialFilterFields(allVisible)
-
-  const { filter, rows: visible } = useClientFilter(
-    fields,
-    allVisible,
-    materialFilterRecord,
-  )
+  const { filter, rows: visible } = useRowFilter(allVisible)
 
   if (panelTab) return null
 

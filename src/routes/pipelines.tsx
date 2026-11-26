@@ -1,8 +1,7 @@
 import { filterParamSchema } from '#/lib/list-filter'
 import type { FilterParam } from '#/lib/search-filter'
 import type { ListFilter } from '#/components/inventory/list-filter'
-import { useSpecFilter } from '#/components/inventory/spec-filter'
-import type { FilterSpec } from '#/components/inventory/spec-filter'
+import { useRowFilter } from '#/components/inventory/row-filter'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { ObjectLink } from '#/components/ui/object-link'
 import {
@@ -657,41 +656,6 @@ function PipelinesHeader({
   )
 }
 
-/** What the pipelines list can be filtered by. */
-const PIPELINE_FILTER: FilterSpec<PipelineListRow> = {
-  id: {
-    label: t('common.filter.id'),
-    type: 'text',
-    value: (p) => p.display_id ?? p.key,
-  },
-  name: { label: t('common.filter.name'), type: 'text', value: (p) => p.name },
-  state: {
-    label: t('common.filter.status'),
-    type: 'choice',
-    value: (p) => p.lifecycle,
-  },
-  owner: {
-    label: t('common.filter.owner'),
-    type: 'owner',
-    value: (p) => p.created_by_user_id,
-  },
-  runs: {
-    label: t('common.filter.count'),
-    type: 'number',
-    value: (p) => p.runCount,
-  },
-  lastRun: {
-    label: t('common.filter.lastRun'),
-    type: 'date',
-    value: (p) => p.lastRun?.created_at,
-  },
-  updated: {
-    label: t('common.filter.updated'),
-    type: 'date',
-    value: (p) => p.updated_at,
-  },
-}
-
 function PipelinesList() {
   // Re-render when the person's time zone is applied or changed.
   useDisplayTimeZone()
@@ -772,11 +736,7 @@ function PipelinesList() {
     [rows, tab, scheduledIds, currentUserId, q],
   )
 
-  const { filter, rows: filtered } = useSpecFilter(
-    PIPELINE_FILTER,
-    inTabRows,
-    rows,
-  )
+  const { filter, rows: filtered } = useRowFilter(inTabRows, rows)
 
   const visible = sortByName(
     filtered,

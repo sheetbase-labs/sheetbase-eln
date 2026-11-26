@@ -76,7 +76,9 @@ export function useNewExperimentSources({
         ),
         t('projects.newExperiment.projectList'),
       ),
-    staleTime: 60_000,
+    // Read again on every visit: a project made a moment ago must be pickable,
+    // and a list cached for a minute left the form with nothing to create in.
+    staleTime: 0,
     retry: false,
   })
 
@@ -90,7 +92,7 @@ export function useNewExperimentSources({
         fetchMyProjectAssignments(notebookDataClient),
         t('projects.newExperiment.permissionCheck'),
       ),
-    staleTime: 60_000,
+    staleTime: 0,
     retry: false,
   })
 

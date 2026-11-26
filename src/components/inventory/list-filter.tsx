@@ -22,9 +22,8 @@ import {
   PopoverTrigger,
 } from '#/components/ui/popover'
 import { t } from '#/copy'
-import { countConditions } from '#/lib/search-filter'
+import { countConditions, withoutNode } from '#/lib/search-filter'
 import { activeFilter } from '#/lib/list-filter'
-import { withoutNode } from '#/lib/search-filter'
 
 export interface ListFilter {
   /** The columns a person can filter by, with their types and options. */
@@ -44,6 +43,7 @@ export function useFilterPopover() {
     focusId,
     setOpen: (next: boolean) => {
       setOpen(next)
+
       if (!next) setFocusId(undefined)
     },
     edit: (id: string) => {

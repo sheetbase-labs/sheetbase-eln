@@ -1,3 +1,4 @@
+import type { FilterRecord } from '#/lib/list-filter'
 import { useMemo } from 'react'
 import type { SheetbaseField } from '@sheetbase-labs/sheetbase-shared'
 
@@ -12,9 +13,7 @@ import { t } from '#/copy'
 import type { DatasetListRow } from './datasets-data'
 
 /** A dataset's values under the ids `useDatasetFilterFields` offers. */
-export function datasetFilterRecord(
-  d: DatasetListRow,
-): Record<string, unknown> {
+export function datasetFilterRecord(d: DatasetListRow): FilterRecord {
   return {
     id: d.id,
     name: d.name,

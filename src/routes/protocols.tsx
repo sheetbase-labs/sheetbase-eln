@@ -272,12 +272,12 @@ function ProtocolsList() {
   const q = (search.q ?? '').trim().toLowerCase()
 
   // The table orders the rows; the tab and the search decide which ones.
-  const inTab = visibleProtocols(rows, tabInput, tab, currentUserId, q)
+  const tabRows = visibleProtocols(rows, tabInput, tab, currentUserId, q)
   const filterFields = useNotebookRecordFilterFields(rows, protocolStatusLabel)
 
   const { filter, rows: visible } = useClientFilter(
     filterFields,
-    inTab,
+    tabRows,
     notebookRecordFilterRecord,
   )
 

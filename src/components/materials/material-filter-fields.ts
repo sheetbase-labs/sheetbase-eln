@@ -1,3 +1,4 @@
+import type { FilterRecord } from '#/lib/list-filter'
 import { useMemo } from 'react'
 import type { SheetbaseField } from '@sheetbase-labs/sheetbase-shared'
 
@@ -10,9 +11,7 @@ import { t } from '#/copy'
 import type { MaterialListRow } from './materials-data'
 
 /** A lot's values under the ids `useMaterialFilterFields` offers. */
-export function materialFilterRecord(
-  m: MaterialListRow,
-): Record<string, unknown> {
+export function materialFilterRecord(m: MaterialListRow): FilterRecord {
   return {
     id: m.id,
     name: m.name,

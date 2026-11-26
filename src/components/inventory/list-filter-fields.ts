@@ -5,6 +5,8 @@ import { useFieldSources } from '#/components/search/use-search-fields'
 import { matchOptions } from '#/lib/search-fields'
 import type { SearchOption } from '#/lib/search-fields'
 import { t } from '#/copy'
+import { cellKind, filterCell } from '#/lib/list-filter'
+import type { FilterRecord } from '#/lib/list-filter'
 
 /**
  * The columns a list offers to filter by. A list names the ones it has, with
@@ -77,8 +79,6 @@ export function useRecordFilterFields(): {
   )
 }
 
-const ISO_DATE = /^\d{4}-\d{2}-\d{2}(T|$)/
-
 /** "storage_temp" reads "Storage temp". */
 function humanKey(key: string): string {
   const spaced = key.replaceAll(/[_-]+/g, ' ').trim()
@@ -92,6 +92,8 @@ function humanKey(key: string): string {
  * yes/no, or text). A key whose values are all empty is left out.
  */
 export function customValueFields(
+  // A model's stored field values are any JSON; `filterCell` reads each one.
+  // oxlint-disable-next-line anti-slop/no-unsafe-dictionary-type
   rows: readonly (Readonly<Record<string, unknown>> | null | undefined)[],
   prefix = 'fields.',
 ): SheetbaseField[] {
@@ -101,19 +103,10 @@ export function customValueFields(
     if (!values) continue
 
     for (const [key, value] of Object.entries(values)) {
-      if (
-        seen.has(key) ||
-        value === null ||
-        value === undefined ||
-        value === ''
-      )
-        continue
+      if (seen.has(key)) continue
+      const kind = cellKind(filterCell(value))
 
-      if (typeof value === 'number') seen.set(key, 'number')
-      else if (typeof value === 'boolean') seen.set(key, 'boolean')
-      else if (typeof value === 'string' && ISO_DATE.test(value))
-        seen.set(key, 'date')
-      else if (typeof value === 'string') seen.set(key, 'text')
+      if (kind !== 'none') seen.set(key, kind)
     }
   }
 
@@ -126,13 +119,15 @@ export function customValueFields(
 
 /** A row's model values under the same ids `customValueFields` gave them. */
 export function customValueRecord(
+  // A model's stored field values are any JSON; `filterCell` reads each one.
+  // oxlint-disable-next-line anti-slop/no-unsafe-dictionary-type
   values: Readonly<Record<string, unknown>> | null | undefined,
   prefix = 'fields.',
-): Record<string, unknown> {
+): FilterRecord {
   return Object.fromEntries(
     Object.entries(values ?? {}).map(([key, value]) => [
       `${prefix}${key}`,
-      value,
+      filterCell(value),
     ]),
   )
 }

@@ -3,9 +3,11 @@ import type { RowData } from '@tanstack/react-table'
 import type { SheetbaseField } from '@sheetbase-labs/sheetbase-shared'
 
 import type { RegistryColumn } from './registry-grid-data'
+import { cellKind, filterCell } from '#/lib/list-filter'
+import type { FilterCell, FilterRecord } from '#/lib/list-filter'
 import { choiceFilter } from './list-filter-fields'
 import { useClientFilter } from './use-list-filter'
-import type { ListFilter } from './list-filter'
+import type { ClientFilter } from './use-list-filter'
 
 /**
  * A filter for any list that already has its columns: each column with a
@@ -15,17 +17,13 @@ import type { ListFilter } from './list-filter'
  * use `useClientFilter` instead.
  */
 
-const ISO_DATE = /^\d{4}-\d{2}-\d{2}(T|$)/
-
 /** Up to this many different words, a text column is a list to pick from. */
 const CHOICE_LIMIT = 30
-
-type Accessor<T> = (row: T, index: number) => unknown
 
 interface ColumnSource<T> {
   id: string
   label: string
-  accessor: Accessor<T>
+  accessor: (row: T, index: number) => FilterCell
 }
 
 function sources<T extends RowData>(
@@ -35,50 +33,53 @@ function sources<T extends RowData>(
     const id = column.id
     const header: unknown = column.header
 
-    // SAFETY: A column defined by an accessor function carries it as `accessorFn`; the union's other branches have none.
-    const accessor = (column as { accessorFn?: Accessor<T> }).accessorFn
+    // SAFETY: A column defined by an accessor function carries it as `accessorFn`; the union's other branches have none. TanStack types its result as unknown, which `filterCell` reads.
+    // oxlint-disable-next-line anti-slop/no-unknown-returns
+    const read = (column as { accessorFn?: (row: T, i: number) => unknown })
+      .accessorFn
 
-    if (!id || id.startsWith('__') || typeof header !== 'string' || !accessor)
+    // oxlint-disable-next-line anti-slop/no-runtime-typeof -- A column's header is a title or a render function; only titles name a filter field.
+    if (!id || id.startsWith('__') || typeof header !== 'string' || !read)
       return []
 
-    return [{ id, label: header, accessor }]
+    return [
+      { id, label: header, accessor: (row, i) => filterCell(read(row, i)) },
+    ]
   })
-}
-
-function present(value: unknown): boolean {
-  return value !== null && value !== undefined && value !== ''
 }
 
 function fieldFor<T>(
   source: ColumnSource<T>,
   rows: readonly T[],
 ): SheetbaseField | undefined {
-  const values = rows
-    .map((row, index) => source.accessor(row, index))
-    .filter(present)
-
-  if (values.length === 0) return undefined
   const { id, label } = source
 
-  if (values.every((v) => typeof v === 'number'))
-    return { id, label, dataType: 'number' }
+  const values = rows.flatMap((row, index) => {
+    const value = source.accessor(row, index)
 
-  if (values.every((v) => typeof v === 'boolean'))
-    return { id, label, dataType: 'boolean' }
+    return cellKind(value) === 'none' ? [] : [value]
+  })
 
-  if (!values.every((v) => typeof v === 'string')) return undefined
+  if (values.length === 0) return undefined
+  const kinds = new Set(values.map(cellKind))
 
-  if (values.every((v) => ISO_DATE.test(v)))
+  if (kinds.has('number') || kinds.has('boolean')) {
+    if (kinds.size > 1) return undefined
+
+    return { id, label, dataType: kinds.has('number') ? 'number' : 'boolean' }
+  }
+
+  if (kinds.size === 1 && kinds.has('date'))
     return { id, label, dataType: 'date' }
 
-  const words = [...new Set(values)]
+  const words = [...new Set(values.map(String))]
 
   if (words.length <= CHOICE_LIMIT && rows.length > 1)
     return choiceFilter(
       id,
       label,
       words
-        .sort((a, b) => a.localeCompare(b))
+        .sort((x, y) => x.localeCompare(y))
         .map((value) => ({ value, label: value })),
     )
 
@@ -86,13 +87,16 @@ function fieldFor<T>(
 }
 
 /** The filter fields for a list's columns, and the values of one row. */
+export interface ColumnFilterFields<T> {
+  fields: readonly SheetbaseField[]
+  toRecord: (row: T) => FilterRecord
+}
+
+/** The filter fields for a list's columns, and the values of one row. */
 export function useColumnFilterFields<T extends RowData>(
   columns: readonly RegistryColumn<T>[],
   rows: readonly T[],
-): {
-  fields: readonly SheetbaseField[]
-  toRecord: (row: T) => Record<string, unknown>
-} {
+): ColumnFilterFields<T> {
   const columnSources = useMemo(() => sources(columns), [columns])
 
   const fields = useMemo(
@@ -125,7 +129,7 @@ export function useColumnFilter<T extends RowData>(
   columns: readonly RegistryColumn<T>[],
   rows: readonly T[],
   all: readonly T[] = rows,
-): { filter: ListFilter; rows: T[] } {
+): ClientFilter<T> {
   const { fields, toRecord } = useColumnFilterFields(columns, all)
 
   return useClientFilter(fields, rows, toRecord)

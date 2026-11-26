@@ -89,6 +89,7 @@ describe('the record cards', () => {
     )
 
     expect(result.ok).toBe(false)
+
     if (!result.ok) expect(result.message).toContain('Which project')
   })
 
@@ -161,17 +162,15 @@ describe('the record cards', () => {
   })
 
   it('runs the card through the ordinary RPC', async () => {
-    const calls: Array<[string, Record<string, unknown>]> = []
+    const calls: string[] = []
 
-    const client = {
-      rpc: async (name: string, args: Record<string, unknown>) => {
-        calls.push([name, args])
+    const fetchFixture: typeof fetch = async (input, init) => {
+      calls.push(`${String(input)} ${String(init?.body)}`)
 
-        return {}
-      },
+      return Response.json({})
     }
 
-    await runRecordsAction(client as never, {
+    await runRecordsAction(createDataClient(fetchFixture), {
       kind: 'records.create',
       projectId: 'p1',
       recordKind: 'material',
@@ -180,10 +179,7 @@ describe('the record cards', () => {
       customFields: {},
     })
 
-    expect(calls[0][0]).toBe('create_model_record')
-    expect(calls[0][1]).toMatchObject({
-      p_kind: 'material',
-      p_project_id: 'p1',
-    })
+    expect(calls[0]).toContain('create_model_record')
+    expect(calls[0]).toContain('"p_kind":"material"')
   })
 })

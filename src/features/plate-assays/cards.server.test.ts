@@ -319,7 +319,9 @@ describe('the plate cards', () => {
     const fetchFixture: typeof fetch = async (input, init) => {
       const path = urlOf(input).pathname
 
-      calls.push(`${path} ${String(init?.body ?? '')}`)
+      calls.push(
+        `${path} ${init?.body instanceof Object ? '' : (init?.body ?? '')}`,
+      )
 
       return path.endsWith('plate_worklists')
         ? Response.json([

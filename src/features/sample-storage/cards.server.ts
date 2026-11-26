@@ -875,14 +875,7 @@ export async function buildSampleStorageProposal(
           kind: 'release_rules.set',
           workspaceId: context.workspaceId,
           sampleType: input.sampleType.trim(),
-          rules: input.rules.map((rule) =>
-            Object.fromEntries(
-              Object.entries(rule).filter(
-                (entry): entry is [string, string | number] =>
-                  entry[1] !== undefined,
-              ),
-            ),
-          ),
+          rules: input.rules,
         },
       })
     }

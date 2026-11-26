@@ -389,7 +389,9 @@ describe('the sample and storage cards', () => {
     const calls: string[] = []
 
     const fetchFixture: typeof fetch = async (input, init) => {
-      calls.push(`${urlOf(input).pathname} ${String(init?.body ?? '')}`)
+      calls.push(
+        `${urlOf(input).pathname} ${init?.body instanceof Object ? '' : (init?.body ?? '')}`,
+      )
 
       return Response.json({})
     }

@@ -240,6 +240,9 @@ async function findFieldOf(
 
 const modelLink = (key: string): string => `/models/${key}`
 
+/** Whether `part` is somewhere in `text`. */
+const contains = (text: string, part: string): boolean => text.includes(part)
+
 const squash = (text: string): string =>
   text.toLowerCase().replaceAll(/[^a-z0-9]/g, '')
 
@@ -1209,12 +1212,14 @@ export async function buildModelsProposal(
       if (!sheet.ok) return fail(sheet.message)
       const locals = sheet.value.state?.localFields ?? []
 
+      const wantedColumn = squash(input.column)
+
       const column = locals.filter((local) =>
-        squash(local.label).includes(squash(input.column)),
+        contains(squash(local.label), wantedColumn),
       )
 
       const exact = column.filter(
-        (local) => squash(local.label) === squash(input.column),
+        (local) => squash(local.label) === wantedColumn,
       )
 
       const chosen =

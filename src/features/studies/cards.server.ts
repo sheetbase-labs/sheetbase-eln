@@ -730,6 +730,7 @@ export async function buildStudiesProposal(
       )
 
       const ids: string[] = []
+      const taken = new Set<string>()
 
       for (const wanted of input.order) {
         const lower = wanted.trim().toLowerCase()
@@ -737,7 +738,8 @@ export async function buildStudiesProposal(
         const matches = rows.filter(
           (row) =>
             row.name.toLowerCase() === lower ||
-            (!ids.includes(row.id) && row.name.toLowerCase().includes(lower)),
+            (!taken.has(row.id) &&
+              row.name.toLowerCase().indexOf(lower) !== -1),
         )
 
         const exact = matches.filter((row) => row.name.toLowerCase() === lower)
@@ -756,9 +758,10 @@ export async function buildStudiesProposal(
               : `More than one deliverable matches "${wanted}": ${matches.map((row) => row.name).join(', ')}. Ask which.`,
           )
 
-        if (ids.includes(chosen.id))
+        if (taken.has(chosen.id))
           return fail(`"${wanted}" is named twice; name each deliverable once.`)
         ids.push(chosen.id)
+        taken.add(chosen.id)
       }
 
       if (ids.length !== rows.length)

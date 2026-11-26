@@ -70,7 +70,7 @@ function recorder(reply: core.util.JSONType = {}) {
   const fetchFixture: typeof fetch = async (input, init) => {
     calls.push({
       name: urlOf(input).pathname.split('/').at(-1) ?? '',
-      body: String(init?.body ?? ''),
+      body: init?.body instanceof Object ? '' : (init?.body ?? ''),
     })
 
     return Response.json(reply)

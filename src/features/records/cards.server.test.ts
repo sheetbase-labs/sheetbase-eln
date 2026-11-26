@@ -86,18 +86,21 @@ describe('the record cards', () => {
     expect(result.proposal.deepLink).toBe('/materials')
   })
 
-  it('asks which project when there is more than one and none was named', async () => {
+  it('takes the most recent project when none is named, and says so on the card', async () => {
     const result = await buildRecordsProposal(
       RECORD_CREATE_TOOL,
       { ...base, kind: 'material', name: 'PicoGreen stock' },
-      context({
-        projects: [project, { ...project, id: 'p2', title: 'Other' }],
-      }),
+      context({ projects: [project] }),
     )
 
-    expect(result.ok).toBe(false)
+    if (!result.ok) throw new Error(result.message)
+    expect(result.proposal.action).toMatchObject({ projectId: 'p1' })
 
-    if (!result.ok) expect(result.message).toContain('Which project')
+    expect(result.proposal.changes).toContainEqual({
+      label: 'Project',
+      before: null,
+      after: expect.stringContaining('most recent'),
+    })
   })
 
   it('sends samples and experiments to their own cards', async () => {

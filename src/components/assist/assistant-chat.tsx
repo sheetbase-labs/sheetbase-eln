@@ -6,7 +6,6 @@ import {
 } from '#/lib/assistant-workspace'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { Link } from '@tanstack/react-router'
-import { z } from 'zod'
 import { useQuery } from '@tanstack/react-query'
 import { Chat, useChat } from '@ai-sdk/react'
 import { DefaultChatTransport } from 'ai'
@@ -49,6 +48,9 @@ import {
 } from './chat/attachments'
 import { attachmentRef } from '#/lib/assistant-attachments'
 import { ProposalCard } from './chat/proposal-card'
+import { StepList, stepCallOf } from './chat/steps'
+import type { StepCall } from '#/lib/assistant-steps'
+import type { AssistantProposal } from '#/lib/assistant-proposals'
 import { useFailureFeed } from '#/lib/assistant-failure-feed'
 import { proposalFromOutput } from '#/lib/assistant-proposals'
 import { getDisplayTimeZone } from '#/lib/display-time-zone'
@@ -429,146 +431,6 @@ function ChatBody({
   )
 }
 
-type LookupState = 'running' | 'done' | 'failed'
-
-/** The `resource` a canonical read names, when the call carried one. */
-const resourceInput = z.looseObject({ resource: z.string() })
-
-/** The lab area a list call names, when the call carried one. */
-const areaInput = z.looseObject({ area: z.string() })
-
-/** The words a lookup searched for, when the call carried any. */
-const whatInput = z.looseObject({
-  query: z.string().optional(),
-  recordId: z.string().optional(),
-})
-
-const searchedFor = (
-  // oxlint-disable-next-line anti-slop/no-unknown-parameters -- A tool call's input is the model's raw JSON; the schema above decodes the one field the label reads.
-  input: unknown,
-): string => {
-  const query = whatInput.safeParse(input).data?.query?.trim()
-
-  return query ? `“${query.slice(0, 40)}”` : 'what is there'
-}
-
-/** The plain-language name for one lookup, by tool. */
-function lookupLabel(
-  toolName: string,
-  // oxlint-disable-next-line anti-slop/no-unknown-parameters -- A tool call's input is the model's raw JSON; the schemas below decode the one field each label reads.
-  input: unknown,
-  state: LookupState,
-): string {
-  const phase = state === 'running' ? 'running' : 'done'
-
-  if (state === 'failed') return t('notebook.assistantPanel.lookup.failed')
-
-  switch (toolName) {
-    case 'sheetbase.context.assemble':
-      return t(`notebook.assistantPanel.lookup.context.${phase}`)
-    case 'sheetbase.search':
-      return t(`notebook.assistantPanel.lookup.search.${phase}`)
-    case 'sheetbase.storage.readings':
-      return t(`notebook.assistantPanel.lookup.storageReadings.${phase}`)
-    case 'sheetbase.canonical.read': {
-      const resource =
-        resourceInput.safeParse(input).data?.resource.replaceAll('_', ' ') ??
-        'the workspace'
-
-      return t(`notebook.assistantPanel.lookup.canonical.${phase}`, {
-        resource,
-      })
-    }
-
-    case 'sheetbase.dataset_rows.query':
-    case 'sheetbase.dataset_version_rows.query':
-      return t(`notebook.assistantPanel.lookup.rows.${phase}`)
-    case 'sheetbase.sheet_instance_rows.query':
-      return t(`notebook.assistantPanel.lookup.sheetRows.${phase}`)
-    case 'sheetbase.guide':
-      return t(`notebook.assistantPanel.lookup.guide.${phase}`)
-    case WORKSPACE_TOOL_NAME:
-      return t(`notebook.assistantPanel.lookup.workspace.${phase}`)
-    case 'sheetbase.schedule.read':
-      return t(`notebook.assistantPanel.lookup.schedule.${phase}`)
-    case 'sheetbase.schedule.free_time':
-      return t(`notebook.assistantPanel.lookup.freeTime.${phase}`)
-    case 'sheetbase.facility.report':
-      return t(`notebook.assistantPanel.lookup.facility.${phase}`)
-    case 'sheetbase.lab.list': {
-      const area =
-        areaInput.safeParse(input).data?.area.replaceAll('_', ' ') ?? 'the lab'
-
-      return t(`notebook.assistantPanel.lookup.canonical.${phase}`, {
-        resource: area,
-      })
-    }
-
-    case 'sheetbase.booking.create':
-    case 'sheetbase.booking.move':
-    case 'sheetbase.booking.cancel':
-      return t(`notebook.assistantPanel.lookup.booking.${phase}`)
-    case 'sheetbase.reagent.order':
-    case 'sheetbase.reagent.receive':
-    case 'sheetbase.reagent.mark_ordered':
-    case 'sheetbase.instrument.set_rate':
-    case 'sheetbase.sample.log':
-    case 'sheetbase.sample.use':
-    case 'sheetbase.sample.move':
-    case 'sheetbase.sample.split':
-    case 'sheetbase.incident.report':
-    case 'sheetbase.request.send':
-    case 'sheetbase.sample.advance':
-    case 'sheetbase.instrument.out_of_service':
-    case 'sheetbase.storage.log_reading':
-    case 'sheetbase.instrument.add':
-    case 'sheetbase.instrument.retire':
-    case 'sheetbase.instrument.calibrate':
-    case 'sheetbase.instrument.qualify':
-    case 'sheetbase.run.create':
-    case 'sheetbase.run.update':
-    case 'sheetbase.connector.set_status':
-      return t(`notebook.assistantPanel.lookup.bench.${phase}`)
-    case 'sheetbase.protocol.read':
-    case 'sheetbase.protocols.read':
-      return t(`notebook.assistantPanel.lookup.protocols.${phase}`, {
-        what: searchedFor(input),
-      })
-    case 'sheetbase.stock.read':
-      return t(`notebook.assistantPanel.lookup.stock.${phase}`, {
-        what: searchedFor(input),
-      })
-    case 'sheetbase.template.list':
-    case 'sheetbase.templates.read':
-      return t(`notebook.assistantPanel.lookup.templates.${phase}`, {
-        what: searchedFor(input),
-      })
-    case 'plugin.protocols-io.search':
-      return t(`notebook.assistantPanel.lookup.protocolsIo.${phase}`, {
-        what: searchedFor(input),
-      })
-    case 'plugin.protocols-io.read':
-    case 'plugin.protocols-io.import':
-      return t(`notebook.assistantPanel.lookup.protocolsIoRead.${phase}`)
-    case 'sheetbase.inbox.read':
-      return t(`notebook.assistantPanel.lookup.inbox.${phase}`)
-    case 'sheetbase.search.semantic':
-      return t(`notebook.assistantPanel.lookup.meaning.${phase}`)
-    case 'sheetbase.literature.search':
-      return t(`notebook.assistantPanel.lookup.literature.${phase}`)
-    case 'sheetbase.experiment.start':
-    case 'sheetbase.record.assign':
-    case 'sheetbase.record.ask':
-    case 'sheetbase.booking.repeat':
-    case 'sheetbase.timer.start':
-    case 'sheetbase.shipment.send':
-    case 'sheetbase.shipment.receive':
-      return t(`notebook.assistantPanel.lookup.planning.${phase}`)
-    default:
-      return t(`notebook.assistantPanel.lookup.generic.${phase}`)
-  }
-}
-
 /** Tool calls already carried out on screen, so a re-render never re-opens them. */
 const carriedOut = new Set<string>()
 
@@ -584,31 +446,41 @@ function openOnce(
   if (request) requestAssistantWorkspace(request)
 }
 
-function LookupRow({
-  toolName,
-  input,
-  state,
-}: {
-  toolName: string
-  input: unknown
-  state: LookupState
-}) {
-  return (
-    <div
-      className="flex items-center gap-1.5 text-label text-fg-muted"
-      data-testid="assistant-lookup"
-      data-state={state}
-    >
-      {state === 'running' ? (
-        <Spinner size={12} />
-      ) : state === 'failed' ? (
-        <Icon name="warn" size={12} />
-      ) : (
-        <Icon name="check" size={12} />
-      )}
-      <span>{lookupLabel(toolName, input, state)}</span>
-    </div>
-  )
+type AnswerBlock =
+  | { type: 'text'; text: string; last: boolean }
+  | { type: 'proposal'; callId: string; proposal: AssistantProposal }
+  | { type: 'steps'; calls: StepCall[] }
+
+/** An answer's parts as blocks: text, cards, and each run of lookups together. */
+function answerBlocks(message: AssistantUIMessage): AnswerBlock[] {
+  const blocks: AnswerBlock[] = []
+
+  for (const [index, part] of message.parts.entries()) {
+    if (part.type === 'text') {
+      blocks.push({
+        type: 'text',
+        text: part.text,
+        last: index === message.parts.length - 1,
+      })
+    } else if (part.type === 'dynamic-tool') {
+      const proposal =
+        part.state === 'output-available'
+          ? proposalFromOutput(part.output)
+          : null
+
+      const previous = blocks.at(-1)
+
+      if (proposal) {
+        blocks.push({ type: 'proposal', callId: part.toolCallId, proposal })
+      } else if (previous?.type === 'steps') {
+        previous.calls.push(stepCallOf(part))
+      } else {
+        blocks.push({ type: 'steps', calls: [stepCallOf(part)] })
+      }
+    }
+  }
+
+  return blocks
 }
 
 export function ChatMessage({
@@ -668,54 +540,32 @@ export function ChatMessage({
   return (
     <Message from="assistant" data-testid="assistant-answer" aria-live="polite">
       <MessageContent>
-        {message.parts.map((part, index) => {
-          if (part.type === 'text') {
-            return part.text.trim() === '' ? null : (
+        {answerBlocks(message).map((block, index) => {
+          if (block.type === 'text') {
+            return block.text.trim() === '' ? null : (
               // react-doctor-disable-next-line react-doctor/no-array-index-as-key -- A message's parts are append-only and never reorder; a text part carries no identity of its own.
               <MessageResponse
                 key={index}
-                isAnimating={streaming && index === message.parts.length - 1}
+                isAnimating={streaming && block.last}
               >
-                {part.text}
+                {block.text}
               </MessageResponse>
             )
           }
 
-          if (part.type === 'dynamic-tool') {
-            const proposal =
-              part.state === 'output-available'
-                ? proposalFromOutput(part.output)
-                : null
-
-            if (proposal) {
-              return (
-                <ProposalCard
-                  key={part.toolCallId}
-                  callId={part.toolCallId}
-                  workspaceId={workspaceId}
-                  proposal={proposal}
-                />
-              )
-            }
-
-            const state: LookupState =
-              part.state === 'output-error'
-                ? 'failed'
-                : part.state === 'output-available'
-                  ? 'done'
-                  : 'running'
-
+          if (block.type === 'proposal') {
             return (
-              <LookupRow
-                key={part.toolCallId}
-                toolName={part.toolName}
-                input={part.input}
-                state={state}
+              <ProposalCard
+                key={block.callId}
+                callId={block.callId}
+                workspaceId={workspaceId}
+                proposal={block.proposal}
               />
             )
           }
 
-          return null
+          // react-doctor-disable-next-line react-doctor/no-array-index-as-key -- A run of lookups is rebuilt from an append-only parts list, so it keeps its position.
+          return <StepList key={index} calls={block.calls} />
         })}
       </MessageContent>
 

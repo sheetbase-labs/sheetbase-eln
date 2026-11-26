@@ -715,95 +715,36 @@ export const notebook = {
       stale:
         'It changed since this was suggested. Ask again to get an updated suggestion.',
     },
-    lookup: {
-      context: { running: 'Reading this page…', done: 'Read this page' },
-      search: {
-        running: 'Searching the workspace…',
-        done: 'Searched the workspace',
+    step: {
+      verbs: {
+        open: { past: 'Opened', ing: 'Opening', base: 'open' },
+        read: { past: 'Read', ing: 'Reading', base: 'read' },
+        search: { past: 'Searched', ing: 'Searching', base: 'search' },
+        lookup: { past: 'Looked up', ing: 'Looking up', base: 'look up' },
+        check: { past: 'Checked', ing: 'Checking', base: 'check' },
+        find: { past: 'Found', ing: 'Finding', base: 'find' },
+        run: { past: 'Ran', ing: 'Running', base: 'run' },
+        convert: { past: 'Converted', ing: 'Converting', base: 'convert' },
+        use: { past: 'Used', ing: 'Using', base: 'use' },
+        prepare: { past: 'Prepared', ing: 'Preparing', base: 'prepare' },
       },
-      storageReadings: {
-        running: 'Checking freezer and room readings…',
-        done: 'Checked freezer and room readings',
+      line: '{verb} {object}',
+      objectFor: '{object} for {term}',
+      objectWhere: '{object} where {term}',
+      merged: '{line} ({count})',
+      mergedUnit: {
+        search: { one: '{count} search', other: '{count} searches' },
+        lookup: { one: '{count} lookup', other: '{count} lookups' },
       },
-      sequence: {
-        running: 'Working on the sequence…',
-        done: 'Worked on the sequence',
-      },
-      canonical: {
-        running: 'Looking up {resource}…',
-        done: 'Looked up {resource}',
-      },
-      rows: { running: 'Reading dataset rows…', done: 'Read dataset rows' },
-      sheetRows: { running: 'Reading sheet rows…', done: 'Read sheet rows' },
-      guide: {
-        running: 'Checking the Sheetbase guide…',
-        done: 'Checked the Sheetbase guide',
-      },
-      workspace: {
-        running: 'Opening panes…',
-        done: 'Opened in your workspace',
-      },
-      schedule: {
-        running: 'Reading the schedule…',
-        done: 'Read the schedule',
-      },
-      freeTime: {
-        running: 'Finding free time…',
-        done: 'Found free time',
-      },
-      booking: {
-        running: 'Checking the booking…',
-        done: 'Checked the booking',
-      },
-      facility: {
-        running: 'Reading the spend and usage…',
-        done: 'Read the spend and usage',
-      },
-      bench: {
-        running: 'Getting that ready…',
-        done: 'Got that ready',
-      },
-      meaning: {
-        running: 'Searching the lab’s work by meaning…',
-        done: 'Searched the lab’s work by meaning',
-      },
-      literature: {
-        running: 'Searching the published literature…',
-        done: 'Searched the published literature',
-      },
-      inbox: {
-        running: 'Checking what is waiting on you…',
-        done: 'Checked what is waiting on you',
-      },
-      protocols: {
-        running: 'Searching protocols for {what}…',
-        done: 'Searched protocols for {what}',
-      },
-      stock: {
-        running: 'Checking stock for {what}…',
-        done: 'Checked stock for {what}',
-      },
-      templates: {
-        running: 'Looking for templates for {what}…',
-        done: 'Looked for templates for {what}',
-      },
-      protocolsIo: {
-        running: 'Searching protocols.io for {what}…',
-        done: 'Searched protocols.io for {what}',
-      },
-      protocolsIoRead: {
-        running: 'Reading a protocol on protocols.io…',
-        done: 'Read a protocol on protocols.io',
-      },
-      planning: {
-        running: 'Checking the details…',
-        done: 'Checked the details',
-      },
-      generic: {
-        running: 'Looking something up…',
-        done: 'Looked something up',
-      },
-      failed: 'Couldn’t look that up',
+      failed: 'Couldn’t {verb} {object}: {reason}',
+      failedNoReason: 'Couldn’t {verb} {object}',
+      found: 'Found {refs}',
+      foundMore: 'Found {refs} and {count} more',
+      showEach: 'Show each step',
+      hideEach: 'Hide each step',
+      cardObject: 'a card to {action}',
+      pluginObject: '{tool} with {plugin}',
+      reasonFallback: 'it didn’t finish',
     },
     emptyTitle: 'Ask about your work',
     emptyWithContext:

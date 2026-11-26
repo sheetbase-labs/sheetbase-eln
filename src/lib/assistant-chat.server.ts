@@ -7,7 +7,6 @@ import type {
 } from './assistant-chat'
 import { resolveAssistantRuntime } from './assistant-actions'
 import { ModelGatewayError } from './ai-gateway'
-import { ASSISTANT_PROPOSE_TOOL_NAMES } from './agent-tool-catalogue'
 import { logger, redact } from './logger'
 
 /**
@@ -133,16 +132,14 @@ export async function handleAssistantChat(request: Request): Promise<Response> {
                 toolCallId: event.id,
                 output: event.proposal
                   ? { ok: true, proposal: event.proposal }
-                  : { ok: true },
+                  : { ok: true, refs: event.refs ?? [] },
                 dynamic: true,
               })
             } else {
               writer.write({
                 type: 'tool-output-error',
                 toolCallId: event.id,
-                errorText: ASSISTANT_PROPOSE_TOOL_NAMES.includes(event.name)
-                  ? 'That card could not be prepared. The assistant will try another way.'
-                  : 'The lookup did not return anything.',
+                errorText: event.error ?? '',
                 dynamic: true,
               })
             }

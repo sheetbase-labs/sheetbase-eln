@@ -680,7 +680,7 @@ describe('assistant tools', () => {
       deps({
         provider: toolProvider([]),
         toolkit: {
-          defs: [{ ...toolDef, name: 'sheetbase__record__create' }],
+          defs: [{ ...toolDef, name: 'sheetbase__record__purge' }],
           instructions: '',
           run: vi.fn(),
         },

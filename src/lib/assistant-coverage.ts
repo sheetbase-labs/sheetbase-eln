@@ -31,7 +31,8 @@ export const ASSISTANT_COVERED = {
   dissolve_experiment_series: 'sheetbase.series.dissolve',
   import_protocol: 'sheetbase.protocol.import',
   insert_block: 'sheetbase.notebook_block.insert',
-  migrate_open_experiments_to_model_version: 'sheetbase.model_version.migrate_open',
+  migrate_open_experiments_to_model_version:
+    'sheetbase.model_version.migrate_open',
   move_block: 'sheetbase.block.move',
   move_experiment_part: 'sheetbase.part.move',
   move_series_member: 'sheetbase.series.move_member',

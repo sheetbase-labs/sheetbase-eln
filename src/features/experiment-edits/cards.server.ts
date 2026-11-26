@@ -463,7 +463,6 @@ function define<S extends z.ZodType<{ title: string; summary: string }>>(
   schema: S,
   run: Builder<S>,
 ): Tool {
-  // oxlint-disable-next-line anti-slop/no-unknown-parameters -- Raw external tool arguments; parsed with the tool's schema before any field is read.
   return async (args, env) => {
     const parsed = schema.safeParse(args)
 

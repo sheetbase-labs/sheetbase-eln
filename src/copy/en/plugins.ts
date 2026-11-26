@@ -159,7 +159,7 @@ export const plugins = {
       saved: '{name} saved.',
       test: 'Test connection',
       testing: 'Checking…',
-      testFailed: 'The connection could not be tested.',
+      testFailed: 'The connection couldn’t be tested.',
       works: 'Working',
       notWorking: 'Not working',
     },

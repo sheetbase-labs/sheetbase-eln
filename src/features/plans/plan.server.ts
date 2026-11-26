@@ -93,6 +93,7 @@ export async function buildPlanProposal(
       tool: step.tool.replaceAll('__', '.'),
     })),
   }
+
   const allowed = planStepTools()
 
   const [pause, runAll] = await Promise.all([

@@ -42,10 +42,8 @@ describe('stale script files after a deploy', () => {
         new TypeError('Failed to fetch dynamically imported module: a.js'),
       )
 
-    const error = await loadChunk(load).catch((caught: unknown) => caught)
-
-    expect(error).toBeInstanceOf(Error)
-    expect(isStaleChunkReason(String((error as Error).message))).toBe(true)
+    await expect(loadChunk(load)).rejects.toThrow(staleChunkMessage())
+    expect(isStaleChunkReason(staleChunkMessage())).toBe(true)
     expect(staleChunkMessage()).not.toContain('.js')
   })
 

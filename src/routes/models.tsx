@@ -1,3 +1,6 @@
+import { filterParamSchema } from '#/lib/list-filter'
+import type { FilterParam } from '#/lib/search-filter'
+import { useColumnFilter } from '#/components/inventory/column-filter'
 import { useMemo, useState } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import {
@@ -83,12 +86,14 @@ interface ModelsSearch {
   selected?: string
   create?: true
   returnTo?: string
+  filter?: FilterParam
 }
 
 /** A page that needs a model sends the person here to make one (`create`)
  * and says where to come back to (`returnTo`). A URL that names none of them
  * usable reads as an unfiltered board. */
 const modelsSearchSchema = z.object({
+  filter: filterParamSchema,
   create: z
     .union([z.literal(true), z.literal('true')])
     .transform(() => true as const)
@@ -553,18 +558,26 @@ function ModelsList() {
 
   const q = (search.q ?? '').trim().toLowerCase()
 
+  const columns = useModelColumns(members.data, openModel)
+
+  const inTabRows = useMemo(
+    () =>
+      rows
+        .filter((m) => inTab(m, tab))
+        .filter((m) => !q || `${m.key} ${m.name}`.toLowerCase().includes(q)),
+    [rows, tab, q],
+  )
+
+  const { filter, rows: filtered } = useColumnFilter(columns, inTabRows, rows)
+
   const visible = sortByName(
-    rows
-      .filter((m) => inTab(m, tab))
-      .filter((m) => !q || `${m.key} ${m.name}`.toLowerCase().includes(q)),
+    filtered,
     'Name',
     (m) => m.name,
     (m) => m.display_id ?? m.key,
   )
 
   const sel = visible.find((m) => m.id === (selected ?? search.selected))
-
-  const columns = useModelColumns(members.data, openModel)
 
   const { rowSelection, onRowSelectionChange } = useRowFocus(
     sel?.id ?? null,
@@ -618,6 +631,7 @@ function ModelsList() {
               replace: true,
             })
           }
+          filter={filter}
         />
         <ModelsListBody
           isPending={query.isPending}

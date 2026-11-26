@@ -138,7 +138,7 @@ function emptyStream(): ReadableStream<Uint8Array> {
   })
 }
 
-interface ImportFileWire {
+export interface ImportFileWire {
   id: string
   workspace_id: string
   dataset_id: string | null
@@ -347,7 +347,7 @@ async function loadStoredFile(
   return Array.isArray(result.body) ? (result.body[0] ?? null) : null
 }
 
-async function readAndParse(
+export async function readAndParse(
   storage: ObjectStorage,
   file: ImportFileWire,
   sheetName?: string | null,

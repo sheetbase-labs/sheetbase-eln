@@ -94,7 +94,7 @@ const keyFrom = (label: string, taken: Set<string>): string => {
   return key
 }
 
-interface VersionField {
+export interface VersionField {
   field_id: string
   key: string
   label: string
@@ -105,7 +105,7 @@ interface VersionField {
 const FIELD_COLUMNS =
   'field_id,key,label,description,logical_type,nullable,default_value,quantity,validation,category,relationship,cardinality,lifecycle,display_order'
 
-function versionFields(client: DataClient, versionId: string) {
+export function versionFields(client: DataClient, versionId: string) {
   return client.list<VersionField>(
     'dataset_schema_version_fields',
     `?schema_version_id=eq.${encodeURIComponent(versionId)}&select=${FIELD_COLUMNS}&order=display_order.asc`,

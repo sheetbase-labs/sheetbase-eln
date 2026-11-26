@@ -1,10 +1,25 @@
 import { describe, expect, it } from 'vitest'
 
 import { ASSISTANT_PROPOSE_TOOL_NAMES } from '#/lib/agent-tool-catalogue'
+import type { ChatAttachment } from '#/lib/assistant-attachments'
 import { ask } from '#/lib/assistant-rpc-cards.fixture'
 
 import { DATASET_CARDS } from './cards'
-import { DATASET_CARD_SPECS } from './cards.server'
+import { DATASET_CARD_SPECS as BASE_SPECS } from './cards.server'
+import { importFileCard } from './import-file.server'
+import type { readStoredSheet } from './stored-file.server'
+
+const readStored: typeof readStoredSheet = async (file, sheet) =>
+  file.filename === 'broken.csv'
+    ? { ok: false, message: 'broken.csv could not be read: damaged.' }
+    : {
+        ok: true,
+        headings: ['Sample', 'OD600', 'Notes'],
+        rowCount: 40,
+        sheetName: sheet ?? 'Sheet 1',
+      }
+
+const DATASET_CARD_SPECS = [...BASE_SPECS, importFileCard(readStored)]
 
 const F1 = '11111111-1111-4111-8111-111111111111'
 
@@ -288,6 +303,153 @@ describe('the dataset cards', () => {
     expect(into.action?.args).toMatchObject({
       p_target: 'dataset_schema',
       p_schema_definition_id: 't1',
+    })
+  })
+
+  describe('importing a file', () => {
+    const chat = (extra: Partial<ChatAttachment> = {}): ChatAttachment => ({
+      id: '33333333-3333-4333-8333-333333333333',
+      name: 'reads.csv',
+      mediaType: 'text/csv',
+      bytes: 100,
+      kind: 'table' as const,
+      sheets: [
+        {
+          name: 'Sheet 1',
+          rows: [
+            ['Sample', 'OD600', 'Notes'],
+            ['S-1', '0.42', 'ok'],
+            ['S-2', '0.51', ''],
+            ['', '', ''],
+          ],
+        },
+      ],
+      text: '',
+      truncated: false,
+      ...extra,
+    })
+
+    const tables = {
+      datasets: [dataset],
+      dataset_schema_version_fields: fields,
+    }
+
+    it('adds the rows of a file dropped into the chat, matched by heading', async () => {
+      const result = await ask(
+        DATASET_CARD_SPECS,
+        'sheetbase.dataset.import_file',
+        { dataset: 'DS-0311', file: 'reads.csv' },
+        tables,
+        [chat()],
+      )
+
+      expect(result.action?.rpc).toBe('commit_dataset_row_batch')
+
+      expect(result.action?.args).toMatchObject({
+        p_dataset_id: 'ds1',
+        p_expected_dataset_revision: 7,
+        p_rows: [
+          {
+            operation: 'create',
+            reason: 'Imported from reads.csv',
+            values: {
+              [F1]: 'S-1',
+              '22222222-2222-4222-8222-222222222222': '0.42',
+            },
+          },
+          { operation: 'create' },
+        ],
+      })
+
+      expect(result.action?.args.p_rows).toHaveLength(2)
+
+      expect(result.changes).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({ label: 'Rows added', after: '2' }),
+          expect.objectContaining({ label: 'Left out', after: 'Notes' }),
+        ]),
+      )
+    })
+
+    it('will not import part of a file, or a file with no matching column', async () => {
+      const partial = await ask(
+        DATASET_CARD_SPECS,
+        'sheetbase.dataset.import_file',
+        { dataset: 'DS-0311', file: 'reads.csv' },
+        tables,
+        [chat({ truncated: true })],
+      )
+
+      expect(partial.ok).toBe(false)
+      expect(partial.message).toContain('Import screen')
+
+      const none = await ask(
+        DATASET_CARD_SPECS,
+        'sheetbase.dataset.import_file',
+        { dataset: 'DS-0311', file: 'reads.csv' },
+        tables,
+        [
+          chat({
+            sheets: [{ name: 'Sheet 1', rows: [['Colour'], ['red']] }],
+          }),
+        ],
+      )
+
+      expect(none.ok).toBe(false)
+      expect(none.message).toContain('None of the columns')
+    })
+
+    it('imports a file kept in the workspace through the app’s import', async () => {
+      const result = await ask(
+        DATASET_CARD_SPECS,
+        'sheetbase.dataset.import_file',
+        { dataset: 'DS-0311', file: 'plate.csv', sheet: 'Data' },
+        {
+          ...tables,
+          dataset_import_files: [
+            { id: 'f1', filename: 'plate.csv', workspace_id: 'ws' },
+          ],
+        },
+      )
+
+      expect(result.action?.rpc).toBe('commit_dataset_import')
+
+      expect(result.action?.args).toMatchObject({
+        fileId: 'f1',
+        datasetId: 'ds1',
+        sheetName: 'Data',
+        mapping: {
+          sheetName: 'Data',
+          sources: [
+            { source: 'Sample', fieldId: F1 },
+            { source: 'OD600' },
+            { source: 'Notes', fieldId: null },
+          ],
+        },
+      })
+    })
+
+    it('says so when the file is not in the chat or the workspace, or cannot be read', async () => {
+      const missing = await ask(
+        DATASET_CARD_SPECS,
+        'sheetbase.dataset.import_file',
+        { dataset: 'DS-0311', file: 'nothing.csv' },
+        tables,
+      )
+
+      expect(missing.ok).toBe(false)
+
+      const broken = await ask(
+        DATASET_CARD_SPECS,
+        'sheetbase.dataset.import_file',
+        { dataset: 'DS-0311', file: 'broken.csv' },
+        {
+          ...tables,
+          dataset_import_files: [{ id: 'f2', filename: 'broken.csv' }],
+        },
+      )
+
+      expect(broken.message).toContain('could not be read')
     })
   })
 })

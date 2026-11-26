@@ -214,6 +214,8 @@ export const ASSISTANT_EXEMPT = {
     'The app does this for itself in the background (bookkeeping, a nightly job or a screen preference), so there is nothing for a person to ask the assistant to do.',
   start_connector_run:
     'Called by an instrument, connector or file watcher as data arrives, not by a person; the assistant can read the result and fix a failed intake with its own tools.',
+  import_scientific_rows:
+    'Part of the older scientific-table subsystem that measurement tables replace, which the database no longer grants to anyone; people and the assistant import rows into datasets with the import card.',
   insert_sheet_block:
     'A legacy scientific-sheet block call that the database refuses for everyone but the migrator role; people add a sheet to a notebook with the add-a-sheet card.',
   create_and_link_sheet_record:
@@ -226,8 +228,6 @@ export const ASSISTANT_EXEMPT = {
 
 /** Writes still waiting for a card, by area. Only ever shrinks. */
 export const ASSISTANT_GAPS = {
-  commit_dataset_import: 'datasets and sheets',
-  import_scientific_rows: 'datasets and sheets',
   add_records_to_legal_hold: 'experiments',
   amend_experiment_part: 'experiments',
   create_qc_series: 'experiments',

@@ -14,7 +14,10 @@ export const feature = defineFeature({
   assistantCardActions: Object.fromEntries(
     DATASET_CARDS.map((card) => [card.tool, card.does]),
   ),
+  // The first card to list a call is the one that owns it.
   assistantCovers: Object.fromEntries(
-    DATASET_CARDS.flatMap((card) => card.covers.map((rpc) => [rpc, card.tool])),
+    DATASET_CARDS.flatMap((card) =>
+      card.covers.map((rpc) => [rpc, card.tool] as const),
+    ).reverse(),
   ),
 })

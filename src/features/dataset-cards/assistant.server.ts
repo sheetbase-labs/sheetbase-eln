@@ -3,8 +3,9 @@ import { rpcFamily } from '#/lib/assistant-rpc-cards.server'
 
 import { defineAssistantServer } from '../define.server'
 import { DATASET_CARD_SPECS } from './cards.server'
+import { importFile } from './import-file.server'
 
-const family = rpcFamily(DATASET_CARD_SPECS)
+const family = rpcFamily([...DATASET_CARD_SPECS, importFile])
 
 export const assistantServer = defineAssistantServer({
   proposalDefs: family.defs,

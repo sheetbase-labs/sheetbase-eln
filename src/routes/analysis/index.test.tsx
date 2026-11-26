@@ -79,6 +79,7 @@ vi.mock('@tanstack/react-router', async (importOriginal) => {
       useSearch: () => mocks.search,
       useRouteContext: () => ({ context: { user: { id: 'user-1' } } }),
     }),
+    useSearch: () => ({}),
     useNavigate: () => vi.fn(),
     Link: ({ children }: { children?: React.ReactNode }) => (
       <a href="#">{children}</a>

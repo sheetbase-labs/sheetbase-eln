@@ -399,6 +399,7 @@ function AnalysisHome() {
             <Tabs
               mode="url"
               label={t('data.analysisList.analysisLists')}
+              keepFilter
               value={tab ?? 'all'}
               items={[
                 {

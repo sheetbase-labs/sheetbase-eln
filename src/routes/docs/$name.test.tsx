@@ -34,6 +34,7 @@ const mocks = vi.hoisted(() => {
 
 // oxlint-disable-next-line anti-slop/no-module-mocking -- The file-route factory binds to the generated route tree at import time; this suite reads the route's own options and renders its component with the loader data a router would supply, which is the whole subject of these assertions.
 vi.mock('@tanstack/react-router', () => ({
+  useSearch: () => ({}),
   createFileRoute: () => (options: RouteOptions) => ({
     options,
     useLoaderData: () => mocks.loaderData.current,

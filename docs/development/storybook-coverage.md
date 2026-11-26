@@ -73,10 +73,11 @@ the loaded parent block. The direct stories include blocked schema actions and
 a failed-save footer. Storybook records mutation callbacks without running
 server writes.
 
-| Module                                       | Why no story                                                                                                                                         |
-| -------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `src/components/sheet/cell-conflict-data.ts` | Conflict transport functions, wire types and the `CONFLICT_REASON_MAX` constant. Nothing renders; the conflict panel has its own story.              |
-| `src/components/sheet/formula-references.ts` | A1/range helpers and the imperative `ReferencePicker` controller, not React components. The formula editor stories exercise their rendered consumer. |
+| Module                                       | Why no story                                                                                                                                                                             |
+| -------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `src/components/inventory/list-filter.tsx`   | The Filter button and chips read the page's URL and the workspace's people and projects, so there is nothing to show without a running app; the list stories render them in the toolbar. |
+| `src/components/sheet/cell-conflict-data.ts` | Conflict transport functions, wire types and the `CONFLICT_REASON_MAX` constant. Nothing renders; the conflict panel has its own story.                                                  |
+| `src/components/sheet/formula-references.ts` | A1/range helpers and the imperative `ReferencePicker` controller, not React components. The formula editor stories exercise their rendered consumer.                                     |
 
 ## Model fields
 

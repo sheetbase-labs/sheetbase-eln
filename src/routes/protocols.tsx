@@ -312,6 +312,7 @@ function ProtocolsList() {
             <Tabs
               mode="url"
               label={t('library.protocols.list.protocolLists')}
+              keepFilter
               value={tab}
               items={tabs.map((item) => ({
                 key: item,

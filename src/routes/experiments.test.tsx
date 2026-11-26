@@ -50,6 +50,7 @@ vi.mock('@tanstack/react-router', () => ({
     }),
     options: config,
   }),
+  useSearch: () => ({}),
   useNavigate: () => navigateSpy,
   useRouterState: (options: {
     select: (state: { location: { pathname: string } }) => boolean

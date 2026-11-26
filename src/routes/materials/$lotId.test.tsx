@@ -21,6 +21,7 @@ vi.mock('#/components/favourites/favourite-toggle', () => ({
 
 // oxlint-disable-next-line anti-slop/no-module-mocking -- The file-route factory is bound to the generated route tree at build time; this suite renders the route's own component with the params the shell would supply.
 vi.mock('@tanstack/react-router', () => ({
+  useSearch: () => ({}),
   createFileRoute: () => (config: { component?: React.ComponentType }) => ({
     useParams: () => ({ lotId: 'lot-1' }),
     options: config,

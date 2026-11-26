@@ -604,6 +604,7 @@ function ModelsList() {
             <Tabs
               mode="url"
               label={t('library.models.list.modelLists')}
+              keepFilter
               value={tab}
               items={tabs.map((item) => ({
                 key: item,

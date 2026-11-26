@@ -434,20 +434,22 @@ const sheetCalculate = rpcCard({
         })),
     ]
 
-    let unknown: string | null = null
+    const unknownNames: string[] = []
 
     const gridFormula = input.formula.replaceAll(
       /\{([^}]+)\}/g,
       (_match, name: string) => {
         const index = grid.findIndex((column) => same(column.label, name))
 
-        if (index < 0) unknown = name
+        if (index < 0) unknownNames.push(name)
 
         return `${COLUMN_LETTERS(Math.max(index, 0))}1`
       },
     )
 
-    if (unknown)
+    const unknown = unknownNames.at(0)
+
+    if (unknown !== undefined)
       return fail(`${sheetLabel(found.value)} has no column “${unknown}”.`)
 
     let expression: ReturnType<typeof buildSheetCalculationExpression>
@@ -569,7 +571,7 @@ const sheetComment = rpcCard({
 
       const matches = Object.entries(state.localValues)
         .filter(([, values]) =>
-          same(String(values[by.fieldId] ?? ''), String(input.row?.equals)),
+          same(cellText(values[by.fieldId]), cellText(input.row?.equals)),
         )
         .map(([rowKey]) => rowKey)
 
@@ -642,13 +644,15 @@ const sheetUpgrade = rpcCard({
         `${sheetLabel(found.value)} was not made from a sheet layout.`,
       )
 
-    const [current] = await client.list<{
-      definition_id: string
-      version: number
-    }>(
-      'sheet_definition_versions',
-      `?id=eq.${sourceVersionId}&select=definition_id,version&limit=1`,
-    )
+    const current = (
+      await client.list<{
+        definition_id: string
+        version: number
+      }>(
+        'sheet_definition_versions',
+        `?id=eq.${sourceVersionId}&select=definition_id,version&limit=1`,
+      )
+    ).at(0)
 
     if (!current) return fail('Its sheet layout version could not be found.')
     const versions = await layoutVersions(client, current.definition_id)
@@ -972,6 +976,15 @@ const layoutRename = rpcCard({
   },
 })
 
+const cellValue = z.union([z.string(), z.number(), z.boolean()])
+
+/** A cell's value as the words a person would type to match it. */
+const cellText = (value: RpcJson | undefined): string => {
+  const parsed = cellValue.safeParse(value)
+
+  return parsed.success ? String(parsed.data) : ''
+}
+
 const layoutColumnsSchema = {
   layout: layoutName,
   addColumns: z
@@ -1061,7 +1074,7 @@ const layoutAddVersion = rpcCard({
     const found = await findLayout(client, input.layout)
 
     if (!found.ok) return found
-    const [latest] = await layoutVersions(client, found.value.id)
+    const latest = (await layoutVersions(client, found.value.id)).at(0)
 
     if (!latest)
       return fail(`${found.value.name} has no version to start from.`)

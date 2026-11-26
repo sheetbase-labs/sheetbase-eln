@@ -365,7 +365,9 @@ const removeRule = rpcCard({
     )
 
     const exact = matches.filter((rule) => same(rule.id, input.rule))
-    const [only, ...others] = exact.length === 1 ? exact : matches
+    const chosen = exact.length === 1 ? exact : matches
+    const only = chosen.at(0)
+    const others = chosen.slice(1)
 
     if (!only) return fail(`${found.value.name} has no rule “${input.rule}”.`)
 

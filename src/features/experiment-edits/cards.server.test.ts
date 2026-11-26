@@ -13,6 +13,7 @@ import {
   EXPERIMENT_EDITS_PROPOSE_TOOL_NAMES,
   EXPERIMENT_FIELDS_TOOL,
   LEGAL_HOLD_ADD_TOOL,
+  MODEL_FIELD_EDIT_TOOL,
   MODEL_UPGRADE_TOOL,
   PART_AMEND_TOOL,
   PART_DELETE_TOOL,
@@ -503,6 +504,63 @@ describe('the experiment edit cards', () => {
     expect(
       await refusal(PART_MOVE_TOOL, { experiment: 'EXP-4302', part: 'e' }),
     ).toMatch(/More than one part/)
+  })
+})
+
+describe('editing a field of a draft version', () => {
+  const tables = {
+    record_models: [{ id: 'm1', key: 'experiment', name: 'Experiment' }],
+    record_model_versions: [
+      {
+        id: 'v3',
+        revision: 5,
+        definition: {
+          fields: [
+            { label: 'Cell line', field_name: 'cell_line', nullable: true },
+            { label: 'Passage', field_name: 'passage', nullable: true },
+          ],
+        },
+      },
+    ],
+  }
+
+  it('changes one field and sends the whole definition at its revision', async () => {
+    const proposal = await card(
+      MODEL_FIELD_EDIT_TOOL,
+      {
+        model: 'Experiment',
+        field: 'cell line',
+        required: true,
+        label: 'Cell line used',
+        reason: 'Needed for review',
+      },
+      tables,
+    )
+
+    expect(proposal.action).toMatchObject({
+      kind: 'experiment_edits.version_edit',
+      params: {
+        p_version_id: 'v3',
+        p_expected_revision: 5,
+        p_reason: 'Needed for review',
+        p_definition: {
+          fields: [
+            { label: 'Cell line used', nullable: false },
+            { label: 'Passage', nullable: true },
+          ],
+        },
+      },
+    })
+  })
+
+  it('asks for a draft version first', async () => {
+    expect(
+      await refusal(
+        MODEL_FIELD_EDIT_TOOL,
+        { model: 'Experiment', field: 'passage', required: true, reason: 'x' },
+        { ...tables, record_model_versions: [] },
+      ),
+    ).toMatch(/no draft version/)
   })
 })
 

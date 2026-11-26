@@ -45,6 +45,7 @@ export const MODEL_VERSION_DISCARD_TOOL = 'sheetbase.model_version.discard'
 export const MODEL_UPGRADE_TOOL = 'sheetbase.model_version.upgrade_record'
 export const MODEL_MIGRATE_TOOL = 'sheetbase.model_version.migrate_open'
 export const PROTOCOL_IMPORT_TOOL = 'sheetbase.protocol.import'
+export const MODEL_FIELD_EDIT_TOOL = 'sheetbase.model_field.edit'
 
 export const EXPERIMENT_EDITS_PROPOSE_TOOL_NAMES: readonly string[] = [
   EXPERIMENT_FIELDS_TOOL,
@@ -76,6 +77,7 @@ export const EXPERIMENT_EDITS_PROPOSE_TOOL_NAMES: readonly string[] = [
   MODEL_UPGRADE_TOOL,
   MODEL_MIGRATE_TOOL,
   PROTOCOL_IMPORT_TOOL,
+  MODEL_FIELD_EDIT_TOOL,
 ]
 
 export type ExperimentEditsProposeToolName =
@@ -108,6 +110,7 @@ export type ExperimentEditsProposeToolName =
   | typeof MODEL_UPGRADE_TOOL
   | typeof MODEL_MIGRATE_TOOL
   | typeof PROTOCOL_IMPORT_TOOL
+  | typeof MODEL_FIELD_EDIT_TOOL
 
 /** What each tool does, in plain words that follow "a card to". */
 export const EXPERIMENT_EDITS_CARD_ACTIONS = {
@@ -140,6 +143,7 @@ export const EXPERIMENT_EDITS_CARD_ACTIONS = {
   [MODEL_UPGRADE_TOOL]: 'upgrade a record to the latest type version',
   [MODEL_MIGRATE_TOOL]: 'move open experiments to the latest type version',
   [PROTOCOL_IMPORT_TOOL]: 'import a protocol',
+  [MODEL_FIELD_EDIT_TOOL]: 'change a field in a record type’s draft version',
 } as const satisfies Record<ExperimentEditsProposeToolName, string>
 
 /** The RPC each card's button calls, by the card's action kind. */
@@ -174,6 +178,7 @@ export const EDIT_RPCS = {
   'experiment_edits.version_migrate':
     'migrate_open_experiments_to_model_version',
   'experiment_edits.protocol_import': 'import_protocol',
+  'experiment_edits.version_edit': 'replace_record_model_version_definition',
 } as const
 
 export type ExperimentEditKind = keyof typeof EDIT_RPCS
@@ -585,4 +590,26 @@ export const proposeProtocolImportSchema = z.strictObject({
     })
     .optional()
     .describe('Where the method came from, such as protocols.io.'),
+})
+
+export const proposeModelFieldEditSchema = z.strictObject({
+  ...base,
+  model,
+  field: z
+    .string()
+    .min(1)
+    .max(200)
+    .describe('The field, by its label or name as the form shows it.'),
+  label: z.string().min(1).max(120).optional().describe('A new label.'),
+  description: z
+    .string()
+    .max(400)
+    .nullable()
+    .optional()
+    .describe('New help text; null clears it.'),
+  required: z
+    .boolean()
+    .optional()
+    .describe('true makes the field required, false makes it optional.'),
+  reason: reason.describe('Why the draft version changes.'),
 })

@@ -39,6 +39,7 @@ const WORDS: Record<ExperimentEditKind, string> = {
   'experiment_edits.version_upgrade': words('upgrade'),
   'experiment_edits.version_migrate': words('upgrade'),
   'experiment_edits.protocol_import': words('import'),
+  'experiment_edits.version_edit': words('save'),
 }
 
 export const assistant = defineAssistant<

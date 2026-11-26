@@ -251,6 +251,11 @@ const READ_SPECS = {
       ? open('protocol', 'recordId')(args)
       : search('protocols')(args),
   'sheetbase.protocols.read': open('protocol', 'protocol'),
+  'sheetbase.record.read': open('record', 'record'),
+  'sheetbase.assistant.created': plain(
+    'read',
+    'what the assistant made in earlier chats',
+  ),
   'sheetbase.stock.read': search('stock'),
   'sheetbase.template.list': search('templates'),
   'sheetbase.templates.read': open('template', 'template'),

@@ -107,9 +107,11 @@ export const CARD_ACTIONS = {
   'sheetbase.group_role.remove': 'remove a group’s role',
   'sheetbase.project.set_member': 'set a person’s access to a project',
   'sheetbase.project.remove_member': 'take a person off a project',
-  'sheetbase.project.set_access_rule': 'set a person’s or group’s permissions on a project',
+  'sheetbase.project.set_access_rule':
+    'set a person’s or group’s permissions on a project',
   'sheetbase.project.remove_access_rule': 'remove a project access rule',
-  'sheetbase.project.set_access_defaults': 'choose the group that can view every project',
+  'sheetbase.project.set_access_defaults':
+    'choose the group that can view every project',
   'sheetbase.project.set_review_rules': 'change a project’s review rules',
   'sheetbase.project.request_edit_access': 'ask for edit access to a project',
   'sheetbase.workspace.set_rules': 'change the workspace rules',
@@ -118,7 +120,8 @@ export const CARD_ACTIONS = {
   'sheetbase.workspace.set_data_access': 'change who has data access',
   'sheetbase.workspace.set_publishing': 'change the publishing policy',
   'sheetbase.scheduler.set_hours': 'change the scheduler’s working hours',
-  'sheetbase.settings_access.set': 'change what roles can do in a settings area',
+  'sheetbase.settings_access.set':
+    'change what roles can do in a settings area',
   'sheetbase.group_role.adopt': 'let sign-in groups decide roles',
   'sheetbase.open_tables.refresh': 'refresh the open tables',
   'sheetbase.open_tables.revoke_login': 'revoke a SQL login',

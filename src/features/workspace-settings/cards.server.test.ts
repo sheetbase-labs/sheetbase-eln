@@ -1,5 +1,4 @@
 import { describe, expect, it } from 'vitest'
-import type { core } from 'zod'
 
 import { ASSISTANT_PROPOSE_TOOL_NAMES } from '#/lib/agent-tool-catalogue'
 import { context } from '#/lib/assistant-admin-cards.fixture'
@@ -203,8 +202,8 @@ describe('the workspace settings cards', () => {
     const calls: string[] = []
 
     const client = {
-      rpc: (_name: string, args: Record<string, core.util.JSONType>) => {
-        calls.push(`${args.p_role}`)
+      rpc: (_name: string, args: { p_role: string }) => {
+        calls.push(args.p_role)
 
         return args.p_role === 'member'
           ? Promise.reject(new Error('refused'))

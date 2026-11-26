@@ -1,7 +1,7 @@
 import { z } from 'zod'
 
-import { cardWords } from '#/lib/assistant-rpc-cards'
-import type { RpcCardAction } from '#/lib/assistant-rpc-cards'
+import { cardWords } from '#/lib/assistant-call-cards'
+import type { RpcCardAction } from '#/lib/assistant-call-cards'
 
 /**
  * Instrument set-up from the assistant: robot jobs and settings, live-feed

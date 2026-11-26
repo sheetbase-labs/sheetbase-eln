@@ -1,5 +1,5 @@
 /** The instrument set-up cards in the browser: which actions are ours, how they run, their words. */
-import { rpcActionGuard } from '#/lib/assistant-rpc-cards'
+import { rpcActionGuard } from '#/lib/assistant-call-cards'
 
 import { defineAssistant } from '../define'
 import { INSTRUMENT_SETUP_CARDS } from './cards'

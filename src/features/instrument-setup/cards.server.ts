@@ -6,13 +6,17 @@ import {
   resolveInstrument,
 } from '#/lib/assistant-lab-tools.server'
 import type { LabToolContext } from '#/lib/assistant-lab-tools.server'
-import { cardSpec, cardDefs, buildCard } from '#/lib/assistant-rpc-cards.server'
-import type { CardBuilt } from '#/lib/assistant-rpc-cards.server'
+import {
+  cardSpec,
+  cardDefs,
+  buildCard,
+} from '#/lib/assistant-call-cards.server'
+import type { CardBuilt } from '#/lib/assistant-call-cards.server'
 import { pick } from '#/lib/assistant-upkeep.server'
 import type { Lookup } from '#/lib/assistant-upkeep.server'
 import type { CalendarBookingWire } from '#/lib/calendar'
 import { worklistReference } from '#/lib/plate-runs'
-import type { RpcArgument } from '#/lib/assistant-rpc-cards'
+import type { RpcArgument } from '#/lib/assistant-call-cards'
 
 import { INSTRUMENT_SETUP_CARDS, instrumentSetupSchemas } from './cards'
 import type {

@@ -7,9 +7,13 @@ import {
 import type { LabToolContext } from '#/lib/assistant-lab-tools.server'
 import { findProject } from '#/lib/assistant-labwork.server'
 import { findPipeline } from '#/lib/assistant-pipelines.server'
-import type { RpcArgument } from '#/lib/assistant-rpc-cards'
-import { buildCard, cardDefs, cardSpec } from '#/lib/assistant-rpc-cards.server'
-import type { CardBuilt } from '#/lib/assistant-rpc-cards.server'
+import type { RpcArgument } from '#/lib/assistant-call-cards'
+import {
+  buildCard,
+  cardDefs,
+  cardSpec,
+} from '#/lib/assistant-call-cards.server'
+import type { CardBuilt } from '#/lib/assistant-call-cards.server'
 import { pick } from '#/lib/assistant-upkeep.server'
 import type { Lookup } from '#/lib/assistant-upkeep.server'
 import { WATCHER_KINDS } from '#/lib/lab-watchers'

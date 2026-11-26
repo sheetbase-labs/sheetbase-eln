@@ -16,6 +16,7 @@ import type { AssistantProposal } from '#/lib/assistant-proposals'
 import { runAssistantAction } from '#/lib/assistant-booking'
 import { describeActionError, plainDatabaseError } from '#/lib/assistant-bench'
 import { describeCalendarError } from '#/lib/calendar'
+import { withCurrentStructureVersion } from '#/lib/assistant-fresh-operation'
 import {
   recordCardOutcome,
   recordIdFromHref,
@@ -67,7 +68,7 @@ async function runOperation(
     workspaceId,
     title: proposal.title,
     summary: proposal.summary,
-    operation,
+    operation: await withCurrentStructureVersion(client, operation),
     provenance: {
       agentId: 'assistant',
       agentName: 'Assistant',

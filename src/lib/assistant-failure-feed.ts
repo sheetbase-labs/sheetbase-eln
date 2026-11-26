@@ -26,6 +26,7 @@ const reported = new Set<string>()
 export function reportActionFailure(failure: ActionFailure): void {
   // An out-of-date page is not something the assistant can fix.
   if (isStaleChunkReason(failure.reason)) return
+
   if (reported.has(failure.id)) return
 
   reported.add(failure.id)

@@ -84,13 +84,18 @@ describe('plan card', () => {
             tool: 'sheetbase__project__create',
             arguments: {},
           },
+          {
+            title: 'Follow it',
+            tool: 'sheetbase__follow',
+            arguments: {},
+          },
         ],
       },
       context(),
     )
 
     if (!built.ok) throw new Error(built.message)
-    expect(built.proposal.changes).toHaveLength(1)
+    expect(built.proposal.changes).toHaveLength(2)
   })
 
   it('follows the admin’s settings', async () => {

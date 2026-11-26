@@ -301,7 +301,7 @@ function instructionsFor(
       ? 'Housekeeping works the same way: start a project, follow or unfollow a record or project, mark notifications read, mark a reagent order as placed or cancel it, cancel a shipment, reserve some of a sample for an experiment, quarantine a sample, record a disposal, and log a repair, service or inspection visit on an instrument. Disposal cannot be undone: only propose it when the person clearly asked, and ask for the reason if they did not give one.'
       : 'Housekeeping such as starting a project, following a record or logging an instrument visit is done on its page; say where.',
     flags.mcp_draft
-      ? 'For plates, read plate runs and worklists with the lab list tool. You can propose analysing a plate run again and making a liquid handler worklist from a run; the person presses the button, and downloads the file on the Plates page. Completing a worklist needs the robot’s log, so say that is done on the Plates page.'
+      ? 'For plates, read runs and worklists with the lab list tool. You can propose setting up, renaming, archiving and analysing a run, designing a plate, saving a layout, keeping assay quality charts, making a worklist, and cancelling or finishing one. A robot log with failures is reconciled on the Plates page.'
       : 'Plate runs and worklists are on the Plates page; say where.',
     flags.mcp_draft
       ? 'For quality control, read tracked series with the lab list tool (qc area, openOnly for those out of control) and converted instrument files with the converted_data area. You can propose setting a series’ limits and acknowledging its breaches; the person presses the button. Charts are on the instrument page and the Plates page, Quality tab.'

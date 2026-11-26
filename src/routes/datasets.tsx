@@ -1,3 +1,11 @@
+import { filterParamSchema } from '#/lib/list-filter'
+import type { FilterParam } from '#/lib/search-filter'
+import type { ListFilter } from '#/components/inventory/list-filter'
+import { useClientFilter } from '#/components/inventory/use-list-filter'
+import {
+  datasetFilterRecord,
+  useDatasetFilterFields,
+} from '#/components/datasets/dataset-filter-fields'
 import { useMemo, useState } from 'react'
 import { z } from 'zod'
 import { ObjectLink } from '#/components/ui/object-link'
@@ -76,12 +84,14 @@ interface DatasetsSearch {
   tab?: DatasetTab | 'pipelines' | 'versions'
   dataset?: string
   archived?: boolean
+  filter?: FilterParam
 }
 
 /** The registry's search parameters; a value the URL cannot express reads as absent. */
 const DATASETS_SEARCH = z.object({
   q: z.string().optional().catch(undefined),
   dataset: z.string().optional().catch(undefined),
+  filter: filterParamSchema,
   archived: z
     .union([z.literal(true), z.literal('1')])
     .optional()
@@ -193,12 +203,23 @@ function DatasetsList() {
   const q = (search.q ?? '').trim().toLowerCase()
   const hasProjectAccess = useHasProjectAccess()
 
-  const visible = sorted
-    .filter((r) => inDatasetTab(r, tab, userId))
-    .filter(
-      (r) =>
-        !q || [r.id, r.name, r.model].some((v) => v.toLowerCase().includes(q)),
-    )
+  const inTabRows = useMemo(
+    () =>
+      sorted
+        .filter((r) => inDatasetTab(r, tab, userId))
+        .filter(
+          (r) =>
+            !q ||
+            [r.id, r.name, r.model].some((v) => v.toLowerCase().includes(q)),
+        ),
+    [sorted, tab, userId, q],
+  )
+
+  const { filter, rows: visible } = useClientFilter(
+    useDatasetFilterFields(rows),
+    inTabRows,
+    datasetFilterRecord,
+  )
 
   const columns = useMemo<RegistryColumn<DatasetListRow>[]>(
     () => [
@@ -294,6 +315,7 @@ function DatasetsList() {
           counts={query.isPending ? undefined : counts}
         />
         <DatasetSearchBar
+          filter={filter}
           q={search.q}
           onSearch={(next) =>
             void navigate({
@@ -396,9 +418,11 @@ function DatasetListHeader({
 
 /** The search box; typing rewrites the `q` parameter in place. */
 function DatasetSearchBar({
+  filter,
   q,
   onSearch,
 }: {
+  filter: ListFilter
   q?: string
   onSearch: (next: string) => void
 }) {
@@ -408,6 +432,7 @@ function DatasetSearchBar({
       label={t('data.datasetsList.searchDatasets')}
       placeholder={t('data.datasetsList.searchDatasets')}
       onSearch={onSearch}
+      filter={filter}
     />
   )
 }

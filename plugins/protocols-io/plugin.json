@@ -1,7 +1,7 @@
 {
   "id": "sheetbase.protocols-io",
   "name": "protocols.io",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Find public protocols on protocols.io, read their steps and reagents, and import one as a draft protocol of your own.",
   "author": "Sheetbase",
   "python": {

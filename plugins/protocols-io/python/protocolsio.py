@@ -15,6 +15,7 @@ from sheetbase_plugin import PluginError, host_call
 
 API = "https://www.protocols.io/api"
 TIMEOUT = 20
+USER_AGENT = "Sheetbase/1.0 (+https://sheetbase.co.uk)"
 MAX_STEPS = 200
 
 
@@ -24,7 +25,14 @@ def _get(path, params, input):
         raise PluginError("protocols.io needs an access token. An administrator sets it in Settings, Plugins.")
     url = f"{API}{path}?{urllib.parse.urlencode(params)}"
     request = urllib.request.Request(
-        url, headers={"Authorization": f"Bearer {token}", "Accept": "application/json"}
+        url,
+        headers={
+            "Authorization": f"Bearer {token}",
+            "Accept": "application/json",
+            # protocols.io is behind Cloudflare, which answers 403 (error 1010)
+            # to Python's default client name. Say who is asking.
+            "User-Agent": USER_AGENT,
+        },
     )
     try:
         with urllib.request.urlopen(request, timeout=TIMEOUT) as response:
@@ -32,7 +40,11 @@ def _get(path, params, input):
     except urllib.error.HTTPError as error:
         body = _json(error)
         code = (body or {}).get("status_code")
-        if error.code in (401, 403) or code in (1218, 1219):
+        if error.code == 403 and (body or {}).get("title", "").startswith("Error 1010"):
+            raise PluginError("protocols.io refused this server's request. Try again later; the token is not the problem.")
+        if error.code in (401, 403) or code in (1218, 1219) or (
+            error.code == 400 and "Authorization token" in str((body or {}).get("error_message") or "")
+        ):
             raise PluginError("protocols.io did not accept the access token. An administrator can replace it in Settings, Plugins.")
         if error.code == 404:
             raise PluginError("protocols.io has no protocol like that.")

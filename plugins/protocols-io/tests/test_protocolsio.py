@@ -116,3 +116,24 @@ def test_import_makes_a_protocol_with_the_lab_action(monkeypatch):
     assert args["p_source"]["provider"] == "protocols.io"
     assert args["p_steps"][0] == {"text": "Dilute the dye 1:200 in TE.", "section": "Prepare"}
     assert out == {"identifier": "PRO-2026-0001", "title": "PicoGreen DNA assay", "steps": 2}
+
+
+def test_requests_name_the_client(monkeypatch):
+    # protocols.io is behind Cloudflare, which refuses Python's default client name (error 1010).
+    seen = serve(monkeypatch, {"items": []})
+    protocolsio.search({"query": "picogreen", **SETTINGS})
+    assert seen[0].get_header("User-agent", "").startswith("Sheetbase/")
+
+
+def test_a_cloudflare_block_is_not_reported_as_a_bad_token(monkeypatch):
+    serve(monkeypatch, {"title": "Error 1010: Access denied", "status": 403}, status=403)
+    with pytest.raises(PluginError) as error:
+        protocolsio.search({"query": "picogreen", **SETTINGS})
+    assert "token is not the problem" in str(error.value)
+
+
+def test_a_wrong_token_is_named(monkeypatch):
+    serve(monkeypatch, {"error_message": "Authorization token is not correct"}, status=400)
+    with pytest.raises(PluginError) as error:
+        protocolsio.search({"query": "picogreen", **SETTINGS})
+    assert "did not accept the access token" in str(error.value)

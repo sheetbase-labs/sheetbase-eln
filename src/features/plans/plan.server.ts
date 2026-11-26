@@ -75,6 +75,20 @@ async function level(
   }
 }
 
+/**
+ * The model sometimes writes a step's tool the way the provider spells it
+ * (`sheetbase__project__create`); a plan names tools with dots.
+ */
+function withDottedTools<T extends { steps: { tool: string }[] }>(input: T): T {
+  return {
+    ...input,
+    steps: input.steps.map((step) => ({
+      ...step,
+      tool: step.tool.replaceAll('__', '.'),
+    })),
+  }
+}
+
 export async function buildPlanProposal(
   // oxlint-disable-next-line anti-slop/no-unknown-parameters -- The tool case parses raw model arguments before using them.
   args: unknown,
@@ -84,16 +98,7 @@ export async function buildPlanProposal(
 
   if (!parsed.ok) return { ok: false, message: parsed.message }
 
-  // The model sometimes writes a step's tool the way the provider spells it
-  // (`sheetbase__project__create`); a plan names tools with dots.
-  const input = {
-    ...parsed.data,
-    steps: parsed.data.steps.map((step) => ({
-      ...step,
-      tool: step.tool.replaceAll('__', '.'),
-    })),
-  }
-
+  const input = withDottedTools(parsed.data)
   const allowed = planStepTools()
 
   const [pause, runAll] = await Promise.all([

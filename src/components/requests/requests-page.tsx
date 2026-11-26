@@ -3,8 +3,7 @@
  * follow what happens to it. People who handle a model's requests also see the
  * ones waiting for them here.
  */
-import { useSpecFilter } from '#/components/inventory/spec-filter'
-import type { FilterSpec } from '#/components/inventory/spec-filter'
+import { useRowFilter } from '#/components/inventory/row-filter'
 import { useMemo, useState } from 'react'
 import type { ReactNode } from 'react'
 import { useNavigate } from '@tanstack/react-router'
@@ -428,50 +427,6 @@ function RequestsListArea({
   )
 }
 
-/** What the requests list can be filtered by. */
-const REQUEST_FILTER: FilterSpec<RequestRow> = {
-  identifier: {
-    label: t('common.filter.id'),
-    type: 'text',
-    value: (r) => r.identifier,
-  },
-  title: {
-    label: t('common.filter.title'),
-    type: 'text',
-    value: (r) => r.title,
-  },
-  kind: {
-    label: t('common.filter.type'),
-    type: 'choice',
-    value: (r) => r.kind,
-  },
-  status: {
-    label: t('common.filter.status'),
-    type: 'choice',
-    value: (r) => r.status,
-  },
-  project: {
-    label: t('common.filter.project'),
-    type: 'project',
-    value: (r) => r.project_id,
-  },
-  owner: {
-    label: t('common.filter.owner'),
-    type: 'owner',
-    value: (r) => r.created_by_user_id,
-  },
-  created: {
-    label: t('common.filter.created'),
-    type: 'date',
-    value: (r) => r.created_at,
-  },
-  decided: {
-    label: t('common.filter.decided'),
-    type: 'date',
-    value: (r) => r.decided_at,
-  },
-}
-
 export function RequestsPage({
   userId,
   canWrite,
@@ -537,11 +492,7 @@ export function RequestsPage({
     names,
   })
 
-  const { filter, rows: visible } = useSpecFilter(
-    REQUEST_FILTER,
-    inTabRows,
-    all,
-  )
+  const { filter, rows: visible } = useRowFilter(inTabRows, all)
 
   const setUp = useMutation({
     mutationFn: async (key: string) => {

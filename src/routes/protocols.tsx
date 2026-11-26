@@ -38,11 +38,8 @@ import {
 import { useRowFocus } from '#/components/inventory/registry-grid'
 import { useBulkSelection } from '#/components/inventory/bulk-selection'
 import { RecordBulkBar } from '#/components/inventory/record-bulk-bar'
-import { useClientFilter } from '#/components/inventory/use-list-filter'
-import {
-  notebookRecordFilterRecord,
-  useNotebookRecordFilterFields,
-} from '#/components/inventory/notebook-record-filter'
+import { useRowFilter } from '#/components/inventory/row-filter'
+import type { RowFilterOptions } from '#/components/inventory/row-filter'
 import { Tabs } from '#/components/ui/tabs'
 import { NewProtocolDialog } from '#/components/protocols/new-protocol-dialog'
 import { useAddedFieldListColumns } from '#/components/models/added-fields'
@@ -59,6 +56,11 @@ import { hasCapability } from '#/lib/capability'
 
 /** A protocol's status as the list words it. */
 const protocolStatusLabel = (status: string) => protocolStatus(status).label
+
+/** Protocol statuses read by name in the filter's picker. */
+const PROTOCOL_FILTER: RowFilterOptions = {
+  valueLabels: { status: protocolStatusLabel },
+}
 
 const tabs = ['effective', 'mine', 'inreview', 'reviewdue', 'archived'] as const
 
@@ -273,13 +275,7 @@ function ProtocolsList() {
 
   // The table orders the rows; the tab and the search decide which ones.
   const tabRows = visibleProtocols(rows, tabInput, tab, currentUserId, q)
-  const filterFields = useNotebookRecordFilterFields(rows, protocolStatusLabel)
-
-  const { filter, rows: visible } = useClientFilter(
-    filterFields,
-    tabRows,
-    notebookRecordFilterRecord,
-  )
+  const { filter, rows: visible } = useRowFilter(tabRows, rows, PROTOCOL_FILTER)
 
   // One row drives the inspector: the checkbox selects it, and with nothing
   // checked the screen falls back to the URL's row or the first one.

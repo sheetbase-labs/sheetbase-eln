@@ -9,6 +9,7 @@ import {
 } from '@tanstack/react-router'
 import { z } from 'zod'
 
+import { filterParamSchema } from '#/lib/list-filter'
 import { ProjectsPage } from '#/components/projects/projects-page'
 import type {
   NewProjectInput,
@@ -130,9 +131,7 @@ const projectsSearchSchema = z.object({
     .catch(undefined),
   q: filterText,
   archived: z.enum(['include', 'exclude']).optional().catch(undefined),
-  stage: filterText,
-  client: filterText,
-  modality: filterText,
+  filter: filterParamSchema,
   fields: filterText,
   sort: z.enum(['id', 'name', 'updated']).optional().catch(undefined),
   group: z.enum(['stage', 'lead', 'none']).optional().catch(undefined),

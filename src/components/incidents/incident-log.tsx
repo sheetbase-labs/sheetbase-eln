@@ -3,15 +3,7 @@
  * There is no fixed incident type. A tab appears for each ticked model, and a
  * lab with none yet can start from the ready-made Incident model.
  */
-import type { FilterRecord } from '#/lib/list-filter'
-import { useClientFilter } from '#/components/inventory/use-list-filter'
-import {
-  choicesFrom,
-  customValueFields,
-  customValueRecord,
-  dateFilter,
-  textFilter,
-} from '#/components/inventory/list-filter-fields'
+import { useRowFilter } from '#/components/inventory/row-filter'
 import { useMemo, useState } from 'react'
 import { Link, useNavigate } from '@tanstack/react-router'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
@@ -71,18 +63,6 @@ function entryMatches(entry: IncidentEntry, needle: string): boolean {
   return needle === '' || entryText(entry).indexOf(needle) !== -1
 }
 
-/** An incident's values under the ids its filter offers. */
-function incidentFilterRecord(e: IncidentEntry): FilterRecord {
-  return {
-    identifier: e.identifier,
-    title: e.title,
-    kind: e.kind,
-    status: e.status,
-    created: e.created_at,
-    ...customValueRecord(e.custom_fields),
-  }
-}
-
 export function IncidentLog({
   canWrite,
   canEditModels,
@@ -140,23 +120,7 @@ export function IncidentLog({
     [all, status, kind, needle],
   )
 
-  const filterFields = useMemo(
-    () => [
-      textFilter('identifier', t('common.filter.id')),
-      textFilter('title', t('common.filter.title')),
-      choicesFrom('kind', t('common.filter.type'), inKind, (e) => e.kind),
-      choicesFrom('status', t('common.filter.status'), inKind, (e) => e.status),
-      dateFilter('created', t('common.filter.created')),
-      ...customValueFields(inKind.map((e) => e.custom_fields)),
-    ],
-    [inKind],
-  )
-
-  const { filter, rows: visible } = useClientFilter(
-    filterFields,
-    inKind,
-    incidentFilterRecord,
-  )
+  const { filter, rows: visible } = useRowFilter(inKind)
 
   const setUp = useMutation({
     mutationFn: () =>

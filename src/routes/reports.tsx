@@ -1,7 +1,6 @@
 import { filterSearch } from '#/lib/list-filter'
 import type { FilterParam } from '#/lib/search-filter'
-import { useSpecFilter } from '#/components/inventory/spec-filter'
-import type { FilterSpec } from '#/components/inventory/spec-filter'
+import { useRowFilter } from '#/components/inventory/row-filter'
 import { useCallback, useMemo, useState } from 'react'
 import { z } from 'zod'
 import {
@@ -402,55 +401,6 @@ function ReportHeader({
   )
 }
 
-/** What the reports list can be filtered by. */
-const REPORT_FILTER: FilterSpec<ReportListRow> = {
-  identifier: {
-    label: t('common.filter.id'),
-    type: 'text',
-    value: (r) => r.identifier,
-  },
-  title: {
-    label: t('common.filter.title'),
-    type: 'text',
-    value: (r) => r.title,
-  },
-  status: {
-    label: t('common.filter.status'),
-    type: 'choice',
-    value: (r) => r.status,
-  },
-  project: {
-    label: t('common.filter.project'),
-    type: 'project',
-    value: (r) => r.projectId,
-  },
-  owner: {
-    label: t('common.filter.owner'),
-    type: 'owner',
-    value: (r) => r.createdByUserId,
-  },
-  version: {
-    label: t('common.filter.version'),
-    type: 'number',
-    value: (r) => r.version,
-  },
-  sections: {
-    label: t('common.filter.sections'),
-    type: 'number',
-    value: (r) => r.sectionCount,
-  },
-  generated: {
-    label: t('common.filter.generated'),
-    type: 'date',
-    value: (r) => r.lastGeneratedAt,
-  },
-  updated: {
-    label: t('common.filter.updated'),
-    type: 'date',
-    value: (r) => r.updatedAt,
-  },
-}
-
 function ReportsList() {
   const { context } = Route.useRouteContext()
   const canWrite = hasCapability(context.workspace?.role, 'record.create')
@@ -499,8 +449,7 @@ function ReportsList() {
 
   const counts = useMemo(() => tabCounts(rows, userId), [rows, userId])
 
-  const { filter, rows: visible } = useSpecFilter(
-    REPORT_FILTER,
+  const { filter, rows: visible } = useRowFilter(
     visibleReports(rows, tab, userId, search.q ?? ''),
     rows,
   )

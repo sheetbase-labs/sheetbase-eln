@@ -3,6 +3,7 @@ import type { ProjectDetailsInput } from './project-data'
 import { archivedModeFor } from './projects-page-filters'
 import type { ProjectRow } from './types'
 import type { ModelFieldRecordValues } from '#/lib/model-fields'
+import type { FilterParam } from '#/lib/search-filter'
 
 /**
  * The Projects screen's model: what its tabs and sorts are called, which
@@ -46,9 +47,8 @@ export interface ProjectsSearch {
   q?: string
   /** The person's own archived choice, overriding the tab's default. */
   archived?: ArchivedMode
-  stage?: string
-  client?: string
-  modality?: string
+  /** The shared list filter: conditions on any column. */
+  filter?: FilterParam
   fields?: string
   sort?: ProjectsSort
   group?: 'none' | 'stage' | 'lead'
@@ -118,14 +118,7 @@ export function filteredProjects(
   const matchesQ = (p: ProjectRow) =>
     !q || [p.name, p.id, p.client].some((s) => s.toLowerCase().includes(q))
 
-  return projects.filter(
-    (p) =>
-      inTab(p, tab, me, meId) &&
-      matchesQ(p) &&
-      (!search.stage || p.stage === search.stage) &&
-      (!search.client || p.client === search.client) &&
-      (!search.modality || p.modality === search.modality),
-  )
+  return projects.filter((p) => inTab(p, tab, me, meId) && matchesQ(p))
 }
 
 /** The rows, archived ones filtered the way the tab or the person asks. */
@@ -151,17 +144,6 @@ export function archivedHiddenBy(
   archived: ArchivedMode,
 ): number {
   return archived === 'exclude' ? base.filter((p) => p.archived).length : 0
-}
-
-/**
- * How many filters the person has set, for the toolbar's count. Hiding archived
- * projects is how the list starts, so it is not counted; the footer says how
- * many it hides.
- */
-export function filterCountOf(search: ProjectsSearch): number {
-  return (
-    (search.stage ? 1 : 0) + (search.client ? 1 : 0) + (search.modality ? 1 : 0)
-  )
 }
 
 /** The optional columns, in the order the table and the column chooser list them. */
@@ -227,7 +209,6 @@ export function projectsView(
     counts: tabCounts(projects, search, me, meId),
     rows,
     archivedMatches: archivedHiddenBy(base, archived),
-    filterCount: filterCountOf(search),
     columns: projectColumns(hidden),
     grouped: groupedProjects(rows, group),
   }

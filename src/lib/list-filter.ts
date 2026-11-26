@@ -51,13 +51,22 @@ const ISO_DATE = /^\d{4}-\d{2}-\d{2}(T|$)/
 // Stored values are untyped JSON; this is the one place they are narrowed.
 // oxlint-disable-next-line anti-slop/no-unknown-parameters
 export function filterCell(value: unknown): FilterCell {
-  if (Array.isArray(value)) return value.map(filterCell).join(' ')
+  if (Array.isArray(value)) {
+    const cells = value.map(filterCell).filter((cell) => cell !== undefined)
+
+    return cells.length > 0 ? cells.join(' ') : undefined
+  }
 
   // oxlint-disable-next-line anti-slop/no-runtime-typeof -- Narrowing stored JSON to the scalar kinds a filter compares.
   if (typeof value === 'string' || typeof value === 'number') return value
 
   // oxlint-disable-next-line anti-slop/no-runtime-typeof -- Narrowing stored JSON to the scalar kinds a filter compares.
   if (typeof value === 'boolean') return value
+
+  // A `{ label }` value (a status with its tone, say) filters by its label.
+  // oxlint-disable-next-line anti-slop/no-runtime-typeof -- Narrowing stored JSON to an object that carries a label.
+  if (typeof value === 'object' && value !== null && 'label' in value)
+    return filterCell(value.label)
 
   return undefined
 }

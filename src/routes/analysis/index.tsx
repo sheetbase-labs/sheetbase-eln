@@ -1,7 +1,6 @@
 import { filterParamSchema } from '#/lib/list-filter'
 import type { FilterParam } from '#/lib/search-filter'
-import { useSpecFilter } from '#/components/inventory/spec-filter'
-import type { FilterSpec } from '#/components/inventory/spec-filter'
+import { useRowFilter } from '#/components/inventory/row-filter'
 import { t } from '#/copy'
 import {
   analysisSorts,
@@ -82,36 +81,6 @@ const analysisSearchSchema = z.object({
   state: z.literal('denied').optional().catch(undefined),
   filter: filterParamSchema,
 })
-
-/** What the analysis list can be filtered by. */
-const ANALYSIS_FILTER: FilterSpec<AnalysisRow> = {
-  identifier: {
-    label: t('common.filter.id'),
-    type: 'text',
-    value: (a) => a.identifier,
-  },
-  name: { label: t('common.filter.name'), type: 'text', value: (a) => a.name },
-  detail: {
-    label: t('common.filter.type'),
-    type: 'choice',
-    value: (a) => a.detail,
-  },
-  owner: {
-    label: t('common.filter.owner'),
-    type: 'owner',
-    value: (a) => a.ownerId,
-  },
-  version: {
-    label: t('common.filter.version'),
-    type: 'number',
-    value: (a) => a.version,
-  },
-  updated: {
-    label: t('common.filter.updated'),
-    type: 'date',
-    value: (a) => a.updatedAt,
-  },
-}
 
 function viewRow(view: AnalysisViewWire): AnalysisRow {
   return {
@@ -361,11 +330,7 @@ function AnalysisHome() {
     [rows, sort, tab, needle, userId, citedIds],
   )
 
-  const { filter, rows: visible } = useSpecFilter(
-    ANALYSIS_FILTER,
-    inTabRows,
-    rows,
-  )
+  const { filter, rows: visible } = useRowFilter(inTabRows, rows)
 
   const recent = (datasets.data ?? []).slice(0, 3)
   const selected = visible.find((v) => v.id === selectedId) ?? null

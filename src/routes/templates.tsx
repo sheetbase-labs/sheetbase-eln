@@ -48,11 +48,7 @@ import {
   useRowFocus,
 } from '#/components/inventory/registry-grid'
 import type { RegistryColumn } from '#/components/inventory/registry-grid'
-import { useClientFilter } from '#/components/inventory/use-list-filter'
-import {
-  templateFilterRecord,
-  useTemplateFilterFields,
-} from '#/components/templates/template-filter-fields'
+import { useRowFilter } from '#/components/inventory/row-filter'
 import { Tabs } from '#/components/ui/tabs'
 import {
   templateDataQueryKeys,
@@ -172,8 +168,6 @@ function TemplatesList() {
   const queryText = (search.q ?? '').trim()
   const q = queryText.toLowerCase()
 
-  const filterFields = useTemplateFilterFields(rows)
-
   const inTabRows = useMemo(
     () =>
       rows
@@ -184,11 +178,7 @@ function TemplatesList() {
     [rows, tab, q],
   )
 
-  const { filter, rows: filtered } = useClientFilter(
-    filterFields,
-    inTabRows,
-    templateFilterRecord,
-  )
+  const { filter, rows: filtered } = useRowFilter(inTabRows, rows)
 
   const visible = sortByName(
     filtered,

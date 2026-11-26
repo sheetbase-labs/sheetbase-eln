@@ -11,12 +11,14 @@ const insert = (expectedRevision: number): AgentOperation => ({
   expectedRevision,
 })
 
-const clientAt = (version: number | null) =>
-  ({
-    list: vi.fn(async () =>
-      version === null ? [] : [{ structure_version: version }],
-    ),
-  }) as unknown as DataClient
+function clientAt(version: number | null) {
+  const list = vi.fn(async () =>
+    version === null ? [] : [{ structure_version: version }],
+  )
+
+  // SAFETY: the function under test calls only `list`, which this fake answers.
+  return { list } as unknown as DataClient
+}
 
 describe('withCurrentStructureVersion', () => {
   it('lets a second milestone card apply after the first changed the notebook', async () => {
@@ -36,13 +38,13 @@ describe('withCurrentStructureVersion', () => {
 
   it('leaves other operations alone and does not read anything', async () => {
     const client = clientAt(9)
-    const update: AgentOperation = {
+    const operation: AgentOperation = {
       kind: 'notebook_block.delete',
-      blockId: 'x',
-      expectedRevision: 1,
-    } as AgentOperation
+      blockId: '00000000-0000-4000-8000-000000000002',
+      expectedStructureVersion: 1,
+    }
 
-    expect(await withCurrentStructureVersion(client, update)).toBe(update)
+    expect(await withCurrentStructureVersion(client, operation)).toBe(operation)
     expect(client.list).not.toHaveBeenCalled()
   })
 })

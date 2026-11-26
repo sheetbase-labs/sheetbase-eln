@@ -16,10 +16,11 @@ export async function withCurrentStructureVersion(
 ): Promise<AgentOperation> {
   if (operation.kind !== 'notebook_block.insert') return operation
 
-  const rows = await client.list<{ structure_version: number }>(
+  const rows = await client.list<{ structure_version?: number }>(
     'records',
     `?id=eq.${operation.recordId}&select=structure_version`,
   )
+
   const current = rows[0]?.structure_version
 
   if (current === undefined) return operation

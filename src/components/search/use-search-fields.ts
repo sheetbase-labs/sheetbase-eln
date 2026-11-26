@@ -9,28 +9,18 @@ import {
 import { notebookDataClient } from '#/lib/notebook-data'
 import { commonSearchFields, matchOptions } from '#/lib/search-fields'
 import { fetchModelSearchFields } from '#/lib/search-model-fields'
-import type { SearchOption } from '#/lib/search-fields'
+import type { SearchFieldSources, SearchOption } from '#/lib/search-fields'
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
 const NO_FIELDS: readonly SheetbaseField[] = []
 
 /**
- * The fields the search builder offers, with Project and Owner looked up as
- * the person types. Owner goes through the query cache the page already fills,
- * so opening the picker rarely costs a request.
+ * Type-ahead lookups for the Project and Owner pickers: shared by the search
+ * builder and the filter on every list.
  */
-export function useSearchFields(
-  typeFields: readonly SheetbaseField[] = NO_FIELDS,
-): SheetbaseField[] {
+export function useFieldSources(): SearchFieldSources {
   const queryClient = useQueryClient()
-
-  // The fields workspaces add to their models, offered whatever the results.
-  const modelFields = useQuery({
-    queryKey: ['search', 'model-fields'],
-    queryFn: () => fetchModelSearchFields(notebookDataClient),
-    staleTime: 5 * 60_000,
-  }).data
 
   return useMemo(() => {
     const loadProjects = async (query: string): Promise<SearchOption[]> => {
@@ -69,17 +59,39 @@ export function useSearchFields(
       )
     }
 
+    return { loadProjects, loadOwners }
+  }, [queryClient])
+}
+
+/**
+ * The fields the search builder offers, with Project and Owner looked up as
+ * the person types. Owner goes through the query cache the page already fills,
+ * so opening the picker rarely costs a request.
+ */
+export function useSearchFields(
+  typeFields: readonly SheetbaseField[] = NO_FIELDS,
+): SheetbaseField[] {
+  // The fields workspaces add to their models, offered whatever the results.
+  const modelFields = useQuery({
+    queryKey: ['search', 'model-fields'],
+    queryFn: () => fetchModelSearchFields(notebookDataClient),
+    staleTime: 5 * 60_000,
+  }).data
+
+  const sources = useFieldSources()
+
+  return useMemo(() => {
     // A value a result carries under a model field's key is that model field.
     const modelKeys = new Set(
       (modelFields ?? []).map((field) => field.id.split(':').at(-1)),
     )
 
     return [
-      ...commonSearchFields({ loadProjects, loadOwners }),
+      ...commonSearchFields(sources),
       ...(modelFields ?? []),
       ...typeFields.filter(
         (field) => !modelKeys.has(field.id.replace(/^fields\./, '')),
       ),
     ]
-  }, [queryClient, typeFields, modelFields])
+  }, [sources, typeFields, modelFields])
 }

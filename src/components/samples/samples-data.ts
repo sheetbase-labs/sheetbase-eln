@@ -9,6 +9,7 @@ import { toSampleRecord } from '#/lib/samples'
 import type { SampleRecord } from '#/lib/samples'
 import type { RecordWire } from '#/lib/notebook-data'
 import { containsPattern } from '#/lib/postgrest-contains'
+import type { PostgrestColumns } from '#/lib/list-filter'
 import { fetchMyProjectAssignments } from '#/lib/workspace-access'
 
 /** UI port (roadmap-4/ui-app3): the sample registry, mapped from real sample
@@ -164,6 +165,7 @@ export function sampleListFilters(
   tab: SampleTabKey,
   userId: string | undefined,
   query: string | undefined,
+  filter?: string,
 ): string[] {
   const clauses = [
     SAMPLE_BASE,
@@ -186,7 +188,23 @@ export function sampleListFilters(
     )
   }
 
+  // The person's own filter (`and=(...)`), on top of the tab and the search.
+  if (filter) clauses.push(filter)
+
   return clauses
+}
+
+/** The columns a person can filter the samples by, as the database holds them. */
+export const SAMPLE_FILTER_COLUMNS: PostgrestColumns = {
+  identifier: 'identifier',
+  name: 'title',
+  type: 'properties->>sampleType',
+  location: 'properties->>storageLocation',
+  status: { column: 'status', kind: 'exact' },
+  project: { column: 'project_id', kind: 'exact' },
+  owner: { column: 'created_by_user_id', kind: 'exact' },
+  created: { column: 'created_at', kind: 'date' },
+  updated: { column: 'updated_at', kind: 'date' },
 }
 
 /** The database's column for each column a person can sort the list by. The
@@ -223,6 +241,7 @@ export function useSampleList(
   limit: number = SAMPLE_LIST_PAGE_SIZE,
   client: DataClient = notebookDataClient,
   sorting?: SortingState,
+  filter?: string,
 ) {
   const order = sampleOrder(sorting)
 
@@ -235,13 +254,14 @@ export function useSampleList(
       query,
       limit,
       order,
+      filter,
     ],
     placeholderData: keepPreviousData,
     queryFn: async (): Promise<SampleRecord[]> =>
       (
         await client.list<RecordWire>(
           'records',
-          `?${sampleListFilters(tab, userId, query).join('&')}&order=${order}&limit=${limit}&${SAMPLE_SELECT}`,
+          `?${sampleListFilters(tab, userId, query, filter).join('&')}&order=${order}&limit=${limit}&${SAMPLE_SELECT}`,
         )
       ).map(toSampleRecord),
     staleTime: 15_000,
@@ -254,9 +274,10 @@ export function useSampleTabCounts(
   userId: string | undefined,
   query: string | undefined,
   client: DataClient = notebookDataClient,
+  filter?: string,
 ) {
   return useQuery({
-    queryKey: [...sampleListQueryKeys.page, 'counts', userId, query],
+    queryKey: [...sampleListQueryKeys.page, 'counts', userId, query, filter],
     placeholderData: keepPreviousData,
     queryFn: async (): Promise<Record<SampleTabKey, number>> => {
       const totals: Record<SampleTabKey, number> = {
@@ -272,7 +293,7 @@ export function useSampleTabCounts(
         SAMPLE_TABS.map(async (tab) => {
           totals[tab] = await client.count(
             'records',
-            `?${sampleListFilters(tab, userId, query).join('&')}`,
+            `?${sampleListFilters(tab, userId, query, filter).join('&')}`,
           )
         }),
       )

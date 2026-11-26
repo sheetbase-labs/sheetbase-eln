@@ -40,6 +40,11 @@ import type {
   RegistryRow,
 } from '#/components/inventory/registry-grid'
 import { FilterMenu } from '#/components/ui/filter-menu'
+import { filterSearch, filterToPostgrest } from '#/lib/list-filter'
+import type { FilterParam } from '#/lib/search-filter'
+import type { ListFilter } from '#/components/inventory/list-filter'
+import { useListFilter } from '#/components/inventory/use-list-filter'
+import { useExperimentFilterFields } from '#/components/experiments/experiment-filter-fields'
 import { Tabs } from '#/components/ui/tabs'
 import {
   ListHeader,
@@ -49,6 +54,7 @@ import {
 import { PlanWithAi } from '#/components/planner/plan-with-ai'
 import { MobileList, stickyCol } from '#/components/projects/mobile-list'
 import {
+  EXPERIMENT_FILTER_COLUMNS,
   EXPERIMENT_LIST_PAGE_SIZE,
   toExperimentListRow,
   useExperimentOpenIssues,
@@ -97,6 +103,7 @@ interface ExperimentsSearch {
   q?: string
   project?: string
   older?: boolean
+  filter?: FilterParam
   group?: 'project' | 'owner' | 'status' | 'none'
 }
 
@@ -155,6 +162,7 @@ export const Route = createFileRoute('/experiments')({
     q: experimentsSearchText.safeParse(search.q).data,
     project: experimentsProjectParam.safeParse(search.project).data,
     older: search.older === true || search.older === 'true' || undefined,
+    ...filterSearch(search.filter),
     group: experimentsGroupParam.safeParse(search.group).data,
   }),
   beforeLoad: async ({ context: rootContext, location }) => {
@@ -267,6 +275,9 @@ function Experiments() {
   )
 
   const since = search.older ? undefined : recentSince()
+  const filter = useListFilter(useExperimentFilterFields())
+
+  const columnFilter = filterToPostgrest(filter.tree, EXPERIMENT_FILTER_COLUMNS)
 
   const scope: ExperimentListScope = {
     projectId: search.project,
@@ -274,6 +285,7 @@ function Experiments() {
     query: q || undefined,
     matchProjectIds,
     matchOwnerIds,
+    columnFilter,
   }
 
   const records = useExperimentRecords(
@@ -432,6 +444,7 @@ function Experiments() {
       />
 
       <ExperimentsToolbar
+        filter={filter}
         group={group}
         sort={sort}
         onSort={setSort}
@@ -509,6 +522,7 @@ function Experiments() {
 
 /** Everything the list's toolbar reads and writes: sort, filters and search. */
 function ExperimentsToolbar({
+  filter,
   group,
   sort,
   onSort,
@@ -516,6 +530,7 @@ function ExperimentsToolbar({
   onSearch,
   projectName,
 }: {
+  filter: ListFilter
   group: 'project' | 'owner' | 'status' | undefined
   sort: 'updated' | 'id'
   onSort: (sort: 'updated' | 'id') => void
@@ -529,6 +544,7 @@ function ExperimentsToolbar({
       label={t('projects.experimentsList.search')}
       placeholder={t('projects.experimentsList.search')}
       onSearch={(q) => onSearch({ q: q.trim() || undefined })}
+      filter={filter}
     >
       <DropdownMenu>
         <DropdownMenuTrigger render={<Button variant="quiet" />}>

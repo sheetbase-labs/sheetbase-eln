@@ -58,6 +58,16 @@ Operations declared with `api: 'elsewhere'` have their API entry written by
 hand in the core API contracts. Most pipeline-only operations are like this
 today; give one a `summary` to move its API entry onto the declaration.
 
+### The assistant must be able to do it too
+
+`src/lib/assistant-coverage.test.ts` takes every write the API exposes and
+requires one of: an `assistant: { tool }` on the operation, a line in
+`ASSISTANT_COVERED` (`src/lib/assistant-coverage.ts`) naming the card tool
+that runs it, a line in `ASSISTANT_EXEMPT` with a real reason (attestation, a
+one-time secret, background bookkeeping), or a line in `ASSISTANT_GAPS`. Nothing
+is added to `ASSISTANT_GAPS`: a new write ships with its confirm card in the
+same PR. When you close a gap, delete its line; the test fails if you leave it.
+
 ### Extensions
 
 An extension adds operations at runtime with

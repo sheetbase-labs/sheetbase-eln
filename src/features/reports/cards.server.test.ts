@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from 'vitest'
+import { describe, expect, it } from 'vitest'
 import type { core } from 'zod'
 
 import { ASSISTANT_PROPOSE_TOOL_NAMES } from '#/lib/agent-tool-catalogue'
@@ -68,6 +68,22 @@ const sections = [
     description: null,
   },
 ]
+
+/** A client that keeps what it was asked to do, and answers with `reply`. */
+function recorder(reply: core.util.JSONType = {}) {
+  const calls: { name: string; body: string }[] = []
+
+  const fetchFixture: typeof fetch = async (input, init) => {
+    calls.push({
+      name: urlOf(input).pathname.split('/').at(-1) ?? '',
+      body: String(init?.body ?? ''),
+    })
+
+    return Response.json(reply)
+  }
+
+  return { client: createDataClient(fetchFixture), calls }
+}
 
 describe('the report cards', () => {
   it('offers every tool, and every tool is on the gateway allowlist', () => {
@@ -233,18 +249,15 @@ describe('the report cards', () => {
 
 describe('pressing a report card', () => {
   it('opens the report it made', async () => {
-    const rpc = vi.fn(async () => ({ id: 'r1', record_id: 'rec1' }))
+    const { client } = recorder({ id: 'r1', record_id: 'rec1' })
 
-    const result = await runReportsAction(
-      { rpc },
-      {
-        kind: 'report.create',
-        workspaceId: 'ws',
-        title: 'New',
-        subtitle: null,
-        projectId: null,
-      },
-    )
+    const result = await runReportsAction(client, {
+      kind: 'report.create',
+      workspaceId: 'ws',
+      title: 'New',
+      subtitle: null,
+      projectId: null,
+    })
 
     expect(result).toEqual({ openHref: '/reports/rec1' })
   })

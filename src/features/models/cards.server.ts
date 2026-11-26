@@ -782,7 +782,9 @@ export async function buildModelsProposal(
 
       if (!parsed.success) return fail(invalid(parsed.error))
       const input = parsed.data
-      const choices = 'choices' in input ? input.choices : undefined
+      // Only the add tool takes choices; its schema is the proof.
+      const added = proposeModelFieldAddSchema.safeParse(args)
+      const choices = added.success ? added.data.choices : undefined
       const model = await findModelNamed(client, input.model)
 
       if (!model.ok) return fail(model.message)

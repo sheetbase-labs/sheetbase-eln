@@ -389,9 +389,6 @@ function ChatBody({
 
   // A card applied or dismissed after the answer was saved is saved too, so a
   // later chat knows what the assistant made.
-  const latestMessages = useRef(messages)
-  latestMessages.current = messages
-
   useEffect(() => {
     let timer: ReturnType<typeof setTimeout> | undefined
 
@@ -402,7 +399,7 @@ function ChatBody({
 
         saveConversation(notebookDataClient, {
           id,
-          messages: latestMessages.current,
+          messages: chat.messages,
         }).catch(() => {
           toast.error(t('features.assistantConversations.page.saveFailed'))
         })
@@ -413,7 +410,7 @@ function ChatBody({
       clearTimeout(timer)
       unsubscribe()
     }
-  }, [id])
+  }, [id, chat])
 
   useFailureFeed(
     useCallback((text: string) => void sendMessage({ text }), [sendMessage]),

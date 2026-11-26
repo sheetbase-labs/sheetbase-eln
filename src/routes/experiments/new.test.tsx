@@ -114,11 +114,11 @@ function project(id: string, title: string, archived = false) {
   }
 }
 
-function renderForm() {
-  const client = new QueryClient({
+function renderForm(
+  client = new QueryClient({
     defaultOptions: { queries: { retry: false } },
-  })
-
+  }),
+) {
   return render(
     <QueryClientProvider client={client}>
       {React.createElement(NewExperimentRoute)}
@@ -310,6 +310,21 @@ describe('new experiment', () => {
       await screen.findByText(/Acknowledge the protocol version/),
     ).toBeTruthy()
     expect(notebookCreate.createBlankExperiment).not.toHaveBeenCalled()
+  })
+
+  it('offers a project made moments ago, not the project list read at the last visit', async () => {
+    // The last visit read the lists before the project existed.
+    const client = new QueryClient({
+      defaultOptions: { queries: { retry: false } },
+    })
+
+    client.setQueryData(['ui-port', 'experiments', 'new', 'projects'], [])
+
+    client.setQueryData(['ui-port', 'experiments', 'new', 'project-access'], [])
+    renderForm(client)
+
+    const field = await screen.findByRole('button', { name: /^Project/ })
+    await waitFor(() => expect(field.textContent).toContain('Project A'))
   })
 
   it('defaults to a project the account can edit and marks view-only projects', async () => {

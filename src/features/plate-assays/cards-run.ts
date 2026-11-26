@@ -1,3 +1,5 @@
+import { z } from 'zod'
+
 import type { DataClient } from '#/lib/data-client'
 import {
   createPlateDesign,
@@ -18,6 +20,8 @@ import { trackPlateAssayQc } from '#/lib/run-qc'
 
 import type { FeatureActionResult } from '../define'
 import type { PlateAssaysAction } from './cards'
+
+const storedLayout = z.record(z.string(), z.json())
 
 /** Runs the card in the person's own session, so their access applies. */
 export async function runPlateAssaysAction(
@@ -90,8 +94,8 @@ export async function runPlateAssaysAction(
         format: action.format,
         rows: action.rows,
         cols: action.cols,
-        // A plain JSON copy: the layout is stored as JSONB.
-        layout: JSON.parse(JSON.stringify(action.layout)),
+        // Stored as JSONB, so it has to be plain JSON.
+        layout: storedLayout.parse(action.layout),
       })
 
       return { openHref: '/plates' }

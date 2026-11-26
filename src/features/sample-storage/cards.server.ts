@@ -233,7 +233,8 @@ async function findShipment(
     }&select=id,number,status,counterparty,carrier,tracking_reference,expected_on,notes&order=number.desc&limit=8`,
   )
 
-  const usable = rows.filter((row) => statuses.includes(row.status))
+  const allowed = new Set(statuses)
+  const usable = rows.filter((row) => allowed.has(row.status))
 
   if (usable.length === 0 && rows.length > 0) {
     return {

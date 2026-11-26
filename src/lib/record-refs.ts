@@ -8,8 +8,9 @@ import { useEffect, useState } from 'react'
 
 import { notebookDataClient } from '#/lib/notebook-data'
 
-/** Matches the identifier families that have a page of their own. */
-export const RECORD_REF = /\b(?:EXP|SMP|MAT|PRT|DS|INS|PRJ|PL|AN)-\d{3,6}\b/g
+import { RECORD_REF } from '#/lib/record-ref-pattern'
+
+export { RECORD_REF }
 
 interface RefSource {
   table: string

@@ -2,7 +2,8 @@ import { cleanup, render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, describe, expect, it } from 'vitest'
 
-import { StepList, stepCallOf } from './steps'
+import { stepCallOf } from './step-call'
+import { StepList } from './steps'
 
 const Plain = ({ text }: { text: string }) => <span>{text}</span>
 

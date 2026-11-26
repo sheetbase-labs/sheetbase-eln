@@ -51,7 +51,7 @@ export function toChatTurns(messages: UIMessage[]): ChatTurn[] {
     const content =
       cards.length === 0
         ? text
-        : `${text}\n\n[Cards you showed with this answer, and what became of them: ${cards.join('; ')}]`.trim()
+        : `${text}\n\n[Cards you showed with this answer, and what became of them (APPLIED means it exists; if you need the earlier chats' cards use the assistant-created tool): ${cards.join('; ')}]`.trim()
 
     if (content === '') continue
     turns.push({ role: message.role, content })

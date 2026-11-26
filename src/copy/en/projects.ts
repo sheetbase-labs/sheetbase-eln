@@ -1970,6 +1970,12 @@ export const projects = {
     workspace: 'Workspace',
   },
   experimentsList: {
+    filter: {
+      id: 'ID',
+      title: 'Title',
+      assignee: 'Assigned to',
+      plannedEnd: 'Planned end',
+    },
     tabs: {
       open: 'Open',
       all: 'All',

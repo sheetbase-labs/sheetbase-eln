@@ -3573,6 +3573,14 @@ export const library = {
         'Unsigned records are still on this version. Ask their owners to update them or finish and sign them, then retire.',
     },
   },
+  listFilter: {
+    add: 'Filter',
+    addCount: 'Filter ({count})',
+    title: 'Filter this list',
+    chipsLabel: 'Active filters',
+    clear: 'Clear filters',
+    noMatches: 'Nothing matches these filters.',
+  },
   listView: {
     options: 'Columns and export',
     columns: 'Columns',

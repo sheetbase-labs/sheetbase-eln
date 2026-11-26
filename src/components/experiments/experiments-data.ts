@@ -8,6 +8,7 @@ import { now } from '#/lib/clock'
 import { notebookDataClient } from '#/lib/notebook-data'
 import { listByIds } from '#/lib/chunk-ids'
 import { containsPattern } from '#/lib/postgrest-contains'
+import type { PostgrestColumns } from '#/lib/list-filter'
 import {
   fetchWorkspaceMemberIdentities,
   workspaceMemberQueryKeys,
@@ -116,6 +117,11 @@ interface ExperimentStatusMeta {
   tab: ExperimentStatusTab
 }
 
+/** Every status an experiment can hold, with its label: the Status filter's choices. */
+export function experimentStatusOptions(): { value: string; label: string }[] {
+  return [...STATUS].map(([value, meta]) => ({ value, label: meta.label }))
+}
+
 const STATUS = new Map<string, ExperimentStatusMeta>(
   Object.entries({
     draft: {
@@ -203,6 +209,22 @@ export interface ExperimentListScope {
    * cannot see names, so the app names them and the read matches their IDs. */
   matchProjectIds?: string[]
   matchOwnerIds?: string[]
+  /** The person's column filter, as a PostgREST `and=(...)` clause. */
+  columnFilter?: string
+}
+
+/** The columns the experiments list can be filtered by, as the database holds them. */
+export const EXPERIMENT_FILTER_COLUMNS: PostgrestColumns = {
+  identifier: 'identifier',
+  title: 'title',
+  status: { column: 'status', kind: 'exact' },
+  project: { column: 'project_id', kind: 'exact' },
+  owner: { column: 'created_by_user_id', kind: 'exact' },
+  assignee: { column: 'assignee_user_id', kind: 'exact' },
+  reviewer: { column: 'reviewer_user_id', kind: 'exact' },
+  plannedEnd: { column: 'planned_end', kind: 'date' },
+  created: { column: 'created_at', kind: 'date' },
+  updated: { column: 'updated_at', kind: 'date' },
 }
 
 export interface ExperimentListFilter extends ExperimentListScope {
@@ -299,6 +321,8 @@ export function experimentListFilters(filter: ExperimentListFilter): string[] {
     clauses.push(`or=(${alternatives.join(',')})`)
   }
 
+  if (filter.columnFilter) clauses.push(filter.columnFilter)
+
   return clauses
 }
 
@@ -380,6 +404,19 @@ export function useExperimentRecords(
 
 export type ExperimentTabCounts = Record<ExperimentTabKey, number>
 
+const TAB_KEYS: readonly ExperimentTabKey[] = [
+  'open',
+  'all',
+  'mine',
+  'inprogress',
+  'onhold',
+  'inreview',
+  'approved',
+  'planned',
+  'drafts',
+  'archived',
+]
+
 /** Every tab a count is kept for, in strip order, each starting at zero. */
 const EMPTY_TAB_COUNTS: ExperimentTabCounts = {
   open: 0,
@@ -420,6 +457,23 @@ export function useExperimentTabCounts(
     enabled: enabled && Boolean(userId),
     placeholderData: keepPreviousData,
     queryFn: async (): Promise<ExperimentTabCounts> => {
+      // The grouped count knows nothing of a column filter, so under one each
+      // tab is counted by the same read that lists it.
+      if (scope.columnFilter) {
+        const counts: ExperimentTabCounts = { ...EMPTY_TAB_COUNTS }
+
+        await Promise.all(
+          TAB_KEYS.map(async (tab) => {
+            counts[tab] = await client.count(
+              'records',
+              `?${experimentListFilters({ ...scope, tab, userId }).join('&')}`,
+            )
+          }),
+        )
+
+        return counts
+      }
+
       const params = [`p_user_id=${encodeURIComponent(userId ?? '')}`]
 
       if (scope.projectId)

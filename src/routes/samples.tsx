@@ -78,9 +78,15 @@ import {
   useSampleList,
   useSampleTabCounts,
   useStorageLocations,
+  SAMPLE_FILTER_COLUMNS,
 } from '#/components/samples/samples-data'
 import type { SampleListRow } from '#/components/samples/samples-data'
 import { parseCreateContext } from '#/lib/create-context-search'
+import { filterSearch, filterToPostgrest } from '#/lib/list-filter'
+import type { FilterParam } from '#/lib/search-filter'
+import type { ListFilter } from '#/components/inventory/list-filter'
+import { useListFilter } from '#/components/inventory/use-list-filter'
+import { useSampleFilterFields } from '#/components/samples/sample-filter-fields'
 import { linkExperimentToSample } from '#/lib/notebook-create'
 import { hasCapability } from '#/lib/capability'
 import { createSample, fetchSample } from '#/lib/samples'
@@ -127,6 +133,7 @@ const tabLabel: Record<SampleTab, string> = {
 /** What the samples list reads from the URL. */
 interface SamplesSearch {
   q?: string
+  filter?: FilterParam
   tab?: SampleTab
   new?: boolean
   bulk?: boolean
@@ -160,6 +167,7 @@ export const Route = createFileRoute('/samples')({
     // is registered for, and where closing the dialog goes back to.
     ...pickSampleContext(search),
     q: textParam.parse(search.q),
+    ...filterSearch(search.filter),
     // The project in view travels in, so a registration starts on it.
     project: namedParam.parse(search.project),
     selected: textParam.parse(search.selected),
@@ -639,6 +647,7 @@ function SamplesListHeader({
   counts,
   tab,
   searchQuery,
+  filterParam,
   canWrite,
   hasRows,
   onPrint,
@@ -648,6 +657,7 @@ function SamplesListHeader({
   counts: ReturnType<typeof useSampleTabCounts>['data']
   tab: SampleTab
   searchQuery: string
+  filterParam: FilterParam | undefined
   canWrite: boolean
   hasRows: boolean
   onPrint: () => void
@@ -681,6 +691,7 @@ function SamplesListHeader({
               search: {
                 tab: item === 'instock' ? undefined : item,
                 q: searchQuery,
+                filter: filterParam,
               },
             },
           }))}
@@ -745,6 +756,9 @@ function SamplesList() {
   // numbers cover every sample, not just the ones loaded.
   const view = useListView('samples')
 
+  const filter = useListFilter(useSampleFilterFields())
+  const filterClause = filterToPostgrest(filter.tree, SAMPLE_FILTER_COLUMNS)
+
   const page = useSampleList(
     tab,
     context.user.id,
@@ -752,9 +766,15 @@ function SamplesList() {
     limit,
     undefined,
     view.sorting,
+    filterClause,
   )
 
-  const tabCounts = useSampleTabCounts(context.user.id, q || undefined)
+  const tabCounts = useSampleTabCounts(
+    context.user.id,
+    q || undefined,
+    undefined,
+    filterClause,
+  )
   const counts = tabCounts.data
 
   const onScrollLoad = useScrollLoad({
@@ -862,6 +882,7 @@ function SamplesList() {
           counts={counts}
           tab={tab}
           searchQuery={q}
+          filterParam={search.filter}
           canWrite={canWrite}
           hasRows={visible.length > 0}
           onPrint={() => setPrintOpen(true)}
@@ -876,6 +897,7 @@ function SamplesList() {
           }
         />
         <SamplesListBody
+          filter={filter}
           page={page}
           visible={visible}
           view={view}
@@ -937,6 +959,7 @@ function SamplesList() {
 
 /** The list itself: the search box, the bulk bar, the grid and its phone rows. */
 function SamplesListBody({
+  filter,
   page,
   visible,
   view,
@@ -956,6 +979,7 @@ function SamplesListBody({
   onScrollLoad,
   canWrite,
 }: {
+  filter: ListFilter
   page: ReturnType<typeof useSampleList>
   visible: SampleListRow[]
   view: ReturnType<typeof useListView>
@@ -982,6 +1006,7 @@ function SamplesListBody({
         label={t('library.samples.list.searchSamples')}
         placeholder={t('library.samples.list.searchByIdNameLocation')}
         onSearch={onSearch}
+        filter={filter}
       />
       <RecordBulkBar
         selection={bulk}

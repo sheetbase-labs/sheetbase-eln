@@ -1,5 +1,5 @@
 import { Tabs as TabsPrimitive } from '@base-ui/react/tabs'
-import { Link, useLocation } from '@tanstack/react-router'
+import { Link } from '@tanstack/react-router'
 import type { LinkProps } from '@tanstack/react-router'
 import { Icon } from '#/components/icons'
 import {
@@ -201,6 +201,8 @@ export type TabsProps =
        * one row instead of three. Desktop shows every tab.
        */
       phoneKeep?: number
+      /** A list's tabs: each link keeps the column `filter` the page holds. */
+      keepFilter?: boolean
     }
 
 /** The tab strip: `mode="state"` for in-page tabs, `mode="url"` for tabs that are routes. */
@@ -239,20 +241,13 @@ function StateTabs({
 }
 
 /**
- * A list's column filter stays when its tab changes: each link back to the
- * page you are on carries the `filter` already in the URL.
+ * A list's column filter stays when its tab changes: a link with its own
+ * search object keeps whatever `filter` the page it leaves already holds.
  */
-function carryFilter<Item extends { link: LinkProps }>(
-  item: Item,
-  location: { pathname: string; search: unknown },
-): Item {
-  // SAFETY: Router search is a plain object of URL values; only its `filter` key is read.
-  const filter = (location.search as { filter?: unknown } | undefined)?.filter
+function carryFilter<Item extends { link: LinkProps }>(item: Item): Item {
   const search: unknown = item.link.search
 
   if (
-    filter === undefined ||
-    item.link.to !== location.pathname ||
     search === null ||
     // oxlint-disable-next-line anti-slop/no-runtime-typeof -- A link's search is an object or an updater function.
     typeof search !== 'object' ||
@@ -260,8 +255,11 @@ function carryFilter<Item extends { link: LinkProps }>(
   )
     return item
 
-  // SAFETY: The link's search is an object (checked above); adding one key keeps it a valid search for the same route.
-  const carried = { ...search, filter } as LinkProps['search']
+  // SAFETY: The updater reads one key of the current page's search; the link's own keys stay as written.
+  const carried = ((prev: { filter?: unknown }) => ({
+    ...search,
+    filter: prev.filter,
+  })) as LinkProps['search']
 
   return { ...item, link: { ...item.link, search: carried } }
 }
@@ -273,9 +271,9 @@ function UrlTabs({
   variant = 'strip',
   className,
   phoneKeep,
+  keepFilter = false,
 }: Extract<TabsProps, { mode: 'url' }>) {
-  const location = useLocation()
-  const items = tabItems.map((item) => carryFilter(item, location))
+  const items = keepFilter ? tabItems.map(carryFilter) : tabItems
 
   // The tabs a phone moves into the More menu: those past `phoneKeep`, except
   // the one you are on, which stays in the row so you can see where you are.

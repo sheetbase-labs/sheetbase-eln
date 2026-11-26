@@ -43,6 +43,7 @@ globalThis.ResizeObserver = class {
 
 // oxlint-disable-next-line anti-slop/no-module-mocking -- The file-route factory is bound to the generated route tree at build time, so this suite renders the studio components directly and supplies the router context the shell would.
 vi.mock('@tanstack/react-router', () => ({
+  useSearch: () => ({}),
   createFileRoute: () => () => ({ useRouteContext: () => ({}) }),
   getRouteApi: () => ({ useRouteContext: () => ({}) }),
   redirect: <TOptions,>(options: TOptions) => options,

@@ -109,6 +109,7 @@ vi.mock('@tanstack/react-router', () => ({
   ),
   Outlet: () => <div data-testid="outlet" />,
   redirect: <TOptions,>(options: TOptions) => options,
+  useSearch: () => ({}),
   useNavigate: () => navigate,
   useRouterState: <TSelected,>({
     select,

@@ -225,6 +225,7 @@ function TemplatesList() {
             <Tabs
               mode="url"
               label={t('library.templates.list.templateLists')}
+              keepFilter
               value={tab}
               items={tabs.map((item) => ({
                 key: item,

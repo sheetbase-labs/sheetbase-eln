@@ -21,6 +21,7 @@ const hoisted: RouterDouble = vi.hoisted(() => ({
 
 // oxlint-disable-next-line anti-slop/no-module-mocking -- The route resolves its params and navigate from the router at import time, so the test renders it through a router double.
 vi.mock('@tanstack/react-router', () => ({
+  useSearch: () => ({}),
   createFileRoute: () => (config: { component?: React.ComponentType }) => {
     hoisted.component = config.component
 

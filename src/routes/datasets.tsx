@@ -397,6 +397,7 @@ function DatasetListHeader({
         <Tabs
           mode="url"
           label={t('data.datasetsList.datasetLists')}
+          keepFilter
           value={tab}
           items={tabs.map((tabId) => ({
             key: tabId,

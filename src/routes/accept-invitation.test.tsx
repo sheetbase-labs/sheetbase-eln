@@ -6,6 +6,7 @@ import { AcceptInvitationSurface, Route } from './accept-invitation'
 
 // oxlint-disable-next-line anti-slop/no-module-mocking -- The route module builds its route object from createFileRoute at import time; the test drives that route's beforeLoad and the surface it returns, which needs the framework's factories replaced.
 vi.mock('@tanstack/react-router', () => ({
+  useSearch: () => ({}),
   createFileRoute:
     () =>
     <TOptions,>(options: TOptions) => ({ options }),

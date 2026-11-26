@@ -311,6 +311,7 @@ function ReportTabs({
     <Tabs
       mode="url"
       label={t('projects.reports.page.lists')}
+      keepFilter
       value={tab}
       items={tabs.map((item) => ({
         key: item,

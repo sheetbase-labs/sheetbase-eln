@@ -36,6 +36,7 @@ vi.mock('@tanstack/react-router', () => ({
     useSearch: () => search.value,
     options: config,
   }),
+  useSearch: () => ({}),
   useNavigate: () => vi.fn(),
   useRouterState: () => true,
   Outlet: () => null,

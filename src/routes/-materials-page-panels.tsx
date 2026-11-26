@@ -178,6 +178,7 @@ export function MaterialsHeader({
         <Tabs
           mode="url"
           label={t('library.materials.page.materialLists')}
+          keepFilter
           value={tab}
           items={tabs.flatMap((item) =>
             item !== 'spend' || canPlaceOrders

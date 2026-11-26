@@ -629,6 +629,7 @@ function PipelinesHeader({
           <Tabs
             mode="url"
             label={t('data.pipelinesList.pipelineLists')}
+            keepFilter
             value={tab}
             items={tabs.map((tabId) => ({
               key: tabId,

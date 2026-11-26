@@ -73,6 +73,8 @@ vi.mock('@tanstack/react-router', () => ({
     useSearch: () => search.value,
     useNavigate: () => (options: NavigateCall) => navigate.fn(options),
   }),
+  useSearch: () => search.value,
+  useNavigate: () => (options: NavigateCall) => navigate.fn(options),
   redirect: <T,>(options: T): T => options,
   useRouterState: <T,>({
     select,

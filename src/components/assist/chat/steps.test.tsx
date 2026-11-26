@@ -1,12 +1,10 @@
 import { cleanup, render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it } from 'vitest'
 
 import { StepList, stepCallOf } from './steps'
 
-vi.mock('#/components/ui/linked-text', () => ({
-  LinkedText: ({ text }: { text: string }) => <span>{text}</span>,
-}))
+const Plain = ({ text }: { text: string }) => <span>{text}</span>
 
 afterEach(cleanup)
 
@@ -24,6 +22,7 @@ describe('StepList', () => {
 
     render(
       <StepList
+        Text={Plain}
         calls={[
           search('PicoGreen'),
           stepCallOf({
@@ -51,6 +50,7 @@ describe('StepList', () => {
   it('shows the records a lookup found and why a step failed', () => {
     render(
       <StepList
+        Text={Plain}
         calls={[
           search('PicoGreen'),
           stepCallOf({

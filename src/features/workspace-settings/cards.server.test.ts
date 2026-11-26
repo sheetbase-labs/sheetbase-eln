@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 
 import { ASSISTANT_PROPOSE_TOOL_NAMES } from '#/lib/agent-tool-catalogue'
-import { plainWords } from '#/lib/assistant-admin-cards.server'
+import { plainProposal, plainWords } from '#/lib/assistant-proposals'
 import { context } from '#/lib/assistant-admin-cards.fixture'
 
 import {
@@ -99,8 +99,10 @@ describe('the workspace settings cards', () => {
     )
 
     if (!result.ok) throw new Error(result.message)
-    expect(result.proposal.title).toBe('Set require change reason')
-    expect(result.proposal.summary).toBe('lock on sign stays')
+    const shown = plainProposal(result.proposal)
+
+    expect(shown.title).toBe('Set require change reason')
+    expect(shown.summary).toBe('lock on sign stays')
   })
 
   it('says so when a setting already is what was asked', async () => {

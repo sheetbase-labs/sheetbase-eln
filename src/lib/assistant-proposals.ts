@@ -340,3 +340,27 @@ export function proposalFromOutput(output: unknown): AssistantProposal | null {
   // SAFETY: the chat server attaches the proposal it built as an AssistantProposal, and the checks above establish the keys the card switches on.
   return proposal as AssistantProposal
 }
+
+/**
+ * Field names in card wording, as plain words: `requireChangeReason` and
+ * `p_require_change_reason` both read "require change reason". The person never
+ * sees an identifier, whatever the model wrote.
+ */
+export function plainWords(text: string): string {
+  return text
+    .replaceAll(/\b(?:p_)?[a-z]+(?:_[a-z0-9]+)+\b/g, (word) =>
+      word.replace(/^p_/, '').replaceAll('_', ' '),
+    )
+    .replaceAll(/\b[a-z]+(?:[A-Z][a-z0-9]*)+\b/g, (word) =>
+      word.replaceAll(/[A-Z]/g, (letter) => ` ${letter.toLowerCase()}`),
+    )
+}
+
+/** A card as the person sees it: title and summary with no field names in them. */
+export function plainProposal(proposal: AssistantProposal): AssistantProposal {
+  return {
+    ...proposal,
+    title: plainWords(proposal.title),
+    summary: plainWords(proposal.summary),
+  }
+}

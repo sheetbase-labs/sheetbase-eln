@@ -11,7 +11,7 @@ import type { DataClient } from '#/lib/data-client'
  * it is now and still catches a real edit made after the card was shown.
  */
 export async function withCurrentStructureVersion(
-  client: DataClient,
+  client: Pick<DataClient, 'list'>,
   operation: AgentOperation,
 ): Promise<AgentOperation> {
   if (operation.kind !== 'notebook_block.insert') return operation

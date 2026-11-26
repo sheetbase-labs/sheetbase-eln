@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import type { Meta, StoryObj } from '@storybook/tanstack-react'
 
+import { AssistantLink } from '#/components/assist/chat/assistant-link'
 import {
   Conversation,
   ConversationContent,
@@ -61,6 +62,26 @@ export const Turns: Story = {
         </ConversationContent>
         <ConversationScrollButton />
       </Conversation>
+    </div>
+  ),
+}
+
+/**
+ * Links in an answer. Anything that is this app opens in-app; a record
+ * reference is the shared record link (peek, Alt-click beside); only a real
+ * external address asks first.
+ */
+export const Links: Story = {
+  render: () => (
+    <div className="w-[440px] p-4">
+      <MessageResponse mode="static">
+        {
+          'Open [EXP-4302](/records/EXP-4302), the [AI settings](/settings/ai) or [the docs](https://example.com/docs).'
+        }
+      </MessageResponse>
+      <p className="mt-3 text-body">
+        <AssistantLink href="/records/EXP-4302">EXP-4302</AssistantLink>
+      </p>
     </div>
   ),
 }

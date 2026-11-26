@@ -4,6 +4,10 @@ import { Streamdown } from 'streamdown'
 
 import { cn } from '#/lib/utils'
 
+import { AssistantLink } from './assistant-link'
+
+const RESPONSE_COMPONENTS = { a: AssistantLink }
+
 /**
  * One turn in the conversation, after the AI Elements `Message`. The person's
  * words sit in a soft bubble on the right; the assistant's answer runs flat on
@@ -53,6 +57,7 @@ export const MessageResponse = memo(
         className,
       )}
       controls={false}
+      components={RESPONSE_COMPONENTS}
       {...props}
     />
   ),

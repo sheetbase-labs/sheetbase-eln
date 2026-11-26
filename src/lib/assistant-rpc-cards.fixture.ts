@@ -1,5 +1,6 @@
 import type { core } from 'zod'
 
+import type { ChatAttachment } from './assistant-attachments'
 import type { LabToolContext } from './assistant-lab-tools.server'
 import { rpcFamily } from './assistant-rpc-cards.server'
 import type { RpcCard } from './assistant-rpc-cards.server'
@@ -19,7 +20,10 @@ const urlOf = (input: Parameters<typeof fetch>[0]): URL =>
   input instanceof Request ? new URL(input.url) : new URL(input, 'http://x')
 
 /** Answers each table by name; anything not listed is empty. */
-export function context(tables: Tables): LabToolContext {
+export function context(
+  tables: Tables,
+  attachments: ChatAttachment[] = [],
+): LabToolContext {
   const fetchFixture: typeof fetch = async (input) => {
     const url = urlOf(input)
 
@@ -34,6 +38,7 @@ export function context(tables: Tables): LabToolContext {
     workspaceId: 'ws',
     userId: 'me',
     timeZone: 'Europe/London',
+    attachments,
   }
 }
 
@@ -53,11 +58,12 @@ export async function ask(
   tool: string,
   input: Record<string, core.util.JSONType>,
   tables: Tables,
+  attachments: ChatAttachment[] = [],
 ): Promise<Asked> {
   const result = await rpcFamily(cards).build(
     tool,
     { ...base, ...input },
-    context(tables),
+    context(tables, attachments),
   )
 
   if (!result.ok) return { ok: false, message: result.message }

@@ -45,6 +45,16 @@ export const DATASET_CARDS = [
     words: ['Promote calculation', 'Promoting…', 'Calculation promoted'],
     does: 'promote a sheet calculation',
   },
+  {
+    tool: 'sheetbase.dataset.import_file',
+    covers: [
+      'commit_dataset_import',
+      'commit_dataset_row_batch',
+      'commit_dataset_row_batch_atomic',
+    ],
+    words: ['Import', 'Importing…', 'Imported'],
+    does: 'import a file into a dataset',
+  },
 ] as const satisfies readonly RpcCardInfo[]
 
 export type DatasetCardsProposeToolName = (typeof DATASET_CARDS)[number]['tool']

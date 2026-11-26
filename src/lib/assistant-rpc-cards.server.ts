@@ -127,7 +127,7 @@ export function rpcFamily(cards: ReadonlyArray<RpcCard>) {
 // Lookups by the words people use: a display ID (DS-0311) or a name.
 // ---------------------------------------------------------------------------
 
-const isUuid = (text: string): boolean =>
+export const isUuid = (text: string): boolean =>
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
     text.trim(),
   )

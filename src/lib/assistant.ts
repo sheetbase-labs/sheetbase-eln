@@ -1,5 +1,6 @@
 import { z } from 'zod'
 
+import { recordRefsIn } from './record-ref-pattern'
 import { AI_OBJECT_REF_KINDS, assembleAiContext } from './ai-context'
 import type {
   AiContextActor,
@@ -449,6 +450,10 @@ export type AssistantStreamEvent =
       /** Parsed arguments, when they were valid JSON. */
       input?: unknown
       ok?: boolean
+      /** Identifiers of the records the result named, for the step list to link. */
+      refs?: string[]
+      /** Why the call failed, in the words the tool gave. */
+      error?: string
       /** Set when the call proposed a change for the person to apply. */
       proposal?: AssistantProposal
     }
@@ -662,7 +667,10 @@ export async function streamAssistant(
             // react-doctor-disable-next-line react-doctor/async-await-in-loop -- Each lookup's start and end events are yielded in the order the model asked for them, and its result is appended to the conversation in that order.
             result = await toolkit.run(call.name, call.arguments)
           } catch {
-            result = { text: 'The lookup could not complete.', isError: true }
+            result = {
+              text: 'Something went wrong while running it.',
+              isError: true,
+            }
           }
         }
 
@@ -672,6 +680,8 @@ export async function streamAssistant(
           name,
           phase: 'end',
           ok: !result.isError,
+          refs: result.isError ? undefined : recordRefsIn(result.text),
+          error: result.isError ? result.text.trim().slice(0, 200) : undefined,
           proposal: result.proposal,
         }
         messages.push({

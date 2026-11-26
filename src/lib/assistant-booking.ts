@@ -1,3 +1,4 @@
+import { loadChunk } from './stale-chunk'
 import { z } from 'zod'
 
 import { cancelBooking, createBooking, editBooking } from './calendar'
@@ -190,62 +191,77 @@ export async function runAssistantAction(
     default: {
       if (isPlanningAction(action)) {
         // Planning jobs load only when a card's button is pressed.
-        const { runPlanningAction } = await import('./assistant-planning-run')
+        const { runPlanningAction } = await loadChunk(
+          () => import('./assistant-planning-run'),
+        )
 
         return runPlanningAction(client, action)
       }
 
       if (isLabworkAction(action)) {
         // Lab-work jobs load only when a card's button is pressed.
-        const { runLabworkAction } = await import('./assistant-labwork-run')
+        const { runLabworkAction } = await loadChunk(
+          () => import('./assistant-labwork-run'),
+        )
 
         return runLabworkAction(client, action)
       }
 
       if (isExtensionToolAction(action)) {
         // Extension tools load only when a card's button is pressed.
-        const { runExtensionToolAction } =
-          await import('./assistant-extensions-run')
+        const { runExtensionToolAction } = await loadChunk(
+          () => import('./assistant-extensions-run'),
+        )
 
         return runExtensionToolAction(action)
       }
 
       if (isAutomationAction(action)) {
-        const { runAutomationAction } =
-          await import('./assistant-automation-run')
+        const { runAutomationAction } = await loadChunk(
+          () => import('./assistant-automation-run'),
+        )
 
         return runAutomationAction(client, action)
       }
 
       if (isPlannerAction(action)) {
-        const { runPlannerAction } = await import('./assistant-planner-run')
+        const { runPlannerAction } = await loadChunk(
+          () => import('./assistant-planner-run'),
+        )
 
         return runPlannerAction(client, action)
       }
 
       if (isStudiesAction(action)) {
         // Planning and reporting jobs load only when a card's button is pressed.
-        const { runStudiesAction } = await import('./assistant-studies-run')
+        const { runStudiesAction } = await loadChunk(
+          () => import('./assistant-studies-run'),
+        )
 
         return runStudiesAction(client, action)
       }
 
       if (isInstrumentsAction(action)) {
-        const { runInstrumentsAction } =
-          await import('./assistant-instruments-run')
+        const { runInstrumentsAction } = await loadChunk(
+          () => import('./assistant-instruments-run'),
+        )
 
         return runInstrumentsAction(client, action)
       }
 
       if (isQcAction(action)) {
-        const { runQcAction } = await import('./assistant-qc-run')
+        const { runQcAction } = await loadChunk(
+          () => import('./assistant-qc-run'),
+        )
 
         return runQcAction(client, action)
       }
 
       if (isPlatesAction(action)) {
         // Plate jobs load only when a card's button is pressed.
-        const { runPlatesAction } = await import('./assistant-plates-run')
+        const { runPlatesAction } = await loadChunk(
+          () => import('./assistant-plates-run'),
+        )
 
         return runPlatesAction(client, action)
       }
@@ -259,14 +275,18 @@ export async function runAssistantAction(
 
       if (isUpkeepAction(action)) {
         // Upkeep jobs load only when a card's button is pressed.
-        const { runUpkeepAction } = await import('./assistant-upkeep-run')
+        const { runUpkeepAction } = await loadChunk(
+          () => import('./assistant-upkeep-run'),
+        )
 
         return runUpkeepAction(client, action)
       }
 
       // Bench jobs load only when a card's button is pressed. Every other
       // kind was handled above, feature cards included.
-      const { runBenchAction } = await import('./assistant-bench-run')
+      const { runBenchAction } = await loadChunk(
+        () => import('./assistant-bench-run'),
+      )
 
       // SAFETY: the three booking cases returned above and every other AssistantAction member is claimed by a guard before this point (planning, labwork, extension tools, automation, planner, feature cards, upkeep, studies, instruments, qc, plates), so assistant-bench owns what is left.
       await runBenchAction(client, action as BenchAction)

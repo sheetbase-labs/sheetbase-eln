@@ -1,4 +1,5 @@
 import * as React from 'react'
+import { installStaleChunkReload } from '#/lib/stale-chunk'
 import { startOfflineSupport } from '#/lib/offline/service-worker'
 import { splashLinks, THEME_COLOURS } from '#/lib/pwa/splash'
 import { setDisplayTimeZone } from '#/lib/display-time-zone'
@@ -387,6 +388,9 @@ function AppRoot() {
   // is a no-op when `beforeLoad` already did.
   setDisplayTimeZone(auth?.timeZone)
   setDisplayClock(auth?.clock)
+
+  // A deploy replaces the script files this tab holds; reload to get the new ones.
+  React.useEffect(() => installStaleChunkReload(), [])
 
   // Offline: register the service worker once signed in, so the app opens
   // without a connection and queued edits can sync in the background.

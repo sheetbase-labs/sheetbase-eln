@@ -1,5 +1,7 @@
 import { useEffect } from 'react'
 
+import { isStaleChunkReason } from './stale-chunk'
+
 /**
  * When a card or a plan step fails to apply, the assistant is told in the same
  * chat so it can explain the failure and offer a fixed card without the person
@@ -22,6 +24,8 @@ const reported = new Set<string>()
 
 /** Tells the open chat that an applied card failed. A card is reported once. */
 export function reportActionFailure(failure: ActionFailure): void {
+  // An out-of-date page is not something the assistant can fix.
+  if (isStaleChunkReason(failure.reason)) return
   if (reported.has(failure.id)) return
 
   reported.add(failure.id)

@@ -22,6 +22,8 @@ const CORE_TOOLS: ReadonlySet<string> = new Set([
   'sheetbase__lab__list',
   // Dependent changes travel as one plan card, so the model must always be able to reach it.
   'sheetbase__plan__propose',
+  'sheetbase__record__read',
+  'sheetbase__assistant__created',
 ])
 
 /** Most tools sent on top of the core. */

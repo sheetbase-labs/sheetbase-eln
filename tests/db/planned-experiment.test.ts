@@ -273,3 +273,72 @@ describe('creating an experiment from a plan', () => {
     expect(rows[0].n).toBe(0)
   })
 })
+
+describe('an experiment that starts from a notebook template', () => {
+  it('has the template notebook content, not an empty page', async () => {
+    const configuration = {
+      formatVersion: 1,
+      parameters: [],
+      placements: [
+        {
+          id: crypto.randomUUID(),
+          kind: 'narrative',
+          order: 1,
+          blockType: 'rich_text',
+          payload: {
+            doc: {
+              type: 'doc',
+              content: [
+                {
+                  type: 'paragraph',
+                  content: [{ type: 'text', text: 'Dilute the dye 1:200' }],
+                },
+              ],
+            },
+          },
+        },
+      ],
+    }
+
+    const created = (
+      await owner.query(
+        `select api.create_notebook_template($1,$2,'Dye assay',null,$3::jsonb) result`,
+        [WS, `dye_${Date.now()}`, JSON.stringify(configuration)],
+      )
+    ).rows[0].result
+
+    const published = (
+      await owner.query(
+        `select to_jsonb(api.publish_notebook_template_version($1,$2,'Published')) result`,
+        [created.version.id, created.version.revision],
+      )
+    ).rows[0].result
+
+    const made = (
+      await owner.query(
+        `select api.create_planned_experiment($1,$2::jsonb) as r`,
+        [
+          PROJECT,
+          JSON.stringify({
+            summary: 'From a template.',
+            experiment: {
+              title: 'Dye run',
+              notebookTemplateVersionId: published.id,
+            },
+            parts: [{ title: 'Milestone 1', dayOffset: 0 }],
+            samples: [],
+            schedule: false,
+            warnings: [],
+          }),
+        ],
+      )
+    ).rows[0].r
+
+    const blocks = await owner.query(
+      `select count(*)::int n from api.blocks where record_id = $1`,
+      [made.recordId],
+    )
+
+    expect(blocks.rows[0].n).toBeGreaterThan(0)
+  })
+})

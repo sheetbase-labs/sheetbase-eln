@@ -84,6 +84,8 @@ export interface ExperimentPlan {
     title: string
     templateRecordId?: string | null
     templateLabel?: string
+    /** A notebook template version (TPL-0004) the experiment's notebook starts from. */
+    notebookTemplateVersionId?: string | null
   }
   parts: PlanPart[]
   plate?: { name: string; format: PlateFormat; wells: PlanWell[] } | null

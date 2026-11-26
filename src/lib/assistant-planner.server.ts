@@ -54,6 +54,69 @@ export function plannerProposalDefs(): ProviderToolDef[] {
   ]
 }
 
+interface NotebookTemplate {
+  versionId: string
+  label: string
+}
+
+/** The latest published version of the notebook template the person named, or none when they named none. */
+async function findNotebookTemplate(
+  context: LabToolContext,
+  text: string | undefined,
+): Promise<
+  | Lookup<NotebookTemplate | null>
+  | { ok: true; value: null; unpublished: string }
+> {
+  if (!text) return { ok: true, value: null }
+  const like = likeValue(text)
+
+  const rows = await context.client.list<{
+    id: string
+    display_id: string | null
+    name: string
+  }>(
+    'notebook_templates',
+    `?lifecycle=eq.active&or=(display_id.ilike.${like},name.ilike.${like})&select=id,display_id,name&order=updated_at.desc&limit=6`,
+  )
+
+  const lower = text.trim().toLowerCase()
+
+  const found = pick(
+    rows,
+    text,
+    'notebook template',
+    (row) => `${row.display_id ?? ''} ${row.name}`,
+    (row) =>
+      row.display_id?.toLowerCase() === lower ||
+      row.name.toLowerCase() === lower,
+  )
+
+  if (!found.ok) return found
+
+  const versions = await context.client.list<{ id: string }>(
+    'notebook_template_versions',
+    `?template_id=eq.${found.value.id}&lifecycle=eq.published&select=id&order=version.desc&limit=1`,
+  )
+
+  const latest = versions.at(0)
+
+  if (!latest) {
+    return {
+      ok: true,
+      value: null,
+      unpublished: found.value.display_id ?? found.value.name,
+    }
+  }
+
+  return {
+    ok: true,
+    value: {
+      versionId: latest.id,
+      label: `${found.value.display_id ?? ''} ${found.value.name}`.trim(),
+    },
+  }
+}
+
 const fail = (message: string): PlannerOutcome => ({ ok: false, message })
 
 interface NamedRecord {
@@ -138,7 +201,18 @@ export async function buildPlannerProposal(
 
   let protocolKey: string | null = null
 
-  if (input.protocol) {
+  // A notebook template (TPL-0004) is not a protocol record: it fills the notebook.
+  const notebook = await findNotebookTemplate(
+    context,
+    input.notebookTemplate ??
+      (input.protocol && /^TPL-/i.test(input.protocol)
+        ? input.protocol
+        : undefined),
+  )
+
+  if (!notebook.ok) return fail(notebook.message)
+
+  if (input.protocol && !(notebook.value && /^TPL-/i.test(input.protocol))) {
     const found = await findRecord(
       context,
       'protocol_template',
@@ -241,6 +315,17 @@ export async function buildPlannerProposal(
     return fail(
       'The plan could not be put together from those details. Check the plate, worklist and samples and try again.',
     )
+
+  if ('unpublished' in notebook) {
+    plan.warnings.push(
+      `${notebook.unpublished} is still a draft, so this experiment's notebook starts empty. Publish the template, then start the experiment from it.`,
+    )
+  }
+
+  if (notebook.value) {
+    plan.experiment.notebookTemplateVersionId = notebook.value.versionId
+    plan.experiment.templateLabel = notebook.value.label
+  }
 
   const counts = plateCounts(plan)
 

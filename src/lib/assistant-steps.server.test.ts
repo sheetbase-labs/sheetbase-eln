@@ -25,6 +25,7 @@ import { proposalToolDefs } from './assistant-proposals'
 import { qcProposalDefs } from './assistant-qc.server'
 import { studiesProposalDefs } from './assistant-studies.server'
 import { upkeepProposalDefs } from './assistant-upkeep.server'
+import { recordReadDefs } from './assistant-record-read.server'
 import { semanticToolDefs } from './semantic-tools.server'
 import {
   READ_STEP_TOOLS,
@@ -47,6 +48,7 @@ const readDefs = [
   ...partsToolDefs(),
   ...gatesToolDefs(),
   ...semanticToolDefs(true),
+  ...recordReadDefs(),
   ...FEATURES.flatMap((feature) => feature.readDefs?.() ?? []),
 ]
 
@@ -137,6 +139,15 @@ describe('every tool the assistant can call has its own step wording', () => {
 })
 
 describe('step wording', () => {
+  it('says a record read as a read, never as a card', () => {
+    expect(
+      callLine(call('sheetbase.record.read', { record: 'EXP-4302' })),
+    ).toBe('Read record EXP-4302')
+    expect(callLine(call('sheetbase.assistant.created', {}))).toBe(
+      'Read what the assistant made',
+    )
+  })
+
   it('names what was searched for and where', () => {
     expect(
       callLine(call('sheetbase.protocol.read', { query: 'PicoGreen' })),

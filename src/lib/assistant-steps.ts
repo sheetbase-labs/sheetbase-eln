@@ -293,6 +293,13 @@ const READ_SPECS = {
   'sheetbase.projects.read': lookupArea('projects'),
   'sheetbase.workspace.read': lookupArea('the workspace'),
   'sheetbase.record_results.read': about('read', 'results of', 'record'),
+  'sheetbase.record.read': (args) => ({
+    verb: 'read',
+    noun: 'record',
+    ref: recordArg(args, 'record'),
+    refFromResult: true,
+  }),
+  'sheetbase.assistant.created': plain('read', 'what the assistant made'),
   'sheetbase.analysis.run': (args) => ({
     verb: 'run',
     noun: `${stringArg(args, 'kind') ?? 'an'} analysis on dataset`,

@@ -76,3 +76,63 @@ export function useRecordFilterFields(): {
     [sources],
   )
 }
+
+const ISO_DATE = /^\d{4}-\d{2}-\d{2}(T|$)/
+
+/** "storage_temp" reads "Storage temp". */
+function humanKey(key: string): string {
+  const spaced = key.replaceAll(/[_-]+/g, ' ').trim()
+
+  return spaced.charAt(0).toUpperCase() + spaced.slice(1)
+}
+
+/**
+ * The fields a model adds to its records, read from the values a list holds:
+ * each key becomes a filter field typed by what it stores (a number, a date, a
+ * yes/no, or text). A key whose values are all empty is left out.
+ */
+export function customValueFields(
+  rows: readonly (Readonly<Record<string, unknown>> | null | undefined)[],
+  prefix = 'fields.',
+): SheetbaseField[] {
+  const seen = new Map<string, SheetbaseField['dataType']>()
+
+  for (const values of rows) {
+    if (!values) continue
+
+    for (const [key, value] of Object.entries(values)) {
+      if (
+        seen.has(key) ||
+        value === null ||
+        value === undefined ||
+        value === ''
+      )
+        continue
+
+      if (typeof value === 'number') seen.set(key, 'number')
+      else if (typeof value === 'boolean') seen.set(key, 'boolean')
+      else if (typeof value === 'string' && ISO_DATE.test(value))
+        seen.set(key, 'date')
+      else if (typeof value === 'string') seen.set(key, 'text')
+    }
+  }
+
+  return [...seen].map(([key, dataType]) => ({
+    id: `${prefix}${key}`,
+    label: humanKey(key),
+    dataType,
+  }))
+}
+
+/** A row's model values under the same ids `customValueFields` gave them. */
+export function customValueRecord(
+  values: Readonly<Record<string, unknown>> | null | undefined,
+  prefix = 'fields.',
+): Record<string, unknown> {
+  return Object.fromEntries(
+    Object.entries(values ?? {}).map(([key, value]) => [
+      `${prefix}${key}`,
+      value,
+    ]),
+  )
+}

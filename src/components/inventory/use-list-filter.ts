@@ -5,6 +5,7 @@ import type {
   SheetbaseField,
 } from '@sheetbase-labs/sheetbase-shared'
 
+import { filterRows } from '#/lib/list-filter'
 import { decodeFilter, encodeFilter } from '#/lib/search-filter'
 import type { ListFilter } from './list-filter'
 
@@ -38,4 +39,24 @@ export function useListFilter(fields: readonly SheetbaseField[]): ListFilter {
     }),
     [fields, tree, navigate],
   )
+}
+
+/**
+ * A filter on rows the list already holds: the URL tree decides which of
+ * `rows` show. `toRecord` names each row's value for every filter field id, and
+ * must keep one identity (a module-level function).
+ */
+export function useClientFilter<T>(
+  fields: readonly SheetbaseField[],
+  rows: readonly T[],
+  toRecord: (row: T) => Record<string, unknown>,
+): { filter: ListFilter; rows: T[] } {
+  const filter = useListFilter(fields)
+
+  const filtered = useMemo(
+    () => filterRows(rows, filter.tree, toRecord),
+    [rows, filter.tree, toRecord],
+  )
+
+  return { filter, rows: filtered }
 }

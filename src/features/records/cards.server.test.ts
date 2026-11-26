@@ -103,6 +103,39 @@ describe('the record cards', () => {
     })
   })
 
+  it('finds a project by its ID as well as its name', async () => {
+    const urls: string[] = []
+
+    const fetchFixture: typeof fetch = async (input) => {
+      urls.push(urlOf(input).search)
+
+      return Response.json(
+        urlOf(input).pathname.endsWith('/projects')
+          ? [{ ...project, display_id: 'PRJ-0008' }]
+          : [],
+      )
+    }
+
+    const result = await buildRecordsProposal(
+      RECORD_CREATE_TOOL,
+      {
+        ...base,
+        kind: 'material',
+        name: 'PicoGreen stock',
+        project: 'PRJ-0008',
+      },
+      {
+        client: createDataClient(fetchFixture),
+        workspaceId: 'ws',
+        userId: 'me',
+        timeZone: 'Europe/London',
+      },
+    )
+
+    if (!result.ok) throw new Error(result.message)
+    expect(urls.some((url) => url.includes('display_id.ilike'))).toBe(true)
+  })
+
   it('sends samples and experiments to their own cards', async () => {
     const result = await buildRecordsProposal(
       RECORD_CREATE_TOOL,

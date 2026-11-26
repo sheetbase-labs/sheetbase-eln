@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from 'vitest'
+import { describe, expect, it } from 'vitest'
 import type { core } from 'zod'
 
 import { ASSISTANT_PROPOSE_TOOL_NAMES } from '#/lib/agent-tool-catalogue'
@@ -51,6 +51,22 @@ const cellLine = {
   key: 'cell_line',
   name: 'Cell line',
   is_registry: true,
+}
+
+/** A client that keeps what it was asked to do, and answers with `reply`. */
+function recorder(reply: core.util.JSONType = {}) {
+  const calls: { name: string; body: string }[] = []
+
+  const fetchFixture: typeof fetch = async (input, init) => {
+    calls.push({
+      name: urlOf(input).pathname.split('/').at(-1) ?? '',
+      body: String(init?.body ?? ''),
+    })
+
+    return Response.json(reply)
+  }
+
+  return { client: createDataClient(fetchFixture), calls }
 }
 
 describe('the record type cards', () => {
@@ -305,23 +321,41 @@ describe('the record type cards', () => {
 })
 
 describe('pressing a record type card', () => {
-  it('sends the fields as the database reads them', async () => {
-    const rpc = vi.fn(async () => ({}))
+  it('leaves out what a cleared plugin type does not name', async () => {
+    const { client, calls } = recorder()
 
-    await runModelsAction(
-      { rpc },
-      {
-        kind: 'model_field.plugin_type',
-        modelKey: 'compound',
-        fieldName: 'structure',
-        pluginKey: null,
-        typeId: null,
-      },
-    )
+    await runModelsAction(client, {
+      kind: 'model_field.plugin_type',
+      modelKey: 'compound',
+      fieldName: 'structure',
+      pluginKey: null,
+      typeId: null,
+    })
 
-    expect(rpc).toHaveBeenCalledWith('set_field_plugin_type', {
+    expect(calls[0].name).toBe('set_field_plugin_type')
+    expect(JSON.parse(calls[0].body)).toEqual({
       p_kind: 'compound',
       p_field_name: 'structure',
+      p_plugin_key: null,
+      p_type_id: null,
+    })
+  })
+
+  it('says only what a field means that the person named', async () => {
+    const { client, calls } = recorder()
+
+    await runModelsAction(client, {
+      kind: 'model_field.semantics',
+      fieldId: 'f1',
+      modelKey: 'cell_line',
+      quantity: { kind: 'volume', unit: 'mL' },
+      cardinality: null,
+      relationship: null,
+    })
+
+    expect(JSON.parse(calls[0].body)).toEqual({
+      p_definition_id: 'f1',
+      p_quantity: { kind: 'volume', unit: 'mL' },
     })
   })
 })

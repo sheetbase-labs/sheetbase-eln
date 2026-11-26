@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from 'vitest'
+import { describe, expect, it } from 'vitest'
 import type { core } from 'zod'
 
 import { ASSISTANT_PROPOSE_TOOL_NAMES } from '#/lib/agent-tool-catalogue'
@@ -62,6 +62,22 @@ const task = (id: string, title: string) => ({
   metadata_version: 2,
   project_id: 'p1',
 })
+
+/** A client that keeps what it was asked to do, and answers with `reply`. */
+function recorder(reply: core.util.JSONType = {}) {
+  const calls: { name: string; body: string }[] = []
+
+  const fetchFixture: typeof fetch = async (input, init) => {
+    calls.push({
+      name: urlOf(input).pathname.split('/').at(-1) ?? '',
+      body: String(init?.body ?? ''),
+    })
+
+    return Response.json(reply)
+  }
+
+  return { client: createDataClient(fetchFixture), calls }
+}
 
 describe('the study and planner cards', () => {
   it('offers every tool, and every tool is on the gateway allowlist', () => {
@@ -255,21 +271,19 @@ describe('the study and planner cards', () => {
 
 describe('pressing a study card', () => {
   it('calls the ordinary RPC', async () => {
-    const rpc = vi.fn(async () => ({}))
+    const { client, calls } = recorder()
 
-    await runStudiesAction(
-      { rpc },
-      {
-        kind: 'study.dependency_add',
-        workspaceId: 'ws',
-        predecessorId: 'a',
-        successorId: 'b',
-        dependencyType: 'finish_to_start',
-        lagDays: 2,
-      },
-    )
+    await runStudiesAction(client, {
+      kind: 'study.dependency_add',
+      workspaceId: 'ws',
+      predecessorId: 'a',
+      successorId: 'b',
+      dependencyType: 'finish_to_start',
+      lagDays: 2,
+    })
 
-    expect(rpc).toHaveBeenCalledWith('create_dependency', {
+    expect(calls.map((call) => call.name)).toEqual(['create_dependency'])
+    expect(JSON.parse(calls[0].body)).toEqual({
       p_workspace_id: 'ws',
       p_predecessor_id: 'a',
       p_successor_id: 'b',
@@ -280,21 +294,18 @@ describe('pressing a study card', () => {
   })
 
   it('moves a due date with its reason', async () => {
-    const rpc = vi.fn(async () => ({}))
+    const { client, calls } = recorder()
 
-    await runStudiesAction(
-      { rpc },
-      {
-        kind: 'study.task_move_due',
-        taskId: 't1',
-        metadataVersion: 2,
-        dueAt: null,
-        reason: 'Dropped',
-        notifyClient: true,
-      },
-    )
+    await runStudiesAction(client, {
+      kind: 'study.task_move_due',
+      taskId: 't1',
+      metadataVersion: 2,
+      dueAt: null,
+      reason: 'Dropped',
+      notifyClient: true,
+    })
 
-    expect(rpc).toHaveBeenCalledWith('move_study_task_due', {
+    expect(JSON.parse(calls[0].body)).toEqual({
       p_task_id: 't1',
       p_expected_metadata_version: 2,
       p_due_at: null,

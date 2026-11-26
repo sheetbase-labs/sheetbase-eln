@@ -567,7 +567,7 @@ interface PartSignoffRow {
   amendment_count: number
 }
 
-interface PartRow {
+export interface PartRow {
   part_id: string
   part_number: number
   title: string
@@ -585,15 +585,18 @@ interface PartRow {
   result_count: number
 }
 
-const partLabel = (row: PartRow) =>
+export const partLabel = (row: PartRow) =>
   `Part ${row.part_number}: ${row.title.slice(0, 80)}`
 
-function partRows(client: DataClient, recordId: string): Promise<PartRow[]> {
+export function partRows(
+  client: DataClient,
+  recordId: string,
+): Promise<PartRow[]> {
   return client.rpc<PartRow[]>('record_parts', { p_record_id: recordId })
 }
 
 /** The part the person means: a number, words from its title, or else the current one. */
-function pickPart(
+export function pickPart(
   rows: readonly PartRow[],
   words: string | undefined,
   recordName: string,
@@ -859,7 +862,7 @@ function pick<T>(
   }
 }
 
-interface RecordRow {
+export interface RecordRow {
   id: string
   identifier: string
   title: string
@@ -874,7 +877,7 @@ interface RecordRow {
 const RECORD_COLUMNS =
   'id,identifier,title,kind,status,project_id,metadata_version,archived_at,assignee_user_id'
 
-async function findRecord(
+export async function findRecord(
   client: DataClient,
   text: string,
   kinds?: readonly string[],
@@ -923,7 +926,7 @@ async function findProject(
   )
 }
 
-async function findPerson(
+export async function findPerson(
   client: DataClient,
   text: string,
 ): Promise<Lookup<{ id: string; name: string }>> {

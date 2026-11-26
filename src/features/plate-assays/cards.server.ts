@@ -20,7 +20,6 @@ import {
   toPlateDesignDoc,
 } from '#/lib/plate-designer'
 import type { PlateDesignWire, PlateWellWire } from '#/lib/plate-designer'
-import { FORMAT_DIMENSIONS } from '#/lib/plate-map'
 import { fillPlate } from '#/lib/plate-map-fill'
 import { plateRunReference, worklistReference } from '#/lib/plate-runs'
 
@@ -605,10 +604,8 @@ export async function buildPlateAssaysProposal(
           name: input.name.trim(),
           description: input.description?.trim() || null,
           format: design.value.format,
-          rows:
-            design.value.rows ?? FORMAT_DIMENSIONS[design.value.format].rows,
-          cols:
-            design.value.cols ?? FORMAT_DIMENSIONS[design.value.format].cols,
+          rows: design.value.rows,
+          cols: design.value.cols,
           layout,
         },
       })

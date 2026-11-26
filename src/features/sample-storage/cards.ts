@@ -310,6 +310,10 @@ export const proposeReleaseRulesSchema = z.strictObject({
     ),
 })
 
+export type ReleaseRuleInput = z.infer<
+  typeof proposeReleaseRulesSchema
+>['rules'][number]
+
 /** What a card does when its button is pressed. */
 export type SampleStorageAction =
   | {
@@ -404,7 +408,7 @@ export type SampleStorageAction =
       kind: 'release_rules.set'
       workspaceId: string
       sampleType: string
-      rules: Array<Record<string, string | number>>
+      rules: ReleaseRuleInput[]
     }
 
 const SAMPLE_STORAGE_ACTIONS = new Set([

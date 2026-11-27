@@ -296,7 +296,8 @@ for (const state of STATES) {
       const link = page.locator(`a[href*="${state.id}"]:visible`).first()
       await link.hover()
       await page.keyboard.press('Space')
-      await page.getByRole('button', { name: /Open beside/ }).click()
+      // The peek's own button; the hovered row shows an Open beside of its own.
+      await page.getByRole('button', { name: /Open beside Alt/ }).click()
       await expect(page.locator('[data-workspace-pane]')).toHaveCount(2, {
         timeout: 15_000,
       })

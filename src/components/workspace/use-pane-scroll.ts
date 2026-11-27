@@ -1,8 +1,15 @@
 import { useCallback, useEffect, useRef } from 'react'
 import type { RefObject, UIEvent } from 'react'
 
+/** Props for the pane's scrolling container. */
 export interface PaneScroll {
   onScrollCapture: (event: UIEvent<HTMLElement>) => void
+  onWheelCapture: () => void
+  onTouchStartCapture: () => void
+  onTouchMoveCapture: () => void
+  onTouchEndCapture: () => void
+  onKeyDownCapture: () => void
+  onPointerDownCapture: () => void
 }
 
 /** How long a returning page gets to draw before we stop looking for its scroller. */
@@ -44,30 +51,9 @@ export function usePaneScroll(
   const remembering = useRef(true)
   const lastInput = useRef(Number.NEGATIVE_INFINITY)
 
-  useEffect(() => {
-    const root = rootRef.current
-
-    const mark = () => {
-      lastInput.current = performance.now()
-    }
-
-    const events = [
-      'wheel',
-      'touchstart',
-      'touchmove',
-      'touchend',
-      'keydown',
-      'pointerdown',
-    ]
-
-    for (const name of events)
-      root?.addEventListener(name, mark, { passive: true, capture: true })
-
-    return () => {
-      for (const name of events)
-        root?.removeEventListener(name, mark, { capture: true })
-    }
-  }, [rootRef])
+  const mark = useCallback(() => {
+    lastInput.current = performance.now()
+  }, [])
 
   const onScrollCapture = useCallback(
     (event: UIEvent<HTMLElement>) => {
@@ -143,5 +129,13 @@ export function usePaneScroll(
     }
   }, [rootRef, pageKey])
 
-  return { onScrollCapture }
+  return {
+    onScrollCapture,
+    onWheelCapture: mark,
+    onTouchStartCapture: mark,
+    onTouchMoveCapture: mark,
+    onTouchEndCapture: mark,
+    onKeyDownCapture: mark,
+    onPointerDownCapture: mark,
+  }
 }

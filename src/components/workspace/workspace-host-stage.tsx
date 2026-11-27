@@ -245,11 +245,7 @@ function WorkspacePaneBody({
 
   return (
     <div className="mx-pb">
-      <div
-        className="workspace-page-content"
-        ref={contentRef}
-        onScrollCapture={scroll.onScrollCapture}
-      >
+      <div className="workspace-page-content" ref={contentRef} {...scroll}>
         <PanePage
           id={pane.id}
           href={pane.href}

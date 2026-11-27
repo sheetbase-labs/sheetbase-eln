@@ -239,16 +239,7 @@ export function RecordModelRecord(props: {
 }
 
 function RecordHeader({ page }: { page: RecordPage }) {
-  const {
-    modelKey,
-    model,
-    record,
-    status,
-    isRegistry,
-    canWrite,
-    fieldsQuery,
-    setEditing,
-  } = page
+  const { modelKey, model, record, status } = page
 
   return (
     <PageHeader
@@ -277,64 +268,74 @@ function RecordHeader({ page }: { page: RecordPage }) {
           <span>{t('library.models.recordModelRecord.loadingRecord')}</span>
         )
       }
-      actions={
-        <div className="flex gap-2 max-md:hidden">
-          {isRegistry && record && canWrite ? (
-            <RegistryRetireButton
-              recordId={record.id}
-              identifier={record.identifier}
-              retired={Boolean(record.archived_at)}
-              metadataVersion={record.metadata_version ?? 1}
-            />
-          ) : null}
-          {record?.model_version_id &&
-          !fieldsQuery.isError &&
-          !fieldsQuery.isLoading ? (
-            <Button variant="secondary" onClick={() => setEditing(true)}>
-              {t('library.models.recordModelRecord.editDetails')}
-            </Button>
-          ) : null}
-          {record ? (
-            <Button
-              variant="secondary"
-              nativeButton={false}
-              render={
-                <Link
-                  to="/records/$recordId/notebook"
-                  params={{ recordId: record.id }}
-                />
-              }
-            >
-              {t('library.models.recordModelRecord.openNotebook')}
-            </Button>
-          ) : null}
-          <Button
-            variant="secondary"
-            nativeButton={false}
-            render={
-              <Link
-                to="/models/$modelId/records"
-                params={{ modelId: modelKey }}
-              />
-            }
-          >
-            {t('library.models.recordModelRecord.allRecords')}
-          </Button>
-          <Button
-            variant="primary"
-            nativeButton={false}
-            render={
-              <Link
-                to="/models/$modelId/records/new"
-                params={{ modelId: modelKey }}
-              />
-            }
-          >
-            {t('common.actions.new')} {model.data?.name ?? 'record'}
-          </Button>
-        </div>
-      }
+      actions={<RecordHeaderActions page={page} />}
     />
+  )
+}
+
+function RecordHeaderActions({ page }: { page: RecordPage }) {
+  const {
+    modelKey,
+    model,
+    record,
+    isRegistry,
+    canWrite,
+    fieldsQuery,
+    setEditing,
+  } = page
+
+  return (
+    <div className="flex gap-2 max-md:hidden">
+      {isRegistry && record && canWrite ? (
+        <RegistryRetireButton
+          recordId={record.id}
+          identifier={record.identifier}
+          retired={Boolean(record.archived_at)}
+          metadataVersion={record.metadata_version ?? 1}
+        />
+      ) : null}
+      {record?.model_version_id &&
+      !fieldsQuery.isError &&
+      !fieldsQuery.isLoading ? (
+        <Button variant="secondary" onClick={() => setEditing(true)}>
+          {t('library.models.recordModelRecord.editDetails')}
+        </Button>
+      ) : null}
+      {record ? <OpenNotebookButton recordId={record.id} /> : null}
+      <Button
+        variant="secondary"
+        nativeButton={false}
+        render={
+          <Link to="/models/$modelId/records" params={{ modelId: modelKey }} />
+        }
+      >
+        {t('library.models.recordModelRecord.allRecords')}
+      </Button>
+      <Button
+        variant="primary"
+        nativeButton={false}
+        render={
+          <Link
+            to="/models/$modelId/records/new"
+            params={{ modelId: modelKey }}
+          />
+        }
+      >
+        {t('common.actions.new')} {model.data?.name ?? 'record'}
+      </Button>
+    </div>
+  )
+}
+
+function OpenNotebookButton({ recordId }: { recordId: string }) {
+  return (
+    <Button
+      variant="secondary"
+      nativeButton={false}
+      render={<Link to="/records/$recordId/notebook" params={{ recordId }} />}
+    >
+      {t('library.models.recordModelRecord.openNotebook')}
+    </Button>
   )
 }
 

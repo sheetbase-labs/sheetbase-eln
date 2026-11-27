@@ -17,6 +17,7 @@ import {
   HomeInspectorToday,
   HomeLoading,
   HomeUnavailable,
+  homeGreeting,
 } from './-home-parts'
 
 /** UI port (roadmap-4/ui-app3): Home, matching the reference — a status chip
@@ -73,6 +74,7 @@ export function Home() {
   const header = (
     <HomeHeader
       showFirstRun={model.showFirstRun}
+      greeting={homeGreeting(context.user.name, model.timeZone)}
       today={model.today}
       workspaceName={model.headerWorkspaceName}
       joinedToday={model.joinedToday}

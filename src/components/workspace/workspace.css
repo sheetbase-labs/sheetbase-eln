@@ -87,8 +87,10 @@
   border-bottom: 0;
   border-radius: 6px 6px 0 0;
 }
-.mx-tab:hover {
-  background: var(--surface-hover);
+@media (hover: hover) {
+  .mx-tab:hover {
+    background: var(--surface-hover);
+  }
 }
 .mx-tab.is-active {
   color: var(--mx-text);
@@ -153,14 +155,20 @@
   cursor: pointer;
   visibility: hidden;
 }
-.mx-tab:hover .mx-tab-x,
 .mx-tab.is-active .mx-tab-x,
 .mx-tab-x:focus-visible {
   visibility: visible;
 }
-.mx-tab-x:hover {
-  background: var(--border);
-  color: var(--mx-text);
+@media (hover: hover) {
+  .mx-tab:hover .mx-tab-x {
+    visibility: visible;
+  }
+}
+@media (hover: hover) {
+  .mx-tab-x:hover {
+    background: var(--border);
+    color: var(--mx-text);
+  }
 }
 .mx-wsl {
   display: flex;
@@ -193,9 +201,11 @@
   cursor: pointer;
   position: relative;
 }
-.mx-ib:hover {
-  background: var(--surface-hover);
-  color: var(--mx-text);
+@media (hover: hover) {
+  .mx-ib:hover {
+    background: var(--surface-hover);
+    color: var(--mx-text);
+  }
 }
 .mx-ib[aria-pressed='true'] {
   background: var(--selection);
@@ -220,9 +230,11 @@
   padding: 0;
   cursor: pointer;
 }
-.mx-preset:hover {
-  background: var(--surface-hover);
-  color: var(--mx-text);
+@media (hover: hover) {
+  .mx-preset:hover {
+    background: var(--surface-hover);
+    color: var(--mx-text);
+  }
 }
 .mx-preset[aria-pressed='true'] {
   background: var(--selection);
@@ -339,10 +351,14 @@
   right: 0;
   height: 1px;
 }
-.mx-div:hover::before,
 .mx-div:focus-visible::before,
 .mx-div.is-drag::before {
   background: var(--mx-accent);
+}
+@media (hover: hover) {
+  .mx-div:hover::before {
+    background: var(--mx-accent);
+  }
 }
 .mx-div:focus-visible {
   outline: none;
@@ -378,10 +394,14 @@
   margin: -4px 0 0 -15px;
   flex-direction: row;
 }
-.mx-div:hover .mx-grab,
 .mx-div:focus-visible .mx-grab,
 .mx-div.is-drag .mx-grab {
   display: flex;
+}
+@media (hover: hover) {
+  .mx-div:hover .mx-grab {
+    display: flex;
+  }
 }
 .mx-div.is-drag .mx-grab {
   border-color: var(--mx-accent);
@@ -442,9 +462,11 @@
   color: inherit;
   text-decoration: none;
 }
-.mx-crumb.is-link:hover {
-  color: var(--mx-text);
-  text-decoration: underline;
+@media (hover: hover) {
+  .mx-crumb.is-link:hover {
+    color: var(--mx-text);
+    text-decoration: underline;
+  }
 }
 /* The pane header carries the path, so the page's own trail is not shown twice. */
 .mx-pane nav[aria-label='Breadcrumb']:not([data-pane-path]) {
@@ -600,9 +622,11 @@
 .mx-newer:active {
   scale: 0.97;
 }
-.mx-act:hover {
-  background: var(--surface-hover);
-  color: var(--mx-text);
+@media (hover: hover) {
+  .mx-act:hover {
+    background: var(--surface-hover);
+    color: var(--mx-text);
+  }
 }
 .mx-act[aria-pressed='true'] {
   color: var(--mx-accent);
@@ -635,11 +659,13 @@
   text-decoration-color: var(--mx-faint, currentColor);
   text-underline-offset: 3px;
 }
-.workspace a[data-record-link]:hover,
-.workspace-page a[data-record-link]:hover,
-[data-slot='dialog-content'] a[data-record-link]:hover {
-  text-decoration-style: solid;
-  text-decoration-color: currentColor;
+@media (hover: hover) {
+  .workspace a[data-record-link]:hover,
+  .workspace-page a[data-record-link]:hover,
+  [data-slot='dialog-content'] a[data-record-link]:hover {
+    text-decoration-style: solid;
+    text-decoration-color: currentColor;
+  }
 }
 /* A list sets a record's ID as plain mono text, as the board does; the link and its peek stay,
    and hovering draws the underline. */
@@ -647,9 +673,11 @@
 .workspace-page .registry-table a[data-record-link].mono {
   text-decoration: none;
 }
-.workspace .registry-table a[data-record-link].mono:hover,
-.workspace-page .registry-table a[data-record-link].mono:hover {
-  text-decoration: underline;
+@media (hover: hover) {
+  .workspace .registry-table a[data-record-link].mono:hover,
+  .workspace-page .registry-table a[data-record-link].mono:hover {
+    text-decoration: underline;
+  }
 }
 .mx-pill {
   position: fixed;

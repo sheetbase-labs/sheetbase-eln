@@ -265,6 +265,7 @@ export function ListToolbar({
   const popover = useFilterPopover()
   const fields = views?.fields
   const onToggleField = views?.onToggleField
+  const trailing = Boolean((fields?.length && onToggleField) || filter || right)
 
   // The box holds what was typed and reports a settled value up. Rendering it
   // straight from the route's `q` lost characters: each keystroke navigated, and
@@ -282,13 +283,9 @@ export function ListToolbar({
   return (
     <>
       <div className="flex flex-wrap items-center gap-1 border-b border-border-subtle px-4 py-2 md:px-6">
-        {lead ? <div className={PHONE_SCROLL_ROW}>{lead}</div> : null}
         <form
           role="search"
-          className={cn(
-            'relative min-w-0 flex-1 max-md:order-first max-md:basis-full md:w-[280px] md:flex-none',
-            lead && 'md:ml-3',
-          )}
+          className="relative min-w-0 flex-1 max-md:basis-full md:w-[280px] md:flex-none"
           onSubmit={(e) => e.preventDefault()}
         >
           <label>
@@ -307,7 +304,27 @@ export function ListToolbar({
             />
           </label>
         </form>
+        {/* Every list reads the same way: search on the left, in line with
+            the first column, and the view controls gathered on the right
+            beside Filter, so the toolbar has one rhythm from page to page. */}
         <span className="flex-1 max-md:hidden" />
+        {lead ? (
+          <div
+            className={cn(
+              PHONE_SCROLL_ROW,
+              // With Fields, Filter or an action to the right, the scrolling
+              // controls share their line on a phone instead of pushing those
+              // onto a row of their own; the far edge fades to show it scrolls.
+              trailing &&
+                'max-md:mr-0 max-md:flex-1 max-md:basis-0 max-md:pr-6 max-md:[mask-image:linear-gradient(to_right,#000_calc(100%-24px),transparent)]',
+            )}
+          >
+            {lead}
+          </div>
+        ) : null}
+        {lead && trailing ? (
+          <span aria-hidden className="mx-1 h-4 w-px bg-border max-md:hidden" />
+        ) : null}
         {fields?.length && onToggleField ? (
           <FieldsButton
             fields={fields}

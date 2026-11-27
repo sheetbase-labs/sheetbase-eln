@@ -122,6 +122,9 @@ export const common = {
   errors: {
     generic: 'Something went wrong. Try again.',
     couldNotLoad: 'Couldn’t load',
+    listLoadFailedTitle: 'Couldn’t load {list}',
+    listLoadFailedBody:
+      'This list isn’t empty because of what you searched for. The data didn’t arrive. Try again.',
     couldNotSave: 'Couldn’t save',
     couldNotCopy: 'Couldn’t copy',
     notFound: 'Not found',

@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import { ListLoadError, listFailed } from '#/components/ui/list-load-error'
 import { useScrollLoad } from '#/lib/use-scroll-load'
 import { z } from 'zod'
 
@@ -860,10 +861,11 @@ function SamplesList() {
     queryKey: ['ui-port', 'samples', 'register-for', search.experiment],
     queryFn: () =>
       notebookDataClient
-        .list<{ id: string; identifier: string; project_id: string | null }>(
-          'records',
-          `?id=eq.${encodeURIComponent(search.experiment ?? '')}&kind=eq.experiment&select=id,identifier,project_id&limit=1`,
-        )
+        .list<{
+          id: string
+          identifier: string
+          project_id: string | null
+        }>('records', `?id=eq.${encodeURIComponent(search.experiment ?? '')}&kind=eq.experiment&select=id,identifier,project_id&limit=1`)
         .then((found) => found[0] ?? null),
     enabled: Boolean(search.experiment),
   })
@@ -950,7 +952,7 @@ function SamplesList() {
           tab={tab}
           tabName={tabLabel[tab]}
           visibleCount={visible.length}
-          loading={page.isPending}
+          loading={page.isPending || listFailed(page)}
         />
       </div>
 
@@ -1038,6 +1040,13 @@ function SamplesListBody({
         className="min-h-0 flex-1 overflow-auto max-md:pb-20"
         onScrollCapture={onScrollLoad}
       >
+        {listFailed(page) ? (
+          <ListLoadError
+            list={t('library.samples.list.samples').toLowerCase()}
+            onRetry={() => void page.refetch()}
+            retrying={page.isFetching}
+          />
+        ) : null}
         {page.isPending || visible.length > 0 ? (
           <RegistryGrid
             className="max-md:hidden"
@@ -1070,7 +1079,7 @@ function SamplesListBody({
             selected: s.uuid === selectedUuid,
           }))}
         />
-        {!page.isPending && visible.length === 0 ? (
+        {!page.isPending && !listFailed(page) && visible.length === 0 ? (
           <SamplesEmpty
             query={query}
             searchQuery={searchQuery}

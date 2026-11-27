@@ -3,6 +3,7 @@
  * and tabs, the list body with its toolbar and empty state, and the lot
  * inspector.
  */
+import { ListLoadError, listFailed } from '#/components/ui/list-load-error'
 import { Link } from '@tanstack/react-router'
 
 import { Button } from '#/components/ui/button'
@@ -339,6 +340,13 @@ export function MaterialsBody({
         onChanged={onBulkChanged}
       />
       <div className="min-h-0 flex-1 overflow-auto max-md:pb-20">
+        {listFailed(page) ? (
+          <ListLoadError
+            list={t('library.materials.page.materials').toLowerCase()}
+            onRetry={() => void page.refetch()}
+            retrying={page.isFetching}
+          />
+        ) : null}
         {page.isPending || visible.length > 0 ? (
           <RegistryGrid
             className="max-md:hidden"
@@ -370,7 +378,7 @@ export function MaterialsBody({
             selected: m.uuid === sel?.uuid,
           }))}
         />
-        {!page.isPending && visible.length === 0 ? (
+        {!page.isPending && !listFailed(page) && visible.length === 0 ? (
           <MaterialsEmptyState
             tab={tab}
             query={query.length > 0}
@@ -381,7 +389,7 @@ export function MaterialsBody({
         ) : null}
       </div>
       <ListFooter
-        loading={page.isPending}
+        loading={page.isPending || listFailed(page)}
         right={sel ? '1 selected' : undefined}
       >
         {footerCount({

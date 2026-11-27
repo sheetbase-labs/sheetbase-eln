@@ -1,4 +1,5 @@
 import { useCallback, useMemo, useState } from 'react'
+import { ListLoadError, listFailed } from '#/components/ui/list-load-error'
 import { TableSkeleton } from '#/components/ui/page-skeleton'
 import { useScrollLoad } from '#/lib/use-scroll-load'
 import { z } from 'zod'
@@ -504,7 +505,15 @@ function Experiments() {
           onRowClick={(e) => openExperiment(e)}
           isLoading={records.isPending}
         />
+        {listFailed(records) ? (
+          <ListLoadError
+            list={t('projects.experimentsList.title').toLowerCase()}
+            onRetry={() => void records.refetch()}
+            retrying={records.isFetching}
+          />
+        ) : null}
         <ExperimentsEmpty
+          failed={listFailed(records)}
           isLoading={records.isPending}
           visibleCount={visible.length}
           hasProjectAccess={hasProjectAccess}
@@ -517,7 +526,7 @@ function Experiments() {
         />
       </div>
       <ExperimentsFooter
-        isLoading={records.isPending}
+        isLoading={records.isPending || listFailed(records)}
         shown={visible.length}
         total={total}
         older={search.older === true}
@@ -603,6 +612,7 @@ function ExperimentsToolbar({
 
 /** Why the list is empty, with the one action that widens it. */
 function ExperimentsEmpty({
+  failed,
   isLoading,
   visibleCount,
   hasProjectAccess,
@@ -613,6 +623,7 @@ function ExperimentsEmpty({
   onIncludeOlder,
   onClearSearch,
 }: {
+  failed: boolean
   isLoading: boolean
   visibleCount: number
   hasProjectAccess: boolean | undefined
@@ -627,7 +638,7 @@ function ExperimentsEmpty({
   if (isLoading)
     return <TableSkeleton columns={2} rows={8} className="md:hidden" />
 
-  if (visibleCount > 0) return null
+  if (failed || visibleCount > 0) return null
 
   const noAccess = hasProjectAccess === false
 

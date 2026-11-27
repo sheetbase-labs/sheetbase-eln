@@ -955,9 +955,10 @@ function NewMenu({
             variant="primary"
             icon="plus"
             aria-label={t('common.actions.new')}
-            // On a phone it is one icon among the header's icons: the same
-            // 40px round target, not a wider block.
-            className="max-md:size-10 max-md:rounded-full max-md:px-0"
+            // On a phone it is one icon among the header's icons: a 32px
+            // square with the same corners as every button, so it sits in the
+            // row instead of outweighing it as a big filled circle.
+            className="max-md:size-8 max-md:px-0"
           />
         }
       >

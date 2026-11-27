@@ -36,6 +36,7 @@ import {
   useMemo,
   useLayoutEffect,
   useRef,
+  useState,
 } from 'react'
 import { Icon } from '#/components/icons'
 import { useFittedColumns } from './registry-fit'
@@ -619,6 +620,8 @@ function RegistryTable<T extends RowData>({
 
   if (rowHeight !== 33) style['--grid-row-h'] = `${rowHeight}px`
 
+  const entering = useArrival(isLoading)
+
   return (
     // `[&>*]` stretches the grid's own scroll container: it sizes itself to
     // its rows, which on a short list leaves the horizontal scrollbar floating
@@ -626,6 +629,7 @@ function RegistryTable<T extends RowData>({
     <div
       ref={gridRef}
       style={style}
+      data-arriving={entering ? '' : undefined}
       className={cn(
         // The design draws rows only: no upright lines at pinned edges.
         'group/registry relative flex h-full min-h-0 flex-col [&_[data-pinned]]:shadow-none! [&>*]:min-h-0 [&>*]:flex-1',
@@ -672,7 +676,7 @@ function RegistryTable<T extends RowData>({
             menu ? ' [&_th:last-child]:pr-11' : ''
           }`,
           body:
-            '[&_td:has([data-band])]:z-40! [&_td:has([data-band])]:contain-none! [&_td:has([data-band])]:overflow-visible [&_td_a.mono]:text-fg [&_td]:border-border-subtle [&_tr:hover_td]:bg-row-hover [&_td]:h-[var(--grid-row-h,33px)] [&_td]:py-0 [&_td]:px-2.5 [&_td:first-child]:pl-6 [&_td:last-child]:pr-6' +
+            '[&_td:has([data-band])]:z-40! [&_td:has([data-band])]:contain-none! [&_td:has([data-band])]:overflow-visible [&_td_a.mono]:text-fg [&_td]:border-border-subtle [&_tr:hover_td]:bg-row-hover [&_tr:active:not(:has([data-band]))_td]:bg-nav-selected [&_td]:h-[var(--grid-row-h,33px)] [&_td]:py-0 [&_td]:px-2.5 [&_td:first-child]:pl-6 [&_td:last-child]:pr-6' +
             (stableWidths
               ? ' [&_td]:overflow-hidden [&_td]:text-ellipsis'
               : ''),
@@ -688,4 +692,30 @@ function RegistryTable<T extends RowData>({
       </DataGrid>
     </div>
   )
+}
+
+/**
+ * True for a moment after the rows arrive, so they fade in over the skeleton
+ * instead of replacing it in one frame. Only that first arrival fades: rows
+ * the virtual list mounts while scrolling appear at once.
+ */
+function useArrival(isLoading: boolean): boolean {
+  const [arriving, setArriving] = useState(false)
+  const wasLoading = useRef(isLoading)
+
+  useEffect(() => {
+    const arrived = wasLoading.current && !isLoading
+
+    wasLoading.current = isLoading
+
+    if (!arrived) return
+
+    setArriving(true)
+
+    const done = window.setTimeout(() => setArriving(false), 260)
+
+    return () => window.clearTimeout(done)
+  }, [isLoading])
+
+  return arriving
 }

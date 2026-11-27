@@ -892,6 +892,13 @@
   }
 }
 
+/* A list's rows fade in over the skeleton they replace (registry-grid.tsx),
+   so loading ends in a settle rather than a flash. Reduced motion keeps it:
+   it is a fade, not travel. */
+[data-arriving] tbody tr {
+  animation: sb-fade-in 220ms var(--ease-out);
+}
+
 /* Reduced motion means fewer and gentler, not none: fades and colour changes
    stay because they explain a change, while anything that travels or scales
    (popups, sheets, dialogs) drops to a plain fade, and loops stop. */

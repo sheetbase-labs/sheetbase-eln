@@ -24,6 +24,7 @@ import {
   noProjectAccessTitle,
   useHasProjectAccess,
 } from '#/components/projects/project-access'
+import { Person } from '#/components/ui/person'
 import { Dot, Status } from '#/components/ui/status'
 import {
   DropdownMenu,
@@ -899,13 +900,23 @@ function experimentColumns({
       id: 'owner',
       header: t('projects.experimentsList.columns.owner'),
       accessorFn: (e) => e.owner,
+      cell: ({ row }) => (
+        <Person name={row.original.owner} userId={row.original.ownerId} />
+      ),
     },
     {
       id: 'assignee',
       header: t('projects.experimentsList.columns.assignee'),
       accessorFn: (e) => e.assignee ?? undefined,
       cell: ({ row }) =>
-        row.original.assignee ?? <span className="text-fg-muted">—</span>,
+        row.original.assignee ? (
+          <Person
+            name={row.original.assignee}
+            userId={row.original.assigneeId}
+          />
+        ) : (
+          <span className="text-fg-muted">—</span>
+        ),
     },
     {
       id: 'issues',

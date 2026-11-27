@@ -1,4 +1,5 @@
 import { useMemo } from 'react'
+import { Person } from '#/components/ui/person'
 import { Link } from '@tanstack/react-router'
 import type { ListView } from '#/lib/list-views'
 import type {
@@ -127,6 +128,12 @@ export function ProtocolsRegistryGrid({
         accessorFn: (p) => ownerLabel(p.createdByUserId),
         header: t('library.protocols.protocolsRegistryGrid.owner'),
         meta: { cellClassName: 'text-fg-muted' },
+        cell: ({ row }) => (
+          <Person
+            name={ownerLabel(row.original.createdByUserId)}
+            userId={row.original.createdByUserId}
+          />
+        ),
         sortFn: (rowA, rowB) =>
           compareRegistryText(
             ownerLabel(rowA.original.createdByUserId),

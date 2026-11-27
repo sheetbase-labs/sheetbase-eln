@@ -1,4 +1,5 @@
 import { useMemo } from 'react'
+import { Person } from '#/components/ui/person'
 import { LoadingBlock } from '#/components/ui/page-skeleton'
 import { Link, createFileRoute } from '@tanstack/react-router'
 import { useQuery } from '@tanstack/react-query'
@@ -156,7 +157,12 @@ function ProjectOverview() {
     {
       id: 'owner',
       header: t('projects.projectOverview.columns.owner'),
-      cell: ({ row }) => userLabel(row.original.createdByUserId),
+      cell: ({ row }) => (
+        <Person
+          name={userLabel(row.original.createdByUserId)}
+          userId={row.original.createdByUserId}
+        />
+      ),
     },
     {
       id: 'status',

@@ -1,4 +1,5 @@
 import { filterParamSchema } from '#/lib/list-filter'
+import { Person } from '#/components/ui/person'
 import type { FilterParam } from '#/lib/search-filter'
 import { useRowFilter } from '#/components/inventory/row-filter'
 import { t } from '#/copy'
@@ -273,7 +274,12 @@ function AnalysisHome() {
         id: 'owner',
         header: t('data.analysisList.owner'),
         meta: { cellClassName: 'text-fg-muted' },
-        cell: ({ row }) => names.userLabel(row.original.ownerId),
+        cell: ({ row }) => (
+          <Person
+            name={names.userLabel(row.original.ownerId)}
+            userId={row.original.ownerId}
+          />
+        ),
       },
       {
         id: 'updated',

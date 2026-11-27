@@ -1,4 +1,5 @@
 import { filterParamSchema } from '#/lib/list-filter'
+import { Person } from '#/components/ui/person'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import {
   Link,
@@ -555,7 +556,12 @@ function useTemplateColumns({
         header: t('library.templates.list.owner'),
         accessorFn: (item) => ownerName(item.createdByUserId),
         meta: { cellClassName: 'text-fg-muted' },
-        cell: ({ row }) => ownerName(row.original.createdByUserId),
+        cell: ({ row }) => (
+          <Person
+            name={ownerName(row.original.createdByUserId)}
+            userId={row.original.createdByUserId}
+          />
+        ),
       },
     ],
     [ownerName, openTemplate],

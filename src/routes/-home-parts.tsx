@@ -151,8 +151,30 @@ export function HomeBriefButton({
 }
 
 /** The page header: what Home is, today's date, the workspace and its actions. */
+/** "Good morning, Gareth": the hour where the lab is, and a first name. */
+export function homeGreeting(
+  name: string | null | undefined,
+  timeZone: string,
+  at: Date = appNow(),
+): string {
+  const first = name?.trim().split(/\s+/)[0]
+
+  if (!first) return t('projects.home.title')
+
+  const hour = Number(
+    at.toLocaleString('en-GB', { timeZone, hour: '2-digit', hour12: false }),
+  )
+
+  return hour >= 5 && hour < 12
+    ? t('projects.home.greeting.morning', { name: first })
+    : hour >= 12 && hour < 18
+      ? t('projects.home.greeting.afternoon', { name: first })
+      : t('projects.home.greeting.evening', { name: first })
+}
+
 export function HomeHeader({
   showFirstRun,
+  greeting,
   today,
   workspaceName,
   joinedToday,
@@ -162,6 +184,8 @@ export function HomeHeader({
   onRetryUnavailable,
 }: {
   showFirstRun: boolean
+  /** The page's heading: a greeting by name, or "Home" without one. */
+  greeting?: string
   today: string
   workspaceName: string
   joinedToday: boolean
@@ -174,7 +198,8 @@ export function HomeHeader({
     <>
       <PageHeader
         className="border-b-0 bg-transparent"
-        title={t('projects.home.title')}
+        title={greeting ?? t('projects.home.title')}
+        paneTitle={t('projects.home.title')}
         meta={
           <span>
             {t('projects.home.meta', { today, workspace: workspaceName })}
@@ -250,29 +275,35 @@ export function HomeChips({
     | undefined
   inboxCount: number | undefined
 }): React.ReactElement {
-  // QA2-Home-1: a chip leads to the set it counts, so the destination opens
-  // filtered to that set instead of its unfiltered default.
-  const chipClass =
-    'inline-flex items-center gap-1.5 text-label text-fg-muted no-underline hover:text-fg hover:underline'
+  // QA2-Home-1: a figure leads to the set it counts, so the destination opens
+  // filtered to that set instead of its unfiltered default. The day reads as
+  // four figures in a row, number over label, split by hairlines, so what is
+  // waiting on the person is the first thing the eye lands on.
+  const figureClass =
+    'group flex min-w-0 flex-col gap-1 py-2.5 text-fg-muted no-underline transition-colors hover:text-fg md:px-5 md:first:pl-0 md:[&+&]:border-l md:[&+&]:border-border-subtle'
+
+  const numberClass =
+    'num block font-display text-[26px] font-semibold leading-8 tracking-[-0.01em] text-fg'
+
+  const labelClass =
+    'flex items-center gap-1.5 text-label group-hover:underline'
 
   return (
     <nav
       aria-label={t('projects.home.summary')}
-      className="flex flex-wrap items-center gap-x-5 gap-y-1.5 text-label text-fg-muted"
+      className="grid grid-cols-2 gap-x-4 border-y border-border-subtle py-1.5 md:flex md:items-stretch md:gap-0"
     >
-      <Link to="/inbox" search={{ type: 'reviews' }} className={chipClass}>
-        <Dot tone="review" />
-        <span>
-          <b className="num font-semibold">{counts?.reviews ?? '—'}</b>{' '}
+      <Link to="/inbox" search={{ type: 'reviews' }} className={figureClass}>
+        <b className={numberClass}>{counts?.reviews ?? '—'}</b>{' '}
+        <span className={labelClass}>
+          <Dot tone="review" />
           {t('projects.home.toReview')}
         </span>
       </Link>
-      <Link to="/datasets" search={{ tab: 'issues' }} className={chipClass}>
-        <Dot tone="bad" />
-        <span>
-          <b className="num font-semibold">
-            {counts?.datasetsWithErrors ?? '—'}
-          </b>{' '}
+      <Link to="/datasets" search={{ tab: 'issues' }} className={figureClass}>
+        <b className={numberClass}>{counts?.datasetsWithErrors ?? '—'}</b>{' '}
+        <span className={labelClass}>
+          <Dot tone="bad" />
           {counts?.datasetsWithErrors === 1
             ? t('projects.home.datasetWithErrors')
             : t('projects.home.datasetsWithErrors')}
@@ -281,29 +312,29 @@ export function HomeChips({
       <Link
         to="/experiments"
         search={{ tab: 'inprogress' }}
-        className={chipClass}
+        className={figureClass}
       >
-        <Dot tone="progress" />
-        <span>
-          <b className="num font-semibold">
-            {counts?.experimentsInProgress ?? '—'}
-          </b>{' '}
+        <b className={numberClass}>{counts?.experimentsInProgress ?? '—'}</b>{' '}
+        <span className={labelClass}>
+          <Dot tone="progress" />
           {counts?.experimentsInProgress === 1
             ? t('projects.home.experimentInProgress')
             : t('projects.home.experimentsInProgress')}
         </span>
       </Link>
-      <Link to="/schedule" className={chipClass}>
-        <Dot tone="analysis" />
-        <span>
-          <b className="num font-semibold">{counts?.instrumentRuns ?? '—'}</b>{' '}
+      <Link to="/schedule" className={figureClass}>
+        <b className={numberClass}>{counts?.instrumentRuns ?? '—'}</b>{' '}
+        <span className={labelClass}>
+          <Dot tone="analysis" />
           {counts?.instrumentRuns === 1
             ? t('projects.home.instrumentBooking')
             : t('projects.home.instrumentBookings')}
         </span>
       </Link>
-      <span className="flex-1" />
-      <Link to="/inbox" className="text-label">
+      <Link
+        to="/inbox"
+        className="col-span-2 self-center py-2 text-label md:ml-auto md:py-0"
+      >
         {t('projects.home.openInbox', { count: inboxCount ?? '—' })}
       </Link>
     </nav>

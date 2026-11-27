@@ -465,11 +465,21 @@ export function RegistryGrid<T extends RowData>({
 
           const paint = `block h-[33px] bg-surface-muted ${left} ${right}`
 
+          // The label sizes to its text, so its strip has to reach over the
+          // cell's padding on both sides by width, not by margin, or a short
+          // label leaves an unpainted gap before the next cell.
+          const reach =
+            index === 0
+              ? 'min-w-[calc(100%+2.125rem)]'
+              : 'min-w-[calc(100%+1.25rem)]'
+
           if (index === labelIndex) {
             return (
               <span
                 data-band=""
-                className={`${paint} relative flex w-max min-w-full items-center whitespace-nowrap text-label font-medium text-fg-muted`}
+                // The label column may be an ID column set in mono; a band
+                // names a group, so it keeps the interface face.
+                className={`${paint} ${reach} relative flex w-max items-center whitespace-nowrap font-sans text-label font-medium text-fg-muted`}
               >
                 {original.__band}
                 {original.__count !== undefined ? (

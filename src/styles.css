@@ -539,9 +539,10 @@
 
 @utility text-section {
   font-family: var(--font-display);
-  font-size: 15px;
-  line-height: 20px;
+  font-size: 16px;
+  line-height: 22px;
   font-weight: 600;
+  letter-spacing: -0.006em;
 }
 
 @utility text-doc-heading {

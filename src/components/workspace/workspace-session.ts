@@ -376,10 +376,13 @@ export function useWorkspaceSession({
         if (!id) continue
 
         // An editable title is an input inside the heading, so its text lives
-        // in the value rather than the heading's text content.
+        // in the value rather than the heading's text content. A heading that
+        // says more than the page's name (a greeting) names it in
+        // `data-pane-title`.
         const title = Array.from(element.querySelectorAll('h1'))
           .map(
             (heading) =>
+              heading.dataset.paneTitle ||
               heading.textContent.trim() ||
               heading.querySelector('input')?.value.trim() ||
               '',

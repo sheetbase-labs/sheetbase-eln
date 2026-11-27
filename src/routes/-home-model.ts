@@ -960,3 +960,24 @@ export function useLabSetupPrompt({
 
   return { open, close }
 }
+
+/** "Good morning, Gareth": the hour where the lab is, and a first name. */
+export function homeGreeting(
+  name: string | null | undefined,
+  timeZone: string,
+  at: Date = appNow(),
+): string {
+  const first = name?.trim().split(/\s+/)[0]
+
+  if (!first) return t('projects.home.title')
+
+  const hour = Number(
+    at.toLocaleString('en-GB', { timeZone, hour: '2-digit', hour12: false }),
+  )
+
+  return hour >= 5 && hour < 12
+    ? t('projects.home.greeting.morning', { name: first })
+    : hour >= 12 && hour < 18
+      ? t('projects.home.greeting.afternoon', { name: first })
+      : t('projects.home.greeting.evening', { name: first })
+}

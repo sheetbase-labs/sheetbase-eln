@@ -247,35 +247,8 @@ function Experiments() {
   const navigate = useNavigate({ from: Route.fullPath })
   const queryClient = useQueryClient()
   const bulk = useBulkSelection()
-  const workspace = useWorkspaceNavigation()
 
-  // Like every other registry list: an experiment opens in this pane, and
-  // Alt-click opens it beside.
-  const openExperiment = useCallback(
-    (row: ExperimentListRow, event?: React.MouseEvent) => {
-      const href = `/experiments/${encodeURIComponent(row.uuid)}`
-
-      if (openBesideOnAlt(workspace, href, event, row.title)) return
-
-      if (!event)
-        void navigate({
-          to: '/experiments/$expId',
-          params: { expId: row.uuid },
-        })
-    },
-    [workspace, navigate],
-  )
-
-  // The row's hover action: the same pane beside that Alt-click opens.
-  const openBeside = useCallback(
-    (row: ExperimentListRow) => {
-      const href = `/experiments/${encodeURIComponent(row.uuid)}`
-
-      if (workspace) workspace.open(href, { beside: true, title: row.title })
-      else requestOpenBeside(href, row.title)
-    },
-    [workspace],
-  )
+  const { openExperiment, openBeside } = useExperimentOpeners(navigate)
 
   const tab: Tab = search.tab ?? 'open'
   const [limit, setLimit] = useState(EXPERIMENT_LIST_PAGE_SIZE)
@@ -767,6 +740,47 @@ const GRID_BEHAVIOUR = {
   selectable: false,
   stableWidths: true,
 } as const
+
+/**
+ * How a row opens its experiment: in this pane, or beside it on Alt-click,
+ * like every other registry list, and beside it from the row's hover action.
+ */
+function useExperimentOpeners(
+  navigate: (options: {
+    to: '/experiments/$expId'
+    params: { expId: string }
+  }) => Promise<void>,
+) {
+  const workspace = useWorkspaceNavigation()
+
+  const openExperiment = useCallback(
+    (row: ExperimentListRow, event?: React.MouseEvent) => {
+      const href = `/experiments/${encodeURIComponent(row.uuid)}`
+
+      if (openBesideOnAlt(workspace, href, event, row.title)) return
+
+      if (!event)
+        void navigate({
+          to: '/experiments/$expId',
+          params: { expId: row.uuid },
+        })
+    },
+    [workspace, navigate],
+  )
+
+  // The row's hover action: the same pane beside that Alt-click opens.
+  const openBeside = useCallback(
+    (row: ExperimentListRow) => {
+      const href = `/experiments/${encodeURIComponent(row.uuid)}`
+
+      if (workspace) workspace.open(href, { beside: true, title: row.title })
+      else requestOpenBeside(href, row.title)
+    },
+    [workspace],
+  )
+
+  return { openExperiment, openBeside }
+}
 
 /** Fixed column widths in px, so scrolling a long list never reflows them. */
 const COLUMN_WIDTHS = new Map<string, number>([

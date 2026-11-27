@@ -5,7 +5,7 @@ import { t } from '#/copy'
 const DAY = 24 * 60 * 60 * 1000
 
 /** Whole days from `today` to `due`, both `YYYY-MM-DD`; negative when past. */
-export function daysUntil(due: string, today: string): number {
+function daysUntil(due: string, today: string): number {
   return Math.round(
     (Date.parse(`${due.slice(0, 10)}T00:00:00Z`) -
       Date.parse(`${today.slice(0, 10)}T00:00:00Z`)) /

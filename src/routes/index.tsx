@@ -7,7 +7,7 @@ import { LabSetupDialog } from '#/components/setup/lab-setup-dialog'
 import { HomeQuiet } from '#/components/home/home-quiet'
 import { signInRedirect } from '#/lib/sign-in-redirect'
 
-import { useHomeModel, useLabSetupPrompt } from './-home-model'
+import { homeGreeting, useHomeModel, useLabSetupPrompt } from './-home-model'
 import {
   HomeBriefButton,
   HomeBusySections,
@@ -17,7 +17,6 @@ import {
   HomeInspectorToday,
   HomeLoading,
   HomeUnavailable,
-  homeGreeting,
 } from './-home-parts'
 
 /** UI port (roadmap-4/ui-app3): Home, matching the reference — a status chip

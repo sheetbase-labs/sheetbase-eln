@@ -34,7 +34,6 @@ export function RowHoverActions({
           actions, so a long list carries one set, not one per row, and a
           screen reader hears them only on the row it is in. */}
       {active ? (
-        // oxlint-disable-next-line jsx-a11y/no-static-element-interactions, jsx-a11y/click-events-have-key-events -- only stops the row's own click; the buttons inside are the interactive elements.
         <span
           className="flex shrink-0 animate-fade-in items-center gap-0.5 motion-reduce:animate-none"
           onClick={(event) => event.stopPropagation()}

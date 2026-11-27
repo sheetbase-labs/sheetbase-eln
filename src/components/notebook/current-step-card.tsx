@@ -39,7 +39,7 @@ import { addPlateRunToExperiment } from '#/lib/plate-experiment-run'
 import { plateRunReference } from '#/lib/plate-runs'
 import { platesLine } from '#/components/notebook/step-plates-line'
 import { stepTimerQueryKeys } from '#/lib/step-timers'
-import { cn } from '#/lib/utils'
+import { ProgressRail } from '#/components/ui/progress-rail'
 
 /**
  * The "Now" card at the top of a running experiment's notebook: the step to
@@ -110,7 +110,14 @@ export function CurrentStepCard({
       data-testid="current-step-card"
       className="my-3 flex flex-col gap-3 rounded-lg border border-border bg-surface p-4 max-md:p-3.5"
     >
-      <StepRail steps={steps} />
+      <ProgressRail
+        segments={steps.map((step) => ({
+          key: step.blockId,
+          title: step.text,
+          state:
+            step.status === 'done' ? 'done' : step.current ? 'now' : 'todo',
+        }))}
+      />
       {current ? (
         <RunningStep
           recordId={recordId}
@@ -621,35 +628,5 @@ function AddResultDialog({
         </form>
       </DialogContent>
     </Dialog>
-  )
-}
-
-/**
- * The run at a glance: one bar per step, filled for the steps done, in the
- * progress colour for the one under way, and empty for those still to come.
- * The eyebrow already says "Step 4 of 6", so the bars are decoration for
- * sight, not a second announcement.
- */
-function StepRail({ steps }: { steps: readonly StepProgress[] }) {
-  if (steps.length < 2) return null
-
-  return (
-    <div aria-hidden className="flex gap-1" data-testid="step-rail">
-      {steps.map((step) => (
-        <span
-          key={step.blockId}
-          title={step.text}
-          data-state={step.current ? 'now' : step.status}
-          className={cn(
-            'h-1 min-w-0 flex-1 rounded-[1px] transition-colors duration-300 ease-out',
-            step.status === 'done'
-              ? 'bg-success'
-              : step.current
-                ? 'bg-link'
-                : 'bg-border',
-          )}
-        />
-      ))}
-    </div>
   )
 }

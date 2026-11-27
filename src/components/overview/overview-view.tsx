@@ -22,6 +22,7 @@ import {
 } from '#/components/ui/layout'
 import { Button } from '#/components/ui/button'
 import { Status } from '#/components/ui/status'
+import { ProgressRail } from '#/components/ui/progress-rail'
 import { TableBox } from '#/components/ui/table'
 import { RegistryGrid, bandRow } from '#/components/inventory/registry-grid'
 import type {
@@ -302,11 +303,13 @@ function PartsSection({
   startedAt,
   parts,
   userLabel,
+  index,
 }: {
   recordId: string
   startedAt: string
   parts: readonly PartSummary[]
   userLabel: (userId: string) => string
+  index: number
 }) {
   const done = parts.filter((part) => part.status === 'done').length
 
@@ -414,6 +417,7 @@ function PartsSection({
 
   return (
     <Section
+      index={index}
       title={t('projects.overview.parts.title')}
       action={
         <span className="text-label text-fg-muted">
@@ -534,9 +538,12 @@ export function ExperimentOverview({
   return (
     <>
       <div className="flex min-w-0 flex-1 flex-col gap-6 overflow-auto px-4 py-5 md:px-8">
-        <Section title={t('projects.overview.objective.title')}>
+        {/* The summary reads like a lab report: objective, method, results
+            and conclusion, numbered in order, with what is still open before
+            submission after the report. */}
+        <Section index={1} title={t('projects.overview.objective.title')}>
           {objective ? (
-            <p className="m-0 max-w-[680px] whitespace-pre-line text-prose">
+            <p className="m-0 max-w-[68ch] whitespace-pre-line text-prose text-pretty">
               {objective}
             </p>
           ) : (
@@ -546,6 +553,7 @@ export function ExperimentOverview({
 
         {parts.length > 0 ? (
           <PartsSection
+            index={2}
             recordId={record.id}
             startedAt={record.createdAt}
             parts={parts}
@@ -555,6 +563,7 @@ export function ExperimentOverview({
         {parts.length > 0 ? schedule : null}
 
         {renderProtocolSection({
+          index: parts.length > 0 ? 3 : 2,
           protocolLinks,
           protocolSteps,
           parts,
@@ -562,6 +571,21 @@ export function ExperimentOverview({
           partHeading,
           stepStatus,
           userLabel,
+        })}
+        {renderKeyResultsSection({
+          index: parts.length > 0 ? 4 : 3,
+          metrics,
+          datasetLinks,
+          analysisLinks,
+          figures: blocks
+            .filter((block) => block.type === 'analysis')
+            .slice(0, 2),
+        })}
+        {renderConclusionSection({
+          index: parts.length > 0 ? 5 : 4,
+          conclusions,
+          decision,
+          decisionNotes,
         })}
         {renderReadinessSection({
           record,
@@ -571,15 +595,6 @@ export function ExperimentOverview({
           pastSubmission,
           items,
           navigate,
-        })}
-        {renderKeyResultsSection({
-          metrics,
-          conclusions,
-          datasetLinks,
-          analysisLinks,
-          figures: blocks
-            .filter((block) => block.type === 'analysis')
-            .slice(0, 2),
         })}
       </div>
 
@@ -643,6 +658,7 @@ export function ExperimentOverview({
 }
 
 function renderProtocolSection({
+  index: sectionNumber,
   protocolLinks,
   protocolSteps,
   parts,
@@ -651,6 +667,7 @@ function renderProtocolSection({
   stepStatus,
   userLabel,
 }: {
+  index: number
   protocolLinks: OverviewLink[]
   protocolSteps: ReturnType<typeof protocolStepProgress>
   parts: readonly PartSummary[]
@@ -744,6 +761,7 @@ function renderProtocolSection({
 
   return (
     <Section
+      index={sectionNumber}
       title={t('projects.overview.protocol.title')}
       action={
         protocolLinks.length ? (
@@ -772,7 +790,23 @@ function renderProtocolSection({
         <Muted>{t('projects.overview.protocol.none')}</Muted>
       )}
       {protocolSteps.length ? (
-        <TableBox className="mt-2">
+        <ProgressRail
+          className="mt-1"
+          segments={protocolSteps.map((step) => ({
+            key: step.blockId,
+            title: step.text,
+            // Only the first unfinished step is under way, as on the
+            // notebook's current-step card.
+            state: step.completed
+              ? 'done'
+              : step === protocolSteps.find((other) => !other.completed)
+                ? 'now'
+                : 'todo',
+          }))}
+        />
+      ) : null}
+      {protocolSteps.length ? (
+        <TableBox className="mt-1">
           <RegistryGrid
             label={t('projects.overview.protocol.title')}
             rows={stepRows}
@@ -913,18 +947,20 @@ function renderReadinessContent({
 }
 
 function renderKeyResultsSection({
+  index: sectionNumber,
   metrics,
-  conclusions,
   datasetLinks,
   analysisLinks,
   figures,
-}: ReturnType<typeof keyResultsFrom> & {
+}: Pick<ReturnType<typeof keyResultsFrom>, 'metrics'> & {
+  index: number
   datasetLinks: OverviewLink[]
   analysisLinks: OverviewLink[]
   figures: readonly ReadinessBlock[]
 }) {
   return (
     <Section
+      index={sectionNumber}
       title={t('projects.overview.results.title')}
       action={<Muted>{t('projects.overview.results.preliminary')}</Muted>}
     >
@@ -935,7 +971,7 @@ function renderKeyResultsSection({
           ))}
         </div>
       ) : null}
-      {metrics.length || conclusions.length ? (
+      {metrics.length ? (
         <div className="mb-4 flex flex-col gap-4" data-key-results>
           {metrics.length ? (
             <ul className="m-0 grid list-none grid-cols-[repeat(auto-fit,minmax(200px,1fr))] gap-3 p-0">
@@ -964,28 +1000,6 @@ function renderKeyResultsSection({
               ))}
             </ul>
           ) : null}
-          {conclusions.map((conclusion) => (
-            <div
-              key={conclusion.id}
-              className="flex max-w-[680px] flex-col gap-1"
-            >
-              <p className="m-0 text-prose">
-                {conclusion.verdict ? (
-                  <span className="mr-2 text-label font-medium capitalize text-fg-muted">
-                    {conclusion.verdict}
-                  </span>
-                ) : null}
-                {conclusion.text}
-              </p>
-              {conclusion.basis ? (
-                <p className="m-0 text-label text-fg-muted">
-                  {t('projects.overview.results.basedOn', {
-                    basis: conclusion.basis,
-                  })}
-                </p>
-              ) : null}
-            </div>
-          ))}
         </div>
       ) : null}
       {datasetLinks.length || analysisLinks.length ? (
@@ -1035,8 +1049,77 @@ function renderKeyResultsSection({
               : []),
           ]}
         />
-      ) : metrics.length || conclusions.length || figures.length ? null : (
+      ) : metrics.length || figures.length ? null : (
         <Muted>{t('projects.overview.results.none')}</Muted>
+      )}
+    </Section>
+  )
+}
+
+/** The tone a recorded decision reads in: supported, refuted or open. */
+function decisionTone(decision: string) {
+  return decision === 'supported'
+    ? 'ok'
+    : decision === 'refuted'
+      ? 'bad'
+      : 'warn'
+}
+
+function renderConclusionSection({
+  index,
+  conclusions,
+  decision,
+  decisionNotes,
+}: Pick<ReturnType<typeof keyResultsFrom>, 'conclusions'> & {
+  index: number
+  decision: string | null
+  decisionNotes: string | null
+}) {
+  return (
+    <Section
+      index={index}
+      title={t('projects.overview.conclusion.title')}
+      action={
+        decision ? (
+          <Status tone={decisionTone(decision)}>
+            {`${decision.charAt(0).toUpperCase()}${decision.slice(1)}`}
+          </Status>
+        ) : null
+      }
+    >
+      {decisionNotes ? (
+        <p className="m-0 max-w-[68ch] text-prose text-pretty">
+          {decisionNotes}
+        </p>
+      ) : null}
+      {conclusions.length ? (
+        <div className="flex flex-col gap-4" data-key-results>
+          {conclusions.map((conclusion) => (
+            <div
+              key={conclusion.id}
+              className="flex max-w-[680px] flex-col gap-1"
+            >
+              <p className="m-0 text-prose">
+                {conclusion.verdict ? (
+                  <span className="mr-2 text-label font-medium capitalize text-fg-muted">
+                    {conclusion.verdict}
+                  </span>
+                ) : null}
+                {conclusion.text}
+              </p>
+              {conclusion.basis ? (
+                <p className="m-0 text-label text-fg-muted">
+                  {t('projects.overview.results.basedOn', {
+                    basis: conclusion.basis,
+                  })}
+                </p>
+              ) : null}
+            </div>
+          ))}
+        </div>
+      ) : null}
+      {decision || decisionNotes || conclusions.length ? null : (
+        <Muted>{t('projects.overview.conclusion.none')}</Muted>
       )}
     </Section>
   )

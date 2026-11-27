@@ -1,7 +1,3 @@
-import { useContext } from 'react'
-
-import { SettingsTrail } from './settings-trail'
-
 import { cn } from '#/lib/utils'
 import { Button } from '#/components/ui/button'
 import { Checkbox } from '#/components/ui/checkbox'
@@ -31,8 +27,6 @@ export function SettingsHeader({
    */
   phoneActions?: 'top' | 'bottom'
 }) {
-  const trail = useContext(SettingsTrail)
-
   return (
     <header
       className={cn(
@@ -41,11 +35,6 @@ export function SettingsHeader({
         className,
       )}
     >
-      {trail ? (
-        <p className="m-0 text-caption font-medium text-fg-muted max-md:hidden">
-          {trail}
-        </p>
-      ) : null}
       <div className="flex min-h-7 flex-wrap items-center gap-x-2 gap-y-2">
         <h1 className="text-title max-md:text-[18px] max-md:leading-6">
           {title}

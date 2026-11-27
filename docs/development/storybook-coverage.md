@@ -286,7 +286,6 @@ component is not coverage of it.
 | `src/components/settings/change-email-dialog.tsx`        | Calls the email change server functions; covered by the email change tests.                                                                |
 | `src/components/settings/lab-logo-settings.tsx`          | Uploads to the logo route and reads the root route context; covered by the logo route tests.                                               |
 | `src/components/settings/leave-workspace.tsx`            | Calls the leave workspace function and sign-out; covered by the profile tests.                                                             |
-| `src/components/settings/settings-trail.ts`              | A React context holding the open settings page's place and group; nothing renders. The settings layout shows it over each page's title.    |
 | `src/components/ui/lab-logo.tsx`                         | Reads the lab logo version from the root route context.                                                                                    |
 
 ### Non-component modules in this scope

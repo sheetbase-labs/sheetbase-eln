@@ -41,17 +41,39 @@ describe('StatusBadge', () => {
     }
   })
 
-  it('communicates status by text and icon as well as colour', () => {
+  it('communicates status by text and ring shape as well as colour', () => {
     render(<StatusBadge domain="experiment" status="failed" />)
-    const badge = screen.getByText('Failed').closest('[data-slot="badge"]')
-    expect(badge?.querySelector('svg')).toBeTruthy()
+    const status = screen.getByText('Failed').closest('[data-slot="status"]')
+    expect(status?.querySelector('[aria-hidden="true"]')).toBeTruthy()
   })
 
-  it('keeps warning statuses legible in both themes', () => {
+  it('draws the same ring as the lists for each stage of the lifecycle', () => {
+    const ring = (status: string) => {
+      cleanup()
+      render(<StatusBadge domain="experiment" status={status} />)
+
+      return (
+        document.querySelector('[data-slot="status"] > [aria-hidden="true"]')
+          ?.className ?? ''
+      )
+    }
+
+    expect(ring('in_progress')).toContain('conic-gradient(currentColor_0_50%')
+    expect(ring('in_review')).toContain('conic-gradient(currentColor_0_75%')
+    expect(ring('approved')).toContain('bg-current')
+    expect(ring('returned')).toContain('border-dashed')
+  })
+
+  it('marks warning statuses with the dashed attention ring', () => {
     render(<StatusBadge domain="sample" status="quarantined" />)
-    expect(
-      screen.getByText('Quarantined').closest('[data-slot="badge"]')?.className,
-    ).toContain('text-warning-text')
+
+    const dot = screen
+      .getByText('Quarantined')
+      .closest('[data-slot="status"]')
+      ?.querySelector('[aria-hidden="true"]')
+
+    expect(dot?.className).toContain('text-warning')
+    expect(dot?.className).toContain('border-dashed')
   })
 
   it('uses a custom vocabulary when provided', () => {

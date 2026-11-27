@@ -46,13 +46,14 @@ export function Status({
   tone,
   children,
   className,
-}: {
+  ...props
+}: React.ComponentProps<'span'> & {
   tone: Tone
   children: React.ReactNode
-  className?: string
 }) {
   return (
     <span
+      {...props}
       data-slot="status"
       className={cn(
         'inline-flex items-center gap-1.5 whitespace-nowrap',

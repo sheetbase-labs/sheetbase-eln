@@ -39,7 +39,8 @@ const NOTE =
   'The person sees a card and presses a button to do it; nothing changes until they do.'
 
 export type ExperimentOutcome =
-  { ok: true; proposal: AssistantProposal } | { ok: false; message: string }
+  | { ok: true; proposal: AssistantProposal }
+  | { ok: false; message: string }
 
 type Lookup<T> = { ok: true; value: T } | { ok: false; message: string }
 
@@ -56,7 +57,7 @@ export function experimentProposalDefs(): ProviderToolDef[] {
   return [
     toolDef(
       EXPERIMENT_START_TOOL,
-      `Propose starting a planned experiment. ${NOTE}`,
+      `Propose starting an experiment that already exists as a draft, named by its id or title. To make a new experiment from a template, use the start from template tool instead. ${NOTE}`,
       proposeExperimentStartSchema,
     ),
     toolDef(
@@ -207,6 +208,12 @@ function parse<T extends z.ZodType>(
     : { ok: false, message: invalid(parsed.error) }
 }
 
+function asksForTemplateStart(args: unknown): boolean {
+  if (typeof args !== 'object' || args === null) return false
+
+  return !('experiment' in args) && ('template' in args || 'project' in args)
+}
+
 export async function buildExperimentProposal(
   name: ExperimentProposeToolName,
   // oxlint-disable-next-line anti-slop/no-unknown-parameters -- Raw tool arguments from the assistant; every case below decodes them with its own experiment schema before building a proposal.
@@ -217,6 +224,22 @@ export async function buildExperimentProposal(
 
   switch (name) {
     case EXPERIMENT_START_TOOL: {
+      // A model that means "start one from a template" sometimes uses this
+      // tool, which starts a draft that already exists. Route it to the
+      // template card instead of failing on keys this tool does not take.
+      if (asksForTemplateStart(args)) {
+        const { buildPlanningProposal } =
+          await import('./assistant-planning.server')
+        const { EXPERIMENT_FROM_TEMPLATE_TOOL } =
+          await import('./assistant-planning')
+
+        return buildPlanningProposal(
+          EXPERIMENT_FROM_TEMPLATE_TOOL,
+          args,
+          context,
+        )
+      }
+
       const input = parse(proposeExperimentStartSchema, args)
 
       if (!input.ok) return fail(input.message)

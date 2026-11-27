@@ -2,7 +2,7 @@ import { z } from 'zod'
 
 import {
   BOOKING_REPEAT_TOOL,
-  EXPERIMENT_START_TOOL,
+  EXPERIMENT_FROM_TEMPLATE_TOOL,
   INBOX_READ_TOOL,
   PARTS_READ_TOOL,
   GATES_READ_TOOL,
@@ -79,7 +79,8 @@ import { describeRepeatRule } from './recurring'
  */
 
 export type PlanningOutcome =
-  { ok: true; proposal: AssistantProposal } | { ok: false; message: string }
+  | { ok: true; proposal: AssistantProposal }
+  | { ok: false; message: string }
 
 export function isInboxReadTool(name: string): boolean {
   return name === INBOX_READ_TOOL
@@ -179,8 +180,8 @@ export function planningProposalDefs(): ProviderToolDef[] {
 
   return [
     toolDef(
-      EXPERIMENT_START_TOOL,
-      `Propose starting a new experiment from a template in a project. ${note}`,
+      EXPERIMENT_FROM_TEMPLATE_TOOL,
+      `Propose making and starting a NEW experiment from a template (by title or PRT number) in a project (by name or key). Inside a plan the project can be one an earlier step creates. To start an experiment that already exists as a draft, use the experiment start tool instead. ${note}`,
       proposeExperimentStartSchema,
     ),
     toolDef(
@@ -1163,6 +1164,35 @@ const checklistTimerItems = z.looseObject({
   ),
 })
 
+/** Other names a model gives the template start's inputs. */
+const TEMPLATE_START_ALIASES: Record<string, string> = {
+  protocol: 'template',
+  protocolTemplate: 'template',
+  templateName: 'template',
+  projectName: 'project',
+  projectTitle: 'project',
+  name: 'experimentTitle',
+  experimentName: 'experimentTitle',
+  experiment_title: 'experimentTitle',
+}
+
+function withTemplateStartAliases(
+  // oxlint-disable-next-line anti-slop/no-unknown-parameters -- Raw tool arguments; proposeExperimentStartSchema decodes the result.
+  args: unknown,
+): unknown {
+  if (typeof args !== 'object' || args === null) return args
+  const out: Record<string, unknown> = {}
+
+  for (const [key, value] of Object.entries(args)) {
+    const target = TEMPLATE_START_ALIASES[key]
+
+    if (target && !(target in args)) out[target] = value
+    else out[key] = value
+  }
+
+  return out
+}
+
 export async function buildPlanningProposal(
   name: PlanningProposeToolName,
   // oxlint-disable-next-line anti-slop/no-unknown-parameters -- Raw tool arguments from the assistant; each case in the switch below parses them with its own proposal schema before use.
@@ -1172,8 +1202,10 @@ export async function buildPlanningProposal(
   const { client } = context
 
   switch (name) {
-    case EXPERIMENT_START_TOOL: {
-      const parsed = proposeExperimentStartSchema.safeParse(args)
+    case EXPERIMENT_FROM_TEMPLATE_TOOL: {
+      const parsed = proposeExperimentStartSchema.safeParse(
+        withTemplateStartAliases(args),
+      )
 
       if (!parsed.success) return { ok: false, message: invalid(parsed.error) }
       const input = parsed.data

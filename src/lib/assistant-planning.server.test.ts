@@ -198,7 +198,7 @@ describe('what is waiting on me', () => {
 describe('experiment from a template', () => {
   it('names the template and project on the card', async () => {
     const built = await buildPlanningProposal(
-      'sheetbase.experiment.start',
+      'sheetbase.experiment.start_from_template',
       {
         title: 'New ELISA',
         summary: 'Start an ELISA from the standard template',
@@ -222,7 +222,7 @@ describe('experiment from a template', () => {
 
   it('refuses a template that is not active', async () => {
     const built = await buildPlanningProposal(
-      'sheetbase.experiment.start',
+      'sheetbase.experiment.start_from_template',
       {
         title: 'New ELISA',
         summary: 's',

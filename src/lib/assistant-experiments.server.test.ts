@@ -9,6 +9,7 @@ import {
   isExperimentAction,
 } from './assistant-experiments'
 import type { ExperimentAction } from './assistant-experiments'
+import { PLANNING_PROPOSE_TOOL_NAMES } from './assistant-planning'
 import { runExperimentAction } from './assistant-experiments-run'
 import {
   buildExperimentProposal,
@@ -63,6 +64,57 @@ describe('experiment, alias and label template assistant cards', () => {
     expect(experimentProposalDefs()).toHaveLength(
       EXPERIMENT_PROPOSE_TOOL_NAMES.length,
     )
+  })
+
+  it('turns a start that names a template and project into a template card', async () => {
+    const built = await buildExperimentProposal(
+      EXPERIMENT_START_TOOL,
+      {
+        ...base,
+        template: 'ELISA standard',
+        project: 'Vaccine',
+        experimentTitle: 'ELISA run 1',
+      },
+      context({
+        records: () => [
+          {
+            id: 'tpl-1',
+            identifier: 'PRT-0007',
+            title: 'ELISA standard',
+            kind: 'protocol_template',
+            status: 'active',
+            project_id: null,
+            metadata_version: 1,
+            archived_at: null,
+            assignee_user_id: null,
+          },
+        ],
+        projects: () => [{ id: 'proj-1', key: 'VAC', title: 'Vaccine' }],
+      }),
+    )
+
+    expect(built.ok, JSON.stringify(built)).toBe(true)
+    expect(built.ok && built.proposal.tool).toBe(
+      'sheetbase.experiment.start_from_template',
+    )
+    expect(built.ok && built.proposal.action).toMatchObject({
+      kind: 'experiment.start',
+      templateRecordId: 'tpl-1',
+      projectId: 'proj-1',
+      title: 'ELISA run 1',
+    })
+  })
+
+  it('gives no two cards the same tool name', () => {
+    const names = ASSISTANT_PROPOSE_TOOL_NAMES
+
+    expect(names.filter((name, i) => names.indexOf(name) !== i)).toEqual([])
+
+    for (const name of EXPERIMENT_PROPOSE_TOOL_NAMES) {
+      expect(PLANNING_PROPOSE_TOOL_NAMES as readonly string[]).not.toContain(
+        name,
+      )
+    }
   })
 
   it('starts only a draft experiment', async () => {

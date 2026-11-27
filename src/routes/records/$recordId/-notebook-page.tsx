@@ -4069,7 +4069,7 @@ function NotebookTemplateVersionLabel({ versionId }: { versionId: string }) {
     template.data?.name ?? t('notebook.notebookPage.notebookTemplate')
 
   return (
-    <span className="inline-flex min-w-0 flex-col items-end gap-1 text-right text-xs">
+    <span className="inline-flex min-w-0 flex-col items-start gap-1 text-xs">
       <span className="max-w-full">
         {t('notebook.notebookPage.nameVersionVersion', {
           name,
@@ -4391,54 +4391,38 @@ function notebookProperties({
             {ownerName}
           </Property>
         ) : null}
+        {contributors.length > 0 ? (
+          <Property label={t('notebook.notebookPage.contributors')}>
+            <ContributorAvatars contributors={contributors} />
+          </Property>
+        ) : null}
+        {/* An experiment's status is in its page header and its frozen
+            banner; saying it a third time here only adds noise. */}
+        {record.kind === 'experiment' ? null : (
+          <Property label={t('notebook.notebookPage.notebookState')}>
+            {lifecycle === 'Submitted' ? (
+              <Badge variant="add" className="text-xs">
+                {t('notebook.notebookPage.submittedEvidenceFrozen')}
+              </Badge>
+            ) : (
+              <Badge variant="kind" className="text-xs">
+                {lifecycle === 'In review'
+                  ? t('notebook.notebookPage.inReview')
+                  : lifecycle === 'Archived'
+                    ? t('notebook.notebookPage.archived')
+                    : t('notebook.notebookPage.working')}
+              </Badge>
+            )}
+          </Property>
+        )}
+        {record.sourceNotebookTemplateVersionId ? (
+          <Property label={t('notebook.notebookPage.template')} wrap>
+            <NotebookTemplateVersionLabel
+              versionId={record.sourceNotebookTemplateVersionId}
+            />
+          </Property>
+        ) : null}
       </PropertyList>
-
-      {/* Contributors + Review status — same key-value rhythm. */}
-      {contributors.length > 0 ? (
-        <div className="flex items-center justify-between gap-2">
-          <span className="shrink-0 text-xs text-muted-foreground">
-            {t('notebook.notebookPage.contributors')}
-          </span>
-          <ContributorAvatars contributors={contributors} />
-        </div>
-      ) : null}
-
-      {/* An experiment's status is in its page header and its frozen
-              banner; saying it a third time here only adds noise. */}
-      {record.kind === 'experiment' ? null : (
-        <div className="flex flex-wrap items-center justify-between gap-x-2 gap-y-1">
-          <span className="shrink-0 text-xs text-muted-foreground">
-            {t('notebook.notebookPage.notebookState')}
-          </span>
-          {lifecycle === 'Submitted' ? (
-            <Badge variant="add" className="text-xs">
-              {t('notebook.notebookPage.submittedEvidenceFrozen')}
-            </Badge>
-          ) : lifecycle === 'In review' ? (
-            <Badge variant="kind" className="text-xs">
-              {t('notebook.notebookPage.inReview')}
-            </Badge>
-          ) : lifecycle === 'Archived' ? (
-            <Badge variant="kind" className="text-xs">
-              {t('notebook.notebookPage.archived')}
-            </Badge>
-          ) : (
-            <Badge variant="kind" className="text-xs">
-              {t('notebook.notebookPage.working')}
-            </Badge>
-          )}
-        </div>
-      )}
-      {record.sourceNotebookTemplateVersionId ? (
-        <div className="flex items-center justify-between gap-2">
-          <span className="shrink-0 text-xs text-muted-foreground">
-            {t('notebook.notebookPage.template')}
-          </span>
-          <NotebookTemplateVersionLabel
-            versionId={record.sourceNotebookTemplateVersionId}
-          />
-        </div>
-      ) : null}
 
       {/* Tags — coloured pills, always visible */}
       <InspectorSection title={t('notebook.notebookPage.tagsTitle')}>

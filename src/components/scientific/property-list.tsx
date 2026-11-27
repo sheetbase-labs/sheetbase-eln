@@ -14,6 +14,8 @@ export interface PropertyProps {
   mono?: boolean
   /** Preserve long meaningful values by placing the value beneath its label. */
   stacked?: boolean
+  /** Let a long value wrap beside its label instead of ending in an ellipsis. */
+  wrap?: boolean
 }
 
 function CodeValue({ children }: { children: React.ReactNode }) {
@@ -32,19 +34,28 @@ function PropertyList({ children, className }: PropertyListProps) {
   return <dl className={cn('space-y-2', className)}>{children}</dl>
 }
 
-function Property({ label, children, mono, stacked = false }: PropertyProps) {
+function Property({
+  label,
+  children,
+  mono,
+  stacked = false,
+  wrap = false,
+}: PropertyProps) {
   return (
+    // Labels share one column and values start on one edge beside them, so
+    // the eye runs down a single line of values instead of zigzagging from a
+    // label on the left to a value pushed to the far right.
     <div
       className={cn(
-        'gap-2',
-        stacked ? 'grid' : 'flex items-center justify-between',
+        'grid gap-x-3 gap-y-1',
+        !stacked && 'min-h-6 grid-cols-[6.5rem_minmax(0,1fr)] items-center',
       )}
     >
-      <dt className="shrink-0 text-xs text-fg-muted">{label}</dt>
+      <dt className="text-xs text-fg-muted">{label}</dt>
       <dd
         className={cn(
           'min-w-0 text-xs font-medium text-fg',
-          stacked ? 'break-words text-left' : 'truncate text-right',
+          stacked || wrap ? 'break-words' : 'truncate',
           mono && 'font-mono tabular-nums',
           stacked && mono && 'text-[0.6875rem] leading-4 tracking-[-0.015em]',
         )}

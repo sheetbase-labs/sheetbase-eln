@@ -12,6 +12,7 @@
 import { z } from 'zod'
 
 import type { DataClient } from '../data-client'
+import { readUsedIn } from '../assistant-record-links.server'
 
 export const PROTOCOL_READ_TOOL = 'sheetbase.protocol.read'
 export const STOCK_READ_TOOL = 'sheetbase.stock.read'
@@ -356,12 +357,20 @@ export async function readStock(
     .filter((item) => item.lots.length > 0)
     .slice(0, limit)
 
+  // What the material's page lists under "Used in", read the same way.
+  const withUsage = await Promise.all(
+    items.map(async (item) => ({
+      ...item,
+      usedIn: item.identifier ? await readUsedIn(client, item.identifier) : [],
+    })),
+  )
+
   return items.length === 0
     ? {
         items,
         note: 'Records matched but none has stock movements, so there is no stock to report. Say so.',
       }
-    : { items }
+    : { items: withUsage }
 }
 
 const templateRow = z.object({

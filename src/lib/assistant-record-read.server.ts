@@ -1,6 +1,7 @@
 import { z } from 'zod'
 
 import { outcomeFromOutput } from './assistant-card-outcomes'
+import { readRecordLinks, readUsedIn } from './assistant-record-links.server'
 import { invalid, likeValue, toolDef } from './assistant-lab-tools.server'
 import type { LabToolContext } from './assistant-lab-tools.server'
 import type { ProviderToolDef } from './ai-providers/types'
@@ -44,7 +45,7 @@ export function recordReadDefs(): ProviderToolDef[] {
   return [
     toolDef(
       RECORD_READ_TOOL,
-      'Open one experiment, project, template, sample or other record and read it in full: its notebook text, its parts (milestones) with their days, status and steps, its plate layout and worklists, the samples set aside for it, and its links. Use it whenever the person asks what is in something, "what did you make", "are the milestones filled in", or means the page they have open. Name it by ID or words from its name. Never say you cannot see a record before trying this.',
+      'Open one experiment, project, template, sample, material or other record and read it in full: what it is linked to and what links to it (linksTo, linkedFrom), where a material is used (usedIn), its notebook text, its parts (milestones) with their days, status and steps, its plate layout and worklists, the samples set aside for it, and its links. Use it whenever the person asks what is in something, "what did you make", "are the milestones filled in", or means the page they have open. Name it by ID or words from its name. Never say you cannot see a record before trying this.',
       recordReadSchema,
     ),
     toolDef(
@@ -326,78 +327,88 @@ export async function readRecord(
     }
   }
 
-  const [blocks, parts, plates, worklists, reservations, project] =
-    await Promise.all([
-      safe(
-        client.list<BlockRow>(
-          'blocks',
-          `?record_id=eq.${found.id}&select=id,type,order,payload,part_id&order=order.asc&limit=80`,
-        ),
-        [],
+  const [
+    blocks,
+    parts,
+    plates,
+    worklists,
+    reservations,
+    project,
+    related,
+    usedIn,
+  ] = await Promise.all([
+    safe(
+      client.list<BlockRow>(
+        'blocks',
+        `?record_id=eq.${found.id}&select=id,type,order,payload,part_id&order=order.asc&limit=80`,
       ),
-      safe(
-        client.rpc<
-          Array<{
-            part_number: number
-            title: string
-            day_offset: number
-            due_on: string | null
-            status: string
-            is_current: boolean
-            step_count: number
-            steps_done: number
-            block_count: number
-            result_count: number
-          }>
-        >('record_parts', { p_record_id: found.id }),
-        [],
-      ),
-      safe(
-        client.list<{
-          name: string
-          format: string
-          wells: z.core.util.JSONType
+      [],
+    ),
+    safe(
+      client.rpc<
+        Array<{
+          part_number: number
+          title: string
+          day_offset: number
+          due_on: string | null
           status: string
-        }>(
-          'plate_runs',
-          `?record_id=eq.${found.id}&select=name,format,wells,status&limit=10`,
-        ),
-        [],
+          is_current: boolean
+          step_count: number
+          steps_done: number
+          block_count: number
+          result_count: number
+        }>
+      >('record_parts', { p_record_id: found.id }),
+      [],
+    ),
+    safe(
+      client.list<{
+        name: string
+        format: string
+        wells: z.core.util.JSONType
+        status: string
+      }>(
+        'plate_runs',
+        `?record_id=eq.${found.id}&select=name,format,wells,status&limit=10`,
       ),
-      safe(
-        client.list<{
-          name: string
-          format: string
-          source_plate: string
-          transfers: z.core.util.JSONType
-        }>(
-          'plate_worklists',
-          `?record_id=eq.${found.id}&select=name,format,source_plate,transfers&limit=10`,
-        ),
-        [],
+      [],
+    ),
+    safe(
+      client.list<{
+        name: string
+        format: string
+        source_plate: string
+        transfers: z.core.util.JSONType
+      }>(
+        'plate_worklists',
+        `?record_id=eq.${found.id}&select=name,format,source_plate,transfers&limit=10`,
       ),
-      safe(
-        client.list<{
-          quantity: number
-          unit: string | null
-          state: string
-          sample: { identifier: string; title: string } | null
-        }>(
-          'sample_reservations',
-          `?experiment_record_id=eq.${found.id}&select=quantity,unit,state,sample:records!sample_record_id(identifier,title)&limit=40`,
-        ),
-        [],
+      [],
+    ),
+    safe(
+      client.list<{
+        quantity: number
+        unit: string | null
+        state: string
+        sample: { identifier: string; title: string } | null
+      }>(
+        'sample_reservations',
+        `?experiment_record_id=eq.${found.id}&select=quantity,unit,state,sample:records!sample_record_id(identifier,title)&limit=40`,
       ),
-      found.project_id
-        ? safe(
-            client.list<{ key: string; title: string }>(
-              'projects',
-              `?id=eq.${found.project_id}&select=key,title&limit=1`,
-            ),
-            [],
-          )
-        : Promise.resolve([]),
-    ])
+      [],
+    ),
+    found.project_id
+      ? safe(
+          client.list<{ key: string; title: string }>(
+            'projects',
+            `?id=eq.${found.project_id}&select=key,title&limit=1`,
+          ),
+          [],
+        )
+      : Promise.resolve([]),
+    readRecordLinks(client, found.id),
+    readUsedIn(client, found.identifier),
+  ])
 
   const wellCount = (wells: z.core.util.JSONType) =>
     Array.isArray(wells) ? wells.length : 0
@@ -470,6 +481,9 @@ export async function readRecord(
         unit: reservation.unit,
         state: reservation.state,
       })),
+      linksTo: related.linksTo,
+      linkedFrom: related.linkedFrom,
+      usedIn,
       properties: found.properties,
     }),
   }

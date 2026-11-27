@@ -68,12 +68,14 @@ export function SheetContent({
           </DialogPrimitive.Title>
           <DialogPrimitive.Close
             aria-label={t('common.actions.close')}
-            className="inline-flex size-9 cursor-pointer items-center justify-center rounded-md border-0 bg-transparent text-fg hover:bg-surface-hover"
+            className="inline-flex size-9 cursor-pointer items-center justify-center rounded-md border-0 bg-transparent text-fg transition-[background-color,scale] duration-150 ease-out hover:bg-surface-hover focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-focus active:scale-[.97]"
           >
             <Icon name="x" size={16} />
           </DialogPrimitive.Close>
         </div>
-        <div className="min-h-0 flex-1 overflow-auto">{children}</div>
+        <div className="min-h-0 flex-1 overflow-auto overscroll-contain">
+          {children}
+        </div>
       </DialogPrimitive.Popup>
     </DialogPrimitive.Portal>
   )

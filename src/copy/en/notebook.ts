@@ -3125,6 +3125,7 @@ export const notebook = {
       '{kind} <id>{identifier}</id> has no content yet. Start with a text block for the objective — section headings and prose stay together so the team can read the same document structure.',
     aBlock: 'a block',
     datasetsPlural: 'Datasets',
+    analysesPlural: 'Analyses',
   },
   assistGuide: {
     title: 'Dataset ready',

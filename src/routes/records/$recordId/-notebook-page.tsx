@@ -3966,6 +3966,7 @@ const LINK_KIND_LABELS: Record<string, string> = {
   material: t('notebook.notebookPage.materials'),
   protocol_template: t('notebook.notebookPage.protocols'),
   dataset: t('notebook.notebookPage.datasetsPlural'),
+  analysis: t('notebook.notebookPage.analysesPlural'),
   experiment: t('notebook.notebookPage.experiments'),
   report: t('notebook.notebookPage.reports'),
 }
@@ -4077,7 +4078,7 @@ function NotebookTemplateVersionLabel({ versionId }: { versionId: string }) {
       </span>
       {availability.status === 'upgrade-available' &&
       availability.latestVersion ? (
-        <Badge variant="kind" className="text-xs">
+        <Badge variant="chg" className="text-xs">
           {t('notebook.notebookPage.upgradeAvailableVVersion', {
             version: availability.latestVersion.version,
           })}

@@ -1,3 +1,4 @@
+import { useRef } from 'react'
 import type { CSSProperties } from 'react'
 
 import { layoutGeometry } from '#/lib/pane-geometry'
@@ -22,6 +23,7 @@ import { t } from '#/copy'
 import { PaneHeader } from './pane-header'
 import { PanePage } from './pane-page'
 import { followedSelectionFor } from './workspace-host-model'
+import { usePaneScroll } from './use-pane-scroll'
 import { WorkspaceDropOverlay } from './workspace-host-overlays'
 import type { WorkspaceSession } from './workspace-session'
 
@@ -238,9 +240,16 @@ function WorkspacePaneBody({
   primary: boolean
   readOnly: boolean
 }) {
+  const contentRef = useRef<HTMLDivElement>(null)
+  const scroll = usePaneScroll(contentRef, `${pane.id}|${pane.href}`)
+
   return (
     <div className="mx-pb">
-      <div className="workspace-page-content">
+      <div
+        className="workspace-page-content"
+        ref={contentRef}
+        onScrollCapture={scroll.onScrollCapture}
+      >
         <PanePage
           id={pane.id}
           href={pane.href}

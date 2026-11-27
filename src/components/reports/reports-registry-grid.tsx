@@ -1,4 +1,5 @@
 import { useMemo } from 'react'
+import { Person } from '#/components/ui/person'
 import { Link } from '@tanstack/react-router'
 import type { ListView } from '#/lib/list-views'
 import type {
@@ -123,6 +124,12 @@ export function ReportsRegistryGrid({
         accessorFn: (r) => ownerLabel(r.createdByUserId),
         header: t('projects.reports.grid.owner'),
         meta: { cellClassName: 'text-fg-muted' },
+        cell: ({ row }) => (
+          <Person
+            name={ownerLabel(row.original.createdByUserId)}
+            userId={row.original.createdByUserId}
+          />
+        ),
         sortFn: (a, b) =>
           compareRegistryText(
             ownerLabel(a.original.createdByUserId),

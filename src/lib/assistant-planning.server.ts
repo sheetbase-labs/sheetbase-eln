@@ -1165,7 +1165,7 @@ const checklistTimerItems = z.looseObject({
 })
 
 /** Other names a model gives the template start's inputs. */
-const TEMPLATE_START_ALIASES: Record<string, string> = {
+const TEMPLATE_START_ALIASES = {
   protocol: 'template',
   protocolTemplate: 'template',
   templateName: 'template',
@@ -1174,23 +1174,29 @@ const TEMPLATE_START_ALIASES: Record<string, string> = {
   name: 'experimentTitle',
   experimentName: 'experimentTitle',
   experiment_title: 'experimentTitle',
-}
+} satisfies Record<string, string>
 
-function withTemplateStartAliases(
-  // oxlint-disable-next-line anti-slop/no-unknown-parameters -- Raw tool arguments; proposeExperimentStartSchema decodes the result.
+const aliasTargets = new Map<string, string>(
+  Object.entries(TEMPLATE_START_ALIASES),
+)
+
+function parseTemplateStart(
+  // oxlint-disable-next-line anti-slop/no-unknown-parameters -- Raw tool arguments; proposeExperimentStartSchema decodes them.
   args: unknown,
-): unknown {
-  if (typeof args !== 'object' || args === null) return args
-  const out: Record<string, unknown> = {}
+) {
+  if (typeof args !== 'object' || args === null)
+    return proposeExperimentStartSchema.safeParse(args)
+
+  const out = new Map<string, unknown>()
 
   for (const [key, value] of Object.entries(args)) {
-    const target = TEMPLATE_START_ALIASES[key]
+    const target = aliasTargets.get(key)
 
-    if (target && !(target in args)) out[target] = value
-    else out[key] = value
+    if (target && !(target in args)) out.set(target, value)
+    else out.set(key, value)
   }
 
-  return out
+  return proposeExperimentStartSchema.safeParse(Object.fromEntries(out))
 }
 
 export async function buildPlanningProposal(
@@ -1203,9 +1209,7 @@ export async function buildPlanningProposal(
 
   switch (name) {
     case EXPERIMENT_FROM_TEMPLATE_TOOL: {
-      const parsed = proposeExperimentStartSchema.safeParse(
-        withTemplateStartAliases(args),
-      )
+      const parsed = parseTemplateStart(args)
 
       if (!parsed.success) return { ok: false, message: invalid(parsed.error) }
       const input = parsed.data

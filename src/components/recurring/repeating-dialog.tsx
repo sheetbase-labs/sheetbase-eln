@@ -219,8 +219,7 @@ export function RepeatingDialog({
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
-      <Button size="sm" onClick={() => setOpen(true)}>
-        <Icon name="repeat" size={12} />
+      <Button icon="repeat" onClick={() => setOpen(true)}>
         {t('projects.recurring.dialog.open')}
       </Button>
       <DialogContent className="w-[min(860px,calc(100vw-32px))]">

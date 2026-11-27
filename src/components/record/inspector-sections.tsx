@@ -351,7 +351,7 @@ export function TagPills({
   )
 }
 
-/** Compact "Link to" count buttons — e.g. Samples (2), Protocol (1). */
+/** Compact "Link to" count buttons, e.g. Samples 2, Protocol 1. */
 export interface LinkToItem {
   label: string
   count: number
@@ -386,7 +386,9 @@ export function LinkToPills({ items }: { items: LinkToItem[] }) {
             />
             {item.label}
             {item.count > 0 ? (
-              <span className="tabular-nums text-fg-muted">({item.count})</span>
+              <span className="num font-normal text-fg-muted">
+                {item.count}
+              </span>
             ) : null}
           </Button>
         )

@@ -697,9 +697,50 @@ export function useWorkspaceSession({
       }
     }
 
-    window.addEventListener('click', onClick, true)
+    // A plain link inside a pane that nothing handled would reload the whole
+    // page. Router links and rows cancel the click themselves, so by the time
+    // it bubbles here only a bare `<a href>` is left: take it into the pane it
+    // sits in, the way a router link would.
+    const onBareClick = (event: MouseEvent) => {
+      if (event.defaultPrevented) return
 
-    return () => window.removeEventListener('click', onClick, true)
+      const anchor =
+        event.target instanceof Element ? event.target.closest('a[href]') : null
+
+      if (
+        !(anchor instanceof HTMLAnchorElement) ||
+        anchor.download ||
+        (anchor.target && anchor.target !== '_self') ||
+        event.button !== 0 ||
+        event.metaKey ||
+        event.ctrlKey ||
+        event.shiftKey ||
+        event.altKey
+      )
+        return
+      const raw = anchor.getAttribute('href')
+
+      if (!raw || raw.startsWith('#')) return
+
+      const paneId = anchor
+        .closest('[data-workspace-pane]')
+        ?.getAttribute('data-workspace-pane')
+
+      const handle = paneId ? handles.current.get(paneId) : undefined
+      const target = workspaceHref(anchor.href, location.origin)
+
+      if (!handle || !target) return
+      event.preventDefault()
+      void handle.navigate(target)
+    }
+
+    window.addEventListener('click', onClick, true)
+    window.addEventListener('click', onBareClick)
+
+    return () => {
+      window.removeEventListener('click', onClick, true)
+      window.removeEventListener('click', onBareClick)
+    }
   }, [open])
 
   const closePane = useCallback(

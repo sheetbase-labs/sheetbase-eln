@@ -8,6 +8,7 @@ import {
   DropdownMenuLinkItem,
   DropdownMenuTrigger,
 } from '#/components/ui/dropdown-menu'
+import { TabIndicator } from '#/components/ui/tab-indicator'
 import { t } from '#/copy'
 import { cn } from '#/lib/utils'
 
@@ -114,9 +115,9 @@ const ACTIVE_DATA: Record<TabVariant, string> = {
 /** The strip's own container: the rail for `strip` and `chip`, the control body for `segment`. */
 const LIST: Record<TabVariant, string> = {
   strip:
-    'flex gap-5 max-md:gap-x-4 max-md:gap-y-0 max-md:flex-wrap overflow-x-auto whitespace-nowrap [scrollbar-width:none] max-md:overflow-visible',
+    'relative flex gap-5 max-md:gap-x-4 max-md:gap-y-0 max-md:flex-wrap overflow-x-auto whitespace-nowrap [scrollbar-width:none] max-md:overflow-visible',
   segment:
-    'flex w-fit max-w-full gap-0.5 overflow-x-auto rounded-md border border-border bg-surface-muted p-0.5 [scrollbar-width:none] max-md:flex-wrap max-md:overflow-visible',
+    'relative flex w-fit max-w-full gap-0.5 overflow-x-auto rounded-md border border-border bg-surface-muted p-0.5 [scrollbar-width:none] max-md:flex-wrap max-md:overflow-visible',
   chip: 'flex items-center gap-1.5 overflow-x-auto whitespace-nowrap [scrollbar-width:none] max-md:flex-wrap max-md:overflow-visible',
 }
 
@@ -136,9 +137,17 @@ function TabCount({ count }: { count?: React.ReactNode }) {
 export const TabsRoot = TabsPrimitive.Root
 export const TabsPanel = TabsPrimitive.Panel
 
+/** Strips and segments slide their current mark; a chip row keeps its pills. */
+const SLIDES: Record<TabVariant, boolean> = {
+  strip: true,
+  segment: true,
+  chip: false,
+}
+
 export function TabsList({
   variant = 'strip',
   className,
+  children,
   ...props
 }: TabsPrimitive.List.Props & { variant?: TabVariant }) {
   return (
@@ -147,9 +156,13 @@ export function TabsList({
       // panels are cheap in-page content, which is the case the APG recommends
       // automatic activation for.
       activateOnFocus
+      data-tabs={variant}
       className={cn(LIST[variant], className)}
       {...props}
-    />
+    >
+      {children}
+      {SLIDES[variant] ? <TabIndicator /> : null}
+    </TabsPrimitive.List>
   )
 }
 
@@ -287,7 +300,11 @@ function UrlTabs({
   const tucked = new Set(tuckedItems)
 
   return (
-    <nav aria-label={label} className={cn(LIST[variant], className)}>
+    <nav
+      aria-label={label}
+      data-tabs={variant}
+      className={cn(LIST[variant], className)}
+    >
       {items.map((item, index) => {
         const current = value === undefined ? undefined : item.key === value
 
@@ -345,6 +362,7 @@ function UrlTabs({
           </DropdownMenuContent>
         </DropdownMenu>
       ) : null}
+      {SLIDES[variant] ? <TabIndicator /> : null}
     </nav>
   )
 }

@@ -840,6 +840,58 @@
   }
 }
 
+/* The current tab's mark slides between tabs (src/components/ui/tab-indicator.tsx).
+   Until it has placed itself the tabs draw their own mark, so nothing changes
+   before hydration. A strip draws a 2px underline; a segment a raised pill. */
+.sb-tab-indicator {
+  position: absolute;
+  top: 0;
+  left: 0;
+  pointer-events: none;
+  opacity: 0;
+}
+[data-indicator] > .sb-tab-indicator {
+  opacity: 1;
+}
+[data-indicator='on'] > .sb-tab-indicator {
+  transition:
+    translate 220ms var(--ease-out),
+    width 220ms var(--ease-out),
+    height 220ms var(--ease-out);
+}
+[data-tabs='strip'][data-indicator]
+  > :is([aria-current='page'], [data-active]) {
+  border-bottom-color: transparent;
+}
+[data-tabs='strip'] > .sb-tab-indicator {
+  width: var(--tab-w);
+  height: 2px;
+  translate: var(--tab-x) calc(var(--tab-y) + var(--tab-h) - 2px);
+  background: var(--color-fg);
+}
+[data-tabs='segment'] > :not(.sb-tab-indicator) {
+  position: relative;
+  z-index: 1;
+}
+[data-tabs='segment'][data-indicator]
+  > :is([aria-current='page'], [data-active]) {
+  background: transparent;
+  box-shadow: none;
+}
+[data-tabs='segment'] > .sb-tab-indicator {
+  width: var(--tab-w);
+  height: var(--tab-h);
+  translate: var(--tab-x) var(--tab-y);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface);
+  box-shadow: 0 0 0 1px var(--border);
+}
+@media (prefers-reduced-motion: reduce) {
+  [data-indicator='on'] > .sb-tab-indicator {
+    transition: none;
+  }
+}
+
 /* Reduced motion means fewer and gentler, not none: fades and colour changes
    stay because they explain a change, while anything that travels or scales
    (popups, sheets, dialogs) drops to a plain fade, and loops stop. */

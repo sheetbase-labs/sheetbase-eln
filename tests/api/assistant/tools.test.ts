@@ -69,6 +69,14 @@ describe('the gateway allowlist', () => {
     const offered = world.model.requests.at(-1)?.toolNames ?? []
 
     expect(offered.length).toBe(toolkit.defs.length)
+
+    // Two tools sharing a name make one of them unreachable: the model's call
+    // lands on the other's schema and fails on keys it does not take.
+    const names = toolkit.defs.map((def) => def.name)
+
+    expect(
+      names.filter((name, index) => names.indexOf(name) !== index),
+    ).toEqual([])
     expect(offered.length).toBeGreaterThan(200)
   })
 })
@@ -79,7 +87,10 @@ const INTENTS: Array<[request: string, tool: string]> = [
   ['Add a reagent called Trypsin with supplier Sigma', 'record__create'],
   ['Add a new lot of Tris buffer to stock', 'material__add_lot'],
   ['Create a project called Vaccine B', 'project__create'],
-  ['Start an experiment from the stability template', 'experiment__start'],
+  [
+    'Start an experiment from the stability template',
+    'experiment__start_from_template',
+  ],
   ['Book the plate reader tomorrow at 10', 'booking__create'],
   ['Log three samples in freezer A', 'sample__log'],
   ['Move sample SMP-0001 to box 2', 'sample__move'],

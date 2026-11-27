@@ -403,9 +403,12 @@ export function Inspector({
 
 export function InspectorSection({
   title,
+  action,
   children,
 }: {
   title?: React.ReactNode
+  /** A link or control at the end of the heading's rule. */
+  action?: React.ReactNode
   children: React.ReactNode
 }) {
   return (
@@ -423,6 +426,11 @@ export function InspectorSection({
         >
           <span className="min-w-0 truncate">{title}</span>
           <span aria-hidden className="h-px min-w-4 flex-1 bg-border-subtle" />
+          {action ? (
+            <span className="shrink-0 font-sans text-label font-normal">
+              {action}
+            </span>
+          ) : null}
         </h2>
       ) : null}
       {children}

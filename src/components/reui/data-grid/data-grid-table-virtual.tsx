@@ -444,12 +444,25 @@ function DataGridTableVirtualPinnedPlaceholderCell<TData extends object>({
       }
       className={cn(
         'p-0',
+        // A column whose cells step aside in a narrow pane must step aside
+        // here too: one visible spacer cell keeps the whole column's width,
+        // which left an empty strip at the end of every row.
+        isNarrowPaneColumn(column) && 'hide-in-narrow-pane',
         props.tableLayout?.cellBorder && 'border-e',
         props.tableLayout?.columnsPinnable &&
           column.getCanPin() &&
           'data-pinned:isolate data-pinned:bg-[color:var(--data-grid-surface,var(--data-grid-card-surface,var(--background)))] [&[data-pinned=end][data-last-col=end]]:shadow-[inset_calc(1px*var(--data-grid-dir,1))_0_0_0_var(--border)] [&[data-pinned=start][data-last-col=start]]:shadow-[inset_calc(-1px*var(--data-grid-dir,1))_0_0_0_var(--border)]',
       )}
     />
+  )
+}
+
+/** Whether a column's cells hide themselves when the pane is narrow. */
+function isNarrowPaneColumn<TData extends object>(
+  column: Column<DataGridFeatures, TData, unknown>,
+): boolean {
+  return Boolean(
+    column.columnDef.meta?.cellClassName?.includes('hide-in-narrow-pane'),
   )
 }
 
@@ -474,6 +487,11 @@ function DataGridTableVirtualUtilityRow<TData extends object>({
   const rightVisibleColumns = table.getEndVisibleLeafColumns()
   const hasRightPinnedColumns = hasDataGridTableRightPinnedColumns(table)
 
+  // A column that steps aside in a narrow pane gets its own empty cell that
+  // steps aside with it. Counted into the span instead, it stayed in the
+  // table as an empty slot and left a blank strip at the end of every row.
+  const narrowPaneColumns = centerVisibleColumns.filter(isNarrowPaneColumn)
+
   return (
     <tr aria-hidden={ariaHidden || undefined} className={rowClassName}>
       {leftVisibleColumns.map((column) => (
@@ -483,12 +501,22 @@ function DataGridTableVirtualUtilityRow<TData extends object>({
         />
       ))}
       <td
-        colSpan={Math.max(centerVisibleColumns.length, 1)}
+        colSpan={Math.max(
+          centerVisibleColumns.length - narrowPaneColumns.length,
+          1,
+        )}
         className={centerCellClassName}
         style={centerCellStyle}
       >
         {children}
       </td>
+      {narrowPaneColumns.map((column) => (
+        <td
+          key={column.id}
+          aria-hidden="true"
+          className="hide-in-narrow-pane p-0"
+        />
+      ))}
       {props.tableLayout?.columnsResizable && hasRightPinnedColumns ? (
         <DataGridTableFillBodyCell />
       ) : null}

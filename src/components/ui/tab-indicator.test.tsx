@@ -37,7 +37,7 @@ function measure() {
   // A test DOM has no layout: each tab reports a box from its text.
   vi.spyOn(HTMLElement.prototype, 'offsetWidth', 'get').mockImplementation(
     function (this: HTMLElement) {
-      return (this.textContent?.length ?? 0) * 10
+      return this.textContent.length * 10
     },
   )
   vi.spyOn(HTMLElement.prototype, 'offsetLeft', 'get').mockImplementation(
@@ -75,6 +75,8 @@ describe('TabIndicator', () => {
 
   it('leaves the tabs their own mark where nothing can be measured', () => {
     vi.stubGlobal('ResizeObserver', NoopResizeObserver)
+    // A tab with no box (a hidden strip) cannot be measured.
+    vi.spyOn(HTMLElement.prototype, 'offsetWidth', 'get').mockReturnValue(0)
 
     const { container } = render(<Strip />)
 

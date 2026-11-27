@@ -1,4 +1,5 @@
 import type { LinkProps } from '@tanstack/react-router'
+import type { IconName } from '#/components/icons'
 
 import { resolveSettingsAccess } from '#/lib/settings-access'
 import type { SettingsAccessMap, SettingsArea } from '#/lib/settings-access'
@@ -37,6 +38,8 @@ export type SettingsNavItem = {
   area?: SettingsArea
   /** Roles that see the section whatever their area access. */
   alwaysFor?: readonly string[]
+  /** The mark beside the section's name in the side list. */
+  icon?: IconName
 }
 
 /** Roles that author records and so certify their own signature. A read-only
@@ -70,6 +73,7 @@ export const settingsLabNav: SettingsNavItem[] = [
   {
     place: 'lab',
     label: 'Models',
+    icon: 'schema',
     link: { to: '/models' },
     match: (p) => p === '/models' || p.startsWith('/models/'),
     alwaysFor: MODEL_ROLES,
@@ -77,6 +81,7 @@ export const settingsLabNav: SettingsNavItem[] = [
   {
     place: 'lab',
     label: 'Storage locations',
+    icon: 'box',
     link: { to: '/settings/lab/storage' },
     match: (p) => p.startsWith('/settings/lab/storage'),
     area: 'storage',
@@ -84,6 +89,7 @@ export const settingsLabNav: SettingsNavItem[] = [
   {
     place: 'lab',
     label: 'Label templates',
+    icon: 'tag',
     link: { to: '/settings/lab/labels' },
     match: (p) => p.startsWith('/settings/lab/labels'),
     area: 'storage',
@@ -91,6 +97,7 @@ export const settingsLabNav: SettingsNavItem[] = [
   {
     place: 'lab',
     label: 'Sample release',
+    icon: 'checkCircle',
     link: { to: '/settings/lab/release' },
     match: (p) => p.startsWith('/settings/lab/release'),
     area: 'storage',
@@ -98,6 +105,7 @@ export const settingsLabNav: SettingsNavItem[] = [
   {
     place: 'lab',
     label: 'Sample workflows',
+    icon: 'pipeline',
     link: { to: '/settings/lab/workflows' },
     match: (p) => p.startsWith('/settings/lab/workflows'),
     area: 'storage',
@@ -105,6 +113,7 @@ export const settingsLabNav: SettingsNavItem[] = [
   {
     place: 'lab',
     label: 'Instruments and parsers',
+    icon: 'cpu',
     link: { to: '/settings/lab/instruments' },
     match: (p) => p.startsWith('/settings/lab/instruments'),
     area: 'instruments',
@@ -112,6 +121,7 @@ export const settingsLabNav: SettingsNavItem[] = [
   {
     place: 'lab',
     label: 'Retention and holds',
+    icon: 'archive',
     link: { to: '/settings/lab/retention' },
     match: (p) => p.startsWith('/settings/lab/retention'),
     area: 'general',
@@ -119,6 +129,7 @@ export const settingsLabNav: SettingsNavItem[] = [
   {
     place: 'lab',
     label: 'Scheduled reports',
+    icon: 'report',
     link: { to: '/settings/lab/reports' },
     match: (p) => p.startsWith('/settings/lab/reports'),
     area: 'general',
@@ -126,6 +137,7 @@ export const settingsLabNav: SettingsNavItem[] = [
   {
     place: 'lab',
     label: 'Sidebar',
+    icon: 'panelLeft',
     link: { to: '/settings/lab/sidebar' },
     match: (p) => p.startsWith('/settings/lab/sidebar'),
     area: 'general',
@@ -137,6 +149,7 @@ export const settingsWorkspaceNav: SettingsNavItem[] = [
     place: 'workspace',
     cluster: PEOPLE,
     label: 'Members and roles',
+    icon: 'user',
     link: { to: '/settings/workspace/members' },
     match: (p) =>
       p.startsWith('/settings/workspace/members') ||
@@ -147,6 +160,7 @@ export const settingsWorkspaceNav: SettingsNavItem[] = [
     place: 'workspace',
     cluster: PEOPLE,
     label: 'Project access',
+    icon: 'lock',
     link: { to: '/settings/workspace/access' },
     match: (p) => p.startsWith('/settings/workspace/access'),
     area: 'access',
@@ -155,6 +169,7 @@ export const settingsWorkspaceNav: SettingsNavItem[] = [
     place: 'workspace',
     cluster: PEOPLE,
     label: 'Clients',
+    icon: 'userCheck',
     link: { to: '/settings/workspace/clients' },
     match: (p) => p.startsWith('/settings/workspace/clients'),
     area: 'clients',
@@ -163,6 +178,7 @@ export const settingsWorkspaceNav: SettingsNavItem[] = [
     place: 'workspace',
     cluster: POLICY,
     label: 'General',
+    icon: 'settings',
     link: { to: '/settings/workspace' },
     match: (p) => p === '/settings/workspace' || p === '/settings/workspace/',
     area: 'general',
@@ -171,6 +187,7 @@ export const settingsWorkspaceNav: SettingsNavItem[] = [
     place: 'workspace',
     cluster: POLICY,
     label: 'Electronic signatures',
+    icon: 'squarePen',
     link: { to: '/settings/workspace/signatures' },
     match: (p) => p.startsWith('/settings/workspace/signatures'),
     area: 'signatures',
@@ -179,6 +196,7 @@ export const settingsWorkspaceNav: SettingsNavItem[] = [
     place: 'workspace',
     cluster: POLICY,
     label: 'AI',
+    icon: 'spark',
     link: { to: '/settings/workspace/ai' },
     match: (p) => p.startsWith('/settings/workspace/ai'),
     area: 'ai',
@@ -187,6 +205,7 @@ export const settingsWorkspaceNav: SettingsNavItem[] = [
     place: 'workspace',
     cluster: HEALTH,
     label: 'Integrations',
+    icon: 'plug',
     link: { to: '/settings/workspace/integrations' },
     match: (p) => p.startsWith('/settings/workspace/integrations'),
     area: 'integrations',
@@ -195,6 +214,7 @@ export const settingsWorkspaceNav: SettingsNavItem[] = [
     place: 'workspace',
     cluster: HEALTH,
     label: 'Plugins',
+    icon: 'puzzle',
     link: { to: '/settings/workspace/plugins' },
     match: (p) => p.startsWith('/settings/workspace/plugins'),
     // Administrators only: it follows General, which only they hold by default.
@@ -204,6 +224,7 @@ export const settingsWorkspaceNav: SettingsNavItem[] = [
     place: 'workspace',
     cluster: HEALTH,
     label: 'Open data',
+    icon: 'share',
     link: { to: '/settings/workspace/open-data' },
     match: (p) => p.startsWith('/settings/workspace/open-data'),
     area: 'integrations',
@@ -212,6 +233,7 @@ export const settingsWorkspaceNav: SettingsNavItem[] = [
     place: 'workspace',
     cluster: HEALTH,
     label: 'Audit and retention',
+    icon: 'history',
     link: { to: '/settings/workspace/audit' },
     match: (p) =>
       p.startsWith('/settings/workspace/audit') ||
@@ -222,6 +244,7 @@ export const settingsWorkspaceNav: SettingsNavItem[] = [
     place: 'workspace',
     cluster: HEALTH,
     label: 'Usage',
+    icon: 'barChart',
     link: { to: '/settings/workspace/usage' },
     match: (p) => p.startsWith('/settings/workspace/usage'),
     area: 'usage',
@@ -230,6 +253,7 @@ export const settingsWorkspaceNav: SettingsNavItem[] = [
     place: 'workspace',
     cluster: HEALTH,
     label: 'Diagnostics',
+    icon: 'monitor',
     link: { to: '/settings/workspace/diagnostics' },
     match: (p) => p.startsWith('/settings/workspace/diagnostics'),
     area: 'diagnostics',
@@ -238,6 +262,7 @@ export const settingsWorkspaceNav: SettingsNavItem[] = [
     place: 'workspace',
     cluster: HEALTH,
     label: 'Backups and export',
+    icon: 'download',
     link: { to: '/settings/workspace/backups' },
     match: (p) => p.startsWith('/settings/workspace/backups'),
     area: 'backups',
@@ -248,12 +273,14 @@ export const settingsAccountNav: SettingsNavItem[] = [
   {
     place: 'account',
     label: 'Profile',
+    icon: 'user',
     link: { to: '/settings/account/profile' },
     match: (p) => p.startsWith('/settings/account/profile'),
   },
   {
     place: 'account',
     label: 'My signature',
+    icon: 'squarePen',
     link: { to: '/settings/account/signature' },
     match: (p) => p.startsWith('/settings/account/signature'),
     alwaysFor: SIGNING_ROLES,
@@ -261,30 +288,35 @@ export const settingsAccountNav: SettingsNavItem[] = [
   {
     place: 'account',
     label: 'Out of office',
+    icon: 'calendar',
     link: { to: '/settings/account/away' },
     match: (p) => p.startsWith('/settings/account/away'),
   },
   {
     place: 'account',
     label: 'Lab watchers',
+    icon: 'bookmark',
     link: { to: '/settings/account/watchers' },
     match: (p) => p.startsWith('/settings/account/watchers'),
   },
   {
     place: 'account',
     label: 'AI preferences',
+    icon: 'spark',
     link: { to: '/settings/account/ai-preferences' },
     match: (p) => p.startsWith('/settings/account/ai-preferences'),
   },
   {
     place: 'account',
     label: 'Notifications',
+    icon: 'bell',
     link: { to: '/settings/account/notifications' },
     match: (p) => p.startsWith('/settings/account/notifications'),
   },
   {
     place: 'account',
     label: 'API and SDK',
+    icon: 'code',
     link: { to: '/settings/account/api' },
     match: (p) => p.startsWith('/settings/account/api'),
   },

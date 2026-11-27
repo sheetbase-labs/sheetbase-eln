@@ -2,6 +2,7 @@ import type { Tone } from '#/components/ui/status'
 import { intakeHealth } from '#/components/instruments/instruments-data'
 import { sampleStatus } from '#/components/samples/samples-data'
 import type { DataClient } from '#/lib/data-client'
+import { loadRecordKindNames, recordKindName } from '#/lib/record-kind-names'
 import { resolveRegistryObject } from '#/lib/object-resolver'
 import type { ResolvedObject } from '#/lib/object-resolver'
 import { notebookDataClient } from '#/lib/notebook-data'
@@ -77,7 +78,7 @@ const KIND_LABELS: KindLabels = {
 }
 
 export function scanKindLabel(kind: string): string {
-  return KIND_LABELS[kind] ?? kind.replace(/_/g, ' ')
+  return KIND_LABELS[kind] ?? recordKindName(kind)
 }
 
 function toRecordTarget(row: RecordWire): ScanTarget {
@@ -175,6 +176,7 @@ export async function resolveScanCode(
   const trimmed = code.trim()
 
   if (!trimmed) return { found: false, code: trimmed, suggestions: [] }
+  await loadRecordKindNames(client)
   const exact = encodeURIComponent(trimmed)
   const fuzzy = encodeURIComponent(`*${trimmed}*`)
 

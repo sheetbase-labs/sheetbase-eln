@@ -10,6 +10,7 @@ import { z } from 'zod'
 import { isUuid } from '#/lib/identifier-resolution'
 import type { JsonObject, JsonValue } from '#/lib/workspace-admin'
 import type { DataClient } from '#/lib/data-client'
+import { humanise, loadRecordKindNames } from '#/lib/record-kind-names'
 import {
   formatDate,
   formatRelativeTime,
@@ -41,16 +42,7 @@ export function peekRef(href: string): string | null {
   return match?.[1] ? decodeURIComponent(match[1]) : null
 }
 
-/** `snake_case` and `camelCase` keys and values, said as plain words. */
-export function humanise(value: string): string {
-  const spaced = value
-    .replace(/([a-z0-9])([A-Z])/g, '$1 $2')
-    .replace(/[_-]+/g, ' ')
-    .trim()
-    .toLowerCase()
-
-  return spaced.charAt(0).toUpperCase() + spaced.slice(1)
-}
+export { humanise }
 
 const filter = (ref: string, displayColumn: string) =>
   isUuid(ref)
@@ -146,9 +138,10 @@ async function loadRecord(
 
   if (!row) return null
 
-  const [project, names] = await Promise.all([
+  const [project, names, kindNames] = await Promise.all([
     projectTitle(client, row.project_id),
     memberNames(client).catch(() => new Map<string, string>()),
+    loadRecordKindNames(client),
   ])
 
   const properties = Object.entries(row.properties ?? {})
@@ -163,7 +156,7 @@ async function loadRecord(
   const summary: PeekSummary = {
     identifier: row.identifier,
     title: row.title,
-    kindLabel: humanise(row.kind),
+    kindLabel: kindNames.get(row.kind) ?? humanise(row.kind),
     status: row.status,
     facts: [
       fact('Project', project),

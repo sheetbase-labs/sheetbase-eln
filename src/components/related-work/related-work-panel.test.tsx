@@ -4,13 +4,22 @@
  * Rendering, destination links and the silent-empty contract, with the live
  * query hook mocked at the module boundary.
  */
-import { cleanup, render, screen } from '@testing-library/react'
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import { cleanup, render as plainRender, screen } from '@testing-library/react'
+import type { ReactElement } from 'react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import type * as RelatedWork from '#/lib/related-work'
 import { RelatedWorkList, RelatedWorkPanel } from './related-work-panel'
 import { useRelatedWork } from '#/lib/related-work'
 import type { RelatedWorkItem } from '#/lib/related-work'
+
+/** The panel reads the lab's model names, so it needs a query client. */
+function render(ui: ReactElement) {
+  return plainRender(
+    <QueryClientProvider client={new QueryClient()}>{ui}</QueryClientProvider>,
+  )
+}
 
 // Stub the router Link as a plain anchor so no route tree is required.
 // oxlint-disable-next-line anti-slop/no-module-mocking -- The router's Link is bound to the generated route tree at import time; this suite renders the panel's own markup, so the boundary supplies the anchor it draws.

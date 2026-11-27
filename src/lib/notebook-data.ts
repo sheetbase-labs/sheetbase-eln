@@ -15,6 +15,7 @@ import { formatInstant } from '#/lib/display-time-zone'
 import { createDataClient } from '#/lib/data-client'
 import type { DataClient } from '#/lib/data-client'
 import { now as appNow } from '#/lib/clock'
+import { recordKindName } from '#/lib/record-kind-names'
 
 // ---------------------------------------------------------------------------
 // Wire shapes (snake_case, as returned by PostgREST).
@@ -503,7 +504,7 @@ export const RECORD_KIND_LABELS: RecordKindLabels = {
 }
 
 export function recordKindLabel(kind: string): string {
-  return RECORD_KIND_LABELS[kind] ?? kind
+  return RECORD_KIND_LABELS[kind] ?? recordKindName(kind)
 }
 
 /**

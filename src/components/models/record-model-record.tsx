@@ -294,6 +294,20 @@ function RecordHeader({ page }: { page: RecordPage }) {
               {t('library.models.recordModelRecord.editDetails')}
             </Button>
           ) : null}
+          {record ? (
+            <Button
+              variant="secondary"
+              nativeButton={false}
+              render={
+                <Link
+                  to="/records/$recordId/notebook"
+                  params={{ recordId: record.id }}
+                />
+              }
+            >
+              {t('library.models.recordModelRecord.openNotebook')}
+            </Button>
+          ) : null}
           <Button
             variant="secondary"
             nativeButton={false}

@@ -12,6 +12,7 @@
 import type { DataClient } from '#/lib/data-client'
 import { objectPath, recordDestination, recordPath } from '#/lib/navigation'
 import { resolveRecordByIdentifier } from '#/lib/record-resolver'
+import { loadRecordKindNames } from '#/lib/record-kind-names'
 
 export interface ResolvedObject {
   /** `record` for anything in the records table, else the registry's kind. */
@@ -131,7 +132,12 @@ export async function resolveObjectByIdentifier(
   if (!trimmed) return null
   const record = await resolveRecordByIdentifier(client, trimmed)
 
-  if (record) return { source: 'record', ...record }
+  if (record) {
+    await loadRecordKindNames(client)
+
+    return { source: 'record', ...record }
+  }
+
   const registry = await resolveRegistryObject(client, trimmed)
 
   if (registry) return registry

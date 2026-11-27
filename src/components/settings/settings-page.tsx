@@ -1,3 +1,7 @@
+import { useContext } from 'react'
+
+import { SettingsTrail } from './settings-trail'
+
 import { cn } from '#/lib/utils'
 import { Button } from '#/components/ui/button'
 import { Checkbox } from '#/components/ui/checkbox'
@@ -27,14 +31,21 @@ export function SettingsHeader({
    */
   phoneActions?: 'top' | 'bottom'
 }) {
+  const trail = useContext(SettingsTrail)
+
   return (
     <header
       className={cn(
-        'flex flex-col gap-1 px-4 pb-3 pt-4 md:px-6',
+        'flex flex-col gap-1 px-4 pb-4 pt-5 md:px-6',
         border && 'border-b border-border',
         className,
       )}
     >
+      {trail ? (
+        <p className="m-0 text-caption font-medium text-fg-muted max-md:hidden">
+          {trail}
+        </p>
+      ) : null}
       <div className="flex min-h-7 flex-wrap items-center gap-x-2 gap-y-2">
         <h1 className="text-title max-md:text-[18px] max-md:leading-6">
           {title}
@@ -57,7 +68,9 @@ export function SettingsHeader({
         ) : null}
       </div>
       {children ? (
-        <div className="text-label text-fg-muted">{children}</div>
+        <div className="max-w-[72ch] text-body text-fg-muted text-pretty">
+          {children}
+        </div>
       ) : null}
     </header>
   )
@@ -69,7 +82,7 @@ export function SettingsBody({
 }: React.ComponentProps<'div'>) {
   return (
     <div
-      className={cn('flex flex-col gap-6 px-4 py-5 md:px-6', className)}
+      className={cn('flex flex-col gap-8 px-4 py-6 md:px-6', className)}
       {...props}
     />
   )
@@ -138,7 +151,7 @@ export function SettingsSaveBar({
     <div
       role="region"
       aria-label={t('settings.page.unsavedChangesAria')}
-      className="sticky bottom-0 z-10 -mx-4 -mb-5 mt-2 flex items-center gap-3 border-t border-border bg-surface px-4 py-3 md:-mx-6 md:px-6"
+      className="sticky bottom-0 z-10 -mx-4 -mb-6 mt-2 flex items-center gap-3 border-t border-border bg-surface px-4 py-3 md:-mx-6 md:px-6"
     >
       <span className="text-label text-fg-muted">
         {t('settings.page.unsavedChanges')}

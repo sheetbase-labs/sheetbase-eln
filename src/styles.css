@@ -586,6 +586,62 @@
   }
 }
 
+/* Settings pages that set their own section heading (a heading beside its
+   actions, or over a description) take the same hairline as the shared
+   Section, so every section on every settings page reads the same way. */
+@layer components {
+  [data-settings-content]
+    h2.text-section:not([data-section-heading]):not([data-empty-state] h2) {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+  }
+
+  [data-settings-content]
+    h2.text-section:not([data-section-heading]):not(
+      [data-empty-state] h2
+    )::after {
+    content: '';
+    flex: 1;
+    min-width: 1rem;
+    height: 1px;
+    background: var(--color-border-subtle);
+  }
+
+  [data-settings-content]
+    .justify-between
+    > h2.text-section:not([data-section-heading]) {
+    flex: 1;
+  }
+}
+
+/* Unlayered, so it wins over the empty state's own utility classes. */
+/* An empty state in a side panel is one quiet line under its heading, not
+   a centred block with an icon that pushes the panel's facts apart. */
+[data-local-inspector] [data-empty-state] {
+  align-items: flex-start;
+  gap: 0.125rem;
+  margin-inline: 0;
+  padding-block: 0.25rem;
+  text-align: left;
+}
+
+[data-local-inspector] [data-empty-state] > span:first-child {
+  display: none;
+}
+
+[data-local-inspector] [data-empty-state] > h2 {
+  font-family: var(--font-sans);
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 16px;
+}
+
+[data-local-inspector] [data-empty-state] > p {
+  font-size: 12px;
+  line-height: 17px;
+}
+
 @layer base {
   * {
     @apply border-border outline-ring/50;

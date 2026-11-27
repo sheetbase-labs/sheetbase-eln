@@ -6,6 +6,7 @@
  * Each section reads the list model and reports intent back; none of them
  * fetch, filter or own the selection.
  */
+import { ListLoadError, listFailed } from '#/components/ui/list-load-error'
 import { Link } from '@tanstack/react-router'
 
 import { t } from '#/copy'
@@ -218,7 +219,13 @@ export function InstrumentsTable({ list }: { list: InstrumentsListModel }) {
 
   return (
     <div className="min-h-0 flex-1 overflow-auto max-md:pb-20">
-      {query.isPending ? (
+      {listFailed(query) ? (
+        <ListLoadError
+          list={t('library.instruments.list.instruments').toLowerCase()}
+          onRetry={() => void query.refetch()}
+          retrying={query.isFetching}
+        />
+      ) : query.isPending ? (
         <RegistryGrid
           label={t('library.instruments.list.instruments')}
           rows={[]}

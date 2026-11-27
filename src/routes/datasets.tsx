@@ -1,4 +1,5 @@
 import { filterParamSchema } from '#/lib/list-filter'
+import { ListLoadError, listFailed } from '#/components/ui/list-load-error'
 import type { FilterParam } from '#/lib/search-filter'
 import type { ListFilter } from '#/components/inventory/list-filter'
 import { useRowFilter } from '#/components/inventory/row-filter'
@@ -469,6 +470,13 @@ function DatasetResults({
 }) {
   return (
     <div className="min-h-0 flex-1 overflow-auto max-md:pb-20">
+      {listFailed(query) ? (
+        <ListLoadError
+          list={t('data.datasetsList.datasets').toLowerCase()}
+          onRetry={() => void query.refetch()}
+          retrying={query.isFetching}
+        />
+      ) : null}
       {query.isPending || visible.length > 0 ? (
         <RegistryGrid
           className="max-md:hidden"
@@ -504,7 +512,7 @@ function DatasetResults({
           }
         })}
       />
-      {!query.isPending && visible.length === 0 && rows.length >= 0 ? (
+      {!query.isPending && !listFailed(query) && visible.length === 0 ? (
         <div role="status" className="flex justify-center px-6">
           <NoDatasets q={q} tab={tab} hasProjectAccess={hasProjectAccess} />
         </div>

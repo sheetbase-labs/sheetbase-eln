@@ -670,6 +670,34 @@
     -webkit-tap-highlight-color: transparent;
   }
 
+  /* A tap on a control acts at once: no double-tap zoom wait on phones. */
+  button,
+  a,
+  input,
+  select,
+  textarea,
+  label,
+  summary,
+  [role='button'],
+  [role='tab'],
+  [role='menuitem'],
+  [role='option'] {
+    touch-action: manipulation;
+  }
+
+  /* Headings break into even lines instead of leaving one word alone on the
+     last; running text avoids a lone last word. Both only change where a line
+     breaks, never the text or its width. */
+  :where(h1, h2, h3, h4, [role='heading']):not([contenteditable] *) {
+    text-wrap: balance;
+  }
+
+  /* Not inside an editor: re-wrapping earlier lines as someone types would
+     move the text under the caret. */
+  :where(p, li, dd, blockquote, figcaption):not([contenteditable] *) {
+    text-wrap: pretty;
+  }
+
   button:not(:disabled),
   [role='button']:not([aria-disabled='true']) {
     cursor: pointer;

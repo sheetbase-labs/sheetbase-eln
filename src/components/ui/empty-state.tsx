@@ -47,6 +47,7 @@ export function EmptyState({
 }) {
   return (
     <div
+      data-empty-state
       className={cn(
         'mx-auto flex max-w-[72ch] flex-col items-center gap-2 py-10 text-center',
         className,

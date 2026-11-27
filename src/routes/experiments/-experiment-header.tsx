@@ -4,6 +4,7 @@ import { PublishControl } from '#/components/open-data/publish-control'
 import { AskAiButton } from '#/components/assist/ask-ai-button'
 import { PageHeader } from '#/components/ui/layout'
 import { Tabs } from '#/components/ui/tabs'
+import { Person } from '#/components/ui/person'
 import { Status } from '#/components/ui/status'
 import type { Tone } from '#/components/ui/status'
 import type { NextStep } from '#/components/experiments/next-step'
@@ -92,19 +93,40 @@ export function ExperimentHeader({
           <span className="text-fg">
             <Status tone={status.tone}>{status.label}</Status>
           </span>
+          {/* Each fact reads label then value: the label stays muted and
+              the value is set in text colour, with a face for people, so
+              the eye finds who and when without parsing the line. */}
           <span className="max-md:hidden">
-            {t('projects.experimentPage.owner', { name: ownerName })}
+            {rich('projects.experimentPage.owner', {
+              name: (
+                <Person
+                  name={ownerName}
+                  userId={e.created_by_user_id}
+                  className="text-fg"
+                />
+              ),
+            })}
           </span>
           {reviewerName ? (
             <span className="max-md:hidden">
-              {t('projects.experimentPage.reviewer', { name: reviewerName })}
+              {rich('projects.experimentPage.reviewer', {
+                name: (
+                  <Person
+                    name={reviewerName}
+                    userId={e.reviewer_user_id}
+                    className="text-fg"
+                  />
+                ),
+              })}
             </span>
           ) : null}
           <span className="max-lg:hidden">
             {e.status === 'draft' || e.status === 'planned'
               ? t('projects.experimentPage.notStarted')
-              : t('projects.experimentPage.started', {
-                  date: formatDate(e.created_at),
+              : rich('projects.experimentPage.started', {
+                  date: (
+                    <span className="text-fg">{formatDate(e.created_at)}</span>
+                  ),
                 })}
           </span>
           {protocolLink ? (
@@ -125,8 +147,10 @@ export function ExperimentHeader({
           {runningDay ? <span>{runningDay}</span> : null}
           {e.planned_end ? (
             <span>
-              {t('projects.experimentPage.due', {
-                date: formatDate(e.planned_end),
+              {rich('projects.experimentPage.due', {
+                date: (
+                  <span className="text-fg">{formatDate(e.planned_end)}</span>
+                ),
               })}
             </span>
           ) : null}

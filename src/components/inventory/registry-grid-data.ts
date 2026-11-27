@@ -17,6 +17,8 @@ export interface BandRow {
   readonly __band: string
   readonly __count?: number
   readonly __action?: ReactNode
+  /** A mark drawn before the label, such as the status ring a status band names. */
+  readonly __lead?: ReactNode
   readonly id: string
 }
 
@@ -26,11 +28,13 @@ export function bandRow(
   label: string,
   count?: number,
   action?: ReactNode,
+  lead?: ReactNode,
 ): BandRow {
   return {
     __band: label,
     __count: count,
     __action: action,
+    __lead: lead,
     id: `band:${label}`,
   }
 }

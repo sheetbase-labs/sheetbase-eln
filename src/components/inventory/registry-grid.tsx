@@ -480,11 +480,14 @@ export function RegistryGrid<T extends RowData>({
                 data-band=""
                 // The label column may be an ID column set in mono; a band
                 // names a group, so it keeps the interface face.
-                className={`${paint} ${reach} relative flex w-max items-center whitespace-nowrap font-sans text-label font-medium text-fg-muted`}
+                className={`${paint} ${reach} relative flex w-max items-center gap-1.5 whitespace-nowrap font-sans text-label font-medium text-fg-muted`}
               >
+                {original.__lead}
                 {original.__band}
                 {original.__count !== undefined ? (
-                  <span className="ml-1 font-normal">{original.__count}</span>
+                  <span className="num -ml-0.5 font-normal">
+                    {original.__count}
+                  </span>
                 ) : null}
               </span>
             )

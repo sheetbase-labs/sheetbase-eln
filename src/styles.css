@@ -935,6 +935,16 @@
   font-variant-numeric: tabular-nums;
 }
 
+/* Tabular figures for a table's number columns only. Inter's tabular set
+   also widens the hyphen, the ellipsis and other punctuation, so on a whole
+   table it spaced out every ID, lot and name ("L - 77310", "C - 150",
+   ". . ."). Right-aligned cells are the ones whose digits line up. */
+@utility num-cols {
+  & :where(.text-right, .text-end, [data-align='end']) {
+    font-variant-numeric: tabular-nums;
+  }
+}
+
 @utility mono {
   font-family: var(--font-mono);
   font-size: 12px;

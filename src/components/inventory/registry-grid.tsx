@@ -648,7 +648,7 @@ function RegistryTable<T extends RowData>({
         tableClassNames={{
           // The registry table never wraps: a row is one line, and the scroll
           // area carries the overflow (the v3 table's own rule).
-          base: 'num registry-table w-full whitespace-nowrap',
+          base: 'num-cols registry-table w-full whitespace-nowrap',
           // The v3 table's own geometry, so the swap is invisible: a 31px
           // muted header band, 33px rows, 10px cell padding with the first
           // cell inset to 24px.

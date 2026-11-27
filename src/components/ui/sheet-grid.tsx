@@ -73,7 +73,7 @@ export function SheetGrid<TRow>({
         role="grid"
         aria-label={label}
         onKeyDown={onKey}
-        className="num w-full border-collapse text-body"
+        className="num-cols w-full border-collapse text-body"
       >
         <thead>
           <tr>

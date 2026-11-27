@@ -456,7 +456,7 @@ export function DescriptionList({
 }) {
   return (
     <dl
-      className={cn('num m-0 grid gap-x-2 gap-y-1.5 text-label', className)}
+      className={cn('m-0 grid gap-x-2 gap-y-1.5 text-label', className)}
       style={{ gridTemplateColumns: `${labelWidth}px 1fr` }}
     >
       {items.map(([k, v], i) => (

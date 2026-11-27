@@ -17,6 +17,7 @@ import { Skeleton } from '#/components/ui/skeleton'
 import { Button } from '#/components/ui/button'
 import {
   openBesideOnAlt,
+  requestOpenBeside,
   useWorkspaceNavigation,
 } from '#/components/workspace/workspace-navigation'
 import {
@@ -25,6 +26,9 @@ import {
   useHasProjectAccess,
 } from '#/components/projects/project-access'
 import { Person } from '#/components/ui/person'
+import { DueChip } from '#/components/ui/due-chip'
+import { RowAction, RowHoverActions } from '#/components/ui/row-hover-actions'
+import { toast } from '#/components/ui/toast'
 import { Dot, Status } from '#/components/ui/status'
 import {
   DropdownMenu,
@@ -262,6 +266,17 @@ function Experiments() {
     [workspace, navigate],
   )
 
+  // The row's hover action: the same pane beside that Alt-click opens.
+  const openBeside = useCallback(
+    (row: ExperimentListRow) => {
+      const href = `/experiments/${encodeURIComponent(row.uuid)}`
+
+      if (workspace) workspace.open(href, { beside: true, title: row.title })
+      else requestOpenBeside(href, row.title)
+    },
+    [workspace],
+  )
+
   const tab: Tab = search.tab ?? 'open'
   const [limit, setLimit] = useState(EXPERIMENT_LIST_PAGE_SIZE)
   const [sort, setSort] = useState<'updated' | 'id'>('updated')
@@ -413,10 +428,17 @@ function Experiments() {
       experimentColumns({
         issueCount,
         openExperiment,
+        openBeside,
         userId: context.user.id,
         issuesPending: openIssues.isPending,
       }),
-    [issueCount, openExperiment, context.user.id, openIssues.isPending],
+    [
+      issueCount,
+      openExperiment,
+      openBeside,
+      context.user.id,
+      openIssues.isPending,
+    ],
   )
 
   const columns = useMemo(
@@ -749,13 +771,13 @@ const GRID_BEHAVIOUR = {
 /** Fixed column widths in px, so scrolling a long list never reflows them. */
 const COLUMN_WIDTHS = new Map<string, number>([
   ['identifier', 100],
-  ['title', 260],
+  ['title', 300],
   ['project', 220],
   ['owner', 128],
   ['assignee', 128],
   ['status', 120],
   ['next', 170],
-  ['due', 120],
+  ['due', 128],
   ['issues', 110],
   ['created', 90],
   ['updated', 90],
@@ -775,11 +797,13 @@ function withColumnWidths(
 function experimentColumns({
   issueCount,
   openExperiment,
+  openBeside,
   userId,
   issuesPending,
 }: {
   issueCount: (recordId: string) => number
   openExperiment: (row: ExperimentListRow, event?: React.MouseEvent) => void
+  openBeside: (row: ExperimentListRow) => void
   userId: string
   issuesPending: boolean
 }): RegistryColumn<ExperimentListRow>[] {
@@ -807,7 +831,22 @@ function experimentColumns({
         cellClassName: `${stickyCol} max-xl:h-auto max-xl:py-1`,
       },
       cell: ({ row }) => (
-        <>
+        <RowHoverActions
+          actions={
+            <>
+              <RowAction
+                icon="externalLink"
+                label={t('common.rowActions.openBeside')}
+                onClick={() => openBeside(row.original)}
+              />
+              <RowAction
+                icon="link"
+                label={t('common.rowActions.copyLink')}
+                onClick={() => copyLink(row.original)}
+              />
+            </>
+          }
+        >
           <Link
             to="/experiments/$expId"
             params={{ expId: row.original.uuid }}
@@ -824,7 +863,7 @@ function experimentColumns({
           <span className="mono block text-[11px] text-fg-muted xl:hidden">
             {row.original.id}
           </span>
-        </>
+        </RowHoverActions>
       ),
     },
     {
@@ -864,16 +903,15 @@ function experimentColumns({
 
         if (!due) return <span className="text-fg-muted">—</span>
 
-        const late =
-          row.original.statusTab !== 'approved' &&
-          row.original.statusTab !== 'archived' &&
-          due < now().toISOString().slice(0, 10)
-
         return (
-          <span className={late ? 'text-warning-text' : 'text-fg-muted'}>
-            {formatListDate(due, now())}
-            {late ? ` · ${t('projects.experimentsList.overdue')}` : ''}
-          </span>
+          <DueChip
+            due={due}
+            now={now()}
+            done={
+              row.original.statusTab === 'approved' ||
+              row.original.statusTab === 'archived'
+            }
+          />
         )
       },
     },
@@ -951,6 +989,18 @@ function experimentColumns({
       ),
     },
   ]
+}
+
+/** The experiment's address, for Open beside and Copy link. */
+const experimentHref = (row: ExperimentListRow) =>
+  `/experiments/${encodeURIComponent(row.uuid)}`
+
+/** Copies the experiment's full link and says so. */
+function copyLink(row: ExperimentListRow) {
+  void navigator.clipboard
+    .writeText(new URL(experimentHref(row), location.origin).href)
+    .then(() => toast.success(t('common.rowActions.copied')))
+    .catch(() => undefined)
 }
 
 /** The list's title, its New actions and the tab strip. */

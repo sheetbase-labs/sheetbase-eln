@@ -122,4 +122,17 @@ export const common = {
     items: { one: '{count} item', other: '{count} items' },
     selected: { one: '{count} selected', other: '{count} selected' },
   },
+  /** When something is due, said relative to today. */
+  due: {
+    late: { one: '{count} day late', other: '{count} days late' },
+    today: 'Due today',
+    tomorrow: 'Due tomorrow',
+    inDays: 'Due in {count} days',
+  },
+  /** The actions a list row shows while the pointer is over it. */
+  rowActions: {
+    openBeside: 'Open beside',
+    copyLink: 'Copy link',
+    copied: 'Link copied',
+  },
 } as const

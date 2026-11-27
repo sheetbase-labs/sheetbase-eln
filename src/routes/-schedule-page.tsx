@@ -361,6 +361,7 @@ function useScheduleScreen({
     setAdded,
     toast,
     instrumentsLoaded: instrumentsQuery.isSuccess,
+    bookingsLoaded: bookingsQuery.isSuccess,
   }
 }
 
@@ -405,6 +406,7 @@ export function Schedule() {
       <ScheduleBody
         instruments={screen.instruments}
         instrumentsLoaded={screen.instrumentsLoaded}
+        bookingsLoaded={screen.bookingsLoaded}
         bookings={screen.bookings}
         view={screen.view}
         anchor={screen.anchor}
@@ -556,6 +558,7 @@ function phoneDayFor({
 function ScheduleBody({
   instruments,
   instrumentsLoaded,
+  bookingsLoaded,
   bookings,
   view,
   anchor,
@@ -571,6 +574,7 @@ function ScheduleBody({
 }: {
   instruments: ScheduleInstrument[]
   instrumentsLoaded: boolean
+  bookingsLoaded: boolean
   bookings: ScheduleBooking[]
   view: 'week' | 'day'
   anchor: string
@@ -632,13 +636,13 @@ function ScheduleBody({
 
       <PartsDue parts={parts} today={today} />
 
-      {bookings.length === 0 ? (
+      {bookings.length > 0 ? (
+        <Below reviews={reviews} materials={materials} />
+      ) : bookingsLoaded ? (
         <p className="m-0 text-label text-fg-muted">
           {t('projects.schedulePage.nothingBooked')}
         </p>
-      ) : (
-        <Below reviews={reviews} materials={materials} />
-      )}
+      ) : null}
     </>
   )
 }

@@ -70,9 +70,17 @@ const api = vi.hoisted(() => {
 
   let edited: CalendarBookingWire | null = null
   let refusal: Refusal | null = null
+  let gate: Promise<void> | null = null
 
   const state = {
     today,
+    /** When set, the bookings answer waits for it. */
+    get bookingsGate() {
+      return gate
+    },
+    set bookingsGate(next: Promise<void> | null) {
+      gate = next
+    },
     instruments: [...instruments],
     defaultInstruments: instruments,
     bookings,
@@ -118,6 +126,8 @@ const api = vi.hoisted(() => {
       }
 
       if (pathname === '/api/db/calendar_bookings') {
+        await state.bookingsGate
+
         return Response.json(state.bookings)
       }
 
@@ -134,6 +144,7 @@ afterEach(() => {
   api.bookings = []
   api.edited = null
   api.cancelError = null
+  api.bookingsGate = null
   api.rpcs = []
 })
 
@@ -310,6 +321,24 @@ describe('Schedule grid bounds, empty state and phone navigation', () => {
     // No empty frame and no instrument rows behind the statement.
     expect(screen.queryByRole('table')).toBeNull()
     expect(screen.queryByLabelText('Instrument schedule')).toBeNull()
+  })
+
+  it('does not say nothing is booked until the bookings have arrived', async () => {
+    let release = () => {}
+
+    api.bookingsGate = new Promise<void>((resolve) => {
+      release = resolve
+    })
+    renderSchedule()
+
+    // The instruments are drawn while the bookings are still on their way.
+    await screen.findByRole('link', { name: /INS-0008/ })
+    expect(screen.queryByText(/Nothing booked on these instruments/)).toBeNull()
+
+    release()
+    expect(
+      await screen.findByText(/Nothing booked on these instruments/),
+    ).toBeTruthy()
   })
 
   it('moves the phone day list when the week is stepped', async () => {

@@ -236,4 +236,107 @@ describe('a plan of dependent changes', () => {
 
     expect(made).toEqual([])
   })
+
+  it('creates a project, then starts experiments from a template into it', async () => {
+    const templates = await world.createProject('Templates')
+
+    await world.rpc('create_record', {
+      p_project_id: templates.id,
+      p_kind: 'protocol_template',
+      p_title: 'ELISA standard',
+      p_status: 'active',
+      p_properties: { version: '1.0' },
+    })
+
+    world.newChat()
+    world.script((request) =>
+      request.step === 0
+        ? {
+            calls: [
+              {
+                name: 'sheetbase.plan.propose',
+                arguments: {
+                  title: 'Vaccine C and two ELISAs',
+                  summary: 'Create Vaccine C, then start two ELISAs in it',
+                  steps: [
+                    {
+                      title: 'Create the project',
+                      tool: 'sheetbase.project.create',
+                      arguments: {
+                        title: 'Create Vaccine C',
+                        summary: 'A new project',
+                        projectName: 'Vaccine C',
+                      },
+                    },
+                    {
+                      title: 'Start experiment 1',
+                      tool: 'sheetbase.experiment.start_from_template',
+                      arguments: {
+                        title: 'Start ELISA 1',
+                        summary: 'From the ELISA template',
+                        template: 'ELISA standard',
+                        project: 'Vaccine C',
+                        experimentTitle: 'ELISA run 1',
+                      },
+                    },
+                    {
+                      // The keys a model used for the tool that starts a
+                      // draft: the plan must still start it from the template.
+                      title: 'Start experiment 2',
+                      tool: 'sheetbase.experiment.start',
+                      arguments: {
+                        title: 'Start ELISA 2',
+                        summary: 'From the ELISA template',
+                        template: 'ELISA standard',
+                        project: 'Vaccine C',
+                        experimentTitle: 'ELISA run 2',
+                      },
+                    },
+                    {
+                      // Other names for the same inputs.
+                      title: 'Start experiment 3',
+                      tool: 'sheetbase.experiment.start_from_template',
+                      arguments: {
+                        title: 'Start ELISA 3',
+                        summary: 'From the ELISA template',
+                        protocol: 'ELISA standard',
+                        projectName: 'Vaccine C',
+                        name: 'ELISA run 3',
+                      },
+                    },
+                  ],
+                },
+              },
+            ],
+          }
+        : { text: 'I have prepared a plan for you to approve.' },
+    )
+
+    const turn = await world.ask(
+      'Create project Vaccine C and start three ELISAs from the standard template',
+    )
+
+    expect(turn.error).toBeUndefined()
+    expect(turn.cards).toHaveLength(1)
+
+    const result = await world.apply(turn.cards[0])
+
+    expect(result, JSON.stringify(result)).toMatchObject({
+      status: 'applied',
+    })
+
+    const rows = await world.sql<{ title: string; project: string }>(
+      `SELECT r.title, p.title AS project
+         FROM api.records r JOIN api.projects p ON p.id = r.project_id
+        WHERE r.workspace_id = $1 AND r.kind = 'experiment'
+        ORDER BY r.title`,
+      [world.workspaceId],
+    )
+
+    expect(rows).toEqual([
+      { title: 'ELISA run 1', project: 'Vaccine C' },
+      { title: 'ELISA run 2', project: 'Vaccine C' },
+      { title: 'ELISA run 3', project: 'Vaccine C' },
+    ])
+  })
 })

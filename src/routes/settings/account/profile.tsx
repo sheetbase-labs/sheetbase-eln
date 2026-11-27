@@ -150,8 +150,11 @@ function Profile() {
     queryFn: () => fetchMyProfile(appearanceClient),
   })
 
-  const [initials, setInitials] = useState('')
-  const [jobTitle, setJobTitle] = useState('')
+  // Start from what is already known: with the profile cached from an earlier
+  // visit, empty first values would read as an edit and autosave would try to
+  // blank the saved initials and job title.
+  const [initials, setInitials] = useState(profile.data?.initials ?? '')
+  const [jobTitle, setJobTitle] = useState(profile.data?.jobTitle ?? '')
   useEffect(() => {
     if (profile.data) {
       setInitials(profile.data.initials)

@@ -114,9 +114,10 @@ export function usePaneScroll(
       for (const [name, top] of page) {
         const cut = name.lastIndexOf('#')
 
-        const el = twinsOf(root, name.slice(0, cut))[
-          Number(name.slice(cut + 1))
-        ]
+        const el: HTMLElement | undefined = twinsOf(
+          root,
+          name.slice(0, cut),
+        ).at(Number(name.slice(cut + 1)))
 
         if (
           el &&

@@ -21,7 +21,8 @@ export const SERIES_READ_TOOL = 'sheetbase.series.read'
 export const PARTS_READ_TOOL = 'sheetbase.parts.read'
 export const GATES_READ_TOOL = 'sheetbase.gates.read'
 
-export const EXPERIMENT_START_TOOL = 'sheetbase.experiment.start'
+export const EXPERIMENT_FROM_TEMPLATE_TOOL =
+  'sheetbase.experiment.start_from_template'
 export const RECORD_ASSIGN_TOOL = 'sheetbase.record.assign'
 export const RECORD_ASK_TOOL = 'sheetbase.record.ask'
 export const BOOKING_REPEAT_TOOL = 'sheetbase.booking.repeat'
@@ -39,7 +40,7 @@ export const GATE_GO_ON_TOOL = 'sheetbase.gate.go_on'
 export const PART_SIGNOFF_REQUEST_TOOL = 'sheetbase.part.request_signoff'
 
 export const PLANNING_PROPOSE_TOOL_NAMES = [
-  EXPERIMENT_START_TOOL,
+  EXPERIMENT_FROM_TEMPLATE_TOOL,
   RECORD_ASSIGN_TOOL,
   RECORD_ASK_TOOL,
   BOOKING_REPEAT_TOOL,

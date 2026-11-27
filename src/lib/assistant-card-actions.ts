@@ -50,6 +50,8 @@ export const CARD_ACTIONS = {
   'sheetbase.storage.place': 'place a sample in storage',
   'sheetbase.storage.add_location': 'add a storage location',
   'sheetbase.experiment.start': 'start an experiment',
+  'sheetbase.experiment.start_from_template':
+    'start an experiment from a template',
   'sheetbase.experiment.set_status': 'change an experiment’s status',
   'sheetbase.experiment.delete_draft': 'delete an experiment draft',
   'sheetbase.experiment.set_outcome': 'set an experiment’s outcome',

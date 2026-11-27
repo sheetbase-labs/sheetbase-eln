@@ -229,7 +229,7 @@ const ASSISTANT_PROPOSE_TOOLS_UNDECLARED = [
   // Planning and follow-up from a card: start an experiment from a template,
   // hand a record to someone or ask them, repeat a booking, start a step
   // timer, send and receive shipments (assistant-planning.ts).
-  'sheetbase.experiment.start',
+  'sheetbase.experiment.start_from_template',
   'sheetbase.record.assign',
   'sheetbase.record.ask',
   'sheetbase.booking.repeat',

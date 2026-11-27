@@ -403,15 +403,11 @@ function TodayInspector({
     <>
       <Inspector label={t('projects.homeQuiet.today.title')}>
         <InspectorSection
-          title={
-            <span className="flex items-baseline">
-              <span className="flex-1">
-                {t('projects.homeQuiet.today.title')}
-              </span>
-              <Link to="/schedule" className="font-normal">
-                {t('projects.homeQuiet.today.fullSchedule')}
-              </Link>
-            </span>
+          title={t('projects.homeQuiet.today.title')}
+          action={
+            <Link to="/schedule">
+              {t('projects.homeQuiet.today.fullSchedule')}
+            </Link>
           }
         >
           {todayBookings.length ? (

@@ -793,14 +793,8 @@ export function HomeInspectorToday({
   return (
     <Inspector label={t('projects.home.sections.today')}>
       <InspectorSection
-        title={
-          <span className="flex items-baseline">
-            <span className="flex-1">{t('projects.home.sections.today')}</span>
-            <Link to="/schedule" className="font-normal">
-              {t('projects.home.fullSchedule')}
-            </Link>
-          </span>
-        }
+        title={t('projects.home.sections.today')}
+        action={<Link to="/schedule">{t('projects.home.fullSchedule')}</Link>}
       >
         {bookingsFailed ? (
           <SectionUnavailable
@@ -838,16 +832,8 @@ export function HomeInspectorToday({
       </InspectorSection>
 
       <InspectorSection
-        title={
-          <span className="flex items-baseline">
-            <span className="flex-1">
-              {t('projects.home.sections.needsAttention')}
-            </span>
-            <Link to="/inbox" className="font-normal">
-              {t('projects.home.inbox')}
-            </Link>
-          </span>
-        }
+        title={t('projects.home.sections.needsAttention')}
+        action={<Link to="/inbox">{t('projects.home.inbox')}</Link>}
       >
         {attentionFailed ? (
           <SectionUnavailable

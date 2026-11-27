@@ -14,6 +14,7 @@ export function PageHeader({
   actions,
   tabs,
   titleLevel = 1,
+  paneTitle,
   compact = false,
   className,
 }: {
@@ -33,6 +34,11 @@ export function PageHeader({
    * page heading.
    */
   titleLevel?: 1 | 2 | 3
+  /**
+   * The name the pane tab and browser tab use when the heading says more
+   * than the page's name, such as Home's "Good morning, Gareth".
+   */
+  paneTitle?: string
   /**
    * A phone header that gives the screen back to the page: the title on one
    * line with the actions beside it, one meta line, then the tabs. Scrolling
@@ -70,6 +76,7 @@ export function PageHeader({
       >
         <PageHeaderTitle
           titleLevel={titleLevel}
+          paneTitle={paneTitle}
           hasMeta={Boolean(meta)}
           compact={compact}
         >
@@ -101,11 +108,13 @@ function titleClassName(compact: boolean, hasMeta: boolean): string {
 
 function PageHeaderTitle({
   titleLevel,
+  paneTitle,
   hasMeta,
   compact,
   children,
 }: {
   titleLevel: 1 | 2 | 3
+  paneTitle?: string
   hasMeta: boolean
   compact: boolean
   children: React.ReactNode
@@ -114,6 +123,7 @@ function PageHeaderTitle({
 
   return (
     <Title
+      data-pane-title={paneTitle}
       className={cn(
         'col-start-1 row-start-1 min-w-0 text-title max-md:text-[18px] max-md:leading-6 md:truncate',
         titleClassName(compact, hasMeta),
@@ -414,28 +424,45 @@ export function InspectorSection({
 
 export function Section({
   title,
+  index,
   count,
   action,
   children,
   className,
 }: {
   title: React.ReactNode
+  /** A report's running number, set before the title ("01 Objective"). */
+  index?: number
   count?: React.ReactNode
   action?: React.ReactNode
   children: React.ReactNode
   className?: string
 }) {
   return (
-    <section className={cn('flex flex-col gap-2', className)}>
-      <div className="flex flex-wrap items-baseline gap-x-2 gap-y-1.5">
-        <h2 className="text-section">{title}</h2>
+    <section className={cn('flex flex-col gap-2.5', className)}>
+      {/* The heading leads a hairline that runs to the section's actions, so
+          each section reads as its own block without a box around it. */}
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5">
+        <h2 className="flex items-baseline gap-2 text-section">
+          {index != null ? (
+            <span className="num text-label font-medium text-fg-faint">
+              {String(index).padStart(2, '0')}
+            </span>
+          ) : null}
+          {title}
+        </h2>
         {count != null ? (
-          <span className="num text-label text-fg-muted">{count}</span>
+          <span className="num -ml-1 text-label text-fg-muted">{count}</span>
         ) : null}
+        <span
+          aria-hidden
+          data-section-rule
+          className="h-px min-w-4 flex-1 bg-border-subtle"
+        />
         {/* Actions wrap beneath the heading when the pane is too narrow for
             both, rather than running off its edge. */}
         {action ? (
-          <div className="ml-auto flex flex-wrap items-center justify-end gap-2">
+          <div className="flex flex-wrap items-center justify-end gap-2">
             {action}
           </div>
         ) : null}

@@ -18,6 +18,7 @@
  * drive validation; they must not be the only access-control boundary.
  */
 
+import { recordKindName } from '#/lib/record-kind-names'
 import { t } from '#/copy'
 import { z } from 'zod'
 import type { DataClient } from '#/lib/data-client'
@@ -1405,7 +1406,10 @@ function kindLabelForSuggestion(kind: string): string {
     notebook_template: t('projects.search.templates'),
   }
 
-  return Object.entries(labels).find(([key]) => key === kind)?.[1] ?? kind
+  return (
+    Object.entries(labels).find(([key]) => key === kind)?.[1] ??
+    recordKindName(kind)
+  )
 }
 
 // ---------------------------------------------------------------------------

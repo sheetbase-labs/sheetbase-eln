@@ -1037,11 +1037,14 @@
   font-size: 12px;
 }
 
+/* A page's title leads its header: a step above the 16px section titles,
+   slightly tightened as display sizes are, so a page has one clear top. */
 @utility text-title {
   font-family: var(--font-display);
-  font-size: 20px;
-  line-height: 26px;
+  font-size: 22px;
+  line-height: 28px;
   font-weight: 600;
+  letter-spacing: -0.012em;
 }
 
 @utility text-doc {

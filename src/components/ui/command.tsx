@@ -307,7 +307,10 @@ export function CommandList({
       role="listbox"
       aria-label={label}
       aria-busy={c.loading || undefined}
-      className={cn('min-h-0 flex-1 overflow-auto py-1', className)}
+      className={cn(
+        'min-h-0 flex-1 overflow-auto overscroll-contain py-1',
+        className,
+      )}
       {...props}
     />
   )

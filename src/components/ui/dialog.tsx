@@ -112,7 +112,7 @@ export function DialogBody({
   return (
     <div
       className={cn(
-        'flex flex-col gap-3.5 overflow-auto px-5 py-4 max-md:px-4',
+        'flex flex-col gap-3.5 overflow-auto overscroll-contain px-5 py-4 max-md:px-4',
         className,
       )}
       {...props}

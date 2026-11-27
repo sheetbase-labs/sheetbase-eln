@@ -24,7 +24,7 @@ import {
   noProjectAccessTitle,
   useHasProjectAccess,
 } from '#/components/projects/project-access'
-import { Status } from '#/components/ui/status'
+import { Dot, Status } from '#/components/ui/status'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -427,7 +427,22 @@ function Experiments() {
 
   // A grouped list draws its groups as bands in the one table.
   const gridRows: RegistryRow<ExperimentListRow>[] = groups.flatMap(
-    ([g, list]) => (g ? [bandRow(g, list.length), ...list] : list),
+    ([g, list]) =>
+      g
+        ? [
+            bandRow(
+              g,
+              list.length,
+              undefined,
+              // A status band carries the ring its rows show, so the groups
+              // read at a glance the way the Status column does.
+              group === 'status' && list[0] ? (
+                <Dot tone={list[0].status.tone} />
+              ) : undefined,
+            ),
+            ...list,
+          ]
+        : list,
   )
 
   return (

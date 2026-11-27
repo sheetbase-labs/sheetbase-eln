@@ -368,7 +368,7 @@ export function Inspector({
         aria-label={label}
         style={width === undefined ? undefined : { width }}
         className={cn(
-          'hidden w-inspector shrink-0 flex-col gap-5 overflow-auto border-l border-border bg-surface p-4 xl:flex',
+          'hidden w-inspector shrink-0 flex-col gap-6 overflow-auto border-l border-border bg-surface px-5 py-5 xl:flex',
           className,
         )}
         {...props}
@@ -415,7 +415,15 @@ export function InspectorSection({
         // they are the page's top-level sections, so they take the same H2
         // level. An H3 here made inspector-only pages (e.g. /protocols) jump
         // straight from the page H1 to H3.
-        <h2 className="mb-1.5 font-sans text-label font-semibold">{title}</h2>
+        // The title leads a hairline across the panel, like a page Section,
+        // so each group of facts reads as its own block.
+        <h2
+          data-section-heading
+          className="mb-2.5 flex items-center gap-2.5 font-display text-[13px] font-semibold leading-5 text-fg"
+        >
+          <span className="min-w-0 truncate">{title}</span>
+          <span aria-hidden className="h-px min-w-4 flex-1 bg-border-subtle" />
+        </h2>
       ) : null}
       {children}
     </section>
@@ -443,7 +451,10 @@ export function Section({
       {/* The heading leads a hairline that runs to the section's actions, so
           each section reads as its own block without a box around it. */}
       <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5">
-        <h2 className="flex items-baseline gap-2 text-section">
+        <h2
+          data-section-heading
+          className="flex items-baseline gap-2 text-section"
+        >
           {index != null ? (
             <span className="num text-label font-medium text-fg-faint">
               {String(index).padStart(2, '0')}
@@ -483,14 +494,14 @@ export function DescriptionList({
 }) {
   return (
     <dl
-      className={cn('m-0 grid gap-x-2 gap-y-1.5 text-label', className)}
+      className={cn('m-0 grid gap-x-3 gap-y-2 text-label', className)}
       style={{ gridTemplateColumns: `${labelWidth}px 1fr` }}
     >
       {items.map(([k, v], i) => (
         // react-doctor-disable-next-line react-doctor/no-array-index-as-key -- Each row's identity is its position in the caller's fixed label/value table; labels are display text and need not be unique, so a row can only be identified by where the caller placed it.
         <div key={i} className="contents">
           <dt className="text-fg-muted">{k}</dt>
-          <dd className="m-0">{v}</dd>
+          <dd className="m-0 min-w-0 font-medium text-fg">{v}</dd>
         </div>
       ))}
     </dl>

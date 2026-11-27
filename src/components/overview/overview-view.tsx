@@ -23,6 +23,7 @@ import {
 import { Button } from '#/components/ui/button'
 import { Status } from '#/components/ui/status'
 import { ProgressRail } from '#/components/ui/progress-rail'
+import { Person } from '#/components/ui/person'
 import { TableBox } from '#/components/ui/table'
 import { RegistryGrid, bandRow } from '#/components/inventory/registry-grid'
 import type {
@@ -528,8 +529,6 @@ export function ExperimentOverview({
     ]),
   ].filter((id): id is string => Boolean(id))
 
-  const reviewerNames = recordedReviewerIds.map((id) => userLabel(id))
-
   const plannedEnd = propertyText(properties, 'plannedEnd')
   const decision = propertyText(properties, 'decision')
   const decisionNotes = propertyText(properties, 'decisionNotes')
@@ -604,7 +603,7 @@ export function ExperimentOverview({
           status,
           userLabel,
           collaboratorIds,
-          reviewerNames,
+          reviewerIds: recordedReviewerIds,
           projectName,
           clientId,
           protocolLinks,
@@ -1130,7 +1129,7 @@ function renderPropertiesSection({
   status,
   userLabel,
   collaboratorIds,
-  reviewerNames,
+  reviewerIds,
   projectName,
   clientId,
   protocolLinks,
@@ -1140,7 +1139,7 @@ function renderPropertiesSection({
 }: Pick<ExperimentOverviewProps, 'record' | 'userLabel' | 'projectName'> & {
   status: ReturnType<typeof experimentStatus>
   collaboratorIds: string[]
-  reviewerNames: string[]
+  reviewerIds: string[]
   clientId: string | null
   protocolLinks: OverviewLink[]
   plannedEnd: string | null
@@ -1158,7 +1157,10 @@ function renderPropertiesSection({
           ],
           [
             t('projects.overview.properties.owner'),
-            userLabel(record.createdByUserId),
+            <Person
+              name={userLabel(record.createdByUserId)}
+              userId={record.createdByUserId}
+            />,
           ],
           ...(collaboratorIds.length
             ? ([
@@ -1170,9 +1172,15 @@ function renderPropertiesSection({
             : []),
           [
             t('projects.overview.properties.reviewer'),
-            reviewerNames.length
-              ? reviewerNames.join(', ')
-              : t('projects.overview.notRecorded'),
+            reviewerIds.length ? (
+              <span className="flex flex-wrap gap-x-3 gap-y-1">
+                {reviewerIds.map((id) => (
+                  <Person key={id} name={userLabel(id)} userId={id} />
+                ))}
+              </span>
+            ) : (
+              t('projects.overview.notRecorded')
+            ),
           ],
           [
             t('projects.overview.properties.project'),

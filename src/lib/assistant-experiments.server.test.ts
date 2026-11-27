@@ -107,13 +107,12 @@ describe('experiment, alias and label template assistant cards', () => {
 
   it('gives no two cards the same tool name', () => {
     const names = ASSISTANT_PROPOSE_TOOL_NAMES
+    const planning: readonly string[] = PLANNING_PROPOSE_TOOL_NAMES
 
     expect(names.filter((name, i) => names.indexOf(name) !== i)).toEqual([])
 
     for (const name of EXPERIMENT_PROPOSE_TOOL_NAMES) {
-      expect(PLANNING_PROPOSE_TOOL_NAMES as readonly string[]).not.toContain(
-        name,
-      )
+      expect(planning).not.toContain(name)
     }
   })
 

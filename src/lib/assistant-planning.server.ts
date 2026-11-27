@@ -1176,28 +1176,22 @@ const TEMPLATE_START_ALIASES = {
   experiment_title: 'experimentTitle',
 } satisfies Record<string, string>
 
-const aliasTargets = new Map<string, string>(
-  Object.entries(TEMPLATE_START_ALIASES),
-)
+/** The template start's input, under any of the names a model may give it. */
+const templateStartInput = z
+  .looseObject({})
+  .transform((given) => {
+    const out = { ...given }
 
-function parseTemplateStart(
-  // oxlint-disable-next-line anti-slop/no-unknown-parameters -- Raw tool arguments; proposeExperimentStartSchema decodes them.
-  args: unknown,
-) {
-  if (typeof args !== 'object' || args === null)
-    return proposeExperimentStartSchema.safeParse(args)
+    for (const [from, to] of Object.entries(TEMPLATE_START_ALIASES)) {
+      if (from in given && !(to in given)) {
+        out[to] = given[from]
+        delete out[from]
+      }
+    }
 
-  const out = new Map<string, unknown>()
-
-  for (const [key, value] of Object.entries(args)) {
-    const target = aliasTargets.get(key)
-
-    if (target && !(target in args)) out.set(target, value)
-    else out.set(key, value)
-  }
-
-  return proposeExperimentStartSchema.safeParse(Object.fromEntries(out))
-}
+    return out
+  })
+  .pipe(proposeExperimentStartSchema)
 
 export async function buildPlanningProposal(
   name: PlanningProposeToolName,
@@ -1209,7 +1203,7 @@ export async function buildPlanningProposal(
 
   switch (name) {
     case EXPERIMENT_FROM_TEMPLATE_TOOL: {
-      const parsed = parseTemplateStart(args)
+      const parsed = templateStartInput.safeParse(args)
 
       if (!parsed.success) return { ok: false, message: invalid(parsed.error) }
       const input = parsed.data

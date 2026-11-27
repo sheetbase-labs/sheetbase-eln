@@ -1,4 +1,4 @@
-import type { z } from 'zod'
+import { z } from 'zod'
 
 import {
   ALIAS_ADD_TOOL,
@@ -208,11 +208,16 @@ function parse<T extends z.ZodType>(
     : { ok: false, message: invalid(parsed.error) }
 }
 
-function asksForTemplateStart(args: unknown): boolean {
-  if (typeof args !== 'object' || args === null) return false
-
-  return !('experiment' in args) && ('template' in args || 'project' in args)
-}
+/** What a model sends when it means "make one from a template" but names the draft tool. */
+const templateStartShape = z
+  .looseObject({
+    experiment: z.undefined().optional(),
+    template: z.string().optional(),
+    project: z.string().optional(),
+  })
+  .refine(
+    (given) => given.template !== undefined || given.project !== undefined,
+  )
 
 export async function buildExperimentProposal(
   name: ExperimentProposeToolName,
@@ -227,7 +232,7 @@ export async function buildExperimentProposal(
       // A model that means "start one from a template" sometimes uses this
       // tool, which starts a draft that already exists. Route it to the
       // template card instead of failing on keys this tool does not take.
-      if (asksForTemplateStart(args)) {
+      if (templateStartShape.safeParse(args).success) {
         const { buildPlanningProposal } =
           await import('./assistant-planning.server')
         const { EXPERIMENT_FROM_TEMPLATE_TOOL } =

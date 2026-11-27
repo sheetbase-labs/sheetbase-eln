@@ -3,7 +3,7 @@ import { Children } from 'react'
 import { cn } from '#/lib/utils'
 import { Skeleton } from './skeleton'
 
-// Record table (.t): 32px rows, 12px muted headers on surface-muted, tabular numerals.
+// Record table (.t): 32px rows, 12px muted headers on surface-muted, tabular numerals in number columns.
 export function Table({
   className,
   caption,
@@ -16,7 +16,7 @@ export function Table({
   return (
     <table
       data-slot="table"
-      className={cn('num w-full border-collapse text-body', className)}
+      className={cn('num-cols w-full border-collapse text-body', className)}
       {...props}
     >
       {caption ? <caption className="sr-only">{caption}</caption> : null}

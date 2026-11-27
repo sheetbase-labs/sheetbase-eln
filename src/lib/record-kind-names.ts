@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import { useQuery } from '@tanstack/react-query'
 
 import type { DataClient } from '#/lib/data-client'
 
@@ -46,7 +47,24 @@ export function recordKindName(kind: string): string {
   return known.get(kind) ?? humanise(kind)
 }
 
+/** Whether a lab model defines this kind (once the names are read). */
+export function isModelKind(kind: string): boolean {
+  return known.has(kind)
+}
+
 /** For tests: forget what was read. */
 export function resetRecordKindNames(): void {
   known = new Map()
+}
+
+/**
+ * The names as a query, for a screen that labels kinds: it re-renders once
+ * the lab's model names have arrived.
+ */
+export function useRecordKindNames(client: DataClient): void {
+  useQuery({
+    queryKey: ['record-kind-names'],
+    queryFn: () => loadRecordKindNames(client),
+    staleTime: 60_000,
+  })
 }

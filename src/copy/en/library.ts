@@ -1469,6 +1469,7 @@ export const library = {
       loadingRecord: 'Loading record…',
       editDetails: 'Edit details',
       allRecords: 'All records',
+      openNotebook: 'Open notebook',
       details: 'Details',
       thisLegacyRecordHasNo:
         'This legacy record has no saved model version. Values are shown without applying current field labels or units.',

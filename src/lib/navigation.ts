@@ -6,6 +6,8 @@
 
 import { z } from 'zod'
 
+import { isModelKind } from '#/lib/record-kind-names'
+
 export function projectPath(projectId: string): string {
   return `/projects/${encodeURIComponent(projectId)}`
 }
@@ -79,7 +81,11 @@ export function recordDestination(kind: string, recordId: string): string {
     case 'report':
       return reportPath(recordId)
     default:
-      return recordPath(recordId)
+      // A record a lab model defines opens on the page that shows the model's
+      // fields, the same page its registry row links to.
+      return isModelKind(kind)
+        ? `/models/${encodeURIComponent(kind)}/records/${encodeURIComponent(recordId)}`
+        : recordPath(recordId)
   }
 }
 

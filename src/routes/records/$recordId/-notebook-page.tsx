@@ -1,4 +1,5 @@
 import { rich, t } from '#/copy'
+import { useRecordKindNames } from '#/lib/record-kind-names'
 import { RecordBodySkeleton } from '#/components/ui/page-skeleton'
 import { NOTEBOOK_STRUCTURE_SCOPE } from '#/lib/notebook-structure-scope'
 import { ObjectLink } from '#/components/ui/object-link'
@@ -467,6 +468,7 @@ function useNotebookPageQueries({
   })
 
   const queryClient = useQueryClient()
+  useRecordKindNames(notebookDataClient)
   const [tab, setTab] = useState<NotebookTab>('notebook')
 
   const recordQuery = useQuery({

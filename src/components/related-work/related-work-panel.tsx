@@ -7,6 +7,8 @@
  * (renders null) when there is nothing to show — mounts never need an
  * empty-state branch.
  */
+import { notebookDataClient } from '#/lib/notebook-data'
+import { useRecordKindNames } from '#/lib/record-kind-names'
 import { LoadingBlock } from '#/components/ui/page-skeleton'
 import type { IconName } from '#/components/icons'
 
@@ -70,6 +72,7 @@ export function RelatedWorkPanel({
   kind: RelatedWorkKind
   id: string
 }) {
+  useRecordKindNames(notebookDataClient)
   const { data, isLoading } = useRelatedWork(kind, id)
 
   if (isLoading) {

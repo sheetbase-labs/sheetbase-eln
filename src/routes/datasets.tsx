@@ -326,7 +326,6 @@ function DatasetsList() {
         />
         <DatasetResults
           query={query}
-          rows={rows}
           visible={visible}
           columns={columns}
           grid={arrange.grid}
@@ -443,7 +442,6 @@ function DatasetSearchBar({
 /** The registry itself: the grid, the phone list, and the empty state. */
 function DatasetResults({
   query,
-  rows,
   visible,
   columns,
   grid,
@@ -456,7 +454,6 @@ function DatasetResults({
   openDataset,
 }: {
   query: ReturnType<typeof useDatasetSummaries>
-  rows: DatasetListRow[]
   visible: DatasetListRow[]
   columns: RegistryColumn<DatasetListRow>[]
   grid: ListArrange<DatasetListRow>['grid']

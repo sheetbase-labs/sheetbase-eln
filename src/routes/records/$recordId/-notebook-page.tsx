@@ -1,4 +1,5 @@
 import { rich, t } from '#/copy'
+import { Person } from '#/components/ui/person'
 import { useRecordKindNames } from '#/lib/record-kind-names'
 import { RecordBodySkeleton } from '#/components/ui/page-skeleton'
 import { NOTEBOOK_STRUCTURE_SCOPE } from '#/lib/notebook-structure-scope'
@@ -4388,7 +4389,7 @@ function notebookProperties({
         </Property>
         {ownerName ? (
           <Property label={t('notebook.notebookPage.createdByLabel')}>
-            {ownerName}
+            <Person name={ownerName} userId={record.createdByUserId} />
           </Property>
         ) : null}
         {contributors.length > 0 ? (

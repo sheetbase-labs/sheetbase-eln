@@ -279,16 +279,92 @@ jobs:
           # (each signs in afresh), and each shard has its own database.
           - name: phone pages 1/2
             files: tests/browser/phone/pages.test.ts
+            fully: true
             shard: 1/2
           - name: phone pages 2/2
             files: tests/browser/phone/pages.test.ts
+            fully: true
             shard: 2/2
           - name: phone slash menu 1/2
             files: tests/browser/phone/slash-menu.test.ts
+            fully: true
             shard: 1/2
           - name: phone slash menu 2/2
             files: tests/browser/phone/slash-menu.test.ts
+            fully: true
             shard: 2/2
+          # Every other browser test, spread over six jobs by file. The list
+          # is checked against tests/browser by src/lib/browser-ci-coverage.test.ts,
+          # so a new test file cannot go unrun.
+          - name: other journeys 1/6
+            files: &other-journeys >-
+              tests/browser/ai-assistant.test.ts
+              tests/browser/click-targets.test.ts
+              tests/browser/client-viewer-scope.test.ts
+              tests/browser/data-007-dataset-explorer.test.ts
+              tests/browser/exp-06-history.test.ts
+              tests/browser/grid-keyboard-selection.test.ts
+              tests/browser/history-timeline.test.ts
+              tests/browser/home-quiet-ui.test.ts
+              tests/browser/home-ui.test.ts
+              tests/browser/import-flow.test.ts
+              tests/browser/list-keeps-place.test.ts
+              tests/browser/member-role-visibility.test.ts
+              tests/browser/navigation-smoothness.test.ts
+              tests/browser/note-01-authoring.test.ts
+              tests/browser/note-01-review-document.test.ts
+              tests/browser/phase4-proof.test.ts
+              tests/browser/proj-01-properties.test.ts
+              tests/browser/projects-workflow.test.ts
+              tests/browser/protocol-acknowledgement.test.ts
+              tests/browser/registry-grid.test.ts
+              tests/browser/registry-screens.test.ts
+              tests/browser/reviews-inbox.test.ts
+              tests/browser/route-smoke.test.ts
+              tests/browser/sci-009-virus-stability.test.ts
+              tests/browser/sci-04-visualisation.test.ts
+              tests/browser/sheet-comments.test.ts
+              tests/browser/shell-01-one-shell.test.ts
+              tests/browser/shell-03-keyboard.test.ts
+              tests/browser/workspace-same-page.test.ts
+              tests/browser/journeys/admin-more.test.ts
+              tests/browser/journeys/analysis-more.test.ts
+              tests/browser/journeys/auto-more.test.ts
+              tests/browser/journeys/core-loop.test.ts
+              tests/browser/journeys/core-more.test.ts
+              tests/browser/journeys/data-import.test.ts
+              tests/browser/journeys/data-more.test.ts
+              tests/browser/journeys/data.test.ts
+              tests/browser/journeys/experiments.test.ts
+              tests/browser/journeys/lab-more.test.ts
+              tests/browser/journeys/lab.test.ts
+              tests/browser/journeys/nav-auto.test.ts
+              tests/browser/journeys/notebook-more.test.ts
+              tests/browser/journeys/review.test.ts
+              tests/browser/journeys/seeded-sweep.test.ts
+              tests/browser/journeys/sheets-more.test.ts
+              tests/browser/journeys/start-admin.test.ts
+              tests/browser/journeys/template-update.test.ts
+            shard: 1/6
+          - name: other journeys 2/6
+            files: *other-journeys
+            shard: 2/6
+          - name: other journeys 3/6
+            files: *other-journeys
+            shard: 3/6
+          - name: other journeys 4/6
+            files: *other-journeys
+            shard: 4/6
+          - name: other journeys 5/6
+            files: *other-journeys
+            shard: 5/6
+          - name: other journeys 6/6
+            files: *other-journeys
+            shard: 6/6
+          # The signing journeys run on their own config and server, because
+          # they sign in as fixture users with real passwords.
+          - name: signing
+            signing: true
     env:
       SHEETBASE_DEV_AUTH_FREE: 'false'
     steps:
@@ -391,15 +467,14 @@ jobs:
         if: steps.browser-cache.outputs.cache-hit == 'true'
         run: pnpm exec playwright install-deps chromium
       - name: Browser journeys
+        if: ${{ !matrix.signing }}
         run: >-
           pnpm exec playwright test ${{ matrix.files }}
           --project=browser --workers=1
-          ${{ matrix.shard && format('--fully-parallel --shard={0}', matrix.shard) || '' }}
-      # Off until tests/browser/rev-03-signing.test.ts is rewritten for the
-      # redesigned review screens: it still looks for the old Approve button
-      # and witness picker, so it fails on main for reasons unrelated to CI.
-      # - name: Native signing acceptance
-      #   run: pnpm exec playwright test --config playwright.signatures.config.ts --workers=1
+          ${{ matrix.shard && format('{0}--shard={1}', matrix.fully && '--fully-parallel ' || '', matrix.shard) || '' }}
+      - name: Native signing acceptance
+        if: ${{ matrix.signing }}
+        run: pnpm exec playwright test --config playwright.signatures.config.ts --workers=1
       - name: Upload acceptance evidence
         if: always()
         uses: actions/upload-artifact@v4

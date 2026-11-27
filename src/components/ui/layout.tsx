@@ -432,15 +432,12 @@ export function InspectorSection({
 
 export function Section({
   title,
-  index,
   count,
   action,
   children,
   className,
 }: {
   title: React.ReactNode
-  /** A report's running number, set before the title ("01 Objective"). */
-  index?: number
   count?: React.ReactNode
   action?: React.ReactNode
   children: React.ReactNode
@@ -451,15 +448,7 @@ export function Section({
       {/* The heading leads a hairline that runs to the section's actions, so
           each section reads as its own block without a box around it. */}
       <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5">
-        <h2
-          data-section-heading
-          className="flex items-baseline gap-2 text-section"
-        >
-          {index != null ? (
-            <span className="num text-label font-medium text-fg-faint">
-              {String(index).padStart(2, '0')}
-            </span>
-          ) : null}
+        <h2 data-section-heading className="text-section">
           {title}
         </h2>
         {count != null ? (

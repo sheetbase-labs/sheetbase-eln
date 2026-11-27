@@ -254,35 +254,29 @@ export function HomeChips({
     | undefined
   inboxCount: number | undefined
 }): React.ReactElement {
-  // QA2-Home-1: a figure leads to the set it counts, so the destination opens
-  // filtered to that set instead of its unfiltered default. The day reads as
-  // four figures in a row, number over label, split by hairlines, so what is
-  // waiting on the person is the first thing the eye lands on.
-  const figureClass =
-    'group flex min-w-0 flex-col gap-1 py-2.5 text-fg-muted no-underline transition-colors hover:text-fg md:px-5 md:first:pl-0 md:[&+&]:border-l md:[&+&]:border-border-subtle'
-
-  const numberClass =
-    'num block font-display text-[26px] font-semibold leading-8 tracking-[-0.01em] text-fg'
-
-  const labelClass =
-    'flex items-center gap-1.5 text-label group-hover:underline'
+  // QA2-Home-1: a chip leads to the set it counts, so the destination opens
+  // filtered to that set instead of its unfiltered default.
+  const chipClass =
+    'inline-flex items-center gap-1.5 text-label text-fg-muted no-underline hover:text-fg hover:underline'
 
   return (
     <nav
       aria-label={t('projects.home.summary')}
-      className="grid grid-cols-2 gap-x-4 border-y border-border-subtle py-1.5 md:flex md:items-stretch md:gap-0"
+      className="flex flex-wrap items-center gap-x-5 gap-y-1.5 text-label text-fg-muted"
     >
-      <Link to="/inbox" search={{ type: 'reviews' }} className={figureClass}>
-        <b className={numberClass}>{counts?.reviews ?? '—'}</b>{' '}
-        <span className={labelClass}>
-          <Dot tone="review" />
+      <Link to="/inbox" search={{ type: 'reviews' }} className={chipClass}>
+        <Dot tone="review" />
+        <span>
+          <b className="num font-semibold">{counts?.reviews ?? '—'}</b>{' '}
           {t('projects.home.toReview')}
         </span>
       </Link>
-      <Link to="/datasets" search={{ tab: 'issues' }} className={figureClass}>
-        <b className={numberClass}>{counts?.datasetsWithErrors ?? '—'}</b>{' '}
-        <span className={labelClass}>
-          <Dot tone="bad" />
+      <Link to="/datasets" search={{ tab: 'issues' }} className={chipClass}>
+        <Dot tone="bad" />
+        <span>
+          <b className="num font-semibold">
+            {counts?.datasetsWithErrors ?? '—'}
+          </b>{' '}
           {counts?.datasetsWithErrors === 1
             ? t('projects.home.datasetWithErrors')
             : t('projects.home.datasetsWithErrors')}
@@ -291,29 +285,29 @@ export function HomeChips({
       <Link
         to="/experiments"
         search={{ tab: 'inprogress' }}
-        className={figureClass}
+        className={chipClass}
       >
-        <b className={numberClass}>{counts?.experimentsInProgress ?? '—'}</b>{' '}
-        <span className={labelClass}>
-          <Dot tone="progress" />
+        <Dot tone="progress" />
+        <span>
+          <b className="num font-semibold">
+            {counts?.experimentsInProgress ?? '—'}
+          </b>{' '}
           {counts?.experimentsInProgress === 1
             ? t('projects.home.experimentInProgress')
             : t('projects.home.experimentsInProgress')}
         </span>
       </Link>
-      <Link to="/schedule" className={figureClass}>
-        <b className={numberClass}>{counts?.instrumentRuns ?? '—'}</b>{' '}
-        <span className={labelClass}>
-          <Dot tone="analysis" />
+      <Link to="/schedule" className={chipClass}>
+        <Dot tone="analysis" />
+        <span>
+          <b className="num font-semibold">{counts?.instrumentRuns ?? '—'}</b>{' '}
           {counts?.instrumentRuns === 1
             ? t('projects.home.instrumentBooking')
             : t('projects.home.instrumentBookings')}
         </span>
       </Link>
-      <Link
-        to="/inbox"
-        className="col-span-2 self-center py-2 text-label md:ml-auto md:py-0"
-      >
+      <span className="flex-1" />
+      <Link to="/inbox" className="text-label">
         {t('projects.home.openInbox', { count: inboxCount ?? '—' })}
       </Link>
     </nav>

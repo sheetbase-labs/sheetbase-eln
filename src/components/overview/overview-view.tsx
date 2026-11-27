@@ -304,13 +304,11 @@ function PartsSection({
   startedAt,
   parts,
   userLabel,
-  index,
 }: {
   recordId: string
   startedAt: string
   parts: readonly PartSummary[]
   userLabel: (userId: string) => string
-  index: number
 }) {
   const done = parts.filter((part) => part.status === 'done').length
 
@@ -418,7 +416,6 @@ function PartsSection({
 
   return (
     <Section
-      index={index}
       title={t('projects.overview.parts.title')}
       action={
         <span className="text-label text-fg-muted">
@@ -540,7 +537,7 @@ export function ExperimentOverview({
         {/* The summary reads like a lab report: objective, method, results
             and conclusion, numbered in order, with what is still open before
             submission after the report. */}
-        <Section index={1} title={t('projects.overview.objective.title')}>
+        <Section title={t('projects.overview.objective.title')}>
           {objective ? (
             <p className="m-0 max-w-[68ch] whitespace-pre-line text-prose text-pretty">
               {objective}
@@ -552,7 +549,6 @@ export function ExperimentOverview({
 
         {parts.length > 0 ? (
           <PartsSection
-            index={2}
             recordId={record.id}
             startedAt={record.createdAt}
             parts={parts}
@@ -562,7 +558,6 @@ export function ExperimentOverview({
         {parts.length > 0 ? schedule : null}
 
         {renderProtocolSection({
-          index: parts.length > 0 ? 3 : 2,
           protocolLinks,
           protocolSteps,
           parts,
@@ -572,7 +567,6 @@ export function ExperimentOverview({
           userLabel,
         })}
         {renderKeyResultsSection({
-          index: parts.length > 0 ? 4 : 3,
           metrics,
           datasetLinks,
           analysisLinks,
@@ -581,7 +575,6 @@ export function ExperimentOverview({
             .slice(0, 2),
         })}
         {renderConclusionSection({
-          index: parts.length > 0 ? 5 : 4,
           conclusions,
           decision,
           decisionNotes,
@@ -657,7 +650,6 @@ export function ExperimentOverview({
 }
 
 function renderProtocolSection({
-  index: sectionNumber,
   protocolLinks,
   protocolSteps,
   parts,
@@ -666,7 +658,6 @@ function renderProtocolSection({
   stepStatus,
   userLabel,
 }: {
-  index: number
   protocolLinks: OverviewLink[]
   protocolSteps: ReturnType<typeof protocolStepProgress>
   parts: readonly PartSummary[]
@@ -760,7 +751,6 @@ function renderProtocolSection({
 
   return (
     <Section
-      index={sectionNumber}
       title={t('projects.overview.protocol.title')}
       action={
         protocolLinks.length ? (
@@ -946,20 +936,17 @@ function renderReadinessContent({
 }
 
 function renderKeyResultsSection({
-  index: sectionNumber,
   metrics,
   datasetLinks,
   analysisLinks,
   figures,
 }: Pick<ReturnType<typeof keyResultsFrom>, 'metrics'> & {
-  index: number
   datasetLinks: OverviewLink[]
   analysisLinks: OverviewLink[]
   figures: readonly ReadinessBlock[]
 }) {
   return (
     <Section
-      index={sectionNumber}
       title={t('projects.overview.results.title')}
       action={<Muted>{t('projects.overview.results.preliminary')}</Muted>}
     >
@@ -1065,18 +1052,15 @@ function decisionTone(decision: string) {
 }
 
 function renderConclusionSection({
-  index,
   conclusions,
   decision,
   decisionNotes,
 }: Pick<ReturnType<typeof keyResultsFrom>, 'conclusions'> & {
-  index: number
   decision: string | null
   decisionNotes: string | null
 }) {
   return (
     <Section
-      index={index}
       title={t('projects.overview.conclusion.title')}
       action={
         decision ? (

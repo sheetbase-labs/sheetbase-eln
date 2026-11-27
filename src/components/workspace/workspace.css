@@ -293,6 +293,22 @@
   background: var(--surface);
   overflow: hidden;
   container: workspace-page mx-pane / inline-size;
+  /* A pane that opens beside another settles in from the side it came from,
+     so the new pane is seen arriving rather than the layout jumping. */
+  animation: mx-pane-in 200ms var(--ease-out);
+}
+@keyframes mx-pane-in {
+  from {
+    opacity: 0;
+    translate: 8px 0;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  @keyframes mx-pane-in {
+    from {
+      opacity: 0;
+    }
+  }
 }
 .mx-pane[hidden] {
   display: none;

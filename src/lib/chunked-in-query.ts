@@ -76,10 +76,7 @@ function compare(a: Cell, b: Cell): number {
 }
 
 /** Put merged chunks back in the order the query asked for, when it can. */
-export function mergeChunkedRows<T extends object>(
-  query: string,
-  parts: T[][],
-): T[] {
+export function mergeChunkedRows<T>(query: string, parts: T[][]): T[] {
   const rows = parts.flat()
   const params = new URLSearchParams(query.slice(1))
   const order = params.get('order')

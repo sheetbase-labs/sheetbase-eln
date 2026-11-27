@@ -34,8 +34,10 @@ describe('browser tests in CI', () => {
 
     const missing = browserTests(BROWSER_DIR).filter(
       (file) =>
-        !named.some((name) =>
-          name.endsWith('/') ? file.startsWith(name) : file === name,
+        !named.some(
+          (name) =>
+            file === name ||
+            file.startsWith(name.endsWith('/') ? name : `${name}/`),
         ) &&
         // The signing journeys run from their own config.
         file !== 'tests/browser/rev-03-signing.test.ts',

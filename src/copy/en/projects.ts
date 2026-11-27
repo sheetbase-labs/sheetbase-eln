@@ -1006,6 +1006,10 @@ export const projects = {
       analyses: 'Analyses',
       none: 'No datasets or analyses are linked yet. Produced datasets appear on the Data tab.',
     },
+    conclusion: {
+      title: 'Conclusion',
+      none: 'No decision or conclusion yet. Record whether the results supported the hypothesis on the Results tab.',
+    },
     properties: {
       title: 'Properties',
       status: 'Status',
@@ -3089,6 +3093,11 @@ export const projects = {
   },
   home: {
     title: 'Home',
+    greeting: {
+      morning: 'Good morning, {name}',
+      afternoon: 'Good afternoon, {name}',
+      evening: 'Good evening, {name}',
+    },
     joinedWelcome: {
       title: 'You joined {workspace} as a {role}',
       body: 'Anyone who signs in with a {domain} address joins automatically. An owner can change your role in Members and roles.',

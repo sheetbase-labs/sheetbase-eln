@@ -158,7 +158,23 @@ async function pageTabProblems(page: Page): Promise<string[]> {
     if (!current) out.push('no tab is marked as the current one')
     else {
       const colour = getComputedStyle(current).borderBottomColor
-      if (/rgba\(0, 0, 0, 0\)|transparent/.test(colour))
+      // Once the strip's sliding mark has placed itself it draws the
+      // underline, and the tab's own border steps aside for it.
+      const mark = current.parentElement?.querySelector<HTMLElement>(
+        ':scope > .sb-tab-indicator',
+      )
+      const markBox = mark?.getBoundingClientRect()
+      const tabBox = current.getBoundingClientRect()
+      const markUnder =
+        mark !== null &&
+        mark !== undefined &&
+        markBox !== undefined &&
+        getComputedStyle(mark).opacity !== '0' &&
+        markBox.height > 0 &&
+        Math.abs(markBox.left - tabBox.left) <= 1 &&
+        Math.abs(markBox.width - tabBox.width) <= 1 &&
+        Math.abs(markBox.bottom - tabBox.bottom) <= 1
+      if (/rgba\(0, 0, 0, 0\)|transparent/.test(colour) && !markUnder)
         out.push(
           `the current tab "${current.textContent?.trim()}" shows no underline`,
         )

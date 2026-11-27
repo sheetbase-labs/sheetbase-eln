@@ -209,7 +209,7 @@ function parse<T extends z.ZodType>(
 }
 
 /** What a model sends when it means "make one from a template" but names the draft tool. */
-const templateStartShape = z
+const templateStartMistake = z
   .looseObject({
     experiment: z.undefined().optional(),
     template: z.string().optional(),
@@ -232,9 +232,10 @@ export async function buildExperimentProposal(
       // A model that means "start one from a template" sometimes uses this
       // tool, which starts a draft that already exists. Route it to the
       // template card instead of failing on keys this tool does not take.
-      if (templateStartShape.safeParse(args).success) {
+      if (templateStartMistake.safeParse(args).success) {
         const { buildPlanningProposal } =
           await import('./assistant-planning.server')
+
         const { EXPERIMENT_FROM_TEMPLATE_TOOL } =
           await import('./assistant-planning')
 

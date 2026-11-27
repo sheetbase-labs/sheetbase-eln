@@ -8,6 +8,7 @@
  * with the raw wire shape. Domain mappers belong at the call site, not here.
  */
 
+import { mergeChunkedRows, splitLongInQuery } from '#/lib/chunked-in-query'
 import { z } from 'zod'
 
 import { markSessionExpired } from './session-expiry'
@@ -328,16 +329,29 @@ export function createDataClient(fetchImpl: typeof fetch = fetch): DataClient {
     return response
   }
 
-  return {
-    async list<T>(resource: string, query = ''): Promise<T[]> {
-      const shared = await sharedGet(`/${resource}${query}`, {
-        accept: 'application/json',
-      })
+  async function listRows<T>(resource: string, query = ''): Promise<T[]> {
+    // An id list too long for one request is read in groups, here, once.
+    const groups = splitLongInQuery(query)
 
-      // T is the caller's wire expectation; domain consumers validate their own rows.
-      // oxlint-disable-next-line anti-slop/require-safety-comment-for-type-assertion
-      return JSON.parse(shared.body) as T[]
-    },
+    if (groups) {
+      const parts = await Promise.all(
+        groups.map((group) => listRows<T>(resource, group)),
+      )
+
+      return mergeChunkedRows(query, parts)
+    }
+
+    const shared = await sharedGet(`/${resource}${query}`, {
+      accept: 'application/json',
+    })
+
+    // T is the caller's wire expectation; domain consumers validate their own rows.
+    // oxlint-disable-next-line anti-slop/require-safety-comment-for-type-assertion
+    return JSON.parse(shared.body) as T[]
+  }
+
+  return {
+    list: listRows,
 
     async count(resource: string, query = ''): Promise<number> {
       // Ask PostgREST for an exact total via the Content-Range header while

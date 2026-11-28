@@ -12,8 +12,11 @@ export interface PaneScroll {
   onPointerDownCapture: () => void
 }
 
-/** How long a returning page gets to draw before we stop looking for its scroller. */
+/** How long a list is held where it was left, once its rows are back. */
 const SETTLE_MS = 2500
+
+/** How long a returning page gets to bring its rows back before we stop looking. */
+const FIND_MS = 10_000
 
 /** Where a pane's scrollers were left, per page it has shown. */
 const left = new Map<string, Map<string, number>>()
@@ -96,6 +99,8 @@ export function usePaneScroll(
     // Keep putting the list back for a moment: rows that arrive late, or a
     // refetch swapping a skeleton for rows, can reset the scroller after it was
     // first restored. Anything the person does themselves ends this at once.
+    let restoredAt: number | undefined
+
     const tick = () => {
       for (const [name, top] of page) {
         const cut = name.lastIndexOf('#')
@@ -105,16 +110,23 @@ export function usePaneScroll(
           name.slice(0, cut),
         ).at(Number(name.slice(cut + 1)))
 
-        if (
-          el &&
-          el.scrollHeight - el.clientHeight >= top - 1 &&
-          Math.abs(el.scrollTop - top) > 1
-        )
-          el.scrollTop = top
+        if (el && el.scrollHeight - el.clientHeight >= top - 1) {
+          restoredAt ??= performance.now()
+
+          if (Math.abs(el.scrollTop - top) > 1) el.scrollTop = top
+        }
       }
 
-      if (!touched && performance.now() - started < SETTLE_MS)
-        frame = requestAnimationFrame(tick)
+      // The hold starts when the rows are back, not when the page is: on a
+      // slow connection they can take seconds to arrive.
+      const now = performance.now()
+
+      const holding =
+        restoredAt === undefined
+          ? now - started < FIND_MS
+          : now - restoredAt < SETTLE_MS
+
+      if (!touched && holding) frame = requestAnimationFrame(tick)
       else remembering.current = true
     }
 

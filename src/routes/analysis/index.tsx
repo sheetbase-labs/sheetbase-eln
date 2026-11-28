@@ -2,7 +2,12 @@ import { filterParamSchema } from '#/lib/list-filter'
 import type { FilterParam } from '#/lib/search-filter'
 import { useRowFilter } from '#/components/inventory/row-filter'
 import { t } from '#/copy'
-import { emptyCopyFor, kindLabel, tabLabelFor } from '../-analysis-list-model'
+import {
+  emptyCopyFor,
+  kindLabel,
+  statisticSummary,
+  tabLabelFor,
+} from '../-analysis-list-model'
 import type { AnalysisRow } from '../-analysis-list-model'
 import { useListArrange } from '#/components/inventory/list-arrange'
 import { ownerColumn, updatedColumn } from '#/components/inventory/list-columns'
@@ -93,15 +98,8 @@ function viewRow(view: AnalysisViewWire): AnalysisRow {
   }
 }
 
-/** The part of a saved statistics definition the list names. */
-const definitionSummarySchema = z.object({
-  kind: z.string().optional(),
-  datasets: z.array(z.object({ datasetId: z.string().optional() })).optional(),
-})
-
 function definitionRow(saved: AnalysisDefinitionWire): AnalysisRow {
-  const parsed = definitionSummarySchema.safeParse(saved.definition)
-  const definition = parsed.success ? parsed.data : {}
+  const summary = statisticSummary(saved)
 
   return {
     id: saved.id,
@@ -109,27 +107,17 @@ function definitionRow(saved: AnalysisDefinitionWire): AnalysisRow {
     identifier: saved.display_id ?? saved.id.slice(0, 8),
     citeKey: saved.id,
     name: saved.name,
-    detail:
-      definition.kind === 'curve'
-        ? t('data.analysisList.doseResponseCurve')
-        : definition.kind === 'comparison'
-          ? t('data.analysisList.groupComparison')
-          : definition.kind === 'survival'
-            ? t('data.analysisList.survivalCurve')
-            : (definition.kind ?? 'analysis'),
+    detail: summary.kindLabel,
     ownerId: saved.owner_user_id,
     version: saved.version,
     updatedAt: saved.updated_at,
-    datasetId: definition.datasets?.at(0)?.datasetId,
+    datasetId: summary.datasetId,
   }
 }
 
-/** Where a row opens: a chart view has its own page, statistics open in the studio. */
-/** A chart opens as its saved page; an analysis opens in the studio. */
+/** Every saved analysis, chart or statistic, opens at its own address. */
 function analysisHref(row: AnalysisRow) {
-  return row.kind === 'chart'
-    ? `/analysis/${encodeURIComponent(row.id)}`
-    : `/analysis/new?mode=analyse&definition=${encodeURIComponent(row.id)}`
+  return `/analysis/${encodeURIComponent(row.id)}`
 }
 
 function RowLink({
@@ -143,19 +131,10 @@ function RowLink({
   children: React.ReactNode
   onOpen: (row: AnalysisRow, event: React.MouseEvent) => void
 }) {
-  return row.kind === 'chart' ? (
+  return (
     <Link
       to="/analysis/$analysisId"
       params={{ analysisId: row.id }}
-      className={className}
-      onClick={(event) => onOpen(row, event)}
-    >
-      {children}
-    </Link>
-  ) : (
-    <Link
-      to="/analysis/new"
-      search={{ mode: 'analyse', definition: row.id }}
       className={className}
       onClick={(event) => onOpen(row, event)}
     >

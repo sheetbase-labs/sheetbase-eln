@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useState } from 'react'
+import { Link } from '@tanstack/react-router'
 
 import { t } from '#/copy'
 import { Icon } from '#/components/icons'
@@ -197,13 +198,15 @@ export function AnalysisPanel(props: AnalysisPanelProps) {
         />
       ) : null}
 
-      <SavedDefinitionsList
-        definitions={definitions}
-        loading={definitionsQuery.isLoading}
-        activeId={draft.editingId}
-        onLoad={loadDefinition}
-        onDelete={setDeleteTarget}
-      />
+      {props.standalone ? null : (
+        <SavedDefinitionsList
+          definitions={definitions}
+          loading={definitionsQuery.isLoading}
+          activeId={draft.editingId}
+          onLoad={loadDefinition}
+          onDelete={setDeleteTarget}
+        />
+      )}
 
       <ConfirmDialog
         open={deleteTarget !== null}
@@ -286,7 +289,13 @@ function SavedDefinitionsList({
           key={saved.id}
           className="flex items-center justify-between gap-2 rounded-md border px-3 py-2 text-xs"
         >
-          <span className="truncate font-medium">{saved.name}</span>
+          <Link
+            to="/analysis/$analysisId"
+            params={{ analysisId: saved.id }}
+            className="truncate font-medium text-fg hover:underline"
+          >
+            {saved.name}
+          </Link>
           <span className="flex items-center gap-2">
             <Badge variant="kind">v{saved.version}</Badge>
             {activeId === saved.id ? (

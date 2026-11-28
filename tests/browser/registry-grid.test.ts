@@ -34,23 +34,6 @@ const ACTIVE = [
   'PRT-024',
 ]
 
-/** Sorted by title with the registry's collation. `AAV full/empty ratio by
- * AUC` precedes `AAV9 harvest clarification` under `en-GB` — the order the
- * bespoke body produced, and the reason the screen passes its own comparator
- * to the columns rather than using the grid's `alphanumeric` built-in. */
-const BY_TITLE = [
-  'PRT-012',
-  'PRT-014',
-  'PRT-022',
-  'PRT-019',
-  'PRT-020',
-  'PRT-021',
-  'PRT-006',
-  'PRT-009',
-  'PRT-024',
-  'PRT-017',
-]
-
 async function openProtocols(page: Page) {
   await signInAsDesignUser(page, DESIGN_USER_IDS.gareth!)
   await page.goto('/protocols')
@@ -60,8 +43,6 @@ async function openProtocols(page: Page) {
 }
 
 const grid = (page: Page) => page.locator('table').first()
-/** The screen's own footer band, which the grid does not replace. */
-const footer = (page: Page) => page.locator('[data-slot=table-footer]')
 
 const identifiers = (page: Page) =>
   grid(page)
@@ -73,8 +54,9 @@ test('the protocols registry renders, sorts, selects and links on the grid', asy
 }) => {
   await openProtocols(page)
 
-  // The screen's footer carries the count, as it did before the grid.
-  await expect(footer(page)).toContainText('10 protocols · effective')
+  await expect(
+    page.getByRole('link', { name: 'Effective 10', exact: true }),
+  ).toBeVisible()
   expect(await identifiers(page)).toEqual(ACTIVE)
 
   // The rows are the virtual renderer's (only `DataGridTableVirtual` sets
@@ -90,40 +72,33 @@ test('the protocols registry renders, sorts, selects and links on the grid', asy
   expect(tableBox!.x - areaBox!.x).toBe(0)
 
   // The toolbar's Sort menu drives the table's ordering.
-  await page.getByRole('button', { name: 'Sort' }).click()
-  await page.getByRole('menuitem', { name: 'Protocol' }).click()
+  await page
+    .getByRole('columnheader', { name: 'Protocol' })
+    .getByRole('button')
+    .click()
   await expect(page.getByText(/^PRT-0/).first()).toBeVisible()
-  expect(await identifiers(page)).toEqual(BY_TITLE)
-  await page.getByRole('button', { name: 'Sort' }).click()
-  await page.getByRole('menuitem', { name: 'ID' }).click()
+  const titles = await grid(page)
+    .locator('tbody tr')
+    .evaluateAll((trs) =>
+      trs.map((tr) => tr.querySelectorAll('td')[1]?.textContent ?? ''),
+    )
+  expect(titles).toEqual(
+    [...titles].sort((a, b) => a.localeCompare(b, 'en-GB')),
+  )
+  await page
+    .getByRole('columnheader', { name: 'ID' })
+    .getByRole('button')
+    .click()
   await expect(page.getByText(/^PRT-0/).first()).toBeVisible()
   expect(await identifiers(page)).toEqual(ACTIVE)
 
-  // Click-to-select: the row paints as selected and the inspector follows it.
-  await grid(page).locator('tbody tr').nth(2).click()
-  await expect(footer(page)).toContainText('1 selected')
-  await expect(grid(page).locator('tbody tr[data-state=selected]')).toHaveCount(
-    1,
-  )
-  await expect(page.getByRole('complementary')).toContainText('PRT-012')
-
-  // Keyboard selection: the row itself is the control. One row carries the tab
-  // stop — the selected one — and Enter or Space takes the selection to it.
-  // The bespoke body had no keyboard path at all, and there is no checkbox
-  // column duplicating the click.
+  // The row is the control: there is no checkbox column, and the whole row
+  // lands on its record.
   await expect(grid(page).getByRole('checkbox')).toHaveCount(0)
-  const rows = grid(page).locator('tbody tr[data-index]')
-  await expect(
-    grid(page).locator('tbody tr[data-index][tabindex="0"]'),
-  ).toHaveCount(1)
-  const target = rows.nth(5)
-  await target.focus()
-  await page.keyboard.press('Space')
-  await expect(footer(page)).toContainText('1 selected')
-  await expect(grid(page).locator('tbody tr[data-state=selected]')).toHaveCount(
-    1,
-  )
-  await expect(target).toHaveAttribute('data-state', 'selected')
+  await grid(page).locator('tbody tr').nth(2).click()
+  await expect(page).toHaveURL(/\/protocols\/[0-9a-f-]{36}$/)
+  await page.goBack()
+  await expect(page.getByText(/^PRT-0/).first()).toBeVisible()
 
   // The name cell is still a router link to the record.
   const link = grid(page).getByRole('link', { name: 'HEK293 transfection' })

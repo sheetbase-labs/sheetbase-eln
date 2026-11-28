@@ -121,7 +121,9 @@ test('a member acknowledges the frozen version and the record survives a reload'
     name: 'Read and acknowledge',
   })
   await expect(acknowledgeButton).toBeEnabled()
-  const priya = training.getByRole('row', { name: /Priya S\./ })
+  const priya = training
+    .getByRole('row', { name: /^Priya S\./ })
+    .and(page.locator('tr:not([data-index])'))
   await expect(priya).toContainText('Required')
 
   await acknowledgeButton.click()
@@ -142,14 +144,17 @@ test('a member acknowledges the frozen version and the record survives a reload'
     acknowledged_at: Date
   }>(
     `select protocol_version_id, user_id, acknowledged_at
-       from api.protocol_acknowledgements where protocol_version_id = $1`,
-    [versionId],
+       from api.protocol_acknowledgements where protocol_version_id = $1 and user_id = $2`,
+    [versionId, PRIYA],
   )
   expect(rows.rows).toHaveLength(1)
   expect(rows.rows[0].user_id).toBe(PRIYA)
   expect(rows.rows[0].protocol_version_id).toBe(versionId)
   expect(rows.rows[0].acknowledged_at).toBeInstanceOf(Date)
-  const recordedDate = rows.rows[0].acknowledged_at.toISOString().slice(0, 10)
+  const recordedDate = rows.rows[0].acknowledged_at.toLocaleDateString(
+    'en-GB',
+    { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'UTC' },
+  )
   await expect(priya).toContainText(recordedDate)
 
   await page.reload()

@@ -2059,6 +2059,8 @@ export const projects = {
       authorBody:
         'You submitted this version on {date}. The notebook stays read-only until they decide, and you get an inbox item when they do.',
       body: 'You’re reading the version {name} submitted on {date}. Comment on any block, then approve it or send it back.',
+      othersBody:
+        '{name} submitted this version on {date}. The notebook stays read-only until the reviewers decide.',
     },
     notStarted: 'Not started',
     started: 'Started {date}',

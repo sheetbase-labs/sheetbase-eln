@@ -239,6 +239,7 @@ function ExperimentLayout() {
             reviewing={nextStep.reviewing}
             inReview={e.status === 'in_review'}
             ownerName={userLabel(e.created_by_user_id)}
+            isAuthor={e.created_by_user_id === userId}
             submittedAt={review.data?.submission?.submitted_at}
             revisionId={reviewRevisionId}
             waitingNames={waitingNames}

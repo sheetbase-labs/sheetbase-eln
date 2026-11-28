@@ -2252,7 +2252,7 @@ export const library = {
       mustReadAndAcknowledgeV:
         ' {names} must read and acknowledge v{version} before starting an experiment from it.',
       noOneHasTrainingAssigned: 'No one has training assigned yet',
-      usedBy: 'Used by',
+      startedFrom: 'Started from it',
       moreOnV: '{count} more on v{version}',
       noExperimentHasStartedFrom:
         'No experiment has started from this protocol',
@@ -3386,7 +3386,6 @@ export const library = {
       noPublishedVersionYetPublish:
         'No published version yet. Publish one from Versions, then you can start a notebook from it.',
       details: 'Details',
-      key: 'Key',
       published: 'Published',
       versions: 'Versions',
       noVersionYet: 'No version yet',
@@ -3396,13 +3395,9 @@ export const library = {
       addItsSectionsAndParameters:
         'Add its sections and parameters, then save a version.',
       couldNotCreateTheTemplate: 'Couldn’t create the template.',
-      lowercaseLettersDigitsAndUnderscore:
-        'Lowercase letters, digits and underscore, starting with a letter.',
       newTemplate: 'New template',
       aTemplateHoldsTheSections2:
         'A template holds the sections and parameters a notebook is made from. Saving later makes a new version; notebooks already made keep the one they started on.',
-      lowercaseLettersDigitsAndUnderscore2:
-        'Lowercase letters, digits and underscore, e.g. depth_filter.',
       name: 'Name',
       eGDepthFilterClarification: 'e.g. Depth-filter clarification screen',
       description: 'Description',

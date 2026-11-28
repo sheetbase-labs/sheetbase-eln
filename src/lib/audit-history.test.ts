@@ -68,6 +68,51 @@ describe('describeAuditEvent', () => {
     )
   })
 
+  it('says each action as one plain sentence, never with an internal id', () => {
+    const access = describeAuditEvent(
+      event({ entityType: 'project_access', operation: 'create', payload: {} }),
+    )
+
+    expect(`${access.action} ${access.sentenceSubject}`).toBe(
+      'gave access to a project',
+    )
+    expect(access.subject).not.toMatch(/[0-9a-f]{8}/)
+
+    const block = describeAuditEvent(
+      event({
+        entityType: 'block',
+        operation: 'create',
+        payload: { type: 'procedure_step' },
+      }),
+    )
+
+    expect(`${block.action} ${block.sentenceSubject}`).toBe(
+      'added a procedure step',
+    )
+
+    const link = describeAuditEvent(
+      event({
+        entityType: 'record_link',
+        operation: 'link',
+        payload: { targetIdentifier: 'PRT-019' },
+      }),
+    )
+
+    expect(`${link.action} ${link.sentenceSubject}`).toBe('linked PRT-019')
+
+    const version = describeAuditEvent(
+      event({
+        entityType: 'notebook_template_version',
+        operation: 'create',
+        payload: {},
+      }),
+    )
+
+    expect(`${version.action} ${version.sentenceSubject}`).toBe(
+      'created a template version',
+    )
+  })
+
   it('describes an audit-trail check by its result, not as a created System', () => {
     const check = (ok: boolean) =>
       describeAuditEvent(

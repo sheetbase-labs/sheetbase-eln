@@ -254,6 +254,7 @@ import {
 import { useNotebookExtensions } from './-notebook-page-extensions'
 import { useNotebookOutline } from './-notebook-page-outline'
 import { useNotebookParts } from './-notebook-page-parts'
+import { Chip } from '#/components/ui/chip'
 
 /**
  * UI port (roadmap-4/ui-app3): the notebook renders inside app-3's shell, so
@@ -4089,16 +4090,21 @@ function NotebookTemplateVersionLabel({ versionId }: { versionId: string }) {
   )
 }
 
+/**
+ * The record's tags as chips, each with an x, and a box to add one: Enter or
+ * a comma adds what is typed.
+ */
 function NotebookTagsEditor({ record }: { record: NotebookRecord }) {
   const queryClient = useQueryClient()
-  const [draft, setDraft] = useState(() => record.tags.join(', '))
+  const [tags, setTags] = useState(() => record.tags)
+  const [draft, setDraft] = useState('')
 
   const save = useMutation({
-    mutationFn: (tags: string[]) =>
+    mutationFn: (next: string[]) =>
       updateExperimentMetadata(notebookDataClient, {
         recordId: record.id,
         title: record.title,
-        tags,
+        tags: next,
       }),
     onSuccess: () => {
       void queryClient.invalidateQueries({
@@ -4107,24 +4113,48 @@ function NotebookTagsEditor({ record }: { record: NotebookRecord }) {
     },
   })
 
+  const commit = (next: string[]) => {
+    setTags(next)
+    save.mutate(next)
+  }
+
+  const add = () => {
+    const typed = draft
+      .split(',')
+      .map((tag) => tag.trim())
+      .filter((tag) => tag && !tags.includes(tag))
+
+    setDraft('')
+
+    if (typed.length > 0) commit([...tags, ...typed])
+  }
+
   return (
-    <div className="space-y-1">
+    <div className="flex flex-wrap items-center gap-1.5">
+      {tags.map((tag) => (
+        <Chip
+          key={tag}
+          variant="remove"
+          removeLabel={t('notebook.notebookPage.removeTag', { tag })}
+          onRemove={() => commit(tags.filter((other) => other !== tag))}
+        >
+          {tag}
+        </Chip>
+      ))}
       <Input
         value={draft}
+        className="h-7 min-w-28 flex-1"
+        placeholder={t('notebook.notebookPage.addTag')}
         aria-label={t('notebook.notebookPage.notebookTagsAriaLabel')}
         onChange={(event) => setDraft(event.target.value)}
-        onBlur={() => {
-          const tags = draft
-            .split(',')
-            .map((tag) => tag.trim())
-            .filter(Boolean)
-
-          save.mutate(tags)
+        onKeyDown={(event) => {
+          if (event.key === 'Enter' || event.key === ',') {
+            event.preventDefault()
+            add()
+          }
         }}
+        onBlur={add}
       />
-      <p className="text-xs text-muted-foreground">
-        {t('notebook.notebookPage.commaSeparatedTags')}
-      </p>
     </div>
   )
 }

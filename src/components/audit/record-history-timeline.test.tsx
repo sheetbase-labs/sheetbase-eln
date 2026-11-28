@@ -178,7 +178,7 @@ describe('RecordHistoryTimeline', () => {
     expect(
       screen.getByRole('heading', { name: 'Complete history' }),
     ).toBeTruthy()
-    expect(screen.getByText('Record created')).toBeTruthy()
+    expect(screen.getByText('Created a record')).toBeTruthy()
     expect(screen.getByText('Review approve')).toBeTruthy()
     expect(screen.getByText('Signature approve for record')).toBeTruthy()
   })
@@ -259,7 +259,7 @@ describe('captured change facts', () => {
     expect(mapped[0].target).toBe('Protocol step text')
     // A payload without captured facts has no detail: the title says it.
     expect(mapped[1].target).toBeUndefined()
-    expect(mapped[1].title).toBe('Record updated')
+    expect(mapped[1].title).toBe('Updated a record')
   })
 })
 
@@ -288,6 +288,6 @@ describe('duplicate create entries', () => {
       },
     ])
 
-    expect(mapped.map((e) => e.title)).toEqual(['Incident created'])
+    expect(mapped.map((e) => e.title)).toEqual(['Created an incident'])
   })
 })

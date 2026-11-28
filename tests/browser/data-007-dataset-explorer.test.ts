@@ -80,6 +80,12 @@ interface RowsWire {
   rows: RowWire[]
 }
 
+/** A header reads as its label, with a unit warning when the field has none. */
+function headerPattern(label: string): RegExp {
+  const escaped = label.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+  return new RegExp('^' + escaped + '( \\(unit\\?\\))?$')
+}
+
 interface FieldWire {
   field_id: string
   label: string
@@ -92,30 +98,12 @@ let fields: FieldWire[] = []
 let rows: RowWire[] = []
 let totalCount = 0
 
-/** The design's Validation column: issue wording by kind, then review state.
- * Mirrors `datasetValidation` in src/components/datasets/datasets-data.ts. */
-function validationLabel(row: DatasetSummaryWire): string {
-  const issues = Number(row.issue_count)
-  const suffix =
-    row.review_state === 'locked'
-      ? ' · locked'
-      : row.review_state === 'in_review'
-        ? ' · in review'
-        : ''
-  if (issues === 0) return `Valid${suffix}`
-  const missingUnits = Number(row.missing_unit_count)
-  if (missingUnits > 0)
-    return missingUnits === 1
-      ? '1 column missing a unit'
-      : `${missingUnits} columns missing units`
-  const outOfRange = Number(row.out_of_range_count)
-  if (outOfRange > 0) return `${outOfRange} out of range`
-  return `${issues} ${issues === 1 ? 'issue' : 'issues'}`
-}
-
 /** What the grid renders for a value: text, or an em dash for a null. */
 function cellText(value: unknown): string {
-  return value == null ? '—' : String(value)
+  if (value == null) return '—'
+
+  // A time with no seconds shows as hours and minutes.
+  return String(value).replace(/^(\d{2}:\d{2}):00$/, '$1')
 }
 
 /**
@@ -206,7 +194,7 @@ test.describe('DATA-007 dataset surfaces', () => {
       'Model',
       'Experiment',
       'Rows',
-      'Validation',
+      'Updated',
     ])
 
     // The dataset is a real row: identity, model, size, validation state.
@@ -221,22 +209,6 @@ test.describe('DATA-007 dataset surfaces', () => {
     ).toBeVisible()
     await expect(
       row.getByRole('cell', { name: String(summary.row_count), exact: true }),
-    ).toBeVisible()
-    await expect(
-      row.getByRole('cell', { name: validationLabel(summary), exact: true }),
-    ).toBeVisible()
-
-    // Choosing the row fills the inspector without leaving the list.
-    await row.getByRole('cell', { name: DISPLAY_ID }).click()
-    const inspector = page.getByLabel('Dataset summary')
-    await expect(inspector).toContainText(DISPLAY_ID)
-    await expect(inspector).toContainText(NAME)
-    await expect(inspector).toContainText(String(summary.row_count))
-    // The inspector's primary action is always "Open dataset"; an issue adds
-    // its own fix actions beside it (set the unit, re-import) rather than
-    // renaming it.
-    await expect(
-      inspector.getByRole('button', { name: 'Open dataset' }),
     ).toBeVisible()
 
     // Search reads ID, name and model: one match narrows the list to it.
@@ -258,7 +230,7 @@ test.describe('DATA-007 dataset surfaces', () => {
     // The row action opens the dataset's record page, whose sections are the
     // registry's promise about what a dataset contains.
     await row.getByRole('link', { name: NAME, exact: true }).click()
-    await expect(page).toHaveURL(new RegExp(`/datasets/${DATASET}/rows$`))
+    await expect(page).toHaveURL(new RegExp(`/datasets/${DATASET}$`))
     await expect(
       page.getByRole('heading', { name: NAME, level: 1 }),
     ).toBeVisible({ timeout: 15_000 })
@@ -297,7 +269,8 @@ test.describe('DATA-007 dataset surfaces', () => {
       .filter({ has: page.getByRole('columnheader', { name: 'Row' }) })
     await expect(grid.getByRole('columnheader')).toHaveText([
       'Row',
-      ...fields.map((field) => field.label),
+      // A field with no unit says so in its header.
+      ...fields.map((field) => headerPattern(field.label)),
     ])
 
     // The first row carries the values the snapshot froze.

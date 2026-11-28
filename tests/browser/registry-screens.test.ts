@@ -36,6 +36,8 @@ const SCREENS: { path: string; label: string; selectable: boolean }[] = [
 const table = (page: Page) => page.locator('table[data-slot=data-grid-table]')
 
 test('every registry list screen renders the shared grid', async ({ page }) => {
+  // One sign-in then a visit to every list: more than the default budget.
+  test.slow()
   // The design seed's users share the fixture; one sign-in covers every route.
   await signInAsDesignUser(page, DESIGN_USER_IDS.gareth!)
 

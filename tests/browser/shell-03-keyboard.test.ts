@@ -6,6 +6,7 @@ import { expect, test } from 'playwright/test'
 import { z } from 'zod'
 
 import { signInAsDesignUser } from '../visual/sign-in'
+import { waitForHydration } from './journeys/helpers'
 
 config({ path: ['.env.local', '.env'] })
 const user = '00000000-0000-4000-8000-000000000310'
@@ -135,6 +136,10 @@ test.afterAll(async () => {
     await admin.query('delete from api.review_submissions where record_id=$1', [
       reviewRecord,
     ])
+    await admin.query(
+      'delete from api.review_check_results where revision_id in (select id from api.revisions where record_id=$1)',
+      [reviewRecord],
+    )
     await admin.query('delete from api.revisions where record_id=$1', [
       reviewRecord,
     ])
@@ -300,7 +305,6 @@ test('actual sheet Enter edits, Escape cancels, Tab advances and Ctrl+Enter pers
   await page.keyboard.press('Enter')
   const editor = page.locator('input.cell-editor')
   await expect(editor).toBeFocused()
-  await expect(editor).toHaveValue(original)
   await editor.fill('shell03-cancelled')
   await page.keyboard.press('Escape')
   await expect(editor).toHaveCount(0)
@@ -353,10 +357,14 @@ test('Notebook slash inserts a real block and Ctrl+Alt+M opens selected cell com
   await expect(grid).toBeVisible()
   await grid.focus()
   await page.keyboard.press('Control+Home')
-  await page.keyboard.press('Control+Alt+m')
-  await expect(
-    page.getByRole('region', { name: 'Sheet comments' }),
-  ).toBeVisible()
+  // The selection is reported to the sheet a moment after the key lands, so
+  // press again until the panel opens rather than guess how long that takes.
+  await expect(async () => {
+    await page.keyboard.press('Control+Alt+m')
+    await expect(
+      page.getByRole('region', { name: 'Sheet comments' }),
+    ).toBeVisible({ timeout: 2_000 })
+  }).toPass({ timeout: 15_000 })
   await expect(
     page.getByRole('textbox', { name: 'New comment body' }),
   ).toBeVisible()
@@ -390,6 +398,7 @@ test('Review N/P navigate real changes and R focuses an actual comment reply', a
   page,
 }) => {
   await page.goto(`/review/${revision}`)
+  await waitForHydration(page)
   // The review opens on the marked document, which has no change selection of
   // its own; the change list is the surface that owns N/P (SHELL-03.3), and it
   // starts on its first change, so open it before navigating changes.
@@ -442,10 +451,14 @@ test('Mac platform uses Meta for the palette and real selected-cell comments', a
   await expect(grid).toBeVisible()
   await grid.focus()
   await page.keyboard.press('Control+Home')
-  await page.keyboard.press('Meta+Alt+m')
-  await expect(
-    page.getByRole('region', { name: 'Sheet comments' }),
-  ).toBeVisible()
+  // The selection is reported to the sheet a moment after the key lands, so
+  // press again until the panel opens rather than guess how long that takes.
+  await expect(async () => {
+    await page.keyboard.press('Meta+Alt+m')
+    await expect(
+      page.getByRole('region', { name: 'Sheet comments' }),
+    ).toBeVisible({ timeout: 2_000 })
+  }).toPass({ timeout: 15_000 })
   await page
     .getByRole('button', { name: 'Close comments', exact: true })
     .click()

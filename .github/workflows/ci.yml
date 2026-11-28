@@ -309,7 +309,8 @@ jobs:
           #   tests/browser/note-01-review-document.test.ts
     env:
       SHEETBASE_DEV_AUTH_FREE: 'false'
-      # Every browser test on the production build. The list is checked
+      # Every browser test on the production build (playwright.config.ts
+      # leaves out the dev-server-only files). The list is checked
       # against tests/browser by src/lib/browser-ci-coverage.test.ts, so a new
       # test file cannot go unrun.
       BUILT_APP_TESTS: >-
@@ -319,11 +320,7 @@ jobs:
         tests/browser/workspace-panes.test.ts
         tests/browser/experiment-pane-render.test.ts
         tests/browser/experiment-request-budget.test.ts
-        tests/browser/workspace/record-page.test.ts
-        tests/browser/workspace/record-page-dataset.test.ts
-        tests/browser/workspace/record-page-instrument.test.ts
-        tests/browser/workspace/record-page-kinds.test.ts
-        tests/browser/workspace/record-page-sample.test.ts
+        tests/browser/workspace/
         tests/browser/assistant-conversations.test.ts
         tests/browser/collab-01-co-editing.test.ts
         tests/browser/phone/pages.test.ts

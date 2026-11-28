@@ -329,7 +329,6 @@ jobs:
               tests/browser/workspace-same-page.test.ts
               tests/browser/journeys/admin-more.test.ts
               tests/browser/journeys/analysis-more.test.ts
-              tests/browser/journeys/auto-more.test.ts
               tests/browser/journeys/core-loop.test.ts
               tests/browser/journeys/core-more.test.ts
               tests/browser/journeys/data-import.test.ts

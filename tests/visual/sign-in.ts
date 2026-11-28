@@ -15,8 +15,19 @@ export async function signInAsDesignUser(
   page: Page,
   userId: string,
   /** Pin the session id when the spec's own assertions name it. */
-  options: { sessionId?: string } = {},
+  options: { sessionId?: string; batchReads?: boolean } = {},
 ): Promise<void> {
+  // The app sends reads that start together as one `/api/db-batch` request. A
+  // spec that answers one read by its own URL (`page.route('**/rpc/x')`) would
+  // never see it, and whether a read travels alone or in a batch depends on
+  // timing. The route refuses batches, which the client answers by sending each
+  // read on its own, so every spec sees its reads one by one unless it asks for
+  // batching (the request-budget spec counts them).
+  if (!options.batchReads)
+    await page.route('**/api/db-batch', (route) =>
+      route.fulfill({ status: 404, body: '' }),
+    )
+
   const secret = process.env.BETTER_AUTH_SECRET
   const databaseUrl = process.env.DATABASE_URL
   if (!secret || !databaseUrl) {

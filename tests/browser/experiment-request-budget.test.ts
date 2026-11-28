@@ -196,7 +196,7 @@ function summary(counted: Counted): string {
 }
 
 test.beforeEach(async ({ page }) => {
-  await signInAsDesignUser(page, FIXTURE_USER_ID)
+  await signInAsDesignUser(page, FIXTURE_USER_ID, { batchReads: true })
 })
 
 test('opening an experiment from the list costs a few batched requests', async ({

@@ -833,7 +833,17 @@ test('controlled author submission certifies and signs atomically through the re
     dialog.getByText('Authored signature', { exact: true }),
   ).toBeVisible()
   // The one eligible reviewer is chosen for the author, who can still change it.
-  await dialog.getByRole('checkbox', { name: new RegExp(signerName) }).check()
+  // The dialog can re-render as its people arrive and drop the first click.
+  const signerBox = dialog.getByRole('checkbox', {
+    name: new RegExp(signerName),
+  })
+  await expect(async () => {
+    if ((await signerBox.getAttribute('aria-checked')) !== 'true')
+      await signerBox.click()
+    await expect(signerBox).toHaveAttribute('aria-checked', 'true', {
+      timeout: 1_500,
+    })
+  }).toPass({ timeout: 15_000 })
   await expect(
     dialog.getByRole('button', { name: 'Submit', exact: true }),
   ).toBeDisabled()

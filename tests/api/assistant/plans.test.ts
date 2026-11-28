@@ -339,4 +339,190 @@ describe('a plan of dependent changes', () => {
       { title: 'ELISA run 3', project: 'Vaccine C' },
     ])
   })
+
+  describe('a notebook template made in the same plan', () => {
+    const template = {
+      title: 'Benzonase dose optimisation',
+      summary: 'A dose-finding template',
+      name: 'Benzonase dose optimisation',
+      parts: [
+        { title: 'Day 0 - Treat', dayOffset: 0 },
+        { title: 'Day 1 - Verify', dayOffset: 1 },
+      ],
+      blocks: [
+        {
+          part: 'Day 0 - Treat',
+          type: 'step',
+          text: 'Aliquot the pool into 0, 25, 50 and 100 U/mL conditions.',
+        },
+        {
+          part: 'Day 1 - Verify',
+          type: 'step',
+          text: 'Run the gel and quantify residual DNA.',
+        },
+      ],
+    }
+
+    const planOf = (publish: boolean) => ({
+      title: 'Benzonase optimisation: template, project, experiment',
+      summary: 'Make the template and project, then start run 1 in 10 mL lots',
+      steps: [
+        {
+          title: 'Create the template',
+          tool: 'sheetbase.template.create',
+          arguments: template,
+        },
+        {
+          title: 'Create the project',
+          tool: 'sheetbase.project.create',
+          arguments: {
+            title: 'Create Benzonase optimisation',
+            summary: 'A new project',
+            projectName: 'Benzonase optimisation',
+          },
+        },
+        ...(publish
+          ? [
+              {
+                title: 'Publish the template',
+                tool: 'sheetbase.template.publish',
+                arguments: {
+                  title: 'Publish Benzonase dose optimisation',
+                  summary: 'So run 1 can start from it',
+                  template: 'Benzonase dose optimisation',
+                  reason: 'Ready for the first dose run',
+                },
+              },
+            ]
+          : []),
+        {
+          // The tool a model reached for in the conversation that failed: it
+          // is the protocol-template tool, named with a notebook template.
+          title: 'Start run 1 from the template',
+          tool: 'sheetbase.experiment.start_from_template',
+          arguments: {
+            title: 'Start run 1',
+            summary: 'From the new template',
+            template: 'Benzonase dose optimisation',
+            project: 'Benzonase optimisation',
+            experimentTitle: 'Benzonase dose run 1',
+          },
+        },
+      ],
+    })
+
+    const run = async (publish: boolean) => {
+      world.newChat()
+      world.script((request) =>
+        request.step === 0
+          ? {
+              calls: [
+                { name: 'sheetbase.plan.propose', arguments: planOf(publish) },
+              ],
+            }
+          : { text: 'I have prepared a plan for you to approve.' },
+      )
+
+      const turn = await world.ask(
+        'Set up a benzonase dose template, a project and run 1',
+      )
+
+      expect(turn.error).toBeUndefined()
+      expect(turn.cards).toHaveLength(1)
+
+      return world.apply(turn.cards[0])
+    }
+
+    it('starts the experiment from a published notebook template named in the start-from-template step', async () => {
+      const result = await run(true)
+
+      expect(result, JSON.stringify(result)).toMatchObject({
+        status: 'applied',
+      })
+
+      const rows = await world.sql<{ title: string; project: string }>(
+        `SELECT r.title, p.title AS project
+           FROM api.records r JOIN api.projects p ON p.id = r.project_id
+          WHERE r.workspace_id = $1 AND r.kind = 'experiment'
+            AND r.title = 'Benzonase dose run 1'`,
+        [world.workspaceId],
+      )
+
+      expect(rows).toEqual([
+        { title: 'Benzonase dose run 1', project: 'Benzonase optimisation' },
+      ])
+    })
+
+    it('says the template needs publishing, not that nothing matches', async () => {
+      // The names are taken by the first test, so this plan only gets as far
+      // as the lookups when they are new.
+      const unpublished = planOf(false)
+
+      for (const step of unpublished.steps) {
+        const given = step.arguments as Record<string, unknown>
+
+        for (const key of ['name', 'template', 'projectName', 'project']) {
+          if (typeof given[key] === 'string')
+            given[key] = `${given[key]} (draft only)`
+        }
+
+        if (typeof given['experimentTitle'] === 'string')
+          given['experimentTitle'] = 'Benzonase draft-only run'
+      }
+
+      world.newChat()
+      world.script((request) =>
+        request.step === 0
+          ? {
+              calls: [
+                { name: 'sheetbase.plan.propose', arguments: unpublished },
+              ],
+            }
+          : { text: 'I have prepared a plan for you to approve.' },
+      )
+
+      const turn = await world.ask('Set up a draft-only benzonase template')
+      const result = await world.apply(turn.cards[0])
+
+      expect(result.status).toBe('failed')
+      expect(result.reason ?? '').toMatch(/no published version/i)
+      expect(result.reason ?? '').not.toMatch(/no record matches/i)
+    })
+  })
+
+  it('keeps units in a card as written', async () => {
+    world.newChat()
+    world.script((request) =>
+      request.step === 0
+        ? {
+            calls: [
+              {
+                name: 'sheetbase.plan.propose',
+                arguments: {
+                  title: 'Dose samples',
+                  summary: 'Four 10 mL samples at 25 U/mL with 2 mM MgCl2',
+                  steps: [
+                    {
+                      title: 'Create the project',
+                      tool: 'sheetbase.project.create',
+                      arguments: {
+                        title: 'Create Units',
+                        summary: 'A new project',
+                        projectName: 'Units',
+                      },
+                    },
+                  ],
+                },
+              },
+            ],
+          }
+        : { text: 'Done.' },
+    )
+
+    const turn = await world.ask('Plan the dose samples')
+
+    expect(turn.cards[0]?.proposal.summary).toBe(
+      'Four 10 mL samples at 25 U/mL with 2 mM MgCl2',
+    )
+  })
 })

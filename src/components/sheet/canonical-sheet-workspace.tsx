@@ -2214,23 +2214,11 @@ function useCanonicalWorkspaceSession({
       })
   }
 
-  // Comment on selection (Ctrl+Alt+M) works from the grid itself, not only
-  // through the sheet's menu.
-  const commentShortcutReady = Boolean(canComment && commentSelection?.rowId)
-
-  const commentShortcuts = useMemo(
-    () =>
-      notebookShortcuts({ commentSelection: () => openSelectionComment() }).map(
-        (definition) => ({
-          ...definition,
-          when: () => commentShortcutReady,
-        }),
-      ),
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- openSelectionComment reads the current selection, which commentShortcutReady and the selection already track.
-    [commentShortcutReady, commentSelection],
+  useCommentSelectionShortcut(
+    canComment,
+    commentSelection,
+    openSelectionComment,
   )
-
-  useRegisterShortcuts(commentShortcuts)
 
   const commentAnnotations = useMemo(() => {
     const notes = new Map<
@@ -3477,6 +3465,33 @@ const GRID_HEADER_PX = 31
 
 /** The box's two border lines. */
 const GRID_BOX_EXTRA_PX = 2
+
+/**
+ * Comment on selection (Ctrl+Alt+M) from the grid itself, not only through the
+ * sheet's menu. It applies only while a cell is selected and may be commented.
+ */
+function useCommentSelectionShortcut(
+  canComment: boolean | undefined,
+  selection: { rowId?: string } | null | undefined,
+  open: () => void,
+) {
+  const ready = Boolean(canComment && selection?.rowId)
+  const latest = useRef(open)
+
+  useEffect(() => {
+    latest.current = open
+  })
+
+  const definitions = useMemo(
+    () =>
+      notebookShortcuts({ commentSelection: () => latest.current() }).map(
+        (definition) => ({ ...definition, when: () => ready }),
+      ),
+    [ready],
+  )
+
+  useRegisterShortcuts(definitions)
+}
 
 /** The owner bands' height: none, one line, or two when they carry a description. */
 function gridBandHeight(

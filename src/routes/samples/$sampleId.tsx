@@ -4,18 +4,16 @@ import { Link, Outlet, createFileRoute, redirect } from '@tanstack/react-router'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 
 import { FavouriteToggle } from '#/components/favourites/favourite-toggle'
-import { FollowToggle } from '#/components/follow/follow-toggle'
 import { Button } from '#/components/ui/button'
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from '#/components/ui/dropdown-menu'
+import { DropdownMenuItem } from '#/components/ui/dropdown-menu'
 import { useRecentViewTracking } from '#/lib/recents'
-import { Status } from '#/components/ui/status'
-import { PageHeader, Inspector, InspectorSection } from '#/components/ui/layout'
-import { Tabs } from '#/components/ui/tabs'
+import { PageHeader, InspectorSection } from '#/components/ui/layout'
+import { RecordPage } from '#/components/record-page/record-page'
+import { RecordStateLine } from '#/components/record-page/record-state-line'
+import {
+  RecordActivity,
+  RecordLinks,
+} from '#/components/record-page/record-side-panel'
 import { useRecordResults } from '#/lib/record-results'
 import { Field, Input } from '#/components/ui/input'
 import {
@@ -41,7 +39,6 @@ import {
   SampleLabelPrint,
 } from '#/components/samples/sample-label-print'
 import { SampleHoldMeter } from '#/components/samples/sample-hold-meter'
-import { SampleRecentHistory } from '#/components/samples/sample-recent-history'
 import {
   EditDetailsDialog,
   EditHoldDialog,
@@ -53,13 +50,13 @@ import { PoolDialog } from '#/components/samples/pool-dialog'
 import type { PoolDialogInput } from '#/components/samples/pool-dialog'
 import { ReleaseChecksPanel } from '#/components/samples/release-checks-panel'
 import { SampleWorkflowPanel } from '#/components/samples/sample-workflow-panel'
-import { SampleStateBanner } from '#/components/samples/sample-state-banner'
 import {
   canDisposeSample,
   canEditSample,
   canQuarantineSample,
   canReleaseSample,
   canWithdrawSample,
+  describeSampleState,
   isTerminalSampleStatus,
   sampleStateKind,
 } from '#/components/samples/sample-state'
@@ -104,6 +101,7 @@ import type {
 } from '#/components/samples/withdraw-dialog'
 import { notebookDataClient } from '#/lib/notebook-data'
 import { downloadLineageCsv } from '#/routes/samples/-lineage-csv'
+import { sampleFacts } from '#/routes/samples/-sample-facts'
 import {
   sampleEventsQueryKey,
   sampleQueryKey,
@@ -689,70 +687,119 @@ function samplePageFlags(page: SamplePage, sample: SampleRecord) {
   }
 }
 
-/** Everything the header can do with the sample it is showing. */
-/** The menu that holds the sample actions the header does not show. */
-/** The actions a live sample shows beside its header. */
-function SampleMainActions({
-  page,
+/** The one main action the sample's state earns. */
+type SampleMainAction =
+  'restore' | 'export' | 'release' | 'withdraw' | 'reading'
+
+function sampleMainAction(
+  flags: ReturnType<typeof samplePageFlags>,
+): SampleMainAction | null {
+  if (flags.archived) return flags.allowEdit ? 'restore' : null
+
+  if (flags.terminal) return 'export'
+
+  if (flags.showRelease) return 'release'
+
+  return flags.withdrawable && !flags.awaitingReading ? 'withdraw' : 'reading'
+}
+
+/** Record reading goes to the readings page and comes back to this sample. */
+function readingLink(sample: SampleRecord) {
+  return (
+    <Link
+      to="/readings/new"
+      search={{ sample: sample.id, returnTo: samplePath(sample.id) }}
+    />
+  )
+}
+
+/**
+ * Favourite, then the one main action: Restore for an archived sample, Export
+ * lineage for a used-up one, Release while it waits on release, Withdraw for
+ * one in stock, else Record reading.
+ */
+function SampleActions({
   sample,
   flags,
   onDialog,
 }: {
-  page: SamplePage
   sample: SampleRecord
   flags: ReturnType<typeof samplePageFlags>
   onDialog: (dialog: SampleDialog) => void
 }) {
-  const { invalidate } = page
-  const { withdrawable, awaitingReading, showRelease, state } = flags
+  const main = sampleMainAction(flags)
+  const spec = main ? mainActionSpec(main, sample, flags, onDialog) : null
 
   return (
     <>
-      {/* The state picks the main action: a sample waiting for a
-        reading is read, anything else is drawn on. Two more
-        stay in view; the rest sit under the menu. */}
-      <Button
-        variant={awaitingReading ? 'primary' : 'secondary'}
-        nativeButton={false}
-        render={
-          <Link
-            to="/readings/new"
-            search={{
-              sample: sample.id,
-              returnTo: samplePath(sample.id),
-            }}
-          />
-        }
-      >
-        {t('library.samples.record.recordReading')}
-      </Button>
-      {withdrawable ? (
+      <FavouriteToggle kind="record" objectId={sample.id} />
+      {spec ? (
         <Button
-          variant={awaitingReading ? 'secondary' : 'primary'}
-          onClick={() => onDialog('withdraw')}
+          variant={spec.variant}
+          onClick={spec.onClick}
+          nativeButton={spec.render ? false : undefined}
+          render={spec.render}
         >
-          {t('library.samples.record.withdrawVolume')}
+          {spec.label}
         </Button>
       ) : null}
-      {showRelease ? (
-        <Button variant="primary" onClick={() => onDialog('release')}>
-          {state === 'quarantined'
-            ? t('library.samples.record.release')
-            : t('library.samples.record.reQualify')}
-        </Button>
-      ) : null}
-      <PrintLabelButton record={sample} onPrinted={invalidate} />
-      <SampleMoreActions
-        page={page}
-        sample={sample}
-        flags={flags}
-        onDialog={onDialog}
-      />
     </>
   )
 }
 
-function SampleMoreActions({
+/** The main action's button: its words, weight and what it does. */
+interface SampleMainActionSpec {
+  label: string
+  variant: 'primary' | 'secondary'
+  onClick?: () => void
+  render?: React.ReactElement
+}
+
+function mainActionSpec(
+  main: SampleMainAction,
+  sample: SampleRecord,
+  flags: ReturnType<typeof samplePageFlags>,
+  onDialog: (dialog: SampleDialog) => void,
+): SampleMainActionSpec {
+  switch (main) {
+    case 'restore':
+      return {
+        label: t('library.samples.record.restoreSample'),
+        variant: 'primary',
+        onClick: () => onDialog('restore'),
+      }
+    case 'export':
+      return {
+        label: t('library.samples.record.exportLineage'),
+        variant: 'secondary',
+        onClick: flags.exportLineage,
+      }
+    case 'release':
+      return {
+        label:
+          flags.state === 'quarantined'
+            ? t('library.samples.record.release')
+            : t('library.samples.record.reQualify'),
+        variant: 'primary',
+        onClick: () => onDialog('release'),
+      }
+    case 'withdraw':
+      return {
+        label: t('library.samples.record.withdrawVolume'),
+        variant: 'primary',
+        onClick: () => onDialog('withdraw'),
+      }
+    case 'reading':
+      return {
+        label: t('library.samples.record.recordReading'),
+        variant: 'primary',
+        render: readingLink(sample),
+      }
+  }
+}
+
+/** Everything else a person may do with a live sample, under ⋯. */
+function SampleMoreItems({
   page,
   sample,
   flags,
@@ -764,53 +811,63 @@ function SampleMoreActions({
   onDialog: (dialog: SampleDialog) => void
 }) {
   const { project } = page
-  const { allowQuarantine, showDispose, withdrawable } = flags
+  const { allowEdit, allowQuarantine, showDispose, withdrawable } = flags
+  const main = sampleMainAction(flags)
 
   return (
-    <DropdownMenu>
-      <DropdownMenuTrigger
+    <>
+      {main === 'reading' ? null : (
+        <DropdownMenuItem render={readingLink(sample)}>
+          {t('library.samples.record.recordReading')}
+        </DropdownMenuItem>
+      )}
+      {withdrawable && main !== 'withdraw' ? (
+        <DropdownMenuItem onClick={() => onDialog('withdraw')}>
+          {t('library.samples.record.withdrawVolume')}
+        </DropdownMenuItem>
+      ) : null}
+      <DropdownMenuItem
         render={
-          <Button
-            variant="secondary"
-            aria-label={t('library.samples.record.moreSampleActions')}
-            icon="more"
+          <Link
+            to="/experiments/new"
+            search={{ project: project.data?.id, sample: sample.id }}
           />
         }
-      />
-      <DropdownMenuContent align="end">
-        <DropdownMenuItem
-          render={
-            <Link
-              to="/experiments/new"
-              search={{
-                project: project.data?.id,
-                sample: sample.id,
-              }}
-            />
-          }
-        >
-          {t('library.samples.record.newExperiment')}
+      >
+        {t('library.samples.record.newExperiment')}
+      </DropdownMenuItem>
+      <DropdownMenuItem onClick={() => onDialog('move')}>
+        {t('library.samples.record.move')}
+      </DropdownMenuItem>
+      {withdrawable ? (
+        <DropdownMenuItem onClick={() => onDialog('aliquot')}>
+          {t('library.samples.record.aliquot')}
         </DropdownMenuItem>
-        <DropdownMenuItem onClick={() => onDialog('move')}>
-          {t('library.samples.record.move')}
+      ) : null}
+      {withdrawable ? (
+        <DropdownMenuItem onClick={() => onDialog('pool')}>
+          {t('library.samples.record.pool')}
         </DropdownMenuItem>
-        {withdrawable ? (
-          <DropdownMenuItem onClick={() => onDialog('aliquot')}>
-            {t('library.samples.record.aliquot')}
+      ) : null}
+      {allowEdit ? (
+        <>
+          <DropdownMenuItem onClick={() => onDialog('edit')}>
+            {t('library.samples.record.editDetails')}
           </DropdownMenuItem>
-        ) : null}
-        {withdrawable ? (
-          <DropdownMenuItem onClick={() => onDialog('pool')}>
-            {t('library.samples.record.pool')}
+          <DropdownMenuItem onClick={() => onDialog('receive')}>
+            {t('library.samples.record.receiveStock')}
           </DropdownMenuItem>
-        ) : null}
-        {allowQuarantine && sample.status !== 'quarantined' && !showDispose ? (
-          <DropdownMenuItem danger onClick={() => onDialog('quarantine')}>
-            {t('library.samples.record.quarantine')}
+          <DropdownMenuItem onClick={() => onDialog('archive')}>
+            {t('library.samples.record.archive')}
           </DropdownMenuItem>
-        ) : null}
-      </DropdownMenuContent>
-    </DropdownMenu>
+        </>
+      ) : null}
+      {allowQuarantine && sample.status !== 'quarantined' && !showDispose ? (
+        <DropdownMenuItem danger onClick={() => onDialog('quarantine')}>
+          {t('library.samples.record.quarantine')}
+        </DropdownMenuItem>
+      ) : null}
+    </>
   )
 }
 
@@ -849,45 +906,6 @@ function SampleBannerAction({
   ) : undefined
 }
 
-function SampleHeaderActions({
-  page,
-  sample,
-  flags,
-  onDialog,
-}: {
-  page: SamplePage
-  sample: SampleRecord
-  flags: ReturnType<typeof samplePageFlags>
-  onDialog: (dialog: SampleDialog) => void
-}) {
-  const { terminal, exportLineage, allowEdit, archived } = flags
-
-  return (
-    <span className="flex flex-wrap gap-2 max-md:hidden">
-      <FavouriteToggle kind="record" objectId={sample.id} />
-      <FollowToggle kind="record" objectId={sample.id} />
-      {archived ? (
-        allowEdit ? (
-          <Button variant="primary" onClick={() => onDialog('restore')}>
-            {t('library.samples.record.restoreSample')}
-          </Button>
-        ) : null
-      ) : terminal ? (
-        <Button onClick={exportLineage}>
-          {t('library.samples.record.exportLineage')}
-        </Button>
-      ) : (
-        <SampleMainActions
-          page={page}
-          sample={sample}
-          flags={flags}
-          onDialog={onDialog}
-        />
-      )}
-    </span>
-  )
-}
-
 function SampleLayout() {
   const { sampleId } = Route.useParams()
   const page = useSamplePage(sampleId)
@@ -921,19 +939,16 @@ function SampleLayout() {
     )
   }
 
-  return (
-    <div className="flex min-w-0 flex-1">
-      <div className="flex min-w-0 flex-1 flex-col">
-        <SamplePageHeader page={page} sample={sample} />
-      </div>
-      <SampleInspector page={page} sample={sample} />
-      <SampleDialogs page={page} sample={sample} />
-    </div>
-  )
+  return <SampleRecordPage page={page} sample={sample} />
 }
 
-/** The record's header, its state banner and the tabs its screens sit in. */
-function SamplePageHeader({
+/**
+ * The sample on the shared record page: its ID, status and four facts once,
+ * one main action with the rest under ⋯, its state as one line, the tabs from
+ * Details to History, and its label, release checks, workflow, hold, links
+ * and recent activity in the side panel.
+ */
+function SampleRecordPage({
   page,
   sample,
 }: {
@@ -946,99 +961,103 @@ function SamplePageHeader({
   const flags = samplePageFlags(page, sample)
   const { status, params, withdrawable, hasReading, usageCount } = flags
   const resultCount = useRecordResults(sample.id).data?.total
+  const live = !flags.terminal && !flags.archived
+
+  const state = describeSampleState(sample, {
+    events: events.data,
+    userName: (userId) => names.names[userId] ?? null,
+  })
 
   return (
-    <div className="flex min-w-0 flex-1 flex-col">
-      <PageHeader
-        className="px-4 md:px-8"
-        trail={[
-          {
-            label: t('library.samples.record.samples'),
-            link: { to: '/samples' },
-          },
-          { label: sample.identifier, mono: true },
-        ]}
-        title={sample.title}
-        meta={
-          <>
-            <span className="text-fg">
-              <Status tone={status.tone}>
-                {status.tone === 'progress' && hasReading
-                  ? t('library.samples.record.reserved')
-                  : status.label}
-              </Status>
-            </span>
-            <span>{sample.sampleType ?? '—'}</span>
-            {project.data ? (
-              <Link
-                to="/projects/$projectId"
-                params={{ projectId: project.data.id }}
-                className="text-link"
-              >
-                {project.data.title}
-              </Link>
-            ) : null}
-          </>
-        }
-        actions={
-          <SampleHeaderActions
+    <RecordPage
+      recordId={sample.id}
+      trail={[
+        {
+          label: t('library.samples.record.samples'),
+          link: { to: '/samples' },
+        },
+        { label: sample.identifier, mono: true },
+      ]}
+      title={sample.title}
+      identifier={sample.identifier}
+      status={{
+        tone: status.tone,
+        label:
+          status.tone === 'progress' && hasReading
+            ? t('library.samples.record.reserved')
+            : status.label,
+      }}
+      facts={sampleFacts(sample, project.data ?? null)}
+      actions={
+        <SampleActions sample={sample} flags={flags} onDialog={setDialog} />
+      }
+      moreLabel={t('library.samples.record.moreSampleActions')}
+      more={
+        live ? (
+          <SampleMoreItems
             page={page}
             sample={sample}
             flags={flags}
             onDialog={setDialog}
           />
-        }
-        tabs={
-          <Tabs
-            mode="url"
-            label={t('library.samples.record.sampleSections')}
-            items={[
-              {
-                label: t('library.samples.record.details'),
-                link: {
-                  to: '/samples/$sampleId',
-                  params,
-                  activeOptions: { exact: true },
-                },
-              },
-              {
-                label: t('library.samples.record.lineage'),
-                count:
-                  derivedSamples.data && parentCount.data != null
-                    ? derivedSamples.data.length + parentCount.data
-                    : undefined,
-                link: { to: '/samples/$sampleId/lineage', params },
-              },
-              {
-                label: t('library.samples.record.usage'),
-                count: usageCount,
-                link: { to: '/samples/$sampleId/usage', params },
-              },
-              {
-                label: t('library.samples.record.measurements'),
-                count: resultCount,
-                link: { to: '/samples/$sampleId/measurements', params },
-              },
-              {
-                label: t('library.samples.record.sequences'),
-                link: { to: '/samples/$sampleId/sequences', params },
-              },
-              {
-                label: t('library.samples.record.history'),
-                link: { to: '/samples/$sampleId/history', params },
-              },
-            ]}
-          />
-        }
-      />
-
-      <SampleStateBanner
-        sample={sample}
-        events={events.data}
-        userName={(userId) => names.names[userId] ?? null}
-        action={<SampleBannerAction page={page} flags={flags} />}
-      />
-
+        ) : null
+      }
+      stateLine={
+        state ? (
+          <RecordStateLine
+            tone={state.tone}
+            action={<SampleBannerAction page={page} flags={flags} />}
+          >
+            <span className="font-medium">{state.title}</span> {state.body}
+          </RecordStateLine>
+        ) : null
+      }
+      tabs={{
+        mode: 'url',
+        label: t('library.samples.record.sampleSections'),
+        items: [
+          {
+            label: t('library.samples.record.details'),
+            link: {
+              to: '/samples/$sampleId',
+              params,
+              activeOptions: { exact: true },
+            },
+          },
+          {
+            label: t('library.samples.record.lineage'),
+            count:
+              derivedSamples.data && parentCount.data != null
+                ? derivedSamples.data.length + parentCount.data
+                : undefined,
+            link: { to: '/samples/$sampleId/lineage', params },
+          },
+          {
+            label: t('library.samples.record.usage'),
+            count: usageCount,
+            link: { to: '/samples/$sampleId/usage', params },
+          },
+          {
+            label: t('library.samples.record.measurements'),
+            count: resultCount,
+            link: { to: '/samples/$sampleId/measurements', params },
+          },
+          {
+            label: t('library.samples.record.sequences'),
+            link: { to: '/samples/$sampleId/sequences', params },
+          },
+          {
+            label: t('library.samples.record.history'),
+            end: true,
+            link: { to: '/samples/$sampleId/history', params },
+          },
+        ],
+      }}
+      sideLabel={t('library.samples.record.sampleContext')}
+      side={<SampleSidePanel page={page} sample={sample} live={live} />}
+      overlays={<SampleDialogs page={page} sample={sample} />}
+      flush
+    >
       <SampleActionsProvider
         actions={{
           openWithdraw: () => setDialog('withdraw'),
@@ -1046,33 +1065,36 @@ function SamplePageHeader({
           canWithdraw: withdrawable,
         }}
       >
-        <div className="min-h-0 flex-1 overflow-auto">
-          <Outlet />
-        </div>
+        <Outlet />
       </SampleActionsProvider>
-    </div>
+    </RecordPage>
   )
 }
 
-/** The panel beside the record: its label, release checks, hold and recent history. */
-function SampleInspector({
+/**
+ * The side panel: for a live sample its label (with Print), release checks
+ * while quarantined, its workflow and hold; then links and recent activity.
+ */
+function SampleSidePanel({
   page,
   sample,
+  live,
 }: {
   page: SamplePage
   sample: SampleRecord
+  live: boolean
 }) {
-  const { labelChoice, setDialog, events, names, measurements } = page
-  const { state, terminal, allowEdit, archived } = samplePageFlags(page, sample)
+  const { labelChoice, setDialog, measurements, invalidate } = page
+  const { state, allowEdit } = samplePageFlags(page, sample)
 
   return (
     <>
-      {!terminal && !archived ? (
-        <Inspector
-          aria-label={t('library.samples.record.sampleContext')}
-          className="w-[300px]"
-        >
-          <InspectorSection title={t('library.samples.record.label')}>
+      {live ? (
+        <>
+          <InspectorSection
+            title={t('library.samples.record.label')}
+            action={<PrintLabelButton record={sample} onPrinted={invalidate} />}
+          >
             <SampleLabelCard record={sample} template={labelChoice.chosen} />
             <LabelTemplatePicker
               templates={labelChoice.templates}
@@ -1109,33 +1131,16 @@ function SampleInspector({
               </Button>
             ) : null}
           </InspectorSection>
-          {allowEdit ? (
-            <InspectorSection title={t('library.samples.record.manage')}>
-              <div className="flex flex-wrap gap-2">
-                <Button size="sm" onClick={() => setDialog('edit')}>
-                  {t('library.samples.record.editDetails')}
-                </Button>
-                <Button size="sm" onClick={() => setDialog('receive')}>
-                  {t('library.samples.record.receiveStock')}
-                </Button>
-                <Button size="sm" onClick={() => setDialog('archive')}>
-                  {t('library.samples.record.archive')}
-                </Button>
-              </div>
-            </InspectorSection>
-          ) : null}
-          <InspectorSection title={t('library.samples.record.recentHistory')}>
-            <SampleRecentHistory
-              events={events.data ?? []}
-              actorLabel={(event) =>
-                event.actorUserId
-                  ? (names.names[event.actorUserId] ?? null)
-                  : null
-              }
-            />
-          </InspectorSection>
-        </Inspector>
+        </>
       ) : null}
+      <RecordLinks id={sample.id} />
+      <RecordActivity
+        recordId={sample.id}
+        historyLink={{
+          to: '/samples/$sampleId/history',
+          params: { sampleId: sample.id },
+        }}
+      />
     </>
   )
 }

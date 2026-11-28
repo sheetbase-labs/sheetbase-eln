@@ -2892,6 +2892,10 @@ export const library = {
       theCountTablabelSamples: 'the {count} {tabLabel} samples shown',
     },
     record: {
+      volumeFact: 'Volume',
+      locationFact: 'Location',
+      typeFact: 'Type',
+      projectFact: 'Project',
       volumeWithdrawnAndContainerCreated:
         'Volume withdrawn and container created',
       volumeWithdrawn: 'Volume withdrawn',

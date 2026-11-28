@@ -85,6 +85,45 @@ describe('record model field helpers', () => {
     ).toBe(false)
   })
 
+  it('opens a version whose choices were stored with display_order', () => {
+    const decoded = recordModelVersionSchema.parse({
+      id: '10000000-0000-4000-8000-000000000001',
+      model_id: '10000000-0000-4000-8000-000000000002',
+      workspace_id: '10000000-0000-4000-8000-000000000003',
+      version: 1,
+      revision: 1,
+      lifecycle: 'published',
+      reason: '',
+      created_at: '2026-11-09T12:00:00Z',
+      created_by_user_id: null,
+      published_at: '2026-11-09T12:00:00Z',
+      definition: {
+        fields: [
+          {
+            ...field({
+              id: '10000000-0000-4000-8000-000000000004',
+              logical_type: 'category',
+            }),
+            options: [
+              {
+                id: '10000000-0000-4000-8000-000000000005',
+                key: 'minor',
+                label: 'Minor',
+                lifecycle: 'active',
+                display_order: 1,
+              },
+            ],
+          },
+        ],
+      },
+    })
+
+    expect(decoded.definition.fields[0].options?.[0]).toMatchObject({
+      key: 'minor',
+      displayOrder: 1,
+    })
+  })
+
   it('falls back to the default section', () => {
     expect(fieldSection(field({}))).toBe(UNSECTIONED)
     expect(fieldSection(field({ section: 'Identity' }))).toBe('Identity')

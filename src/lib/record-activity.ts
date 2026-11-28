@@ -4,6 +4,7 @@
  */
 import { mapTimelineEvents } from '#/components/audit/record-history-events'
 import type { TimelineEventWire } from '#/lib/sign-002'
+import { formatDate } from '#/lib/format-date'
 import { t } from '#/copy'
 
 /** How many events the side panel shows before "All history". */
@@ -26,11 +27,7 @@ export function activityDayLabel(iso: string, now = new Date()): string {
 
   if (days === 1) return t('notebook.recordPage.yesterday')
 
-  return new Intl.DateTimeFormat(undefined, {
-    day: 'numeric',
-    month: 'short',
-    year: day.getFullYear() === now.getFullYear() ? undefined : 'numeric',
-  }).format(day)
+  return formatDate(day, { year: day.getFullYear() !== now.getFullYear() })
 }
 
 /** The last few events, newest first, grouped by day. */

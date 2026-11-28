@@ -18,6 +18,7 @@ import { fetchActiveDatasetFlags } from './dataset-flags'
 import { fetchNeedsActionCounts, toWorkItem } from './work-items/data'
 import type { WorkItem, WorkItemWire } from './work-items/data'
 import { dateTimeFormat } from '#/lib/intl-cache'
+import { formatDay } from '#/lib/format-date'
 
 export async function fetchHomeMaterials(client: DataClient) {
   const rows = await client.list<WorkItemWire>(
@@ -307,11 +308,5 @@ export function homeDueLabel(
 
   if (day.format(date) === day.format(now)) return 'Today'
 
-  return date
-    .toLocaleDateString('en-GB', {
-      timeZone,
-      day: 'numeric',
-      month: 'short',
-    })
-    .replace('Sept', 'Sep')
+  return formatDay(date, { timeZone })
 }

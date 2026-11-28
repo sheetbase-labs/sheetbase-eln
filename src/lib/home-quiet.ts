@@ -12,7 +12,6 @@
  * view, a fixture or a parallel state store.
  */
 import { addDays } from './calendar'
-import { clockOption } from './display-clock'
 import type { CalendarBooking, CalendarInstrument } from './calendar'
 import type { DataClient } from './data-client'
 import {
@@ -24,6 +23,7 @@ import {
 import type { RecentItem } from './recents'
 import type { ProjectSummary } from '#/components/projects/project-data'
 import { dateTimeFormat } from '#/lib/intl-cache'
+import { formatDay, formatTime } from '#/lib/format-date'
 
 // ---------------------------------------------------------------------------
 // The pace ladder.
@@ -265,12 +265,7 @@ export function buildComingUp(input: {
       key: `booking:${booking.id}`,
       kind: 'booking',
       at: booking.startsAt,
-      time: new Date(booking.startsAt).toLocaleTimeString('en-GB', {
-        timeZone: input.timeZone,
-        hour: '2-digit',
-        minute: '2-digit',
-        ...clockOption(),
-      }),
+      time: formatTime(booking.startsAt, { timeZone: input.timeZone }),
       text: resource ? `${resource} · ${booking.title}` : booking.title,
       why: 'You are booked',
       to: '/schedule',
@@ -373,14 +368,7 @@ export function groupComingUp(
           ? 'Today'
           : day === tomorrow
             ? 'Tomorrow'
-            : new Date(entry.at)
-                .toLocaleDateString('en-GB', {
-                  timeZone,
-                  weekday: 'short',
-                  day: 'numeric',
-                  month: 'short',
-                })
-                .replace('Sept', 'Sep'),
+            : formatDay(entry.at, { timeZone, weekday: true }),
       entries: [],
     }
 
@@ -577,12 +565,7 @@ export function freeInstruments(
       name: instrument.name,
       label:
         next && startsToday
-          ? `Free until ${new Date(next.startsAt).toLocaleTimeString('en-GB', {
-              timeZone,
-              hour: '2-digit',
-              minute: '2-digit',
-              ...clockOption(),
-            })}`
+          ? `Free until ${formatTime(next.startsAt, { timeZone })}`
           : 'Free all day',
     })
 

@@ -14,6 +14,7 @@ import {
 import type { MaterialListRow } from '#/components/materials/materials-data'
 import type { Reagent } from '#/lib/reagent-data'
 import type { ReagentOrder } from '#/lib/reagent-orders'
+import { formatDate, formatDay } from '#/lib/format-date'
 
 export const tabs = [
   'instock',
@@ -45,29 +46,12 @@ export function todayISO(): string {
 
 /** The inspector states dates in full, e.g. "4 Jun 2026". */
 export function dayLabel(iso: string | null): string {
-  if (!iso) return '—'
-  const date = new Date(iso)
-
-  if (Number.isNaN(date.getTime())) return '—'
-
-  return date.toLocaleDateString('en-GB', {
-    day: 'numeric',
-    month: 'short',
-    year: 'numeric',
-    timeZone: 'UTC',
-  })
+  return formatDate(iso, { timeZone: 'UTC' })
 }
 
 /** Day and month, for the compact usage line ("23 Sep"). */
 export function shortDay(iso: string | null): string {
-  if (!iso) return ''
-  const date = new Date(iso)
-
-  if (Number.isNaN(date.getTime())) return ''
-
-  return `${date.getUTCDate()} ${date
-    .toLocaleDateString('en-GB', { month: 'short', timeZone: 'UTC' })
-    .slice(0, 3)}`
+  return iso ? formatDay(iso, { timeZone: 'UTC' }) : ''
 }
 
 /** "2 of 6 units": what is left of what was received. */

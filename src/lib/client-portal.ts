@@ -1,9 +1,10 @@
 import type { DataClient } from '#/lib/data-client'
 import { createDataClient } from '#/lib/data-client'
 import { now as appNow } from '#/lib/clock'
-import { getDisplayTimeZone, formatInstant } from '#/lib/display-time-zone'
+import { getDisplayTimeZone } from '#/lib/display-time-zone'
 import { t } from '#/copy'
 import { dateTimeFormat } from '#/lib/intl-cache'
+import { formatDay } from '#/lib/format-date'
 
 /**
  * ADR-0049 — the client portal reads. Everything goes through the portal RPCs,
@@ -175,10 +176,7 @@ export const clientPortalQueryKeys = {
  * page reads dates on, so a client elsewhere sees the day the lab means.
  */
 export function formatPortalDay(iso: string | null | undefined): string {
-  return formatInstant(iso, { day: 'numeric', month: 'short' }).replace(
-    'Sept',
-    'Sep',
-  )
+  return formatDay(iso)
 }
 
 /** The calendar day an instant falls on, on the display clock. */

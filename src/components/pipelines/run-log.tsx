@@ -8,6 +8,7 @@ import {
 } from '#/lib/pipelines/types'
 import type { PythonEnvironment } from '#/lib/pipelines/python'
 import type { PipelineRunLogWire } from '#/lib/pipelines/types'
+import { formatTime } from '#/lib/format-date'
 
 /**
  * What a Python step left in a log entry's `detail`: its own print output, the
@@ -89,7 +90,9 @@ export function RunLog({ logs }: { logs: PipelineRunLogWire[] }) {
         return (
           <li key={entry.id} className="flex flex-col gap-1">
             <div className="flex gap-2">
-              <span className="text-fg-muted">{entry.at.slice(11, 19)}</span>
+              <span className="text-fg-muted">
+                {formatTime(entry.at, { seconds: true })}
+              </span>
               <span
                 className={
                   entry.level === 'error'

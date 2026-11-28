@@ -1,6 +1,5 @@
 import { t } from '#/copy'
 import { useState } from 'react'
-import { getDisplayTimeZone } from '#/lib/display-time-zone'
 import { WorkspaceAdminRefusal } from './-admin-refusal'
 import { Link, createFileRoute } from '@tanstack/react-router'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
@@ -33,6 +32,7 @@ import { useHelp } from '#/lib/help'
 import { sentenceCase } from '#/lib/sentence-case'
 import { cn } from '#/lib/utils'
 import { canOpenSettings } from '#/lib/settings-access'
+import { formatDate } from '#/lib/format-date'
 
 const diagnosticsKey = (workspaceId: string) => [
   'admin-diagnostics',
@@ -285,7 +285,10 @@ function RecentFailures({
            * It is the same id the run's logs are keyed by.
            */
           requestId: run.id,
-          time: formatTime(run.finishedAt ?? run.startedAt),
+          time: formatDate(run.finishedAt ?? run.startedAt, {
+            year: false,
+            time: true,
+          }),
         }))
 
   const failureColumns: RegistryColumn<(typeof failures)[number]>[] = [
@@ -676,7 +679,7 @@ function goLiveBackup(d: DiagnosticsResult): Check {
         status: 'Failed',
         tone: 'bad',
         detail: t('settings.diagnostics.backupFailed', {
-          when: formatTime(app.lastFailedAt),
+          when: formatDate(app.lastFailedAt, { year: false, time: true }),
           reason: app.lastFailure ?? '',
         }),
       }
@@ -709,7 +712,7 @@ function goLiveBackup(d: DiagnosticsResult): Check {
           : app.separate
             ? 'settings.diagnostics.backupFresh'
             : 'settings.diagnostics.backupSameDatabase',
-        { when: formatTime(lastBackupAt) },
+        { when: formatDate(lastBackupAt, { year: false, time: true }) },
       ),
     }
   }
@@ -726,7 +729,7 @@ function goLiveBackup(d: DiagnosticsResult): Check {
         stale
           ? 'settings.diagnostics.backupStale'
           : 'settings.diagnostics.backupFresh',
-        { when: formatTime(lastBackupAt) },
+        { when: formatDate(lastBackupAt, { year: false, time: true }) },
       ),
     }
   }
@@ -825,7 +828,7 @@ function CheckRow({
             {c.lastRunKind === 'ran'
               ? t('settings.diagnostics.lastRan')
               : 'Checked'}{' '}
-            {formatTime(c.lastRunAt)}
+            {formatDate(c.lastRunAt, { year: false, time: true })}
           </>
         ) : (
           <span className="text-fg-faint">
@@ -853,21 +856,4 @@ function RequestIdCell({ id }: { id: string }) {
       />
     </span>
   )
-}
-
-function formatTime(value: string | null): string {
-  if (!value) return '—'
-  const date = new Date(value)
-
-  if (Number.isNaN(date.getTime())) return value
-
-  return date
-    .toLocaleString('en-GB', {
-      timeZone: getDisplayTimeZone(),
-      day: '2-digit',
-      month: 'short',
-      hour: '2-digit',
-      minute: '2-digit',
-    })
-    .replace('Sept', 'Sep')
 }

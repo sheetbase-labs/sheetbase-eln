@@ -14,6 +14,8 @@ import type { DataClient } from '#/lib/data-client'
 import type { GateCondition, GateMode } from '#/lib/experiment-gates'
 import { notebookOutline } from '#/lib/notebook-outline'
 import type { NotebookBlock } from '#/lib/notebook-data'
+import { formatDay } from '#/lib/format-date'
+import { t } from '#/copy'
 
 export interface ExperimentPartWire {
   id: string
@@ -532,14 +534,19 @@ export function splitRecordIntoParts(
   })
 }
 
-const partDateFormat = new Intl.DateTimeFormat('en-GB', {
-  weekday: 'short',
-  day: 'numeric',
-  month: 'short',
-  timeZone: 'UTC',
-})
-
 /** "Mon 2 Nov": the date a part falls on, as the strip and the cards show it. */
 export function formatPartDate(date: Date): string {
-  return partDateFormat.format(date)
+  return formatDay(date, { weekday: true, timeZone: 'UTC' })
+}
+
+/**
+ * A part's numbered title, "2. Dye dilution". A title that already numbers
+ * itself ("Milestone 2: Dye dilution", "Part 2 …", "2. …") is left as it is, so
+ * the number is never said twice.
+ */
+export function partTitle(number: number | string, title: string): string {
+  if (/^\s*((milestone|part|step|day)\s+\d+\b|\d+\s*[.:)])/i.test(title))
+    return title
+
+  return t('notebook.parts.partTitle', { number: String(number), title })
 }

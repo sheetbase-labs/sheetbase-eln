@@ -1,4 +1,9 @@
-import { formatDate } from '#/lib/format-date'
+import {
+  formatDate,
+  formatDay,
+  formatLongDay,
+  formatWeekday,
+} from '#/lib/format-date'
 import { useMemo, useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { Link, getRouteApi, useNavigate } from '@tanstack/react-router'
@@ -40,7 +45,11 @@ import { useWorkItems } from '#/lib/work-items/data'
 import { homeIsoDay } from '#/lib/home-quiet'
 import { cancelBooking, describeCalendarError } from '#/lib/calendar'
 import { notebookDataClient } from '#/lib/notebook-data'
-import { fetchPartsInRange, partQueryKeys } from '#/lib/experiment-parts'
+import {
+  fetchPartsInRange,
+  partQueryKeys,
+  partTitle,
+} from '#/lib/experiment-parts'
 import type { DuePart } from '#/lib/experiment-parts'
 import { describeRepeatResult } from '#/lib/recurring'
 import type { RepeatResult } from '#/lib/recurring'
@@ -75,8 +84,7 @@ const monday = (s: string) => {
   return addDays(s, -((d.getUTCDay() + 6) % 7))
 }
 
-const fmt = (s: string, o: Intl.DateTimeFormatOptions) =>
-  parse(s).toLocaleDateString('en-GB', { ...o, timeZone: 'UTC' })
+const UTC = { timeZone: 'UTC' } as const
 
 const toMin = (time: string) => {
   const [h, m] = time.split(':').map(Number)
@@ -520,12 +528,11 @@ function scheduleSubtitle({
       ? t('projects.schedulePage.instrumentsUsed', { count: instrumentsUsed })
       : '')
 
-  if (view === 'day')
-    return `${fmt(anchor, { weekday: 'long', day: 'numeric', month: 'long' })}${tail}`
+  if (view === 'day') return `${formatLongDay(parse(anchor), UTC)}${tail}`
 
   return (
     t('projects.schedulePage.weekOf', {
-      date: fmt(weekStart, { day: 'numeric', month: 'long' }),
+      date: formatDay(parse(weekStart), UTC),
     }) + tail
   )
 }
@@ -788,13 +795,7 @@ function BookingFacts({
           : '—'}
       </dd>
       <dt className="text-fg-muted">{t('projects.bookDialog.date')}</dt>
-      <dd className="m-0">
-        {fmt(booking.date, {
-          weekday: 'long',
-          day: 'numeric',
-          month: 'long',
-        })}
-      </dd>
+      <dd className="m-0">{formatLongDay(parse(booking.date), UTC)}</dd>
       <dt className="text-fg-muted">{t('projects.schedulePage.time')}</dt>
       <dd className="num m-0">
         {booking.start}–{booking.end} ({booking.timezone})
@@ -1126,7 +1127,7 @@ function DayGrid({
             <div className="rounded-md border border-border bg-surface px-3.5 py-2.5 text-center">
               <div className="font-medium">
                 {t('projects.schedulePage.noBookingsOn', {
-                  day: fmt(day, { weekday: 'long' }),
+                  day: formatWeekday(parse(day), { ...UTC, long: true }),
                 })}
               </div>
               <div className="mt-0.5 text-label text-fg-muted">
@@ -1194,14 +1195,10 @@ function WeekGrid({
                   onClick={() => onDay(x)}
                   className="cursor-pointer border-0 bg-transparent p-0 font-[inherit] text-inherit hover:text-link"
                   aria-label={t('projects.schedulePage.openDay', {
-                    day: fmt(x, {
-                      weekday: 'long',
-                      day: 'numeric',
-                      month: 'long',
-                    }),
+                    day: formatLongDay(parse(x), UTC),
                   })}
                 >
-                  {fmt(x, { weekday: 'short', day: 'numeric' })}
+                  {formatWeekday(parse(x), { ...UTC, day: true })}
                   {x === today ? (
                     <span className="ml-1.5 rounded-[3px] bg-inverse px-1 text-[10px] font-semibold text-inverse-foreground">
                       {t('projects.schedulePage.today')}
@@ -1311,13 +1308,13 @@ function PhoneDay({
   return (
     <section
       aria-label={t('projects.schedulePage.bookingsOn', {
-        day: fmt(day, { weekday: 'long', day: 'numeric', month: 'long' }),
+        day: formatLongDay(parse(day), UTC),
       })}
       className="-mx-4 md:hidden"
     >
       <div className="flex items-center gap-2 border-y border-border bg-surface-muted px-2 py-1.5">
         <div className="flex-1 text-center text-body font-medium">
-          {fmt(day, { weekday: 'long', day: 'numeric', month: 'long' })}
+          {formatLongDay(parse(day), UTC)}
         </div>
       </div>
       {list.length ? (
@@ -1375,7 +1372,7 @@ function PhoneDay({
         <div className="px-4 py-6 text-center" role="status">
           <div className="font-medium">
             {t('projects.schedulePage.noBookingsOn', {
-              day: fmt(day, { weekday: 'long' }),
+              day: formatWeekday(parse(day), { ...UTC, long: true }),
             })}
           </div>
         </div>
@@ -1409,20 +1406,13 @@ function PartsDue({
           )}
         >
           <span className="num text-fg-muted">
-            {fmt(part.dueOn, {
-              weekday: 'short',
-              day: 'numeric',
-              month: 'short',
-            })}
+            {formatDay(parse(part.dueOn), { ...UTC, weekday: true })}
           </span>
           <Link
             to="/experiments/$expId/notebook/$part"
             params={{ expId: part.recordId, part: String(part.number) }}
           >
-            {t('notebook.parts.partTitle', {
-              number: String(part.number),
-              title: part.title,
-            })}
+            {partTitle(String(part.number), part.title)}
             <span className="text-fg-muted"> · {part.identifier}</span>
           </Link>
           <span

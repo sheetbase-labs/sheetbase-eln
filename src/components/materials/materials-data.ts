@@ -10,6 +10,8 @@ import {
 } from '#/lib/reagent-data'
 import type { Reagent } from '#/lib/reagent-data'
 import type { RegistryQuery } from '#/lib/registry'
+import { formatDate, formatDay, formatMonth } from '#/lib/format-date'
+import { statusWord } from '#/lib/status-words'
 
 /** UI port (roadmap-4/ui-app3): the materials registry, mapped from real
  * material records onto the app-3 list shape. */
@@ -92,7 +94,7 @@ function lotStatus(
     return expiry && !Number.isNaN(expiry.getTime())
       ? {
           tone: 'bad',
-          label: `Expired ${shortDate(expiry)}`,
+          label: `Expired ${formatDay(expiry, { timeZone: 'UTC' })}`,
         }
       : STATUS.expired
   }
@@ -101,52 +103,22 @@ function lotStatus(
     if (attention.nearExpiry) {
       return {
         tone: 'warn',
-        label: `Expires ${expiry
-          .toLocaleDateString('en-GB', {
-            day: 'numeric',
-            month: 'short',
-            timeZone: 'UTC',
-          })
-          .replace('Sept', 'Sep')}`,
+        label: `Expires ${formatDay(expiry, { timeZone: 'UTC' })}`,
       }
     }
 
     return {
       tone: 'ok',
-      label: `Expires ${shortMonth(expiry)} ${expiry.getUTCFullYear()}`,
+      label: `Expires ${formatMonth(expiry, { year: true, timeZone: 'UTC' })}`,
     }
   }
 
   return (
     STATUS[reagent.status] ?? {
       tone: 'none',
-      label: reagent.status.replace(/_/g, ' '),
+      label: statusWord(reagent.status),
     }
   )
-}
-
-/** Day and month, e.g. "1 Oct". */
-function shortDate(date: Date): string {
-  return `${date.getUTCDate()} ${shortMonth(date)}`
-}
-
-/** Three-letter month, e.g. "Sep" (the design never uses "Sept"). */
-function shortMonth(date: Date): string {
-  return date
-    .toLocaleDateString('en-GB', { month: 'short', timeZone: 'UTC' })
-    .replace('Sept', 'Sep')
-    .slice(0, 3)
-}
-
-function formatDay(iso: string): string {
-  return new Date(iso)
-    .toLocaleDateString('en-GB', {
-      day: 'numeric',
-      month: 'short',
-      year: 'numeric',
-      timeZone: 'UTC',
-    })
-    .replace('Sept', 'Sep')
 }
 
 /**
@@ -165,12 +137,12 @@ function expiryNote(
 
   if (attention.expired) {
     return days != null && days < 0
-      ? `Expired ${formatDay(reagent.expiry)} (${Math.abs(days)} days ago)`
-      : `Expired ${formatDay(reagent.expiry)}`
+      ? `Expired ${formatDate(reagent.expiry, { timeZone: 'UTC' })} (${Math.abs(days)} days ago)`
+      : `Expired ${formatDate(reagent.expiry, { timeZone: 'UTC' })}`
   }
 
   if (attention.nearExpiry && days != null) {
-    return `Expires ${formatDay(reagent.expiry)} (${days} ${days === 1 ? 'day' : 'days'})`
+    return `Expires ${formatDate(reagent.expiry, { timeZone: 'UTC' })} (${days} ${days === 1 ? 'day' : 'days'})`
   }
 
   return null

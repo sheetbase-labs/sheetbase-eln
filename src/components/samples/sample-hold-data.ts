@@ -2,7 +2,7 @@ import { z } from 'zod'
 
 import { now as clockNow } from '#/lib/clock'
 import type { RecordWire } from '#/lib/notebook-data'
-import { t } from '#/copy'
+import { formatDate, formatDay } from '#/lib/format-date'
 
 /**
  * LAB-03 / step 4 — the sample inspector's hold-time meter (SampleDetail).
@@ -142,26 +142,11 @@ export function computeSampleHold(
   }
 }
 
-const MONTHS = [
-  t('library.samples.sampleHoldMeter.jan'),
-  t('library.samples.sampleHoldMeter.feb'),
-  t('library.samples.sampleHoldMeter.mar'),
-  t('library.samples.sampleHoldMeter.apr'),
-  t('library.samples.sampleHoldMeter.may'),
-  t('library.samples.sampleHoldMeter.jun'),
-  t('library.samples.sampleHoldMeter.jul'),
-  t('library.samples.sampleHoldMeter.aug'),
-  t('library.samples.sampleHoldMeter.sep'),
-  t('library.samples.sampleHoldMeter.oct'),
-  t('library.samples.sampleHoldMeter.nov'),
-  t('library.samples.sampleHoldMeter.dec'),
-] as const
-
 export function formatHoldDate(date: Date): string {
-  return `${date.getUTCDate()} ${MONTHS[date.getUTCMonth()]} ${date.getUTCFullYear()}`
+  return formatDate(date, { timeZone: 'UTC' })
 }
 
-/** Design label short form, e.g. "04-Oct" (zero-padded day). */
+/** The short form a printed label has room for, e.g. "4 Oct". */
 export function formatHoldDateShort(date: Date): string {
-  return `${String(date.getUTCDate()).padStart(2, '0')}-${MONTHS[date.getUTCMonth()]}`
+  return formatDay(date, { timeZone: 'UTC' })
 }

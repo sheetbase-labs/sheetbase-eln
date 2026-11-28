@@ -3,7 +3,7 @@ import { LoadingBlock } from '#/components/ui/page-skeleton'
 import { recordOption } from '#/components/record-picker/entity-options'
 import { useMemo, useState } from 'react'
 import { z } from 'zod'
-import { formatDate } from '#/lib/format-date'
+import { formatDate, formatDay as formatPlanDay } from '#/lib/format-date'
 import { Link, createFileRoute, useNavigate } from '@tanstack/react-router'
 import {
   useMutation,
@@ -175,15 +175,9 @@ function daysUntil(dueAt: string, now = appNow().getTime()): number {
 /** "21 Aug": the day as the plan's own time zone sees it. */
 function formatDay(iso: string, timezone = 'UTC'): string {
   try {
-    return new Date(iso)
-      .toLocaleDateString('en-GB', {
-        day: 'numeric',
-        month: 'short',
-        timeZone: timezone,
-      })
-      .replace('Sept', 'Sep')
+    return formatPlanDay(iso, { timeZone: timezone })
   } catch {
-    return iso.slice(0, 10)
+    return formatPlanDay(iso, { timeZone: 'UTC' })
   }
 }
 

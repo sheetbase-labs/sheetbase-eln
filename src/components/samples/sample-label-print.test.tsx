@@ -99,7 +99,7 @@ describe('SampleLabelPrint', () => {
     ).toBeTruthy()
     expect(screen.getByText('SMP-2231')).toBeTruthy()
     expect(screen.getByText('HL-0934')).toBeTruthy()
-    expect(screen.getByText('2–8 °C · use by 04-Oct')).toBeTruthy()
+    expect(screen.getByText('2–8 °C · use by 4 Oct')).toBeTruthy()
     expect(
       screen.getByRole('group', { name: 'Printable label for SMP-2231' }),
     ).toBeTruthy()
@@ -186,7 +186,7 @@ describe('PrintLabelButton', () => {
     // The browser prints the document, which carries the label's fields.
     expect(print).toHaveBeenCalledTimes(1)
     expect(screen.getByText('SMP-2231')).toBeTruthy()
-    expect(screen.getByText('2–8 °C · use by 04-Oct')).toBeTruthy()
+    expect(screen.getByText('2–8 °C · use by 4 Oct')).toBeTruthy()
 
     // The print is recorded on the sample through the existing sample-event
     // RPC, with the print note — not a direct insert into the event table.

@@ -48,6 +48,7 @@ import type { HomeReviewRow } from './-home-columns'
 import type { CalendarBooking } from '#/lib/calendar'
 import type { WorkItem } from '#/lib/work-items/data'
 import type { RecentItem } from '#/lib/recents'
+import { formatTime } from '#/lib/format-date'
 
 /** Where a flagged dataset opens: the flagged value when Home knows it. */
 function datasetIssuePath(issue: {
@@ -332,11 +333,7 @@ export function TodayBookingsList({
           className="flex min-h-11 items-center gap-3 border-b border-border-subtle py-2 last:border-0"
         >
           <span className="num w-10 shrink-0 font-medium text-link">
-            {new Date(b.startsAt).toLocaleTimeString('en-GB', {
-              timeZone,
-              hour: '2-digit',
-              minute: '2-digit',
-            })}
+            {formatTime(b.startsAt, { timeZone })}
           </span>
           <div className="min-w-0">
             <div className="font-medium">{b.title}</div>
@@ -706,11 +703,7 @@ export function ActivityRow({
   return (
     <li className="flex gap-3">
       <span className="num w-10 shrink-0 text-label text-fg-muted">
-        {new Date(described.event.createdAt).toLocaleTimeString('en-GB', {
-          timeZone,
-          hour: '2-digit',
-          minute: '2-digit',
-        })}
+        {formatTime(described.event.createdAt, { timeZone })}
       </span>
       <div className="min-w-0 text-label">
         <div>
@@ -809,11 +802,7 @@ export function HomeInspectorToday({
                 className="flex gap-3 border-b border-border-subtle py-2 last:border-0"
               >
                 <span className="num w-10 shrink-0 font-medium text-link">
-                  {new Date(b.startsAt).toLocaleTimeString('en-GB', {
-                    timeZone,
-                    hour: '2-digit',
-                    minute: '2-digit',
-                  })}
+                  {formatTime(b.startsAt, { timeZone })}
                 </span>
                 <div className="min-w-0">
                   <div className="font-medium">{b.title}</div>

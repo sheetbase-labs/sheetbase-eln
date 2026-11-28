@@ -37,6 +37,7 @@ import { formatFileSize } from '#/lib/format-numbers'
 import { cn } from '#/lib/utils'
 import { now as appNow } from '#/lib/clock'
 import { canOpenSettings } from '#/lib/settings-access'
+import { formatDate, formatDay, formatMonth } from '#/lib/format-date'
 
 /**
  * UI port (roadmap-4/ui-app3): how the workspace uses its plan. Reads the real
@@ -466,7 +467,7 @@ function monthLabel(month: string): string {
   const [year, m] = month.split('-')
   const date = new Date(Date.UTC(Number(year), Number(m) - 1, 1))
 
-  return date.toLocaleDateString('en-GB', { month: 'short' })
+  return formatMonth(date, { timeZone: 'UTC' })
 }
 
 /**
@@ -583,8 +584,5 @@ function formatPeriod(): string {
   const now = appNow()
   const first = new Date(now.getFullYear(), now.getMonth(), 1)
 
-  const fmt = (d: Date) =>
-    d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })
-
-  return `${fmt(first)} – ${fmt(now)} ${now.getFullYear()}`
+  return `${formatDay(first)} – ${formatDate(now)}`
 }

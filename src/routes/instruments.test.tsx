@@ -421,8 +421,8 @@ describe('R5-CONFIG-02 instrument inspector', () => {
 
     expect(await screen.findByText('Healthy')).toBeTruthy()
     expect(screen.getAllByText('File drop').length).toBeGreaterThan(0)
-    expect(screen.getByText('2026-10-05 09:12')).toBeTruthy()
-    expect(screen.getByText('2026-10-12 13:00 · Plate 4')).toBeTruthy()
+    expect(screen.getByText(/^5 Oct 2026,? 09:12$/)).toBeTruthy()
+    expect(screen.getByText(/^12 Oct,? 13:00 · Plate 4$/)).toBeTruthy()
     expect(screen.getByText('Turbidimeter v2 · validated')).toBeTruthy()
     expect(screen.queryByText('Parser not validated.')).toBeNull()
   })

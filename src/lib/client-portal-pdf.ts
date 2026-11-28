@@ -20,6 +20,7 @@ import {
   frozenSheetGridFromEvidence,
 } from '#/lib/frozen-sheet-grid'
 import { sheetEvidenceFromEnvelope } from '#/lib/sheet-evidence'
+import { formatDate } from '#/lib/format-date'
 
 const PAGE_WIDTH = 595.28
 const PAGE_HEIGHT = 841.89
@@ -152,29 +153,13 @@ function wrap(text: string, maxChars: number): string[] {
 const LOGO_MAX_HEIGHT = 40
 const LOGO_MAX_WIDTH = 160
 
-const MONTHS_SHORT = [
-  'Jan',
-  'Feb',
-  'Mar',
-  'Apr',
-  'May',
-  'Jun',
-  'Jul',
-  'Aug',
-  'Sep',
-  'Oct',
-  'Nov',
-  'Dec',
-]
-
 function asDate(value: string | null): string {
   if (!value) return '—'
   const parsed = Date.parse(value)
 
   if (Number.isNaN(parsed)) return '—'
-  const date = new Date(parsed)
 
-  return `${date.getDate()} ${MONTHS_SHORT[date.getMonth()]} ${date.getFullYear()}`
+  return formatDate(new Date(parsed))
 }
 
 /**

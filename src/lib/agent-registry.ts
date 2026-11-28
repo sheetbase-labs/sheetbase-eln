@@ -5,10 +5,9 @@
  */
 import { z } from 'zod'
 
-import { formatInstant } from './display-time-zone'
 import type { DataClient } from './data-client'
 import type { AgentOperationProposal } from './agent-operations'
-import { dateTimeFormat } from '#/lib/intl-cache'
+import { formatDate, formatDay, formatTime } from '#/lib/format-date'
 
 export type PolicyMode =
   'never' | 'allowed' | 'needs_approval' | 'needs_signature'
@@ -195,31 +194,7 @@ export function signAgentOperation(
 export function shortStamp(iso: string | null | undefined): string {
   if (!iso) return '—'
 
-  const parts = new Map(
-    dateTimeFormat('en-GB', {
-      timeZone: undefined,
-      day: 'numeric',
-      month: 'long',
-      hour: '2-digit',
-      minute: '2-digit',
-      hour12: false,
-    })
-      .formatToParts(new Date(iso))
-      .map((p) => [p.type, p.value] as const),
-  )
-
-  const stamp = formatInstant(iso, {
-    day: 'numeric',
-    month: 'long',
-    hour: '2-digit',
-    minute: '2-digit',
-    hour12: false,
-  })
-
-  const month = (parts.get('month') ?? '').slice(0, 3)
-  const match = /^(\d+)\s+\S+,?\s+(?:at\s+)?(\d{2}:\d{2})$/.exec(stamp)
-
-  return match ? `${match[1]} ${month} ${match[2]}` : stamp
+  return formatDate(iso, { year: false, time: true })
 }
 
 /** "22 Sep", or "Yesterday" for the day before `now`. */
@@ -229,10 +204,7 @@ export function shortDay(iso: string, now: Date): string {
 
   if (day.toDateString() === yesterday.toDateString()) return 'Yesterday'
 
-  return formatInstant(iso, { day: 'numeric', month: 'short' }).replace(
-    'Sept',
-    'Sep',
-  )
+  return formatDay(iso)
 }
 
 const WEEK_MS = 7 * 24 * 60 * 60 * 1000
@@ -530,12 +502,7 @@ export function lastRunLabel(
 export function lastRunTime(iso: string, now: Date): string {
   const at = new Date(iso)
 
-  if (at.toDateString() === now.toDateString())
-    return formatInstant(iso, {
-      hour: '2-digit',
-      minute: '2-digit',
-      hour12: false,
-    })
+  if (at.toDateString() === now.toDateString()) return formatTime(iso)
 
   return shortDay(iso, now)
 }

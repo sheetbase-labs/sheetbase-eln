@@ -11,11 +11,10 @@
  * record > block. "Notebook" is the record's ordered blocks.
  */
 
-import { formatInstant } from '#/lib/display-time-zone'
 import { createDataClient } from '#/lib/data-client'
 import type { DataClient } from '#/lib/data-client'
-import { now as appNow } from '#/lib/clock'
 import { recordKindName } from '#/lib/record-kind-names'
+import { formatAgo, formatDate as formatSharedDate } from '#/lib/format-date'
 
 // ---------------------------------------------------------------------------
 // Wire shapes (snake_case, as returned by PostgREST).
@@ -538,45 +537,12 @@ export function statusDomainForKind(
  * the input is missing.
  */
 export function formatRelativeTime(iso: string | null | undefined): string {
-  if (!iso) return '—'
-  const then = Date.parse(iso)
-
-  if (Number.isNaN(then)) return '—'
-  const seconds = Math.round((appNow().getTime() - then) / 1000)
-
-  if (seconds < 0) return 'just now'
-
-  if (seconds < 60) return 'just now'
-  const minutes = Math.round(seconds / 60)
-
-  if (minutes < 60) return `${minutes}m ago`
-  const hours = Math.round(minutes / 60)
-
-  if (hours < 24) return `${hours}h ago`
-  const days = Math.round(hours / 24)
-
-  if (days < 7) return `${days}d ago`
-  const weeks = Math.round(days / 7)
-
-  if (weeks < 5) return `${weeks}w ago`
-
-  return formatDate(iso)
-}
-
-const ukDate: Intl.DateTimeFormatOptions = {
-  day: 'numeric',
-  month: 'short',
-  year: 'numeric',
+  return formatAgo(iso)
 }
 
 /** Stable absolute date label for dense tables and metadata strips. */
 export function formatDate(iso: string | null | undefined): string {
-  if (!iso) return '—'
-  const parsed = Date.parse(iso)
-
-  if (Number.isNaN(parsed)) return '—'
-
-  return formatInstant(iso, ukDate)
+  return formatSharedDate(iso)
 }
 
 /** Absolute date and time for notebook headers and the inspector. */
@@ -584,13 +550,7 @@ export function formatNotebookDateTime(
   iso: string | null | undefined,
   options: { zone?: boolean } = {},
 ): string {
-  return formatInstant(iso, {
-    ...ukDate,
-    hour: '2-digit',
-    minute: '2-digit',
-    hour12: false,
-    ...options,
-  })
+  return formatSharedDate(iso, { time: true, zone: options.zone })
 }
 
 // ---------------------------------------------------------------------------

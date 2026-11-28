@@ -5,7 +5,6 @@
  */
 import { useEffect, useMemo, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
-import { clockOption } from '#/lib/display-clock'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { ClientOnly } from '@tanstack/react-router'
 
@@ -70,6 +69,7 @@ import {
 } from '#/lib/connectors/agent-client'
 import { formatRelativeTime } from '#/lib/notebook-data'
 import { t } from '#/copy'
+import { formatTime } from '#/lib/format-date'
 
 const NOW_TICK_MS = 1000
 
@@ -165,13 +165,7 @@ export function LiveChart({
           {shown
             ? t('library.instruments.live.hoverReading', {
                 value: `${formatReadingValue(shown.avg)}${unitSuffix(feed)}`,
-                // react-doctor-disable-next-line react-doctor/no-locale-format-in-render -- Hover starts null and is set only by browser pointer events; keep the reader's native local clock.
-                time: new Date(shown.at).toLocaleTimeString('en-GB', {
-                  hour: '2-digit',
-                  minute: '2-digit',
-                  second: '2-digit',
-                  ...clockOption(),
-                }),
+                time: formatTime(shown.at, { seconds: true }),
               })
             : `${formatReadingValue(feed.lastValue)}${unitSuffix(feed)}`}
         </span>
@@ -270,19 +264,9 @@ export function LiveChart({
         </span>
         <span className="num pointer-events-none absolute bottom-1 left-1/2 -translate-x-1/2 text-label text-fg-muted">
           <ClientOnly>
-            {/* react-doctor-disable-next-line react-doctor/no-locale-format-in-render -- ClientOnly omits native-local range text from SSR and the first hydration render while retaining the static SVG. */}
-            {new Date(data.since).toLocaleTimeString('en-GB', {
-              hour: '2-digit',
-              minute: '2-digit',
-              ...clockOption(),
-            })}
+            {formatTime(data.since)}
             {' – '}
-            {/* react-doctor-disable-next-line react-doctor/no-locale-format-in-render -- ClientOnly preserves browser-local clock semantics without serialising the server's zone into the hydrated markup. */}
-            {new Date(data.until).toLocaleTimeString('en-GB', {
-              hour: '2-digit',
-              minute: '2-digit',
-              ...clockOption(),
-            })}
+            {formatTime(data.until)}
           </ClientOnly>
         </span>
       </div>

@@ -43,6 +43,11 @@ All user-facing text lives in the copy catalogue (`src/copy`) and is read with
 `t()`. Follow [`docs/development/copy.md`](docs/development/copy.md); `pnpm check:copy`
 fails on text typed straight into components.
 
+Dates, people and statuses are each written one way: `#/lib/format-date`,
+`Person` and `statusWord`. See
+[`docs/development/dates-people-statuses.md`](docs/development/dates-people-statuses.md);
+`pnpm check:dates` fails on a date formatted by hand.
+
 ## Product design workflow
 
 For user-facing design, implementation, review, copy or hardening, read

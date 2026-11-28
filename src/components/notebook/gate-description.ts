@@ -7,6 +7,7 @@ import type {
   GateContext,
   GatePartLike,
 } from '#/lib/experiment-gates'
+import { formatDate } from '#/lib/format-date'
 
 /** The named targets a gate's wording and editor can refer to. */
 export interface GateTargets {
@@ -40,14 +41,7 @@ export function blockTitle(
 }
 
 function dateWords(iso: string): string {
-  const date = new Date(`${iso}T00:00:00Z`)
-
-  return date.toLocaleDateString('en-GB', {
-    day: 'numeric',
-    month: 'short',
-    year: 'numeric',
-    timeZone: 'UTC',
-  })
+  return formatDate(iso, { timeZone: 'UTC' })
 }
 
 function describeCondition(

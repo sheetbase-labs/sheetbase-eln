@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query'
-import { formatDate } from '#/lib/format-date'
+import { formatAgo as formatAgoShared } from '#/lib/format-date'
 import { t } from '#/copy'
 
 import type { DataClient } from '#/lib/data-client'
@@ -297,18 +297,9 @@ export function formatReadingValue(value: number | null): string {
   })
 }
 
-/** "5 s ago", "3 min ago", "2 h ago", or the date for anything older. */
+/** "5s ago" style: how long since a reading, from the shared formatter. */
 export function formatAgo(iso: string | null, now: number): string {
-  if (!iso) return '—'
-  const seconds = Math.max(0, Math.round((now - Date.parse(iso)) / 1000))
-
-  if (seconds < 60) return `${seconds} s ago`
-
-  if (seconds < 3600) return `${Math.round(seconds / 60)} min ago`
-
-  if (seconds < 86_400) return `${Math.round(seconds / 3600)} h ago`
-
-  return formatDate(iso)
+  return formatAgoShared(iso, now)
 }
 
 export interface ChartGeometry {

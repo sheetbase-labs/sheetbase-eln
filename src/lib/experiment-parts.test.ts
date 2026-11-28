@@ -10,6 +10,7 @@ import {
   partIsDue,
   partNumberFromParam,
   partsProgress,
+  partTitle,
   shownPart,
   splitPointsAtHeadings,
 } from './experiment-parts'
@@ -264,5 +265,15 @@ describe('splitPointsAtHeadings', () => {
       { title: 'Seed cells', firstBlockId: 'a' },
       { title: 'Dose', firstBlockId: 'c' },
     ])
+  })
+})
+
+describe('partTitle', () => {
+  it('numbers a part once', () => {
+    expect(partTitle(2, 'Dye dilution')).toBe('2. Dye dilution')
+    expect(partTitle(2, 'Milestone 2: Dye dilution')).toBe(
+      'Milestone 2: Dye dilution',
+    )
+    expect(partTitle(3, '3. Harvest')).toBe('3. Harvest')
   })
 })

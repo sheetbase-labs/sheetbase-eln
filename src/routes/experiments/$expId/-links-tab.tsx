@@ -16,7 +16,8 @@ import { toast } from '#/components/ui/sonner'
 import { fetchExperimentBookings } from '#/lib/calendar'
 import { linkExperimentToSample } from '#/lib/notebook-create'
 import type { CalendarBookingWire } from '#/lib/calendar'
-import { formatDate, notebookDataClient } from '#/lib/notebook-data'
+import { notebookDataClient } from '#/lib/notebook-data'
+import { formatDate } from '#/lib/format-date'
 import { objectPath } from '#/lib/navigation'
 import { ObjectLink } from '#/components/ui/object-link'
 import type { RecordLinkWire } from '../$expId'
@@ -56,7 +57,7 @@ export function ExperimentBookings({ expId }: { expId: string }) {
       id: 'when',
       header: t('projects.expLinks.when'),
       meta: { cellClassName: 'num text-fg-muted' },
-      cell: ({ row }) => row.original.starts_at.slice(0, 16).replace('T', ' '),
+      cell: ({ row }) => formatDate(row.original.starts_at, { time: true }),
     },
     {
       id: 'status',

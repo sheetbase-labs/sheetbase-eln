@@ -8,6 +8,7 @@ import { setDisplayClock } from '#/lib/display-clock'
 import { LiveChart } from './live-readings'
 import { liveFeedQueryKeys } from './live-feeds-data'
 import type { FeedRow } from './live-feeds-data'
+import { setDisplayTimeZone } from '#/lib/display-time-zone'
 
 const feed: FeedRow = {
   id: 'f1',
@@ -78,6 +79,8 @@ it('retains the cached SVG and hydrates local range text after a server/browser 
   expect(html).not.toContain('13:00')
   expect(html).not.toContain('12:30:00')
   vi.stubEnv('TZ', 'America/New_York')
+  // The browser reads times on the person's display zone.
+  setDisplayTimeZone('America/New_York')
   const container = document.createElement('div')
   container.innerHTML = html
   document.body.append(container)
@@ -98,5 +101,6 @@ it('retains the cached SVG and hydrates local range text after a server/browser 
     await act(async () => root.unmount())
     container.remove()
     client.clear()
+    setDisplayTimeZone(null)
   }
 })

@@ -210,11 +210,11 @@ test('global bindings, Windows modifiers, input suppression and overlay focus', 
 
   const nav = page.locator('nav[aria-label="Main"]:visible')
   const before = await nav.boundingBox()
-  await page.keyboard.press('Control+Backslash')
+  await page.keyboard.press('Control+b')
   await expect
     .poll(async () => (await nav.boundingBox())?.width)
     .not.toBe(before?.width)
-  await page.keyboard.press('Control+Backslash')
+  await page.keyboard.press('Control+b')
   await expect
     .poll(async () => (await nav.boundingBox())?.width)
     .toBe(before?.width)

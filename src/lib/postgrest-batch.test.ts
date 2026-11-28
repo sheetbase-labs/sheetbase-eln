@@ -5,6 +5,10 @@ import { handleBatchRequest } from './postgrest-batch'
 import type { ProxyDeps } from './postgrest-proxy'
 import { BATCH_MAX_READS } from './read-batch'
 
+function urlOf(input: Parameters<typeof fetch>[0]): string {
+  return input instanceof Request ? input.url : input.toString()
+}
+
 function makeDeps(overrides: Partial<ProxyDeps> = {}) {
   const getSession = vi.fn(async (_headers: Headers) => ({
     user: { id: 'user-1' },
@@ -16,7 +20,7 @@ function makeDeps(overrides: Partial<ProxyDeps> = {}) {
 
   const fetchFn = vi.fn<typeof fetch>(
     async (input) =>
-      new Response(JSON.stringify([{ url: String(input) }]), {
+      new Response(JSON.stringify([{ url: urlOf(input) }]), {
         status: 200,
         headers: { 'content-range': '0-0/7' },
       }),

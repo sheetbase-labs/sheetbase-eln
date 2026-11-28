@@ -30,12 +30,60 @@ export function activityDayLabel(iso: string, now = new Date()): string {
   return formatDate(day, { year: day.getFullYear() !== now.getFullYear() })
 }
 
+/** One line of a record's activity, whatever the feed it came from. */
+export interface ActivityEntry {
+  id: string
+  /** When it happened, as an ISO timestamp: the entries group by its day. */
+  at: string
+  title: string
+  target?: string
+  actor?: string
+  /** The time as the line says it: "4h ago". */
+  when: string
+}
+
+/** One day of activity, with the day said as people say it. */
+export interface ActivityDay {
+  day: string
+  label: string
+  items: ActivityEntry[]
+}
+
+/** The first `limit` entries, in the order given, grouped by day. */
+export function groupActivityByDay(
+  entries: readonly ActivityEntry[],
+  limit = RECENT_ACTIVITY_LIMIT,
+): ActivityDay[] {
+  const groups: ActivityDay[] = []
+
+  for (const entry of entries.slice(0, limit)) {
+    const key = dayKey(entry.at)
+    const last = groups.at(-1)
+
+    if (last?.day === key) last.items.push(entry)
+    else
+      groups.push({
+        day: key,
+        label: activityDayLabel(entry.at),
+        items: [entry],
+      })
+  }
+
+  return groups
+}
+
+/** The newest few days of activity, and how many events there are in all. */
+export interface RecentActivity {
+  groups: ActivityDay[]
+  total: number
+}
+
 /** The last few events, newest first, grouped by day. */
 export function recentActivityGroups(
   events: readonly TimelineEventWire[],
   nameOf: (userId: string) => string | undefined,
   limit = RECENT_ACTIVITY_LIMIT,
-) {
+): RecentActivity {
   const newest = [...events].sort((a, b) => b.ts.localeCompare(a.ts))
   const mapped = mapTimelineEvents(newest, undefined, undefined, nameOf)
 
@@ -43,16 +91,14 @@ export function recentActivityGroups(
     newest.map((event) => [`${event.type}-${event.id}`, event.ts]),
   )
 
-  const groups: { day: string; label: string; items: typeof mapped }[] = []
+  const entries = mapped.map<ActivityEntry>((event) => ({
+    id: event.id,
+    at: ts.get(event.id) ?? '',
+    title: event.title,
+    target: event.target,
+    actor: event.actor?.name,
+    when: event.timestamp,
+  }))
 
-  for (const event of mapped.slice(0, limit)) {
-    const at = ts.get(event.id) ?? ''
-    const key = dayKey(at)
-    const last = groups.at(-1)
-
-    if (last?.day === key) last.items.push(event)
-    else groups.push({ day: key, label: activityDayLabel(at), items: [event] })
-  }
-
-  return { groups, total: mapped.length }
+  return { groups: groupActivityByDay(entries, limit), total: mapped.length }
 }

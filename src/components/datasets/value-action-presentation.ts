@@ -2,6 +2,7 @@ import { z } from 'zod'
 
 import { t } from '#/copy'
 import type { DatasetSystemFlagProvenance } from '#/lib/dataset-flags'
+import { formatDate, formatNotebookDateTime } from '#/lib/notebook-data'
 import { displayTimeOrDuration } from '#/lib/time-duration'
 import { personName } from '#/lib/well-person'
 import type { MarkOutOfRangeDialogProps } from './value-actions'
@@ -44,7 +45,7 @@ export function formatSelectedValue(
 
 /**
  * A dataset cell as people read it: times as 09:10, durations as 2 h 30 min,
- * people by name.
+ * dates as 28 Nov 2026, date and time as 28 Nov 2026, 08:46, people by name.
  */
 export function formatDatasetValue(
   logicalType: string,
@@ -53,6 +54,17 @@ export function formatDatasetValue(
 ): string {
   if (value != null && (logicalType === 'time' || logicalType === 'duration'))
     return displayTimeOrDuration(logicalType, value)
+
+  const instant = z.string().safeParse(value)
+
+  if (
+    instant.success &&
+    (logicalType === 'timestamp' || logicalType === 'date') &&
+    !Number.isNaN(Date.parse(instant.data))
+  )
+    return logicalType === 'date'
+      ? formatDate(instant.data)
+      : formatNotebookDateTime(instant.data)
 
   const person = z.string().safeParse(value)
 

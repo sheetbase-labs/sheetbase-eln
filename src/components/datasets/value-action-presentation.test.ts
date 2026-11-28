@@ -320,4 +320,13 @@ describe('formatDatasetValue', () => {
     expect(formatDatasetValue('person', 'u-9', new Map())).toBe('u-9')
     expect(formatDatasetValue('well', 'H12')).toBe('H12')
   })
+
+  it('shows dates and date-times as dates, and leaves text that is not one', () => {
+    expect(formatDatasetValue('date', '2026-11-28')).toBe('28 Nov 2026')
+    expect(
+      formatDatasetValue('timestamp', '2026-11-28T08:46:06.425+00:00'),
+    ).toMatch(/^28 Nov 2026, \d\d:46$/)
+    expect(formatDatasetValue('timestamp', 'not a time')).toBe('not a time')
+    expect(formatDatasetValue('timestamp', null)).toBe('—')
+  })
 })

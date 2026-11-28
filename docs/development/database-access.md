@@ -104,6 +104,25 @@ another workspace and updates cannot move records between workspaces.
 delete boundaries, owner-only operations and the missing-claim and anon
 failure paths using two workspaces and three users.
 
+## Read batching
+
+A page starts dozens of small reads at once (a record, its links, its project,
+its signatures). The browser data client (`src/lib/data-client.ts`) holds reads
+that start within a few milliseconds of each other and sends them as one
+`POST /api/db-batch` (`src/lib/read-batch.ts`, `src/lib/postgrest-batch.ts`).
+A read that waits alone is sent as the ordinary request it always was.
+
+- Each read in a batch runs through `handleProxyRequest`, the same code as
+  `/api/db/*`, with the same short-lived token for the signed-in person. Row-level
+  security, rate limits, path checks and error shapes are unchanged; only the
+  sign-in lookup is shared. A batch carries no API token: tokens use `/api/db`.
+- Only reads batch: every table read, and the functions in
+  `src/lib/batchable-reads.ts`, which must all be `STABLE`
+  (`tests/db/batchable-reads.test.ts`). To batch another read function, add its
+  name there. Never list a function that writes.
+- `tests/browser/experiment-request-budget.test.ts` opens an experiment and
+  fails when the page goes back to one request per read.
+
 ## First vertical slice (API-004)
 
 The `api.projects` table is the first PostgREST-exposed resource the

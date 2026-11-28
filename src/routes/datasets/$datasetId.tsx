@@ -16,10 +16,12 @@ import type { PublisherItem } from '#/components/plugins/publish-dialog'
 import { AskAiButton } from '#/components/assist/ask-ai-button'
 import { ExplainThis } from '#/components/assist/explain-this'
 import { PageHeader } from '#/components/ui/layout'
+import type { Crumb } from '#/components/ui/breadcrumb'
 import { Button } from '#/components/ui/button'
-import { Tabs } from '#/components/ui/tabs'
+import type { TabsProps } from '#/components/ui/tabs'
 import { DatasetContractBadge } from '#/components/contracts/dataset-contract-badge'
-import { Status } from '#/components/ui/status'
+import { RecordPage } from '#/components/record-page/record-page'
+import { RecordStateLine } from '#/components/record-page/record-state-line'
 import { useExtensionPoints } from '#/lib/extensions/use-extension-points'
 import {
   datasetValidation,
@@ -38,21 +40,21 @@ import {
   useDatasetPipelineRuns,
 } from '#/components/datasets/dataset-run-pipeline'
 import {
-  DropdownMenu,
-  DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuLinkItem,
   DropdownMenuSeparator,
-  DropdownMenuTrigger,
 } from '#/components/ui/dropdown-menu'
 import { hasCapability } from '#/lib/capability'
 import { DatasetUsedByTab } from '#/components/datasets/dataset-used-by-tab'
 import { FavouriteToggle } from '#/components/favourites/favourite-toggle'
-import { ObjectLink } from '#/components/ui/object-link'
 import { fetchProject, notebookDataClient } from '#/lib/notebook-data'
 import { useRecentViewTracking } from '#/lib/recents'
 import { resolveIdentifierParam } from '#/lib/identifier-resolution'
 import { signInRedirect } from '#/lib/sign-in-redirect'
+import { useUserNames } from '#/lib/user-names'
+
+import { datasetFacts } from './-dataset-facts'
+import { DatasetSidePanel } from './-dataset-side'
 
 /** UI port (roadmap-4/ui-app3): the dataset detail frame. Rows, Snapshots and
  * Compare are child routes; R5-SURF-01 adds Imports, Used by and History,
@@ -110,6 +112,18 @@ export function useDatasetVersions(datasetId: string) {
 
 function DatasetLayout() {
   const { datasetId } = Route.useParams()
+  const summaries = useDatasetSummaries()
+  const dataset = summaries.data?.find((d) => d.uuid === datasetId)
+
+  useRecentViewTracking('dataset', dataset?.uuid)
+
+  if (!dataset) return <DatasetUnavailable summaries={summaries} />
+
+  return <DatasetRecord dataset={dataset} />
+}
+
+/** The dataset once it has loaded: its header, tabs and side panel. */
+function DatasetRecord({ dataset }: { dataset: DatasetListRow }) {
   const { context } = Route.useRouteContext()
   const search = Route.useSearch()
 
@@ -118,29 +132,22 @@ function DatasetLayout() {
   })
 
   const navigate = useNavigate()
-  const summaries = useDatasetSummaries()
-  const versions = useDatasetVersions(datasetId)
-  // File formats that plugins add to downloads.
-  const pluginExporters = useExtensionPoints().data.exporters
-  // Other systems that plugins can send the rows to.
-  const pluginPublishers = useExtensionPoints().data.publishers
+  const versions = useDatasetVersions(dataset.uuid)
 
-  const latestVersionId =
-    [...(versions.data ?? [])].sort((a, b) =>
-      b.createdAt.localeCompare(a.createdAt),
-    )[0]?.id ?? null
+  // File formats that plugins add to downloads, and other systems that
+  // plugins can send the rows to.
+  const { exporters: pluginExporters, publishers: pluginPublishers } =
+    useExtensionPoints().data
 
-  const dataset = summaries.data?.find((d) => d.uuid === datasetId)
-  const projectId = dataset?.projectId ?? null
+  const [publishing, setPublishing] = useState<PublisherItem | null>(null)
+  const [archiveOpen, setArchiveOpen] = useState(false)
 
-  const project = useQuery({
-    queryKey: ['ui-port', 'dataset-project', projectId ?? ''],
-    queryFn: () =>
-      projectId ? fetchProject(notebookDataClient, projectId) : null,
-    enabled: Boolean(projectId),
-  })
+  const latestVersionId = latestVersion(versions.data)
+  const projectTitle = useDatasetProjectTitle(dataset.projectId)
 
-  useRecentViewTracking('dataset', dataset?.uuid)
+  const { userLabel } = useUserNames(
+    dataset.createdByUserId ? [dataset.createdByUserId] : [],
+  )
 
   const pipelineRuns = useDatasetPipelineRuns({
     workspaceId: context.workspace?.id ?? '',
@@ -152,137 +159,205 @@ function DatasetLayout() {
       }),
   })
 
-  if (!dataset) return <DatasetUnavailable summaries={summaries} />
-
   const params = { datasetId: dataset.uuid }
-  // The active section: the child routes from the path, the three data tabs
-  // from the search parameter, and the index — whose screen is the Overview —
-  // as Overview.
-  const section = pathname.split('/').filter(Boolean).pop()
+  const current = datasetSection(pathname, search.view)
 
-  const current =
-    search.view ??
-    (section === 'rows' || section === 'snapshots' || section === 'compare'
-      ? section
-      : 'overview')
+  const role = context.workspace?.role
+  const canArchive = hasCapability(role, 'record.create')
+  const exportable = !dataset.archived && current !== 'compare'
+  // The grid and the comparison want the whole width and their own scroll.
+  const wide = current === 'rows' || current === 'compare'
 
   return (
-    <div className="flex min-w-0 flex-1 flex-col">
-      <PageHeader
-        // Where the dataset sits: its project and the experiment that made it,
-        // then itself; a dataset with neither keeps the Datasets list as root.
-        trail={datasetTrail(dataset, projectId, project.data?.title ?? null)}
-        title={dataset.name}
-        meta={
-          <DatasetMeta
+    <RecordPage
+      recordId={null}
+      // Where the dataset sits: its project and the experiment that made it,
+      // then itself; a dataset with neither keeps the Datasets list as root.
+      trail={datasetTrail(dataset, projectTitle)}
+      title={dataset.name}
+      identifier={dataset.id}
+      status={datasetValidation(dataset)}
+      facts={datasetFacts(dataset, userLabel)}
+      marks={<DatasetContractBadge datasetId={dataset.uuid} />}
+      actions={
+        <DatasetActions dataset={dataset} role={role} exportable={exportable} />
+      }
+      moreLabel={t('data.datasetPage.ariaMoreDatasetActions')}
+      more={
+        exportable || canArchive ? (
+          <DatasetMoreItems
             dataset={dataset}
-            currentUserId={context.user.id}
-            currentUserName={context.user.name}
-          />
-        }
-        actions={
-          <DatasetActions
-            dataset={dataset}
-            role={context.workspace?.role}
-            current={current}
+            exportable={exportable}
+            canArchive={canArchive}
             pluginExporters={pluginExporters}
             pluginPublishers={pluginPublishers}
             pipelineRuns={pipelineRuns}
             latestVersionId={latestVersionId}
+            onPublish={setPublishing}
+            onArchive={() => setArchiveOpen(true)}
           />
-        }
-        tabs={
-          <DatasetTabs
-            rows={dataset.rows}
-            versionCount={versions.data?.length ?? 0}
-            current={current}
-            params={params}
+        ) : null
+      }
+      stateLine={
+        dataset.archived ? (
+          <DatasetArchivedLine
+            canRestore={canArchive}
+            onRestore={() => setArchiveOpen(true)}
           />
-        }
-      />
+        ) : null
+      }
+      tabs={datasetTabs({
+        rows: dataset.rows,
+        versionCount: versions.data?.length ?? 0,
+        current,
+        params,
+      })}
+      sideLabel={t('data.datasetPage.datasetContext')}
+      side={
+        wide ? null : (
+          <DatasetSidePanel dataset={dataset} versions={versions.data ?? []} />
+        )
+      }
+      overlays={
+        <>
+          {pipelineRuns.dialog}
+          {publishing ? (
+            <PublishDialog
+              publisher={publishing}
+              datasetName={dataset.name}
+              datasetId={dataset.uuid}
+              onClose={() => setPublishing(null)}
+            />
+          ) : null}
+          <DatasetArchive
+            datasetId={dataset.uuid}
+            name={dataset.name}
+            archived={dataset.archived}
+            canEdit={canArchive}
+            open={archiveOpen}
+            onOpenChange={setArchiveOpen}
+            onDone={(nowArchived) => {
+              if (nowArchived) void navigate({ to: '/datasets' })
+            }}
+          />
+        </>
+      }
+      flush
+      fill={wide}
+    >
       <DatasetSection datasetId={dataset.uuid} view={search.view} />
-    </div>
+    </RecordPage>
+  )
+}
+
+/** The title of the project the dataset belongs to, once it has loaded. */
+function useDatasetProjectTitle(projectId: string | null): string | null {
+  const project = useQuery({
+    queryKey: ['ui-port', 'dataset-project', projectId ?? ''],
+    queryFn: () =>
+      projectId ? fetchProject(notebookDataClient, projectId) : null,
+    enabled: Boolean(projectId),
+  })
+
+  return project.data?.title ?? null
+}
+
+/** The newest snapshot, which pipelines run on. */
+function latestVersion(versions: DatasetVersion[] | undefined): string | null {
+  return (
+    [...(versions ?? [])].sort((a, b) =>
+      b.createdAt.localeCompare(a.createdAt),
+    )[0]?.id ?? null
+  )
+}
+
+/**
+ * The active section: the child routes from the path, the three data tabs
+ * from the search parameter, and the index (whose screen is the Overview) as
+ * Overview.
+ */
+function datasetSection(pathname: string, view: string | undefined): string {
+  if (view) return view
+
+  const section = pathname.split('/').filter(Boolean).pop()
+
+  return section === 'rows' || section === 'snapshots' || section === 'compare'
+    ? section
+    : 'overview'
+}
+
+/** An archived dataset says so above its tabs, with the way back. */
+function DatasetArchivedLine({
+  canRestore,
+  onRestore,
+}: {
+  canRestore: boolean
+  onRestore: () => void
+}) {
+  return (
+    <RecordStateLine
+      tone="info"
+      action={
+        canRestore ? (
+          <Button size="sm" onClick={onRestore}>
+            {t('data.datasetPage.restoreDataset')}
+          </Button>
+        ) : null
+      }
+    >
+      {t('data.datasetPage.archivedLine')}
+    </RecordStateLine>
   )
 }
 
 /** Where the dataset sits, from the Datasets list down to itself. */
 function datasetTrail(
   dataset: DatasetListRow,
-  projectId: string | null,
   projectTitle: string | null,
-) {
+): Crumb[] {
+  const projectId = dataset.projectId
+
   if (!projectId && !dataset.experimentId) {
     return [
       {
         label: t('data.datasetPage.datasets'),
-        link: { to: '/datasets' as const },
+        link: { to: '/datasets' },
       },
       { label: dataset.id, mono: true },
     ]
   }
 
+  const projectCrumbs: Crumb[] = projectId
+    ? [
+        {
+          label: projectTitle ?? t('data.datasetPage.project'),
+          link: { to: '/projects/$projectId', params: { projectId } },
+        },
+      ]
+    : []
+
+  const experimentCrumbs: Crumb[] = dataset.experimentId
+    ? [
+        {
+          label: dataset.experimentId,
+          mono: true,
+          link: {
+            to: '/experiments/$expId',
+            params: { expId: dataset.experimentId },
+          },
+        },
+      ]
+    : []
+
   return [
-    ...(projectId
-      ? [
-          {
-            label: projectTitle ?? t('data.datasetPage.project'),
-            link: {
-              to: '/projects/$projectId' as const,
-              params: { projectId },
-            },
-          },
-        ]
-      : []),
-    ...(dataset.experimentId
-      ? [
-          {
-            label: dataset.experimentId,
-            mono: true,
-            link: {
-              to: '/experiments/$expId' as const,
-              params: { expId: dataset.experimentId },
-            },
-          },
-        ]
-      : []),
+    ...projectCrumbs,
+    ...experimentCrumbs,
     { label: dataset.id, mono: true },
   ]
 }
 
-/** The dataset's status, schema, contract and owner, under its name. */
-function DatasetMeta({
-  dataset,
-  currentUserId,
-  currentUserName,
-}: {
-  dataset: DatasetListRow
-  currentUserId: string
-  currentUserName: string
-}) {
-  const validation = datasetValidation(dataset)
-
-  return (
-    <>
-      <span className="text-fg">
-        <Status tone={validation.tone}>{validation.label}</Status>
-      </span>
-      <span>
-        {t('data.datasetPage.datasetSchema')} {dataset.model}
-      </span>
-      <DatasetContractBadge datasetId={dataset.uuid} />
-      {dataset.experimentId ? (
-        <ObjectLink kind="experiment" identifier={dataset.experimentId} />
-      ) : null}
-      <span>
-        {t('data.datasetPage.owner')}{' '}
-        {dataset.createdByUserId === currentUserId ? currentUserName : '—'}
-      </span>
-    </>
-  )
-}
-
-/** The dataset's sections: its own screens and the three data views. */
-function DatasetTabs({
+/** The dataset's sections, Overview first and History at the far end. */
+function datasetTabs({
   rows,
   versionCount,
   current,
@@ -292,69 +367,71 @@ function DatasetTabs({
   versionCount: number
   current: string
   params: { datasetId: string }
-}) {
-  return (
-    <Tabs
-      mode="url"
-      label={t('data.datasetPage.datasetSections')}
-      value={current}
-      items={[
-        {
-          key: 'overview',
-          label: t('data.datasetPage.overview'),
-          link: { to: '/datasets/$datasetId', params },
+}): TabsProps {
+  return {
+    mode: 'url',
+    label: t('data.datasetPage.datasetSections'),
+    value: current,
+    items: [
+      {
+        key: 'overview',
+        label: t('data.datasetPage.overview'),
+        link: { to: '/datasets/$datasetId', params },
+      },
+      {
+        key: 'rows',
+        label: t('data.datasetPage.data'),
+        count: rows,
+        link: { to: '/datasets/$datasetId/rows', params },
+      },
+      {
+        key: 'snapshots',
+        label: t('data.datasetPage.snapshots'),
+        count: versionCount,
+        link: { to: '/datasets/$datasetId/snapshots', params },
+      },
+      {
+        key: 'compare',
+        label: t('data.datasetPage.compare'),
+        link: { to: '/datasets/$datasetId/compare', params },
+      },
+      {
+        key: 'imports',
+        label: t('data.datasetPage.imports'),
+        link: {
+          to: '/datasets/$datasetId',
+          params,
+          search: { view: 'imports' },
         },
-        {
-          key: 'rows',
-          label: t('data.datasetPage.data'),
-          count: rows,
-          link: { to: '/datasets/$datasetId/rows', params },
+      },
+      {
+        key: 'used-by',
+        label: t('data.datasetPage.usedBy'),
+        link: {
+          to: '/datasets/$datasetId',
+          params,
+          search: { view: 'used-by' },
         },
-        {
-          key: 'snapshots',
-          label: t('data.datasetPage.snapshots'),
-          count: versionCount,
-          link: { to: '/datasets/$datasetId/snapshots', params },
+      },
+      {
+        key: 'history',
+        label: t('data.datasetPage.history'),
+        end: true,
+        link: {
+          to: '/datasets/$datasetId',
+          params,
+          search: { view: 'history' },
         },
-        {
-          key: 'compare',
-          label: t('data.datasetPage.compare'),
-          link: { to: '/datasets/$datasetId/compare', params },
-        },
-        {
-          key: 'imports',
-          label: t('data.datasetPage.imports'),
-          link: {
-            to: '/datasets/$datasetId',
-            params,
-            search: { view: 'imports' },
-          },
-        },
-        {
-          key: 'used-by',
-          label: t('data.datasetPage.usedBy'),
-          link: {
-            to: '/datasets/$datasetId',
-            params,
-            search: { view: 'used-by' },
-          },
-        },
-        {
-          key: 'history',
-          label: t('data.datasetPage.history'),
-          link: {
-            to: '/datasets/$datasetId',
-            params,
-            search: { view: 'history' },
-          },
-        },
-      ]}
-    />
-  )
+      },
+    ],
+  }
 }
 
-/** The dataset's overflow menu: exports, plugin actions, then Archive. */
-function DatasetMenu({
+/**
+ * Everything else under ⋯: Chart, downloads, plugin actions and pipelines,
+ * then Archive or Restore last.
+ */
+function DatasetMoreItems({
   dataset,
   exportable,
   canArchive,
@@ -375,114 +452,104 @@ function DatasetMenu({
   onPublish: (publisher: PublisherItem) => void
   onArchive: () => void
 }) {
-  if (!exportable && !canArchive) return null
-
   return (
-    <DropdownMenu>
-      <DropdownMenuTrigger
-        render={
-          <Button
-            aria-label={t('data.datasetPage.ariaMoreDatasetActions')}
-            icon="more"
-            variant="secondary"
-          />
-        }
-      />
-      <DropdownMenuContent align="end">
-        {exportable ? (
-          <>
+    <>
+      {exportable ? (
+        <>
+          <DropdownMenuItem
+            icon="chart"
+            render={
+              <Link
+                to="/analysis/new"
+                search={{
+                  mode: 'chart',
+                  dataset: dataset.uuid,
+                  returnTo: `/datasets/${dataset.uuid}`,
+                }}
+              />
+            }
+          >
+            {t('data.datasetPage.chart')}
+          </DropdownMenuItem>
+          <DropdownMenuLinkItem
+            icon="download"
+            render={
+              <a
+                href={`/api/export/dataset/${dataset.uuid}?format=csv`}
+                aria-label={t('data.datasetPage.ariaDownloadCsv', {
+                  name: dataset.name,
+                })}
+              />
+            }
+          >
+            {t('data.datasetPage.downloadCsv')}
+          </DropdownMenuLinkItem>
+          {pluginExporters.map((item) => (
             <DropdownMenuLinkItem
+              key={item.name}
               icon="download"
               render={
+                // react-doctor-disable-next-line react-doctor/anchor-has-content -- The menu item's own label is the anchor's content through Base UI's render prop.
                 <a
-                  href={`/api/export/dataset/${dataset.uuid}?format=csv`}
-                  aria-label={t('data.datasetPage.ariaDownloadCsv', {
-                    name: dataset.name,
-                  })}
+                  href={`/api/export/dataset/${dataset.uuid}?format=${encodeURIComponent(item.name)}`}
                 />
               }
             >
-              {t('data.datasetPage.downloadCsv')}
+              {t('plugins.export.download', {
+                name: item.declaration.title,
+                extension: item.declaration.extension,
+              })}
             </DropdownMenuLinkItem>
-            {pluginExporters.map((item) => (
-              <DropdownMenuLinkItem
-                key={item.name}
-                icon="download"
-                render={
-                  // react-doctor-disable-next-line react-doctor/anchor-has-content -- The menu item's own label is the anchor's content through Base UI's render prop.
-                  <a
-                    href={`/api/export/dataset/${dataset.uuid}?format=${encodeURIComponent(item.name)}`}
-                  />
-                }
-              >
-                {t('plugins.export.download', {
-                  name: item.declaration.title,
-                  extension: item.declaration.extension,
-                })}
-              </DropdownMenuLinkItem>
-            ))}
-            {canArchive
-              ? pluginPublishers.map((item) => (
-                  <DropdownMenuItem
-                    key={item.name}
-                    icon="upload"
-                    onClick={() => onPublish(item)}
-                  >
-                    {t('plugins.publish.menu', {
-                      name: item.declaration.title,
-                    })}
-                  </DropdownMenuItem>
-                ))
-              : null}
-            <DatasetPipelineMenuItems
-              runs={pipelineRuns}
-              latestVersionId={latestVersionId}
-            />
-          </>
-        ) : null}
-        {canArchive ? (
-          <>
-            {exportable ? <DropdownMenuSeparator /> : null}
-            <DropdownMenuItem
-              danger={!dataset.archived}
-              onClick={() => onArchive()}
-            >
-              {dataset.archived
-                ? t('data.datasetPage.restoreDataset')
-                : t('data.datasetPage.archiveDataset')}
-            </DropdownMenuItem>
-          </>
-        ) : null}
-      </DropdownMenuContent>
-    </DropdownMenu>
+          ))}
+          {canArchive
+            ? pluginPublishers.map((item) => (
+                <DropdownMenuItem
+                  key={item.name}
+                  icon="upload"
+                  onClick={() => onPublish(item)}
+                >
+                  {t('plugins.publish.menu', {
+                    name: item.declaration.title,
+                  })}
+                </DropdownMenuItem>
+              ))
+            : null}
+          <DatasetPipelineMenuItems
+            runs={pipelineRuns}
+            latestVersionId={latestVersionId}
+          />
+        </>
+      ) : null}
+      {canArchive ? (
+        <>
+          {exportable ? <DropdownMenuSeparator /> : null}
+          <DropdownMenuItem
+            danger={!dataset.archived}
+            onClick={() => onArchive()}
+          >
+            {dataset.archived
+              ? t('data.datasetPage.restoreDataset')
+              : t('data.datasetPage.archiveDataset')}
+          </DropdownMenuItem>
+        </>
+      ) : null}
+    </>
   )
 }
 
-/** Everything the dataset page can do: open it elsewhere, export it, archive it. */
+/**
+ * Favourite, then Open in a sheet and Analyse, the main one; Explain and Ask
+ * sit beside them.
+ */
 function DatasetActions({
   dataset,
   role,
-  current,
-  pluginExporters,
-  pluginPublishers,
-  pipelineRuns,
-  latestVersionId,
+  exportable,
 }: {
   dataset: DatasetListRow
   role: string | null | undefined
-  current: string
-  pluginExporters: ResolvedRunnerPoints['data']['exporters']
-  pluginPublishers: ResolvedRunnerPoints['data']['publishers']
-  pipelineRuns: ReturnType<typeof useDatasetPipelineRuns>
-  latestVersionId: string | null
+  exportable: boolean
 }) {
-  const navigate = useNavigate()
-  const [publishing, setPublishing] = useState<PublisherItem | null>(null)
-  const [archiveOpen, setArchiveOpen] = useState(false)
-
-  const canArchive = hasCapability(role, 'record.create')
-  const exportable = !dataset.archived && current !== 'compare'
-
   return (
     <>
       <FavouriteToggle kind="dataset" objectId={dataset.uuid} />
@@ -506,25 +573,6 @@ function DatasetActions({
           >
             {t('data.datasetPage.openSheet')}
           </Button>
-          {/* Analyse and Chart open the studio on this dataset from any
-                    tab, not only the rows, so the next step is always here.
-                    Analyse is the main one; the rest of what a dataset can do
-                    lives in the menu, with Archive last. */}
-          <Button
-            nativeButton={false}
-            render={
-              <Link
-                to="/analysis/new"
-                search={{
-                  mode: 'chart',
-                  dataset: dataset.uuid,
-                  returnTo: `/datasets/${dataset.uuid}`,
-                }}
-              />
-            }
-          >
-            {t('data.datasetPage.chart')}
-          </Button>
           <Button
             variant="primary"
             nativeButton={false}
@@ -543,37 +591,6 @@ function DatasetActions({
           </Button>
         </>
       ) : null}
-      <DatasetMenu
-        dataset={dataset}
-        exportable={exportable}
-        canArchive={canArchive}
-        pluginExporters={pluginExporters}
-        pluginPublishers={pluginPublishers}
-        pipelineRuns={pipelineRuns}
-        latestVersionId={latestVersionId}
-        onPublish={setPublishing}
-        onArchive={() => setArchiveOpen(true)}
-      />
-      {pipelineRuns.dialog}
-      {publishing ? (
-        <PublishDialog
-          publisher={publishing}
-          datasetName={dataset.name}
-          datasetId={dataset.uuid}
-          onClose={() => setPublishing(null)}
-        />
-      ) : null}
-      <DatasetArchive
-        datasetId={dataset.uuid}
-        name={dataset.name}
-        archived={dataset.archived}
-        canEdit={canArchive}
-        open={archiveOpen}
-        onOpenChange={setArchiveOpen}
-        onDone={(nowArchived) => {
-          if (nowArchived) void navigate({ to: '/datasets' })
-        }}
-      />
       <ExplainThis
         subject="dataset"
         facts={`Dataset "${dataset.name}" (schema ${dataset.model}): ${dataset.rows} rows, ${dataset.issues} unresolved flags.`}

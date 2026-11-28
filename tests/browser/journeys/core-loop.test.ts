@@ -127,6 +127,8 @@ test('CORE-10 a dataset offers Chart and Analyse on every tab, carrying the data
   page,
 }) => {
   await open(page, `/datasets/${ELISA_DATASET}/snapshots`)
-  await action(page, 'Chart').click()
+  // Chart sits under the dataset's ⋯ menu, beside the downloads.
+  await page.getByRole('button', { name: 'More dataset actions' }).click()
+  await page.getByRole('menuitem', { name: 'Chart' }).click()
   await expect(page).toHaveURL(/\/analysis\/new\?.*mode=chart.*dataset=/)
 })

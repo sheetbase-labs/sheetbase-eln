@@ -31,7 +31,9 @@ test('ANA-01 Chart on a dataset opens the studio on that dataset', async ({
   page,
 }) => {
   await open(page, `/datasets/${ELISA_DATASET}`)
-  await action(page, 'Chart').click()
+  // Chart sits under the dataset's ⋯ menu, beside the downloads.
+  await page.getByRole('button', { name: 'More dataset actions' }).click()
+  await page.getByRole('menuitem', { name: 'Chart' }).click()
   await expect(page).toHaveURL(/\/analysis\/new\?.*mode=chart/)
   await expect(page.getByLabel('Select data source')).toHaveAttribute(
     'data-value',

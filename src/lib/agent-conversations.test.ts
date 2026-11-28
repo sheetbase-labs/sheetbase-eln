@@ -50,8 +50,36 @@ describe('conversation title', () => {
 
     const long = titleFromMessages([say('user', 'a'.repeat(200))])
 
-    expect(long?.length).toBe(60)
+    expect(long?.length).toBe(48)
     expect(long?.endsWith('…')).toBe(true)
+  })
+
+  it('drops greetings and lead-ins so chats that start alike read apart', () => {
+    expect(
+      titleFromMessages([
+        say(
+          'user',
+          "I'd like you to setup a PicoGreen dsDNA assay for the AAV9 harvest samples. Use the plate reader.",
+        ),
+      ]),
+    ).toBe('Set up a PicoGreen dsDNA assay for the AAV9…')
+    expect(
+      titleFromMessages([
+        say('user', 'Hi, could you please make a notebook template for p24'),
+      ]),
+    ).toBe('Make a notebook template for p24')
+    expect(
+      titleFromMessages([
+        say(
+          'user',
+          'What is stopping EXP-0142 from being submitted for review?',
+        ),
+      ]),
+    ).toBe('What is stopping EXP-0142 from being submitted…')
+  })
+
+  it('keeps the words when the whole message is a greeting', () => {
+    expect(titleFromMessages([say('user', 'Hello')])).toBe('Hello')
   })
 
   it('is nothing until there is a question', () => {

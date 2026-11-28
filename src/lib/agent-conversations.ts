@@ -122,20 +122,62 @@ export async function deleteConversation(
   })
 }
 
-const TITLE_CHARS = 60
+const TITLE_CHARS = 48
 
-/** A conversation's title: the first thing the person asked, kept short. */
+/** Greetings and polite lead-ins that say nothing about the chat. */
+const LEAD_INS = [
+  /^(?:hi|hello|hey)(?: there)?\b[\s,!.]*/i,
+  /^(?:please|pls|ok(?:ay)?|so)\b[\s,]*/i,
+  /^(?:could|can|would|will) you(?: please)?\s+/i,
+  /^i(?:'d|’d| would) like (?:you )?to\s+/i,
+  /^i (?:want|need) you to\s+/i,
+  /^(?:help me|i need to|i want to)\s+/i,
+]
+
+/** "setup a" reads as the verb in a title. */
+const SET_UP = /^setup\b/i
+
+/**
+ * A conversation's title: what the person asked, as a short name. Greetings
+ * and lead-ins such as "I'd like you to" are dropped so chats that start alike
+ * still read apart, only the first sentence is kept, and a long one is cut at
+ * a word.
+ */
 export function titleFromMessages(
   messages: readonly AssistantUIMessage[],
 ): string | undefined {
   const first = messages.find((message) => message.role === 'user')
-  const text = first ? messageText(first).replaceAll(/\s+/g, ' ').trim() : ''
+  let text = first ? messageText(first).replaceAll(/\s+/g, ' ').trim() : ''
+
+  for (let changed = true; changed;) {
+    changed = false
+
+    for (const lead of LEAD_INS) {
+      const next = text.replace(lead, '')
+
+      if (next !== text && next.trim() !== '') {
+        text = next.trim()
+        changed = true
+      }
+    }
+  }
+
+  text = text.replace(SET_UP, 'set up')
+
+  const sentence = /^(.+?[.?!])(?:\s|$)/.exec(text)?.[1] ?? text
+
+  text = sentence.replace(/[.!]+$/, '').trim()
 
   if (text === '') return undefined
 
-  return text.length > TITLE_CHARS
-    ? `${text.slice(0, TITLE_CHARS - 1).trimEnd()}…`
-    : text
+  text = `${text.charAt(0).toUpperCase()}${text.slice(1)}`
+
+  if (text.length <= TITLE_CHARS) return text
+
+  const cut = text.slice(0, TITLE_CHARS - 1)
+  const word = cut.lastIndexOf(' ')
+
+  return `${(word > TITLE_CHARS / 2 ? cut.slice(0, word) : cut).replace(/[\s,;:–-]+$/, '')}…`
 }
 
 export type ConversationGroup = 'today' | 'yesterday' | 'week' | 'earlier'

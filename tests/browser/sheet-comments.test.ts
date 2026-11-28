@@ -505,6 +505,9 @@ test('review comments use submitted cells after live edits and never rewrite fro
   })
 
   await expect(async () => {
+    // A try that reached the comments without the cell goes back for it.
+    if (!(await frozenFour.isVisible()))
+      await page.getByRole('link', { name: 'Diff', exact: true }).click()
     // A second click on the chosen cell would clear it, so pick it only while
     // nothing is chosen.
     if (await commentButton.isDisabled())
@@ -515,6 +518,11 @@ test('review comments use submitted cells after live edits and never rewrite fro
     await expect(
       page.getByRole('textbox', { name: 'New comment body' }),
     ).toBeVisible({ timeout: 3_000 })
+    // The comment box is there for a whole-revision comment too: the cell is
+    // only the target once the page says so. A late render can drop it.
+    await expect(page.getByText(/^New comment target: /)).toBeVisible({
+      timeout: 3_000,
+    })
   }).toPass({ timeout: 40_000 })
   const body = 'SHEET-03 frozen recovery-four, not live seventy-seven'
   await addComment(page, body, true)

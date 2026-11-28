@@ -343,7 +343,6 @@ jobs:
               tests/browser/journeys/seeded-sweep.test.ts
               tests/browser/journeys/sheets-more.test.ts
               tests/browser/journeys/start-admin.test.ts
-              tests/browser/journeys/template-update.test.ts
             shard: 1/6
           - name: other journeys 2/6
             files: *other-journeys

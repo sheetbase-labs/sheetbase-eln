@@ -17,6 +17,9 @@ import { isBatchableRead } from './batchable-reads'
 /** The server route that runs a batch (`postgrest-batch.ts`). */
 export const BATCH_URL = '/api/db-batch'
 
+/** A page-level switch that keeps every read a request of its own (browser specs). */
+export const UNBATCHED_FLAG = '__sheetbaseUnbatchedReads'
+
 /** Longest a read waits for company before it is sent. */
 export const BATCH_WINDOW_MS = 6
 
@@ -53,6 +56,10 @@ let timer: ReturnType<typeof setTimeout> | null = null
 
 /** Turns batching on for the browser app. Tests leave it off unless they ask. */
 export function enableReadBatching(): void {
+  // Browser specs that answer a read by its own URL set this before the page
+  // loads, so each read stays a request of its own for them to answer.
+  if (Reflect.get(globalThis, UNBATCHED_FLAG) === true) return
+
   enabled = true
 }
 

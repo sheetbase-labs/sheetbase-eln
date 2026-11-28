@@ -92,6 +92,17 @@ const stateMeta: Record<
   },
 }
 
+/** The line under the title: the reason, with the kind before it when asked. */
+function rowMeta(
+  type: string,
+  meta: string | undefined,
+  typeInMeta: boolean,
+): string | undefined {
+  if (!typeInMeta) return meta
+
+  return [type, meta].filter(Boolean).join(' · ')
+}
+
 export function RecordLink({
   to,
   type,
@@ -135,13 +146,7 @@ export function RecordLink({
       }
       eyebrow={typeInMeta ? undefined : type}
       title={<span className={stateInfo?.className}>{title}</span>}
-      meta={
-        stateInfo
-          ? stateInfo.label
-          : typeInMeta
-            ? [type, meta].filter(Boolean).join(' · ')
-            : meta
-      }
+      meta={stateInfo ? stateInfo.label : rowMeta(type, meta, typeInMeta)}
       trailing={
         <>
           {actions ? (

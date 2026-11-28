@@ -107,8 +107,10 @@ export function RelatedWorkPanel({
     )
   }
 
-  const items = exclude?.length
-    ? data?.filter((item) => !exclude.includes(item.id))
+  const excluded = new Set(exclude)
+
+  const items = excluded.size
+    ? data?.filter((item) => !excluded.has(item.id))
     : data
 
   if (!items || items.length === 0) return null

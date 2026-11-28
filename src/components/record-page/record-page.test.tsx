@@ -13,11 +13,8 @@ import { followQueryKey } from '#/lib/follows'
 import type { TimelineEventWire } from '#/lib/sign-002'
 import { RecordPage } from './record-page'
 import type { RecordPageProps } from './record-page'
-import {
-  RecordProperties,
-  activityDayLabel,
-  recentActivityGroups,
-} from './record-side-panel'
+import { activityDayLabel, recentActivityGroups } from '#/lib/record-activity'
+import { RecordProperties } from './record-side-panel'
 import { RecordStateLine } from './record-state-line'
 
 // oxlint-disable-next-line anti-slop/no-module-mocking -- Toasts are painted by the app shell's Toaster, which a jsdom render mounts nothing of.

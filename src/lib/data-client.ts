@@ -109,6 +109,8 @@ async function parseError(response: Response): Promise<DataClientError> {
 }
 
 export interface DataClient {
+  /** Starts a read ahead of whoever will ask for it (see `primeRead`). Optional: test doubles leave it out. */
+  prime?: (read: ReadSpec) => void
   list: <T>(resource: string, query?: string) => Promise<T[]>
   /**
    * Cheap total count for a resource query. Uses PostgREST's
@@ -152,10 +154,40 @@ export interface DataClient {
  */
 const SHARED_READ_MS = 1000
 
+/**
+ * A read started ahead of the page that will ask for it (see
+ * route-warm-start.ts). It waits this long for its first reader; after that it
+ * is forgotten, so a guess that was never needed cannot serve stale rows.
+ */
+const PRIMED_READ_MS = 10_000
+
 interface SharedRead {
   at: number
+  created: number
   settled: boolean
+  /** Started ahead of time and not yet asked for by anything. */
+  primed: boolean
   result: Promise<{ body: string; status: number; contentRange: string | null }>
+}
+
+/** One read as the client sends it: enough to send the same read again. */
+export interface ReadSpec {
+  method: 'GET' | 'POST'
+  path: string
+  headers: Record<string, string>
+  body?: string
+}
+
+let readObserver: ((read: ReadSpec) => void) | null = null
+
+/** Hears every read the browser data client is asked for (not the ones it primes). */
+export function observeReads(listener: ((read: ReadSpec) => void) | null) {
+  readObserver = listener
+}
+
+/** Starts a read ahead of the page that will ask for it; the first reader gets its answer. */
+export function primeRead(read: ReadSpec): void {
+  createDataClient().prime?.(read)
 }
 
 const readStores = new Set<Map<string, SharedRead>>()
@@ -238,12 +270,16 @@ function batchedHeaders(headers: Headers) {
 export function createDataClient(fetchImpl: typeof fetch = fetch): DataClient {
   const reads = readStoreFor(fetchImpl)
 
-  async function sharedGet(
-    path: string,
-    headers: Record<string, string>,
+  async function sharedRead(
+    spec: ReadSpec,
+    primed = false,
   ): Promise<{ body: string; status: number; contentRange: string | null }> {
     const run = async () => {
-      const response = await request(path, { method: 'GET', headers })
+      const response = await request(spec.path, {
+        method: spec.method,
+        headers: spec.headers,
+        body: spec.body,
+      })
 
       return {
         body: await response.text(),
@@ -253,16 +289,36 @@ export function createDataClient(fetchImpl: typeof fetch = fetch): DataClient {
     }
 
     if (!reads) return run()
-    const key = `${path}\n${headers.prefer}\n${headers.range}`
+
+    if (!primed) readObserver?.(spec)
+    const key = `${spec.method} ${spec.path}\n${spec.headers.prefer}\n${spec.headers.range}\n${spec.body ?? ''}`
     const known = reads.get(key)
 
-    if (known && (!known.settled || Date.now() - known.at < SHARED_READ_MS)) {
+    if (known?.primed) {
+      if (primed) return known.result
+
+      if (Date.now() - known.created > PRIMED_READ_MS) {
+        reads.delete(key)
+      } else {
+        // First reader: it gets the answer, and the usual short sharing starts.
+        known.primed = false
+        known.at = Date.now()
+
+        // A guess that failed is not the page's answer: the page asks for itself.
+        return known.result.catch(() => sharedRead(spec))
+      }
+    } else if (
+      known &&
+      (!known.settled || Date.now() - known.at < SHARED_READ_MS)
+    ) {
       return known.result
     }
 
     const entry: SharedRead = {
       at: Date.now(),
+      created: Date.now(),
       settled: false,
+      primed,
       result: run(),
     }
 
@@ -270,7 +326,8 @@ export function createDataClient(fetchImpl: typeof fetch = fetch): DataClient {
 
     const settle = () => {
       entry.settled = true
-      entry.at = Date.now()
+
+      if (!entry.primed) entry.at = Date.now()
     }
 
     entry.result.then(settle, () => {
@@ -280,6 +337,10 @@ export function createDataClient(fetchImpl: typeof fetch = fetch): DataClient {
     })
 
     return entry.result
+  }
+
+  function sharedGet(path: string, headers: Record<string, string>) {
+    return sharedRead({ method: 'GET', path, headers })
   }
 
   async function request(path: string, init: RequestInit): Promise<Response> {
@@ -385,6 +446,12 @@ export function createDataClient(fetchImpl: typeof fetch = fetch): DataClient {
   }
 
   return {
+    prime(read: ReadSpec) {
+      if (!reads) return
+      // A guess that fails is not an error anyone should see; the page's own read will say so.
+      sharedRead(read, true).catch(() => undefined)
+    },
+
     list: listRows,
 
     async count(resource: string, query = ''): Promise<number> {
@@ -438,6 +505,26 @@ export function createDataClient(fetchImpl: typeof fetch = fetch): DataClient {
       // the reason travels in the header the write triggers read.
       if (options?.changeReason)
         Object.assign(headers, { [CHANGE_REASON_HEADER]: options.changeReason })
+
+      // A stable function only reads: ask for it the way every read is asked
+      // for, so identical calls share one answer and a primed one is used.
+      if (
+        !(CHANGE_REASON_HEADER in headers) &&
+        isBatchableRead('POST', `/rpc/${name}`)
+      ) {
+        const shared = await sharedRead({
+          method: 'POST',
+          path: `/rpc/${name}`,
+          headers,
+          body: JSON.stringify(args),
+        })
+
+        // The caller selects T; this generic transport does not validate RPC result schemas.
+        // oxlint-disable-next-line anti-slop/require-safety-comment-for-type-assertion
+        return (
+          shared.status === 204 ? undefined : JSON.parse(shared.body)
+        ) as T
+      }
 
       const response = await request(`/rpc/${name}`, {
         method: 'POST',

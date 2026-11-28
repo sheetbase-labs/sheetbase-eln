@@ -84,6 +84,7 @@ import {
 } from '#/components/shortcuts/shortcut-provider'
 import { notebookShortcuts } from '#/lib/shortcut-scopes'
 import { holdTypeAhead } from '#/components/notebook/type-ahead-hold'
+import { blockTypeLabel } from './block-labels'
 
 export type { AutosaveStatus, SaveResult } from './block-editor'
 
@@ -233,6 +234,11 @@ export interface NotebookDocumentProps {
   initialBlockHash?: string
   /** Replace the owning route's hash; an empty string clears the selection. */
   onBlockHashChange?: (hash: string) => void
+  /**
+   * Draw a block the notebook does not own itself, such as a template's sheet
+   * layout. Return null to let the notebook draw it as usual.
+   */
+  renderBlock?: (block: NotebookBlockData) => React.ReactNode | null
   className?: string
 }
 
@@ -2031,7 +2037,12 @@ function NotebookDocumentBlockBody({
     onCellSelectionChange,
     frozenSheetEvidence,
     actionBlockContext,
+    renderBlock,
   } = options
+
+  const custom = renderBlock?.(block)
+
+  if (custom) return custom
 
   if (block.type === 'sheet') {
     return (
@@ -2172,33 +2183,7 @@ function NotebookDocumentBlockEditor({
 }
 
 function blockLabel(block: NotebookBlockData): string {
-  const labels = new Map(
-    Object.entries({
-      rich_text: t('notebook.notebookDocument.text'),
-      checklist: t('notebook.notebookDocument.list'),
-      callout: t('notebook.notebookDocument.note'),
-      linked_record: t('notebook.notebookDocument.link'),
-      table: t('notebook.notebookDocument.table'),
-      sheet: t('notebook.notebookDocument.sheet'),
-      dataset_import: t('notebook.notebookDocument.importData'),
-      chart: t('notebook.notebookDocument.chart'),
-      plate_map: t('notebook.notebookDocument.plateMap'),
-      plate_run: t('features.plateRuns.block.label'),
-      file: t('notebook.notebookDocument.file'),
-      metric: t('notebook.notebookDocument.metric'),
-      procedure_step: t('notebook.notebookDocument.procedureStep'),
-      protocol_reference: t('notebook.notebookDocument.protocol'),
-      materials: t('notebook.notebookDocument.materials'),
-      analysis: t('notebook.notebookDocument.analysis'),
-      pipeline_output: t('notebook.notebookDocument.pipelineOutput'),
-      code_cell: t('notebook.notebookDocument.codeCell'),
-      signature_request: t('notebook.notebookDocument.signatureRequest'),
-      corrective_actions: t('notebook.notebookDocument.correctiveActions'),
-      conclusion: t('notebook.notebookDocument.conclusion'),
-    }),
-  )
-
-  return labels.get(block.type) ?? block.type
+  return blockTypeLabel(block.type)
 }
 
 /**

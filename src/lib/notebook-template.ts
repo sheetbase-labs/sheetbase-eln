@@ -39,26 +39,32 @@ export const notebookTemplatePartSchema = z.strictObject({
   stepsInOrder: z.boolean().optional(),
 })
 
+/** The notebook blocks a template can carry as they are. */
+export const TEMPLATE_NARRATIVE_BLOCK_TYPES = [
+  'rich_text',
+  'checklist',
+  'linked_record',
+  'callout',
+  'table',
+  'chart',
+  'plate_map',
+  'file',
+  'metric',
+  'procedure_step',
+  'protocol_reference',
+  'materials',
+  'gate',
+] as const
+
+export type TemplateNarrativeBlockType =
+  (typeof TEMPLATE_NARRATIVE_BLOCK_TYPES)[number]
+
 const narrativePlacementSchema = z.strictObject({
   id: uuid,
   partId: uuid.optional(),
   kind: z.literal('narrative'),
   order,
-  blockType: z.enum([
-    'rich_text',
-    'checklist',
-    'linked_record',
-    'callout',
-    'table',
-    'chart',
-    'plate_map',
-    'file',
-    'metric',
-    'procedure_step',
-    'protocol_reference',
-    'materials',
-    'gate',
-  ]),
+  blockType: z.enum(TEMPLATE_NARRATIVE_BLOCK_TYPES),
   payload: z.record(z.string(), z.unknown()),
 })
 

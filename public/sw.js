@@ -70,11 +70,7 @@ async function cacheFirst(request) {
 async function networkFirstPage(request) {
   const cache = await caches.open(PAGE_CACHE)
   const key = new URL(request.url).pathname + new URL(request.url).search
-  try {
-    const controller = new AbortController()
-    const timer = setTimeout(() => controller.abort(), PAGE_TIMEOUT_MS)
-    const response = await fetch(request, { signal: controller.signal })
-    clearTimeout(timer)
+  const network = fetch(request).then(async (response) => {
     if (
       response.ok &&
       !response.redirected &&
@@ -84,7 +80,19 @@ async function networkFirstPage(request) {
       trim(PAGE_CACHE, MAX_PAGES)
     }
     return response
+  })
+  // When the saved copy answers first, a later failure has no one to tell.
+  network.catch(() => {})
+  // A slow server is not a missing one. After PAGE_TIMEOUT_MS the last good
+  // copy of this page stands in while the server answers; with no copy, the
+  // page keeps waiting for the server rather than claiming to be offline.
+  const saved = new Promise((resolve) => {
+    setTimeout(() => resolve(cache.match(key)), PAGE_TIMEOUT_MS)
+  })
+  try {
+    return (await Promise.race([network, saved])) || (await network)
   } catch {
+    // Only a request that failed is offline.
     return (
       (await cache.match(key)) ||
       (await cache.match('/')) ||

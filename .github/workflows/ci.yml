@@ -315,6 +315,7 @@ jobs:
           #   tests/browser/journeys/lab.test.ts
           #   tests/browser/note-01-authoring.test.ts
           #   tests/browser/projects-workflow.test.ts
+          #   tests/browser/note-01-review-document.test.ts
           # Every other browser test, spread over six jobs by file. The list
           # is checked against tests/browser by src/lib/browser-ci-coverage.test.ts,
           # so a new test file cannot go unrun.
@@ -332,7 +333,6 @@ jobs:
               tests/browser/list-keeps-place.test.ts
               tests/browser/member-role-visibility.test.ts
               tests/browser/navigation-smoothness.test.ts
-              tests/browser/note-01-review-document.test.ts
               tests/browser/phase4-proof.test.ts
               tests/browser/proj-01-properties.test.ts
               tests/browser/protocol-acknowledgement.test.ts

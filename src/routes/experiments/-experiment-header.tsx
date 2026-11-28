@@ -37,11 +37,14 @@ export function ExperimentTitle({
 export function ExperimentPerson({
   name,
   userId,
+  you = false,
 }: {
   name: string
   userId: string | null | undefined
+  /** The reader themself: the face stays theirs and the name reads "You". */
+  you?: boolean
 }) {
-  return <Person name={name} userId={userId} className="text-fg" />
+  return <Person name={name} userId={userId} you={you} className="text-fg" />
 }
 
 /** The protocol the experiment runs on, by its identifier. */

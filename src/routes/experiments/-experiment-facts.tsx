@@ -17,11 +17,14 @@ export function experimentFacts({
   experiment: e,
   ownerName,
   reviewerName,
+  viewerId,
   protocolLink,
 }: {
   experiment: ExperimentRecordRow
   ownerName: string
   reviewerName: string | null
+  /** The signed-in reader: as reviewer, their name reads "You" beside their face. */
+  viewerId: string
   protocolLink: RecordLinkWire | undefined
 }): RecordFact[] {
   const facts: (RecordFact | null)[] = [
@@ -35,7 +38,11 @@ export function experimentFacts({
       ? {
           label: t('projects.experimentPage.facts.reviewer'),
           value: (
-            <ExperimentPerson name={reviewerName} userId={e.reviewer_user_id} />
+            <ExperimentPerson
+              name={reviewerName}
+              userId={e.reviewer_user_id}
+              you={e.reviewer_user_id === viewerId}
+            />
           ),
         }
       : null,
@@ -149,17 +156,4 @@ export function experimentTrail(
     },
     { label: experiment.identifier, mono: true },
   ]
-}
-
-/** The reviewer as the header names them: "You" when it is the viewer. */
-export function experimentReviewerName(
-  reviewerId: string | null,
-  viewerId: string,
-  userLabel: (id: string) => string,
-): string | null {
-  if (!reviewerId) return null
-
-  return reviewerId === viewerId
-    ? t('projects.experimentPage.you')
-    : userLabel(reviewerId)
 }

@@ -42,7 +42,6 @@ import {
 } from './-experiment-header'
 import {
   experimentFacts,
-  experimentReviewerName,
   experimentTabs,
   experimentTrail,
 } from './-experiment-facts'
@@ -189,11 +188,7 @@ function ExperimentLayout() {
     (l) => l.link_type === 'protocol' && l.target_record_id,
   )
 
-  const reviewerName = experimentReviewerName(
-    e.reviewer_user_id,
-    userId,
-    userLabel,
-  )
+  const reviewerName = e.reviewer_user_id ? userLabel(e.reviewer_user_id) : null
 
   const waitingNames = (
     review.data?.submission?.assigned_reviewer_user_ids ?? []
@@ -225,6 +220,7 @@ function ExperimentLayout() {
           experiment: e,
           ownerName: userLabel(e.created_by_user_id),
           reviewerName,
+          viewerId: userId,
           protocolLink,
         })}
         marks={runningDay ? <span>{runningDay}</span> : null}

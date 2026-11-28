@@ -14,6 +14,7 @@ import { createDataClient } from '#/lib/data-client'
 import type { DataClient } from '#/lib/data-client'
 import type { Tone } from '#/components/ui/status'
 import { listByIds } from '#/lib/chunk-ids'
+import { statusTone, statusWord } from '#/lib/status-words'
 
 export type PickerKind = 'Sample' | 'Material' | 'Dataset' | 'Experiment'
 
@@ -112,7 +113,7 @@ export function pickerStatus(status: string): PickerStatus {
 
   if (key.includes('consum')) return { tone: 'stored', label: 'Consumed' }
 
-  return { tone: 'none', label: status || '—' }
+  return { tone: statusTone(status), label: statusWord(status) }
 }
 
 /** A picker limited to some kinds must not offer the others. */

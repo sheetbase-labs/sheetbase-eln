@@ -1,4 +1,4 @@
-import { Avatar } from '#/components/ui/avatar'
+import { Avatar, AvatarStack } from '#/components/ui/avatar'
 import { t } from '#/copy'
 import * as React from 'react'
 import { Badge } from '#/components/ui/badge'
@@ -274,7 +274,10 @@ export function EmptyHint({ children }: { children: React.ReactNode }) {
 // stacks, coloured tag pills, count-annotated link buttons.
 // ---------------------------------------------------------------------------
 
-/** Contributor avatar stack — overlapping initial circles with +N overflow. */
+/**
+ * The people who worked on a record: the shared avatar stack, each face ringed
+ * so it stays readable where they overlap, with every name on hover.
+ */
 export function ContributorAvatars({
   contributors,
   max = 4,
@@ -284,39 +287,18 @@ export function ContributorAvatars({
   max?: number
   size?: 'sm' | 'md'
 }) {
-  const visible = contributors.slice(0, max)
-  const overflow = contributors.length - visible.length
-  const dim = size === 'sm' ? 'size-5 text-[0.6rem]' : 'size-6 text-xs'
-
-  if (contributors.length === 0) return null
-
   return (
-    <div className="flex items-center">
-      <div className="flex -space-x-1.5">
-        {visible.map((c) => (
-          <Avatar
-            key={c.id}
-            name={c.name}
-            userId={c.id}
-            initials={(c.initials ?? c.name.slice(0, 2)).toUpperCase()}
-            className={cn(
-              'border border-background bg-primary/15 text-primary-text',
-              dim,
-            )}
-          />
-        ))}
-      </div>
-      {overflow > 0 ? (
-        <span
-          className={cn(
-            'ml-1.5 flex shrink-0 items-center justify-center rounded-full bg-surface-muted font-medium text-fg-muted',
-            dim,
-          )}
-        >
-          +{overflow}
-        </span>
-      ) : null}
-    </div>
+    <AvatarStack
+      people={contributors.map((c) => ({
+        id: c.id,
+        userId: c.id,
+        name: c.name,
+        initials: c.initials,
+      }))}
+      max={max}
+      size={size}
+      label={contributors.map((c) => c.name).join(', ')}
+    />
   )
 }
 

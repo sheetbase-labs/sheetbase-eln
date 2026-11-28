@@ -78,7 +78,7 @@ describe('sampleStatus', () => {
   })
 
   it('still capitalises an unknown state instead of hiding it', () => {
-    expect(sampleStatus('under_triage').label).toBe('Under Triage')
+    expect(sampleStatus('under_triage').label).toBe('Under triage')
   })
 
   it('uses unknown-status fallback for inherited object names', () => {
@@ -92,7 +92,7 @@ describe('sampleStatus', () => {
     })
     expect(sampleStatus('__proto__')).toEqual({
       tone: 'none',
-      label: '  Proto  ',
+      label: 'Proto',
     })
   })
 })

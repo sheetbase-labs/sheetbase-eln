@@ -489,7 +489,7 @@ describe('recentStatusLabel', () => {
     expect(recentStatusLabel({ status: 'in_progress' })).toBe('In progress')
     expect(recentStatusLabel({ status: 'active' })).toBe('Active')
     expect(recentStatusLabel({ status: 'archived' })).toBe('Archived')
-    expect(recentStatusLabel({ status: 'weird_state' })).toBe('Weird State')
+    expect(recentStatusLabel({ status: 'weird_state' })).toBe('Weird state')
     expect(recentStatusLabel({ status: null })).toBeNull()
   })
 })

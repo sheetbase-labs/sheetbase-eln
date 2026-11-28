@@ -6,6 +6,7 @@
 import { t } from '#/copy'
 
 import type { Tone } from '#/components/ui/status'
+import { statusWord } from '#/lib/status-words'
 
 /** How a protocol status is painted and named. */
 export interface ProtocolStatus {
@@ -38,8 +39,7 @@ export function protocolStatus(status: string): ProtocolStatus {
     default:
       return {
         tone: 'none',
-        label:
-          status.charAt(0).toUpperCase() + status.slice(1).replace(/_/g, ' '),
+        label: statusWord(status),
       }
   }
 }

@@ -178,12 +178,20 @@ const IGNORED = [
   /service-worker|sw\.js/,
 ]
 
+/**
+ * The dev server tells every open page about any request that failed on it,
+ * so a request another worker's page dropped mid-flight (its connection
+ * aborted or reset as that page moved on) arrives here as a console error.
+ */
+const DEV_SERVER_NOISE =
+  /^\[vite\] Internal Server Error\s+(aborted|read ECONNRESET)\b/
+
 function watch(page: Page) {
   const problems: string[] = []
 
   page.on('pageerror', (error) => problems.push(`page error: ${error.message}`))
   page.on('console', (message) => {
-    if (message.type() === 'error')
+    if (message.type() === 'error' && !DEV_SERVER_NOISE.test(message.text()))
       problems.push(`console: ${message.text().slice(0, 200)}`)
   })
   page.on('response', (response) => {

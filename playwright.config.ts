@@ -111,6 +111,8 @@ export default defineConfig({
         // on "Loading dataset…". The limiter guards against abuse; it is not
         // what these tests are about.
         SHEETBASE_RATE_LIMIT_MAX: '100000',
+        // Sign-out checks the request origin against the auth URL.
+        BETTER_AUTH_URL: 'http://127.0.0.1:3100',
         // The assistant browser tests script the model from the test process.
         AI_PROVIDER_PROFILES: scriptedProfiles(
           `http://127.0.0.1:${BROWSER_MODEL_PORT}/v1`,
@@ -124,6 +126,8 @@ export default defineConfig({
         // sends a single person's worth of requests; the abuse bound would
         // answer the busy pages with 429s instead of data.
         SHEETBASE_RATE_LIMIT_MAX: '100000',
+        // Sign-out checks the request origin against the auth URL.
+        BETTER_AUTH_URL: 'http://127.0.0.1:3100',
       },
     },
     ...(parityRequested

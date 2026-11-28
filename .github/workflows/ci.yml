@@ -284,29 +284,13 @@ jobs:
           - name: signing
             dev: true
             signing: true
-          # PARKED, to be rewritten against the current screens (each fails
-          # today because its screens changed, not because the app is broken).
-          # They are named here, not in a job, so the coverage test in
-          # src/lib/browser-ci-coverage.test.ts still sees them:
+          # PARKED, to be rewritten against the redesigned import and pipeline
+          # editor screens (each fails today because its screens changed, not
+          # because the app is broken). They are named here, not in a job, so
+          # the coverage test in src/lib/browser-ci-coverage.test.ts still sees
+          # them:
           #   tests/browser/import-flow.test.ts
           #   tests/browser/journeys/auto-more.test.ts
-          #   tests/browser/journeys/core-loop-parked.test.ts
-          #   tests/browser/journeys/template-update.test.ts
-          #   tests/browser/journeys/nav-auto.test.ts
-          #   tests/browser/journeys/notebook-more.test.ts
-          #   tests/browser/journeys/review.test.ts
-          #   tests/browser/journeys/sheets-more.test.ts
-          #   tests/browser/journeys/start-admin.test.ts
-          #   tests/browser/journeys/core-more.test.ts
-          #   tests/browser/journeys/data-import.test.ts
-          #   tests/browser/journeys/data-more.test.ts
-          #   tests/browser/journeys/data.test.ts
-          #   tests/browser/journeys/experiments.test.ts
-          #   tests/browser/journeys/lab-more.test.ts
-          #   tests/browser/journeys/lab.test.ts
-          #   tests/browser/note-01-authoring.test.ts
-          #   tests/browser/projects-workflow.test.ts
-          #   tests/browser/note-01-review-document.test.ts
     env:
       SHEETBASE_DEV_AUTH_FREE: 'false'
       # Every browser test on the production build (playwright.config.ts
@@ -352,6 +336,22 @@ jobs:
         tests/browser/journeys/analysis-more.test.ts
         tests/browser/journeys/core-loop.test.ts
         tests/browser/journeys/seeded-sweep.test.ts
+        tests/browser/journeys/template-update.test.ts
+        tests/browser/journeys/review.test.ts
+        tests/browser/journeys/data-more.test.ts
+        tests/browser/journeys/data.test.ts
+        tests/browser/journeys/lab-more.test.ts
+        tests/browser/journeys/lab.test.ts
+        tests/browser/journeys/experiments.test.ts
+        tests/browser/journeys/core-more.test.ts
+        tests/browser/journeys/nav-auto.test.ts
+        tests/browser/journeys/notebook-more.test.ts
+        tests/browser/journeys/sheets-more.test.ts
+        tests/browser/journeys/data-import.test.ts
+        tests/browser/journeys/start-admin.test.ts
+        tests/browser/note-01-authoring.test.ts
+        tests/browser/note-01-review-document.test.ts
+        tests/browser/projects-workflow.test.ts
     steps:
       - uses: actions/checkout@v4
       - uses: ./.github/actions/install

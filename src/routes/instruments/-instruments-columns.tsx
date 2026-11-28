@@ -17,6 +17,7 @@ import type {
   InstrumentLastImport,
   InstrumentRow,
 } from '#/components/instruments/instruments-data'
+import { ownerColumn, updatedColumn } from '#/components/inventory/list-columns'
 import { calibrationState } from '#/components/instruments/calibration-standing'
 import { instrumentTypeLabel } from '#/lib/instrument-type-label'
 import type { useUserNames } from '#/lib/user-names'
@@ -177,19 +178,7 @@ export function instrumentColumns(evidence: {
         )
       },
     },
-    {
-      id: 'owner',
-      header: 'Owner',
-      accessorFn: (i) => (i.ownerId ? names.userLabel(i.ownerId) : undefined),
-      // The grid owns cell padding (`px-2.5` on every cell), so a column's
-      // own trailing space has to be requested explicitly — this column was
-      // the last one in the table before the swap and carried `pr-6`.
-      meta: {
-        headerClassName: 'pr-6! hide-in-narrow-pane',
-        cellClassName: 'pr-6! hide-in-narrow-pane',
-      },
-      cell: ({ row }) =>
-        row.original.ownerId ? names.userLabel(row.original.ownerId) : '—',
-    },
+    ownerColumn((i) => i.ownerId, names.userLabel),
+    updatedColumn((i) => i.updatedAt),
   ]
 }

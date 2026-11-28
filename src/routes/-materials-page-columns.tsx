@@ -16,12 +16,18 @@ import { withAddedColumns } from '#/components/models/added-field-columns'
 import type { MaterialSafety } from '#/lib/material-safety'
 import { formatDate } from '#/lib/format-date'
 import { t } from '#/copy'
+import {
+  ownerColumn,
+  updatedColumn,
+  useOwnerNames,
+} from '#/components/inventory/list-columns'
 
 import { NARROW_HIDE } from './-materials-page-model'
 
 /** The lot columns the registry always states. */
 function baseMaterialColumns(
   safetyMap: Map<string, MaterialSafety> | undefined,
+  owners: ReadonlyMap<string, string> | undefined,
 ): RegistryColumn<MaterialListRow>[] {
   return [
     {
@@ -41,13 +47,9 @@ function baseMaterialColumns(
       id: 'material',
       header: 'Material',
       accessorFn: (m) => m.name,
+      size: 220,
       cell: ({ row }) => (
-        <span
-          className="block max-w-[9.5rem] truncate"
-          title={row.original.name}
-        >
-          {row.original.name}
-        </span>
+        <span title={row.original.name}>{row.original.name}</span>
       ),
     },
     {
@@ -68,13 +70,9 @@ function baseMaterialColumns(
       id: 'location',
       header: 'Location',
       accessorFn: (m) => m.location,
+      size: 180,
       cell: ({ row }) => (
-        <span
-          className="block max-w-[7rem] truncate"
-          title={row.original.location}
-        >
-          {row.original.location}
-        </span>
+        <span title={row.original.location}>{row.original.location}</span>
       ),
     },
     {
@@ -111,6 +109,8 @@ function baseMaterialColumns(
         </Status>
       ),
     },
+    ownerColumn((m) => m.ownerId, owners),
+    updatedColumn((m) => m.updatedAt),
   ]
 }
 
@@ -123,7 +123,12 @@ export function useMaterialColumns(
     'uuid',
   )
 
-  const baseColumns = useMemo(() => baseMaterialColumns(safetyMap), [safetyMap])
+  const owners = useOwnerNames()
+
+  const baseColumns = useMemo(
+    () => baseMaterialColumns(safetyMap, owners),
+    [safetyMap, owners],
+  )
 
   return useMemo(
     () => withAddedColumns(baseColumns, addedColumns),

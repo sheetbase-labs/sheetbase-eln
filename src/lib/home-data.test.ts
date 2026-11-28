@@ -112,6 +112,7 @@ describe('Home authority enrichment', () => {
         title: 'PEI:DNA sweep',
         projectTitle: 'AAV9 process transfer',
         submittedByName: 'Priya S.',
+        submittedByUserId: 'priya',
         dueAt: '2026-09-29T12:00:00Z',
       },
     ])

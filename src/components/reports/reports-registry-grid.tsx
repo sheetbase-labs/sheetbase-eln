@@ -2,6 +2,7 @@ import { useMemo } from 'react'
 import { Person } from '#/components/ui/person'
 import { Link } from '@tanstack/react-router'
 import type { ListView } from '#/lib/list-views'
+import type { ListArrange } from '#/components/inventory/list-arrange'
 import type {
   ColumnDef,
   OnChangeFn,
@@ -36,21 +37,21 @@ export interface ReportsRegistryGridProps {
   rowSelection: RowSelectionState
   onRowSelectionChange: OnChangeFn<RowSelectionState>
   onOpen: (row: ReportListRow, event?: React.MouseEvent) => void
+  /** The columns, when the route built them (`useReportColumns`). */
+  columns?: ColumnDef<DataGridFeatures, ReportListRow>[]
+  /** The toolbar's Sort and Group choice (`useListArrange`). */
+  arranged?: ListArrange<ReportListRow>['grid']
 }
 
-/** The reports list's columns, through the one registry grid. */
-export function ReportsRegistryGrid({
-  rows,
+/** The reports list's columns. */
+export function useReportColumns({
   ownerLabel,
-  isLoading = false,
-  sorting,
-  onSortingChange,
-  view,
-  rowSelection,
-  onRowSelectionChange,
   onOpen,
-}: ReportsRegistryGridProps) {
-  const columns = useMemo<ColumnDef<DataGridFeatures, ReportListRow>[]>(
+}: Pick<ReportsRegistryGridProps, 'ownerLabel' | 'onOpen'>): ColumnDef<
+  DataGridFeatures,
+  ReportListRow
+>[] {
+  return useMemo<ColumnDef<DataGridFeatures, ReportListRow>[]>(
     () => [
       {
         id: 'identifier',
@@ -71,7 +72,7 @@ export function ReportsRegistryGrid({
         id: 'title',
         accessorFn: (r) => r.title,
         header: t('projects.reports.grid.report'),
-        meta: { cellClassName: 'min-w-[220px]' },
+        size: 240,
         sortFn: (a, b) =>
           compareRegistryText(a.original.title, b.original.title),
         cell: ({ row }) => (
@@ -151,12 +152,32 @@ export function ReportsRegistryGrid({
     ],
     [ownerLabel, onOpen],
   )
+}
+
+/** The reports list's columns, through the one registry grid. */
+export function ReportsRegistryGrid({
+  rows,
+  ownerLabel,
+  isLoading = false,
+  sorting,
+  onSortingChange,
+  view,
+  rowSelection,
+  onRowSelectionChange,
+  onOpen,
+  columns: given,
+  arranged,
+}: ReportsRegistryGridProps) {
+  const own = useReportColumns({ ownerLabel, onOpen })
+  const columns = given ?? own
 
   return (
     <RegistryGrid
       className="max-md:hidden"
       label={t('projects.reports.grid.label')}
-      rows={rows}
+      rows={arranged?.rows ?? rows}
+      stableWidths={arranged?.stableWidths}
+      keepColumns={arranged?.keepColumns}
       columns={columns}
       getRowId={(r) => r.recordId}
       rowSelection={rowSelection}

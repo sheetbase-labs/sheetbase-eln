@@ -15,6 +15,16 @@ import {
 } from '#/components/inventory/list'
 import { RegistryGrid } from '#/components/inventory/registry-grid'
 import type { RegistryColumn } from '#/components/inventory/registry-grid'
+import { useListArrange } from '#/components/inventory/list-arrange'
+import type { ListArrange } from '#/components/inventory/list-arrange'
+import {
+  ownerColumn,
+  readableStatus,
+  statusColumn,
+  updatedColumn,
+  useOwnerNames,
+} from '#/components/inventory/list-columns'
+import { pickerStatus } from '#/components/record-picker/record-picker-data'
 import { Notice } from '#/components/ui/alert'
 import { Button } from '#/components/ui/button'
 import {
@@ -135,12 +145,15 @@ export function IncidentLog({
       toast.error(messageOf(e, t('quality.incidents.empty.couldNotSetUp'))),
   })
 
+  const owners = useOwnerNames()
+
   const columns = useMemo<RegistryColumn<IncidentEntry>[]>(
     () => [
       {
         id: 'number',
         header: t('quality.incidents.columns.number'),
         size: 110,
+        accessorFn: (entry) => entry.identifier,
         cell: ({ row }) => (
           <ObjectLink
             kind="record"
@@ -154,6 +167,7 @@ export function IncidentLog({
         id: 'title',
         header: t('quality.incidents.columns.title'),
         size: 280,
+        accessorFn: (entry) => entry.title,
         cell: ({ row }) => (
           <Link
             to="/models/$modelId/records/$recordId"
@@ -165,19 +179,23 @@ export function IncidentLog({
           </Link>
         ),
       },
-      {
-        id: 'kind',
-        header: t('quality.incidents.columns.kind'),
-        size: 130,
-        cell: ({ row }) => (
-          <span className="truncate">
-            {modelByKey.get(row.original.kind)?.name ?? row.original.kind}
-          </span>
-        ),
-      },
+      // A lab with one incident log has nothing to tell apart.
+      ...(modelByKey.size > 1
+        ? [
+            {
+              id: 'kind',
+              header: t('quality.incidents.columns.kind'),
+              size: 130,
+              accessorFn: (entry: IncidentEntry) =>
+                modelByKey.get(entry.kind)?.name ?? entry.kind,
+            } satisfies RegistryColumn<IncidentEntry>,
+          ]
+        : []),
       {
         id: 'details',
         header: t('quality.incidents.columns.details'),
+        size: 200,
+        accessorFn: incidentSummary,
         cell: ({ row }) => (
           <span className="truncate text-fg-muted">
             {incidentSummary(row.original)}
@@ -187,16 +205,25 @@ export function IncidentLog({
       {
         id: 'reported',
         header: t('quality.incidents.columns.reported'),
-        size: 130,
+        size: 120,
+        accessorFn: (entry) => entry.created_at,
         cell: ({ row }) => (
           <span className="text-fg-muted">
             {formatDate(row.original.created_at)}
           </span>
         ),
       },
+      statusColumn((entry) => ({
+        label: readableStatus(entry.status),
+        tone: entry.archived_at ? 'stored' : pickerStatus(entry.status).tone,
+      })),
+      ownerColumn((entry) => entry.created_by_user_id, owners),
+      updatedColumn((entry) => entry.updated_at),
     ],
-    [modelByKey],
+    [modelByKey, owners],
   )
+
+  const arrange = useListArrange({ rows: visible, columns })
 
   const open = (entry: IncidentEntry) =>
     void navigate({
@@ -240,7 +267,6 @@ export function IncidentLog({
     <div className="flex min-w-0 flex-1 flex-col">
       <ListHeader
         title={t('quality.incidents.title')}
-        subtitle={t('quality.incidents.subtitle')}
         total={entries.data ? inStatus.length : undefined}
         actions={reportButton}
         tabs={
@@ -261,6 +287,7 @@ export function IncidentLog({
           placeholder={t('quality.incidents.searchPlaceholder')}
           label={t('quality.incidents.searchPlaceholder')}
           filter={filter}
+          arrange={arrange}
           right={<StatusSelect status={status} onChange={setStatus} />}
         />
       )}
@@ -274,6 +301,7 @@ export function IncidentLog({
           onSetUp={() => setUp.mutate()}
           busy={models.isPending || entries.isPending}
           visible={visible}
+          grid={arrange.grid}
           columns={columns}
           onOpen={open}
           totalEntries={all.length}
@@ -341,6 +369,7 @@ function IncidentLogBody({
   onSetUp,
   busy,
   visible,
+  grid,
   columns,
   onOpen,
   totalEntries,
@@ -354,6 +383,7 @@ function IncidentLogBody({
   onSetUp: () => void
   busy: boolean
   visible: IncidentEntry[]
+  grid: ListArrange<IncidentEntry>['grid']
   columns: RegistryColumn<IncidentEntry>[]
   onOpen: (entry: IncidentEntry) => void
   totalEntries: number
@@ -382,7 +412,7 @@ function IncidentLogBody({
     return (
       <RegistryGrid
         label={t('quality.incidents.tableLabel')}
-        rows={visible}
+        {...grid}
         columns={columns}
         getRowId={(entry) => entry.id}
         onRowClick={onOpen}

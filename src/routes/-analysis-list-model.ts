@@ -39,10 +39,6 @@ export const ANALYSIS_MODES = [
   },
 ] as const
 
-export const analysisSorts = ['Updated', 'Name', 'ID'] as const
-
-export type AnalysisSort = (typeof analysisSorts)[number]
-
 const KIND_LABEL: Record<AnalysisRow['kind'], string> = {
   chart: t('data.analysisList.chart'),
   statistics: t('data.analysisList.statistics'),

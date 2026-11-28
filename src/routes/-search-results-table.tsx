@@ -87,6 +87,7 @@ export function SearchResultsTable({
     () => [
       {
         id: 'identifier',
+        size: 130,
         header: t('projects.searchPage.columns.id'),
         meta: {
           headerClassName: 'max-xl:hidden',
@@ -125,6 +126,7 @@ export function SearchResultsTable({
       },
       {
         id: 'match',
+        size: 280,
         header: t('projects.searchPage.columns.match'),
         meta: {
           headerClassName: 'max-lg:hidden',
@@ -134,6 +136,7 @@ export function SearchResultsTable({
       },
       {
         id: 'project',
+        size: 160,
         header: t('projects.searchPage.columns.project'),
         // The Project facet beside the table already names each project.
         meta: {
@@ -156,6 +159,7 @@ export function SearchResultsTable({
       },
       {
         id: 'status',
+        size: 140,
         header: t('projects.searchPage.columns.status'),
         cell: ({ row }) =>
           row.original.status ? (
@@ -168,6 +172,7 @@ export function SearchResultsTable({
       },
       {
         id: 'updated',
+        size: 100,
         header: t('projects.searchPage.columns.updated'),
         meta: { headerClassName: 'text-right', cellClassName: 'text-right' },
         cell: ({ row }) => (
@@ -205,6 +210,7 @@ export function SearchResultsTable({
         columns={columns}
         getRowId={resultKey}
         selectable={false}
+        stableWidths
         onRowClick={open}
         isLoading={isLoading}
       />

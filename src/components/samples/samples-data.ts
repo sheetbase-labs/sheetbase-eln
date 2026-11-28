@@ -26,6 +26,7 @@ export interface SampleListRow {
   status: { tone: Tone; label: string }
   tabs: string[]
   ownerId: string
+  updatedAt: string
 }
 
 const STATUS = Object.fromEntries<SampleListRow['status']>(
@@ -126,6 +127,7 @@ export function toSampleListRow(
     ),
     tabs,
     ownerId: record.createdByUserId,
+    updatedAt: record.updatedAt,
   }
 }
 
@@ -216,6 +218,7 @@ const SAMPLE_SORT_COLUMNS = Object.fromEntries<string>(
     type: 'properties->>sampleType',
     location: 'properties->>storageLocation',
     status: 'status',
+    updated: 'updated_at',
   }),
 )
 

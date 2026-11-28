@@ -4,6 +4,9 @@
  * ones waiting for them here.
  */
 import { useRowFilter } from '#/components/inventory/row-filter'
+import { useListArrange } from '#/components/inventory/list-arrange'
+import type { ListArrange } from '#/components/inventory/list-arrange'
+import { ownerColumn } from '#/components/inventory/list-columns'
 import { useMemo, useState } from 'react'
 import type { ReactNode } from 'react'
 import { useNavigate } from '@tanstack/react-router'
@@ -68,6 +71,7 @@ function requestColumns({
       id: 'number',
       header: t('requests.columns.number'),
       size: 110,
+      accessorFn: (r) => r.identifier,
       cell: ({ row }) => (
         <ObjectLink
           kind="record"
@@ -81,6 +85,7 @@ function requestColumns({
       id: 'title',
       header: t('requests.columns.title'),
       size: 280,
+      accessorFn: (r) => r.title,
       cell: ({ row }) => (
         <span className="truncate font-medium text-fg">
           {row.original.title}
@@ -91,6 +96,7 @@ function requestColumns({
       id: 'form',
       header: t('requests.columns.form'),
       size: 150,
+      accessorFn: (r) => formByKey.get(r.kind)?.name ?? r.kind,
       cell: ({ row }) => (
         <span className="truncate">
           {formByKey.get(row.original.kind)?.name ?? row.original.kind}
@@ -100,6 +106,8 @@ function requestColumns({
     {
       id: 'summary',
       header: t('requests.columns.summary'),
+      size: 220,
+      accessorFn: requestSummary,
       cell: ({ row }) => (
         <span className="truncate text-fg-muted">
           {requestSummary(row.original)}
@@ -107,29 +115,26 @@ function requestColumns({
       ),
     },
     {
-      id: 'asker',
-      header: t('requests.columns.asker'),
-      size: 150,
-      cell: ({ row }) => (
-        <span className="truncate">
-          {names?.get(row.original.created_by_user_id) ?? ''}
-        </span>
-      ),
-    },
-    {
       id: 'status',
       header: t('requests.columns.status'),
-      size: 120,
+      size: 130,
+      accessorFn: (r) => t(`requests.statuses.${r.status}`),
       cell: ({ row }) => (
         <Status tone={statusTone(row.original.status)}>
           {t(`requests.statuses.${row.original.status}`)}
         </Status>
       ),
     },
+    ownerColumn(
+      (r) => r.created_by_user_id,
+      names,
+      t('requests.columns.asker'),
+    ),
     {
       id: 'asked',
       header: t('requests.columns.asked'),
       size: 120,
+      accessorFn: (r) => r.created_at,
       cell: ({ row }) => (
         <span className="text-fg-muted">
           {formatDate(row.original.created_at)}
@@ -362,6 +367,7 @@ function RequestsListArea({
   onSetUp,
   loading,
   visible,
+  grid,
   columns,
   onOpen,
   searched,
@@ -378,6 +384,7 @@ function RequestsListArea({
   onSetUp: (key: string) => void
   loading: boolean
   visible: RequestRow[]
+  grid: ListArrange<RequestRow>['grid']
   columns: RegistryColumn<RequestRow>[]
   onOpen: (request: RequestRow) => void
   searched: boolean
@@ -403,7 +410,7 @@ function RequestsListArea({
       ) : loading || visible.length > 0 ? (
         <RegistryGrid
           label={t('requests.tableLabel')}
-          rows={visible}
+          {...grid}
           columns={columns}
           getRowId={(request) => request.id}
           selectable
@@ -515,6 +522,8 @@ export function RequestsPage({
     [formByKey, names, handled],
   )
 
+  const arrange = useListArrange({ rows: visible, columns })
+
   const open = (request: RequestRow) =>
     void navigate({
       to: '/models/$modelId/records/$recordId',
@@ -536,7 +545,7 @@ export function RequestsPage({
     <div className="flex min-w-0 flex-1 flex-col">
       <ListHeader
         title={t('requests.title')}
-        subtitle={t('requests.subtitle')}
+        total={requests.isPending ? undefined : visible.length}
         actions={newButton}
         tabs={
           forms.length > 0 ? (
@@ -559,6 +568,7 @@ export function RequestsPage({
           placeholder={t('requests.searchPlaceholder')}
           label={t('requests.searchPlaceholder')}
           filter={filter}
+          arrange={arrange}
         />
       )}
       <RequestsListArea
@@ -570,6 +580,7 @@ export function RequestsPage({
         onSetUp={(key) => setUp.mutate(key)}
         loading={formsQuery.isPending || requests.isPending}
         visible={visible}
+        grid={arrange.grid}
         columns={columns}
         onOpen={open}
         searched={needle !== ''}

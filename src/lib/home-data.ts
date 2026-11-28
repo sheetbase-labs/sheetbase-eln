@@ -141,6 +141,7 @@ export async function fetchHomeReviews(client: DataClient, userId: string) {
         submittedByName:
           members.find((row) => row.user_id === submission.submitted_by_user_id)
             ?.name ?? null,
+        submittedByUserId: submission.submitted_by_user_id,
         dueAt: submission.due_at,
       },
     ]

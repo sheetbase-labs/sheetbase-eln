@@ -1,7 +1,6 @@
 /** Shipments: samples and materials leaving the lab or arriving at it. */
 export const shipments = {
   title: 'Shipments',
-  subtitle: 'What has left the lab and what is on its way in',
   paneLabel: 'Shipments',
   newShipment: 'New shipment',
   tableLabel: 'Shipments',

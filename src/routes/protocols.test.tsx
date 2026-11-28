@@ -185,11 +185,11 @@ describe('protocols toolbar', () => {
     // Most recently updated first, not the identifier order the page arrived in.
     expect(ids()).toEqual(['PRT-0002', 'PRT-0001'])
 
-    // The column header is the one way to reorder: the toolbar has no Sort menu.
-    expect(screen.queryByRole('button', { name: 'Sort' })).toBeNull()
+    // A header click and the toolbar's Sort menu write the same choice.
     await user.click(within(table).getByRole('button', { name: /^Protocol/ }))
 
     expect(ids()).toEqual(['PRT-0001', 'PRT-0002'])
+    expect(screen.getByRole('button', { name: 'Sort: Protocol' })).toBeTruthy()
   })
 
   /**

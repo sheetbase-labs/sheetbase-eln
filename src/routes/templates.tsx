@@ -15,7 +15,6 @@ import { z } from 'zod'
 import { useOpenRow } from '#/components/workspace/workspace-navigation'
 import { Status } from '#/components/ui/status'
 import { EmptyState } from '#/components/ui/empty-state'
-import { Badge } from '#/components/ui/badge'
 import { Button } from '#/components/ui/button'
 import {
   Dialog,
@@ -62,6 +61,8 @@ import { UseTemplateDialog } from '#/components/templates/use-template-dialog'
 import { createNotebookTemplate } from '#/lib/notebook-template-data'
 import { signInRedirect } from '#/lib/sign-in-redirect'
 import { useListView } from '#/lib/list-views'
+import { useListArrange } from '#/components/inventory/list-arrange'
+import { updatedColumn } from '#/components/inventory/list-columns'
 import { formatDate } from '#/lib/format-date'
 import { t } from '#/copy'
 
@@ -194,6 +195,7 @@ function TemplatesList() {
     visible.find((item) => item.id === (selected ?? wanted)) ?? visible.at(0)
 
   const columns = useTemplateColumns({ ownerName, openTemplate })
+  const arrange = useListArrange({ rows: visible, columns, view })
 
   const { rowSelection, onRowSelectionChange } = useRowFocus(
     sel?.id ?? null,
@@ -245,14 +247,14 @@ function TemplatesList() {
             })
           }
           filter={filter}
+          arrange={arrange}
         />
         <div className="min-h-0 flex-1 overflow-auto max-md:pb-20">
           {query.isPending || visible.length > 0 ? (
             <RegistryGrid
               className="max-md:hidden"
               label={t('library.templates.list.templates')}
-              view={view}
-              rows={visible}
+              {...arrange.grid}
               columns={columns}
               getRowId={(item) => item.id}
               rowSelection={rowSelection}
@@ -492,14 +494,6 @@ function useTemplateColumns({
         ),
       },
       {
-        id: 'kind',
-        header: t('library.templates.list.kind'),
-        accessorFn: () => t('library.templates.list.notebook'),
-        cell: () => (
-          <Badge variant="kind">{t('library.templates.list.notebook')}</Badge>
-        ),
-      },
-      {
         id: 'version',
         header: t('library.templates.list.version'),
         accessorFn: (item) =>
@@ -563,6 +557,7 @@ function useTemplateColumns({
           />
         ),
       },
+      updatedColumn((item) => item.updatedAt),
     ],
     [ownerName, openTemplate],
   )

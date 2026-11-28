@@ -58,8 +58,6 @@ export const quality = {
     filterOut: 'Out of specification or alert',
   },
   incidents: {
-    subtitle:
-      'Incidents, deviations, near misses and complaints, with what was done about them',
     title: 'Incidents',
     tableLabel: 'Incidents',
     filterLabel: 'Log',

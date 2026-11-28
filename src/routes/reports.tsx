@@ -35,7 +35,11 @@ import {
 import { useRowFocus } from '#/components/inventory/registry-grid'
 import { Tabs } from '#/components/ui/tabs'
 import { NewReportDialog } from '#/components/reports/new-report-dialog'
-import { ReportsRegistryGrid } from '#/components/reports/reports-registry-grid'
+import {
+  ReportsRegistryGrid,
+  useReportColumns,
+} from '#/components/reports/reports-registry-grid'
+import { useListArrange } from '#/components/inventory/list-arrange'
 import { notebookDataClient } from '#/lib/notebook-data'
 import { fetchReports, reportKeys, reportStatus } from '#/lib/reports'
 import type { ReportListRow } from '#/lib/reports'
@@ -458,6 +462,13 @@ function ReportsList() {
 
   const workspaceId = context.workspace?.id ?? ''
 
+  const columns = useReportColumns({
+    ownerLabel: names.userLabel,
+    onOpen: openReport,
+  })
+
+  const arrange = useListArrange({ rows: visible, columns, view })
+
   return (
     <div className="flex min-w-0 flex-1">
       <div className="flex min-w-0 flex-1 flex-col">
@@ -484,11 +495,14 @@ function ReportsList() {
             })
           }
           filter={filter}
+          arrange={arrange}
         />
         <div className="min-h-0 flex-1 overflow-auto max-md:pb-20">
           {query.isPending || visible.length > 0 ? (
             <ReportsRegistryGrid
               rows={visible}
+              columns={columns}
+              arranged={arrange.grid}
               ownerLabel={names.userLabel}
               isLoading={query.isPending}
               view={view}

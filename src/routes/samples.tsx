@@ -106,6 +106,13 @@ import { requireBuiltInModel } from '#/lib/built-in-models'
 import type { ModelFieldRecordValues } from '#/lib/model-fields'
 import { saveNewObjectFields } from '#/lib/model-subtypes'
 import { useListView } from '#/lib/list-views'
+import { useListArrange } from '#/components/inventory/list-arrange'
+import type { ListArrange } from '#/components/inventory/list-arrange'
+import {
+  ownerColumn,
+  updatedColumn,
+  useOwnerNames,
+} from '#/components/inventory/list-columns'
 import { t } from '#/copy'
 
 const SAMPLE_MODEL = requireBuiltInModel('sample')
@@ -293,11 +300,13 @@ function sampleColumns({
   openSample,
   addedFields,
   recordsById,
+  owners,
 }: {
   selectedUuid: string | undefined
   openSample: (row: SampleListRow, event: React.MouseEvent) => void
   addedFields: Parameters<typeof addedFieldColumns<SampleListRow>>[0]
   recordsById: Map<string, SampleRecordValue>
+  owners: ReadonlyMap<string, string> | undefined
 }): RegistryColumn<SampleListRow>[] {
   return [
     {
@@ -342,6 +351,7 @@ function sampleColumns({
     {
       id: 'location',
       header: t('library.samples.list.location'),
+      size: 240,
       accessorFn: (s) => s.location,
       cell: ({ row }) => <LocationPath path={row.original.location} />,
     },
@@ -359,6 +369,8 @@ function sampleColumns({
         </Status>
       ),
     },
+    ownerColumn((s) => s.ownerId, owners),
+    updatedColumn((s) => s.updatedAt),
   ]
 }
 
@@ -802,6 +814,7 @@ function SamplesList() {
   )
 
   const addedFields = useBuiltInModelFields('sample')
+  const owners = useOwnerNames()
   const printable = visible.flatMap((r) => recordsById.get(r.uuid) ?? [])
 
   const writableProjects = useWritableProjectNames()
@@ -829,9 +842,12 @@ function SamplesList() {
         openSample,
         addedFields: addedFields.data,
         recordsById,
+        owners,
       }),
-    [sel?.uuid, openSample, addedFields.data, recordsById],
+    [sel?.uuid, openSample, addedFields.data, recordsById, owners],
   )
+
+  const arrange = useListArrange({ rows: visible, columns, view })
 
   const { rowSelection, onRowSelectionChange } = useRowFocus(
     sel?.uuid ?? null,
@@ -901,7 +917,7 @@ function SamplesList() {
           filter={filter}
           page={page}
           visible={visible}
-          view={view}
+          arrange={arrange}
           columns={columns}
           bulk={bulk}
           rowSelection={rowSelection}
@@ -963,7 +979,7 @@ function SamplesListBody({
   filter,
   page,
   visible,
-  view,
+  arrange,
   columns,
   bulk,
   rowSelection,
@@ -983,7 +999,7 @@ function SamplesListBody({
   filter: ListFilter
   page: ReturnType<typeof useSampleList>
   visible: SampleListRow[]
-  view: ReturnType<typeof useListView>
+  arrange: ListArrange<SampleListRow>
   columns: RegistryColumn<SampleListRow>[]
   bulk: ReturnType<typeof useBulkSelection>
   rowSelection: ReturnType<typeof useRowFocus>['rowSelection']
@@ -1008,6 +1024,7 @@ function SamplesListBody({
         placeholder={t('library.samples.list.searchByIdNameLocation')}
         onSearch={onSearch}
         filter={filter}
+        arrange={arrange}
       />
       <RecordBulkBar
         selection={bulk}
@@ -1027,8 +1044,7 @@ function SamplesListBody({
             bulk={bulk}
             rowLabel={(s) => s.id}
             label={t('library.samples.list.samples')}
-            view={view}
-            rows={visible}
+            {...arrange.grid}
             columns={columns}
             getRowId={(s) => s.uuid}
             rowSelection={rowSelection}

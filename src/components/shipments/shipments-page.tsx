@@ -13,6 +13,9 @@ import {
   ListToolbar,
   ReadOnlyNote,
 } from '#/components/inventory/list'
+import { useListArrange } from '#/components/inventory/list-arrange'
+import type { ListArrange } from '#/components/inventory/list-arrange'
+import { ownerColumn, useOwnerNames } from '#/components/inventory/list-columns'
 import { RegistryGrid } from '#/components/inventory/registry-grid'
 import type { RegistryColumn } from '#/components/inventory/registry-grid'
 import { Button } from '#/components/ui/button'
@@ -79,12 +82,14 @@ function emptyTitleFor(tab: Tab, filtered: boolean): string {
 function shipmentColumns(
   itemCounts: Map<string, number> | undefined,
   today: string,
+  owners: ReadonlyMap<string, string> | undefined,
 ): RegistryColumn<ShipmentRow>[] {
   return [
     {
       id: 'number',
       header: t('shipments.columns.number'),
       size: 110,
+      accessorFn: (s) => shipmentReference(s.number),
       cell: ({ row }) => (
         <span className="mono text-fg-muted">
           {shipmentReference(row.original.number)}
@@ -95,6 +100,7 @@ function shipmentColumns(
       id: 'direction',
       header: t('shipments.columns.direction'),
       size: 110,
+      accessorFn: (s) => t(`shipments.directions.${s.direction}`),
       cell: ({ row }) => (
         <span>{t(`shipments.directions.${row.original.direction}`)}</span>
       ),
@@ -102,7 +108,9 @@ function shipmentColumns(
     {
       id: 'counterparty',
       header: t('shipments.columns.counterparty'),
-      size: 260,
+      size: 240,
+      accessorFn: (s) => s.counterparty,
+      meta: { grow: true },
       cell: ({ row }) => (
         <span className="truncate font-medium text-fg">
           {row.original.counterparty}
@@ -113,6 +121,7 @@ function shipmentColumns(
       id: 'items',
       header: t('shipments.columns.items'),
       size: 100,
+      accessorFn: (s) => itemCounts?.get(s.id) ?? 0,
       cell: ({ row }) => (
         <span className="num text-fg-muted">
           {itemCounts?.get(row.original.id) ?? ''}
@@ -122,6 +131,8 @@ function shipmentColumns(
     {
       id: 'carrier',
       header: t('shipments.columns.carrier'),
+      size: 200,
+      accessorFn: (s) => s.carrier ?? '',
       cell: ({ row }) => (
         <span className="truncate text-fg-muted">
           {[row.original.carrier, row.original.tracking_reference]
@@ -134,6 +145,7 @@ function shipmentColumns(
       id: 'expected',
       header: t('shipments.columns.expected'),
       size: 150,
+      accessorFn: (s) => s.expected_on ?? '',
       cell: ({ row }) => (
         <span
           className={
@@ -148,13 +160,15 @@ function shipmentColumns(
     {
       id: 'status',
       header: t('shipments.columns.status'),
-      size: 130,
+      size: 150,
+      accessorFn: shipmentStatusLabel,
       cell: ({ row }) => (
         <Status tone={shipmentTone(row.original.status)}>
           {shipmentStatusLabel(row.original)}
         </Status>
       ),
     },
+    ownerColumn((s) => s.created_by, owners),
   ]
 }
 
@@ -219,6 +233,7 @@ function ShipmentResults({
   isPending,
   error,
   visible,
+  grid,
   columns,
   tab,
   filtered,
@@ -230,6 +245,7 @@ function ShipmentResults({
   isPending: boolean
   error: unknown
   visible: ShipmentRow[]
+  grid: ListArrange<ShipmentRow>['grid']
   columns: RegistryColumn<ShipmentRow>[]
   tab: Tab
   filtered: boolean
@@ -248,7 +264,7 @@ function ShipmentResults({
       ) : isPending || visible.length > 0 ? (
         <RegistryGrid
           label={t('shipments.tableLabel')}
-          rows={visible}
+          {...grid}
           columns={columns}
           getRowId={(shipment) => shipment.id}
           selectable
@@ -315,12 +331,15 @@ export function ShipmentsPage({ canWrite }: { canWrite: boolean }) {
     [inDirection, tab, needle],
   )
 
+  const owners = useOwnerNames()
+
   const columns = useMemo(
-    () => shipmentColumns(counts.data, today),
-    [counts.data, today],
+    () => shipmentColumns(counts.data, today, owners),
+    [counts.data, today, owners],
   )
 
   const { filter, rows: visible } = useColumnFilter(columns, inTabRows, all)
+  const arrange = useListArrange({ rows: visible, columns })
 
   const newButton = canWrite ? (
     <Button variant="primary" icon="plus" onClick={() => setCreating(true)}>
@@ -354,7 +373,7 @@ export function ShipmentsPage({ canWrite }: { canWrite: boolean }) {
     <div className="flex min-w-0 flex-1 flex-col">
       <ListHeader
         title={t('shipments.title')}
-        subtitle={t('shipments.subtitle')}
+        total={shipments.isPending ? undefined : visible.length}
         actions={newButton}
         tabs={
           <Tabs
@@ -373,6 +392,7 @@ export function ShipmentsPage({ canWrite }: { canWrite: boolean }) {
         placeholder={t('shipments.searchPlaceholder')}
         label={t('shipments.searchPlaceholder')}
         filter={filter}
+        arrange={arrange}
         right={
           <DirectionFilter direction={direction} onChange={setDirection} />
         }
@@ -383,6 +403,7 @@ export function ShipmentsPage({ canWrite }: { canWrite: boolean }) {
           isPending={shipments.isPending}
           error={shipments.error}
           visible={visible}
+          grid={arrange.grid}
           columns={columns}
           tab={tab}
           filtered={needle !== ''}

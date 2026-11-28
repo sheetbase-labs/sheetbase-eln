@@ -5,6 +5,7 @@
  * are in view, what each tab counts, and the registry columns the list, its
  * menu and its export share. Its inspector keeps its own model.
  */
+import { useListArrange } from '#/components/inventory/list-arrange'
 import { useCallback, useMemo } from 'react'
 
 import { useAddedFieldListColumns } from '#/components/models/added-fields'
@@ -292,6 +293,7 @@ export function useInstrumentsList(input: {
   )
 
   const { filter, rows: visible } = useColumnFilter(columns, inTabRows, rows)
+  const arrange = useListArrange({ rows: visible, columns, view })
 
   const sel =
     visible.find((i) => i.id === (search.selected ?? '')) ?? visible.at(0)
@@ -325,6 +327,7 @@ export function useInstrumentsList(input: {
     names,
     columns,
     view,
+    arrange,
     rowSelection,
     onRowSelectionChange,
     canManageInstruments,

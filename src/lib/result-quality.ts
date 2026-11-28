@@ -292,6 +292,8 @@ export interface IncidentEntry {
   // oxlint-disable-next-line anti-slop/no-unsafe-dictionary-type
   custom_fields: Record<string, unknown> | null
   created_at: string
+  updated_at?: string | null
+  created_by_user_id?: string | null
   archived_at: string | null
 }
 
@@ -321,7 +323,7 @@ export async function fetchIncidents(
 
   return client.list<IncidentEntry>(
     'records',
-    `?kind=in.(${list})&deleted_at=is.null&order=created_at.desc&limit=5000&select=id,identifier,title,kind,status,custom_fields,created_at,archived_at`,
+    `?kind=in.(${list})&deleted_at=is.null&order=created_at.desc&limit=5000&select=id,identifier,title,kind,status,custom_fields,created_at,updated_at,created_by_user_id,archived_at`,
   )
 }
 

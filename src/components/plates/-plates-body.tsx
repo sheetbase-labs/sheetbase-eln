@@ -8,6 +8,7 @@ import type { UseQueryResult } from '@tanstack/react-query'
 
 import { ReadOnlyNote } from '#/components/inventory/list'
 import { RegistryGrid } from '#/components/inventory/registry-grid'
+import type { ListArrange } from '#/components/inventory/list-arrange'
 import type { RegistryColumn } from '#/components/inventory/registry-grid'
 import { Notice } from '#/components/ui/alert'
 import { EmptyState } from '#/components/ui/empty-state'
@@ -28,6 +29,8 @@ export function PlatesBody({
   visibleWorklists,
   runColumns,
   worklistColumns,
+  runGrid,
+  worklistGrid,
   needle,
   canWrite,
   workspaceId,
@@ -43,6 +46,8 @@ export function PlatesBody({
   visibleWorklists: PlateWorklistRow[]
   runColumns: RegistryColumn<PlateRunRow>[]
   worklistColumns: RegistryColumn<PlateWorklistRow>[]
+  runGrid: ListArrange<PlateRunRow>['grid']
+  worklistGrid: ListArrange<PlateWorklistRow>['grid']
   needle: string
   canWrite: boolean
   workspaceId: string
@@ -67,6 +72,7 @@ export function PlatesBody({
           worklists={worklists}
           visibleWorklists={visibleWorklists}
           columns={worklistColumns}
+          grid={worklistGrid}
           needle={needle}
           onOpen={onOpenWorklist}
         />
@@ -75,6 +81,7 @@ export function PlatesBody({
           runs={runs}
           visibleRuns={visibleRuns}
           columns={runColumns}
+          grid={runGrid}
           needle={needle}
           newButton={newButton}
           onOpenRun={onOpenRun}
@@ -94,6 +101,7 @@ function PlateRunsTab({
   runs,
   visibleRuns,
   columns,
+  grid,
   needle,
   newButton,
   onOpenRun,
@@ -101,6 +109,7 @@ function PlateRunsTab({
   runs: UseQueryResult<PlateRunRow[]>
   visibleRuns: PlateRunRow[]
   columns: RegistryColumn<PlateRunRow>[]
+  grid: ListArrange<PlateRunRow>['grid']
   needle: string
   newButton: ReactNode
   onOpenRun: (id: string) => void
@@ -119,7 +128,7 @@ function PlateRunsTab({
     return (
       <RegistryGrid
         label={t('plates.tableLabel')}
-        rows={visibleRuns}
+        {...grid}
         columns={columns}
         getRowId={(r) => r.id}
         selectable
@@ -147,12 +156,14 @@ function PlateWorklistsTab({
   worklists,
   visibleWorklists,
   columns,
+  grid,
   needle,
   onOpen,
 }: {
   worklists: UseQueryResult<PlateWorklistRow[]>
   visibleWorklists: PlateWorklistRow[]
   columns: RegistryColumn<PlateWorklistRow>[]
+  grid: ListArrange<PlateWorklistRow>['grid']
   needle: string
   onOpen: (worklist: PlateWorklistRow) => void
 }) {
@@ -170,7 +181,7 @@ function PlateWorklistsTab({
     return (
       <RegistryGrid
         label={t('plates.worklists.tableLabel')}
-        rows={visibleWorklists}
+        {...grid}
         columns={columns}
         getRowId={(w) => w.id}
         selectable

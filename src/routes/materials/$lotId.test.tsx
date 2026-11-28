@@ -106,6 +106,8 @@ vi.mock('#/lib/reagent-data', async (importOriginal) => {
       certificate: null,
       lowStockThreshold: null,
       expiryWarningDays: null,
+      updatedAt: '2026-02-01T10:00:00Z',
+      record: { createdByUserId: 'u-1' },
     })),
     fetchReagentMovements: vi.fn(async () => [
       {

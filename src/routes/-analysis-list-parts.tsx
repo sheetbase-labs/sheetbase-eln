@@ -17,6 +17,7 @@ import { Muted } from '#/components/ui/layout'
 import { MobileList, ReadOnlyNote } from '#/components/inventory/list'
 import { RegistryGrid } from '#/components/inventory/registry-grid'
 import type { RegistryColumn } from '#/components/inventory/registry-grid'
+import type { ListArrange } from '#/components/inventory/list-arrange'
 import { t } from '#/copy'
 
 import { ANALYSIS_MODES, kindLabel } from './-analysis-list-model'
@@ -103,6 +104,7 @@ export function AnalysisNewMenu({
 export function AnalysisListBody({
   isPending,
   visible,
+  grid,
   columns,
   rowSelection,
   onRowSelectionChange,
@@ -114,6 +116,7 @@ export function AnalysisListBody({
 }: {
   isPending: boolean
   visible: AnalysisRow[]
+  grid: ListArrange<AnalysisRow>['grid']
   columns: RegistryColumn<AnalysisRow>[]
   rowSelection: GridSelection
   onRowSelectionChange: GridSelectionChange
@@ -174,7 +177,7 @@ export function AnalysisListBody({
           <RegistryGrid
             className="max-md:hidden"
             label={t('data.analysisList.savedAnalyses')}
-            rows={visible}
+            {...grid}
             columns={columns}
             getRowId={(view) => view.id}
             rowSelection={rowSelection}

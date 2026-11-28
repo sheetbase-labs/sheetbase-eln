@@ -48,7 +48,13 @@ import type { DatasetListRow } from '#/components/datasets/datasets-data'
 import { useHasCapability } from '#/lib/use-capability'
 import { signInRedirect } from '#/lib/sign-in-redirect'
 import { useListView } from '#/lib/list-views'
-import { formatDate } from '#/lib/format-date'
+import { useListArrange } from '#/components/inventory/list-arrange'
+import type { ListArrange } from '#/components/inventory/list-arrange'
+import {
+  ownerColumn,
+  updatedColumn,
+  useOwnerNames,
+} from '#/components/inventory/list-columns'
 
 const tabs = ['all', 'mine', 'issues', 'locked', 'archived'] as const
 
@@ -213,6 +219,8 @@ function DatasetsList() {
 
   const { filter, rows: visible } = useRowFilter(inTabRows, rows)
 
+  const owners = useOwnerNames()
+
   const columns = useMemo<RegistryColumn<DatasetListRow>[]>(
     () => [
       {
@@ -268,13 +276,6 @@ function DatasetsList() {
         meta: rightAligned<DatasetListRow>().meta,
       },
       {
-        id: 'updated',
-        header: t('data.datasetsList.updated'),
-        accessorFn: (d) => d.updatedAt,
-        cell: ({ row }) => formatDate(row.original.updatedAt),
-        meta: { exportValue: (d: DatasetListRow) => d.updated },
-      },
-      {
         id: 'validation',
         header: t('data.datasetsList.validation'),
         accessorFn: (d) => datasetValidation(d).label,
@@ -284,9 +285,13 @@ function DatasetsList() {
           return <Status tone={v.tone}>{v.label}</Status>
         },
       },
+      ownerColumn((d) => d.createdByUserId, owners),
+      updatedColumn((d) => d.updatedAt),
     ],
-    [openDataset],
+    [openDataset, owners],
   )
+
+  const arrange = useListArrange({ rows: visible, columns, view })
 
   const selectedRow = visible.find((d) => d.uuid === selected)
 
@@ -308,6 +313,7 @@ function DatasetsList() {
         />
         <DatasetSearchBar
           filter={filter}
+          arrange={arrange}
           q={search.q}
           onSearch={(next) =>
             void navigate({
@@ -322,7 +328,7 @@ function DatasetsList() {
           rows={rows}
           visible={visible}
           columns={columns}
-          view={view}
+          grid={arrange.grid}
           tab={tab}
           q={q}
           selected={selected}
@@ -414,10 +420,12 @@ function DatasetSearchBar({
   filter,
   q,
   onSearch,
+  arrange,
 }: {
   filter: ListFilter
   q?: string
   onSearch: (next: string) => void
+  arrange: ListArrange<DatasetListRow>
 }) {
   return (
     <ListToolbar
@@ -426,6 +434,7 @@ function DatasetSearchBar({
       placeholder={t('data.datasetsList.searchDatasets')}
       onSearch={onSearch}
       filter={filter}
+      arrange={arrange}
     />
   )
 }
@@ -436,7 +445,7 @@ function DatasetResults({
   rows,
   visible,
   columns,
-  view,
+  grid,
   tab,
   q,
   selected,
@@ -449,7 +458,7 @@ function DatasetResults({
   rows: DatasetListRow[]
   visible: DatasetListRow[]
   columns: RegistryColumn<DatasetListRow>[]
-  view: ReturnType<typeof useListView>
+  grid: ListArrange<DatasetListRow>['grid']
   tab: DatasetTab
   q: string
   selected: string | null
@@ -464,8 +473,7 @@ function DatasetResults({
         <RegistryGrid
           className="max-md:hidden"
           label={t('data.datasetsList.datasets')}
-          view={view}
-          rows={visible}
+          {...grid}
           columns={columns}
           getRowId={(d) => d.uuid}
           rowSelection={rowSelection}

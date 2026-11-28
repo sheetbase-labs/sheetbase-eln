@@ -1,15 +1,11 @@
 import { filterParamSchema } from '#/lib/list-filter'
-import { Person } from '#/components/ui/person'
 import type { FilterParam } from '#/lib/search-filter'
 import { useRowFilter } from '#/components/inventory/row-filter'
 import { t } from '#/copy'
-import {
-  analysisSorts,
-  emptyCopyFor,
-  kindLabel,
-  tabLabelFor,
-} from '../-analysis-list-model'
-import type { AnalysisRow, AnalysisSort } from '../-analysis-list-model'
+import { emptyCopyFor, kindLabel, tabLabelFor } from '../-analysis-list-model'
+import type { AnalysisRow } from '../-analysis-list-model'
+import { useListArrange } from '#/components/inventory/list-arrange'
+import { ownerColumn, updatedColumn } from '#/components/inventory/list-columns'
 import {
   AnalysisInspector,
   AnalysisListBody,
@@ -36,7 +32,6 @@ import { Tabs } from '#/components/ui/tabs'
 import { useRowFocus } from '#/components/inventory/registry-grid'
 import type { RegistryColumn } from '#/components/inventory/registry-grid'
 import { useUserNames } from '#/lib/user-names'
-import { formatDate } from '#/lib/format-date'
 import { createDataClient } from '#/lib/data-client'
 import {
   analysisStudioQueryKeys,
@@ -183,7 +178,6 @@ function AnalysisHome() {
   const canWrite = hasCapability(context.workspace?.role, 'record.create')
   const userId = context.user.id
   const [selectedId, setSelectedId] = useState<string | null>(null)
-  const [sort, setSort] = useState<AnalysisSort>('Updated')
 
   const views = useQuery({
     queryKey: analysisStudioQueryKeys.views,
@@ -238,6 +232,7 @@ function AnalysisHome() {
       {
         id: 'identifier',
         header: 'ID',
+        accessorFn: (a) => a.identifier,
         cell: ({ row }) => (
           <RowLink row={row.original} className="mono" onOpen={openAnalysis}>
             {row.original.identifier}
@@ -247,6 +242,8 @@ function AnalysisHome() {
       {
         id: 'name',
         header: t('data.analysisList.name'),
+        size: 240,
+        accessorFn: (a) => a.name,
         meta: { cellClassName: 'font-medium' },
         cell: ({ row }) => (
           <RowLink row={row.original} onOpen={openAnalysis}>
@@ -257,6 +254,8 @@ function AnalysisHome() {
       {
         id: 'kind',
         header: t('data.analysisList.kind'),
+        size: 200,
+        accessorFn: kindLabel,
         cell: ({ row }) => (
           <Status tone="analysis">{kindLabel(row.original)}</Status>
         ),
@@ -264,29 +263,18 @@ function AnalysisHome() {
       {
         id: 'source',
         header: t('data.analysisList.source'),
+        size: 220,
+        accessorFn: (a) =>
+          (datasets.data ?? []).find((dataset) => dataset.id === a.datasetId)
+            ?.name ?? '',
         meta: { cellClassName: 'text-fg-muted' },
         cell: ({ row }) =>
           (datasets.data ?? []).find(
             (dataset) => dataset.id === row.original.datasetId,
           )?.name ?? '—',
       },
-      {
-        id: 'owner',
-        header: t('data.analysisList.owner'),
-        meta: { cellClassName: 'text-fg-muted' },
-        cell: ({ row }) => (
-          <Person
-            name={names.userLabel(row.original.ownerId)}
-            userId={row.original.ownerId}
-          />
-        ),
-      },
-      {
-        id: 'updated',
-        header: t('data.analysisList.updated'),
-        meta: { cellClassName: 'text-fg-muted' },
-        cell: ({ row }) => formatDate(row.original.updatedAt),
-      },
+      ownerColumn((a) => a.ownerId, names.userLabel),
+      updatedColumn((a) => a.updatedAt),
     ],
     [datasets.data, names, openAnalysis],
   )
@@ -303,40 +291,31 @@ function AnalysisHome() {
 
   const inTabRows = useMemo(
     () =>
-      [...rows]
-        .sort((a, b) =>
-          sort === 'Name'
-            ? a.name.localeCompare(b.name)
-            : sort === 'ID'
-              ? a.identifier.localeCompare(b.identifier, 'en-GB', {
-                  numeric: true,
-                })
-              : b.updatedAt.localeCompare(a.updatedAt),
+      rows.filter((v) => {
+        if (tab === 'mine' && v.ownerId !== userId) return false
+
+        if (tab === 'cited' && !citedIds.has(v.citeKey)) return false
+
+        if (tab === 'drafts' && v.version > 1) return false
+
+        if (
+          needle &&
+          !`${v.identifier} ${v.name} ${kindLabel(v)} ${v.datasetId ?? ''}`
+            .toLowerCase()
+            .includes(needle)
         )
-        .filter((v) => {
-          if (tab === 'mine' && v.ownerId !== userId) return false
+          return false
 
-          if (tab === 'cited' && !citedIds.has(v.citeKey)) return false
-
-          if (tab === 'drafts' && v.version > 1) return false
-
-          if (
-            needle &&
-            !`${v.identifier} ${v.name} ${kindLabel(v)} ${v.datasetId ?? ''}`
-              .toLowerCase()
-              .includes(needle)
-          )
-            return false
-
-          return true
-        }),
+        return true
+      }),
     // `citedIds` resolves from its own query after the first render, so it has
     // to be a dependency: without it a direct load of ?tab=cited filters against
     // the empty set and never recomputes when the citations land.
-    [rows, sort, tab, needle, userId, citedIds],
+    [rows, tab, needle, userId, citedIds],
   )
 
   const { filter, rows: visible } = useRowFilter(inTabRows, rows)
+  const arrange = useListArrange({ rows: visible, columns })
 
   const recent = (datasets.data ?? []).slice(0, 3)
   const selected = visible.find((v) => v.id === selectedId) ?? null
@@ -406,15 +385,7 @@ function AnalysisHome() {
           label={t('data.analysisList.searchAnalyses')}
           filter={filter}
           placeholder={t('data.analysisList.placeholderSearchAnalysesIdName')}
-          views={{
-            sorts: [...analysisSorts],
-            sort,
-            onSort: (next) => {
-              const chosen = analysisSorts.find((option) => option === next)
-
-              if (chosen) setSort(chosen)
-            },
-          }}
+          arrange={arrange}
           onSearch={(next) =>
             void navigate({
               to: '/analysis',
@@ -431,6 +402,7 @@ function AnalysisHome() {
             (tab === 'cited' && citations.isPending)
           }
           visible={visible}
+          grid={arrange.grid}
           columns={columns}
           rowSelection={rowSelection}
           onRowSelectionChange={onRowSelectionChange}

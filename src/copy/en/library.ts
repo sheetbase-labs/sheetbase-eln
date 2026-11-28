@@ -3109,6 +3109,56 @@ export const library = {
       notebooksThatWereNotUpdated: 'Notebooks that were not updated',
       reviewV: 'Review v{targetVersion}',
     },
+    notebook: {
+      tab: 'Notebook',
+      daysLabel: 'Parts of this template',
+      days: 'Parts',
+      daysSummary: {
+        one: '{count} part, on day {last}.',
+        other: '{count} parts, from day 0 to day {last}.',
+      },
+      onePage:
+        'One page. Split it into parts when the work runs over several days.',
+      editParts: 'Edit parts',
+      editPartsHint:
+        'Each part becomes its own page in the experiment, on a day counted from the start. Sections without a part go on the first one.',
+      askedWhenUsed: 'Asked when used',
+      editAsked: 'Edit what’s asked when used',
+      askedWhenUsedHint:
+        'What a person fills in when they start an experiment from this template.',
+      nothingAsked: 'Nothing. The experiment starts as it is.',
+      done: 'Done',
+      unsaved:
+        'Unsaved changes. Saving makes draft v{version}; experiments already made keep their version.',
+      discard: 'Discard',
+      saveAsDraft: 'Save as draft v{version}',
+      blockNotInTemplates:
+        'That kind of block can’t go in a template. Add it in the experiment made from it.',
+      publishStale:
+        'Someone changed this template while you were publishing. Check the latest version and try again.',
+      stateRetired: 'Retired',
+      stateNotPublished: 'Not published yet',
+      statePublished: 'Published v{version}',
+      noteDraftOnly: 'Draft v{version}',
+      noteDraftWaiting: 'Changes waiting in draft v{version}',
+      notePublishedOn: 'Published {date}',
+      sheetColumns: {
+        one: 'Sheet · {count} column',
+        other: 'Sheet · {count} columns',
+      },
+      sheetLoading: 'Loading the sheet’s columns…',
+      emptySection: 'Empty section',
+      sectionName: 'Section name',
+      valueText: 'Text',
+      valueWholeNumber: 'Whole number',
+      valueNumber: 'Number',
+      valueYesNo: 'Yes or no',
+      valueDate: 'Date',
+      valueDateTime: 'Date and time',
+      valueChoice: 'Choice',
+      valueRecord: 'Record',
+      valueList: 'List',
+    },
     templateSectionsBoard: {
       sections: 'Sections',
       addSection: 'Add section',
@@ -3124,7 +3174,7 @@ export const library = {
       nothingChanged: 'Nothing changed',
       everySectionIsNew: 'Every section is new.',
       whenYouPublish: 'When you publish',
-      nothingAlreadyMadeChanges: 'Nothing already made changes',
+      nothingAlreadyMadeChanges: 'Nothing already made changes.',
       areToldVExistsEach:
         '{join} are told v{version} exists; each owner chooses whether to take it.',
       newNotebooksStartFromV: 'New notebooks start from v{version}.',

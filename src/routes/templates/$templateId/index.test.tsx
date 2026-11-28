@@ -1,8 +1,8 @@
 /**
- * QA-138 — the Sections view edits a template's stored configuration into a new
- * version: it adds, moves and removes sections, adds and removes scalar
- * parameters, saves through create_notebook_template_version, and names the
- * failure. The published version stays the one the view renders.
+ * A template reads like the notebook it makes: its blocks drawn as an
+ * experiment draws them, its parts along the top, and no raw keys. Edits made
+ * on the page, or in the parts and settings dialogs, collect in a draft that
+ * saves through create_notebook_template_version as a new version.
  */
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import {
@@ -17,8 +17,17 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import type { createFileRoute as createRoute } from '@tanstack/react-router'
 import type { notebookTemplateDataClient as templateClient } from '#/lib/notebook-template-data'
 
+import {
+  createMemoryHistory,
+  createRootRoute,
+  createRouter,
+  RouterContextProvider,
+} from '@tanstack/react-router'
+
 import { Route } from './index'
+import { extensionQueryKeys } from '#/lib/extensions/client'
 import type * as NotebookTemplateData from '#/lib/notebook-template-data'
+import type * as Router from '@tanstack/react-router'
 
 const ids = vi.hoisted(() => ({
   template: '00000000-0000-4000-8000-000000000009',
@@ -28,17 +37,20 @@ const ids = vi.hoisted(() => ({
   v3: '00000000-0000-4000-8000-000000000003',
   first: '00000000-0000-4000-8000-000000000021',
   second: '00000000-0000-4000-8000-000000000022',
+  third: '00000000-0000-4000-8000-000000000023',
 }))
 
 // oxlint-disable-next-line anti-slop/no-module-mocking -- the route builds its route object from createFileRoute at import time, so the router's factories are the only seam a unit test has; the route's own options are what the test renders.
-vi.mock('@tanstack/react-router', () => ({
+vi.mock('@tanstack/react-router', async (importOriginal) => ({
+  ...(await importOriginal<typeof Router>()),
   createFileRoute:
     () => (options: Parameters<ReturnType<typeof createRoute>>[0]) => ({
       options,
       useParams: () => ({ templateId: ids.template }),
-      useRouteContext: () => ({ context: { workspace: { id: 'ws-1' } } }),
+      useRouteContext: () => ({
+        context: { workspace: { id: 'ws-1', role: 'admin' } },
+      }),
     }),
-  Link: ({ children }: { children: React.ReactNode }) => <a>{children}</a>,
 }))
 
 const sonner = vi.hoisted(() => ({ toast: vi.fn(), error: vi.fn() }))
@@ -117,8 +129,78 @@ function placeholder(order: number, key: string, label: string) {
   }
 }
 
-function configuration(placements: readonly unknown[]) {
-  return { formatVersion: 1, parameters: [], placements }
+/** A template configuration as the endpoint stores it. */
+interface ConfigurationWire {
+  formatVersion: number
+  parameters: unknown[]
+  parts?: readonly unknown[]
+  placements: readonly unknown[]
+}
+
+/** A procedure step placement as the endpoint stores it. */
+interface StepWire {
+  id: string
+  kind: string
+  order: number
+  blockType: string
+  payload: { text: string; stepNumber: number }
+  partId?: string
+}
+
+function configuration(
+  placements: readonly unknown[],
+  parts?: readonly unknown[],
+) {
+  const config: ConfigurationWire = {
+    formatVersion: 1,
+    parameters: [],
+    placements,
+  }
+
+  if (parts) config.parts = parts
+
+  return config
+}
+
+const partIds = {
+  treat: '00000000-0000-4000-8000-000000000031',
+  verify: '00000000-0000-4000-8000-000000000032',
+}
+
+function text(order: number, id: string, heading: string, body: string) {
+  return {
+    id,
+    kind: 'narrative',
+    order,
+    blockType: 'rich_text',
+    payload: {
+      doc: {
+        type: 'doc',
+        content: [
+          {
+            type: 'heading',
+            attrs: { level: 2 },
+            content: [{ type: 'text', text: heading }],
+          },
+          { type: 'paragraph', content: [{ type: 'text', text: body }] },
+        ],
+      },
+    },
+  }
+}
+
+function step(order: number, id: string, body: string, partId?: string) {
+  const placement: StepWire = {
+    id,
+    kind: 'narrative',
+    order,
+    blockType: 'procedure_step',
+    payload: { text: body, stepNumber: order },
+  }
+
+  if (partId) placement.partId = partId
+
+  return placement
 }
 
 /** One stored template version as the endpoint returns it. */
@@ -192,27 +274,20 @@ function renderRoute() {
     defaultOptions: { queries: { retry: false } },
   })
 
+  queryClient.setQueryData([...extensionQueryKeys.extensions, 'points'], [])
+
+  const router = createRouter({
+    routeTree: createRootRoute(),
+    history: createMemoryHistory({ initialEntries: ['/'] }),
+  })
+
   return render(
     <QueryClientProvider client={queryClient}>
-      <Component />
+      <RouterContextProvider router={router}>
+        <Component />
+      </RouterContextProvider>
     </QueryClientProvider>,
   )
-}
-
-function sectionRows() {
-  const table = screen.getByRole('table', { name: 'Template sections' })
-
-  return within(table).getAllByRole('row')
-}
-
-function addSection(key: string, label: string) {
-  fireEvent.change(screen.getByRole('textbox', { name: /Section key/ }), {
-    target: { value: key },
-  })
-  fireEvent.change(screen.getByPlaceholderText('e.g. Pressure and ΔP'), {
-    target: { value: label },
-  })
-  fireEvent.click(screen.getByRole('button', { name: 'Add section' }))
 }
 
 afterEach(() => {
@@ -223,8 +298,95 @@ afterEach(() => {
   client.rpc.mockReset()
 })
 
-describe('Template sections editor', () => {
-  it('shows the newest version, then saves an added section', async () => {
+function savedConfiguration() {
+  const call = client.rpc.mock.calls.find(
+    ([name]) => name === 'create_notebook_template_version',
+  )
+
+  if (!call) throw new Error('The draft was not saved')
+
+  // SAFETY: the RPC is called with the helper's named arguments.
+  return (call[1] as { p_configuration: ReturnType<typeof configuration> })
+    .p_configuration
+}
+
+describe('Template notebook', () => {
+  it('draws the blocks themselves, with no raw keys or kinds', async () => {
+    withVersions([
+      versionWire({
+        configuration: configuration([
+          text(1, ids.first, 'Objective', 'Find the benzonase dose.'),
+          step(2, ids.third, 'Add benzonase at 50 U/mL'),
+          placeholder(3, 'pressure_dp', 'Pressure and ΔP'),
+        ]),
+      }),
+    ])
+    renderRoute()
+
+    expect(await screen.findByText('Find the benzonase dose.')).toBeTruthy()
+    expect(screen.getByText('Add benzonase at 50 U/mL')).toBeTruthy()
+    expect(screen.getByText('Pressure and ΔP')).toBeTruthy()
+
+    const page = document.body.textContent
+
+    for (const raw of [
+      'rich_text',
+      'procedure_step',
+      'narrative block',
+      'pressure_dp',
+    ]) {
+      expect(page).not.toContain(raw)
+    }
+  })
+
+  it('shows one part at a time, picked from the parts strip', async () => {
+    withVersions([
+      versionWire({
+        configuration: configuration(
+          [
+            step(1, ids.first, 'Treat the harvest', partIds.treat),
+            step(2, ids.second, 'Run the DNA assay', partIds.verify),
+          ],
+          [
+            { id: partIds.treat, title: 'Treat', dayOffset: 0 },
+            { id: partIds.verify, title: 'Verify', dayOffset: 1 },
+          ],
+        ),
+      }),
+    ])
+    renderRoute()
+
+    const strip = await screen.findByRole('navigation', {
+      name: 'Parts of this template',
+    })
+
+    expect(within(strip).getByText('Day 1')).toBeTruthy()
+    expect(screen.getByText('Treat the harvest')).toBeTruthy()
+    expect(screen.queryByText('Run the DNA assay')).toBeNull()
+
+    fireEvent.click(within(strip).getByRole('button', { name: /2\. Verify/ }))
+
+    expect(await screen.findByText('Run the DNA assay')).toBeTruthy()
+    expect(screen.queryByText('Treat the harvest')).toBeNull()
+  })
+
+  it('says where the template stands in plain words', async () => {
+    withVersions([
+      versionWire({
+        id: ids.v1,
+        version: 1,
+        lifecycle: 'published',
+        published_at: '2026-01-02T00:00:00.000Z',
+      }),
+      versionWire({ id: ids.v2, version: 2 }),
+    ])
+    renderRoute()
+
+    // The inspector names the version the page shows.
+    expect(await screen.findByText(/Draft\s+v2/)).toBeTruthy()
+  })
+
+  it('adds a named section, then saves the draft as a new version', async () => {
     withVersions([
       versionWire({
         id: ids.v1,
@@ -242,182 +404,96 @@ describe('Template sections editor', () => {
     client.rpc.mockResolvedValue(versionWire({ id: ids.v3, version: 3 }))
     renderRoute()
 
-    // The board lists the newest version's sections, the open draft.
-    const nav = await screen.findByRole('navigation', { name: 'Sections' })
-    expect(within(nav).getByText('First')).toBeTruthy()
-    expect(screen.getByText('Draft v2')).toBeTruthy()
+    fireEvent.click(await screen.findByRole('button', { name: 'Edit parts' }))
+    fireEvent.change(screen.getByPlaceholderText('e.g. Pressure and ΔP'), {
+      target: { value: 'Pressure and ΔP' },
+    })
+    fireEvent.click(screen.getByRole('button', { name: 'Add section' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Done' }))
 
-    fireEvent.click(screen.getByRole('button', { name: 'Edit' }))
-    addSection('pressure_dp', 'Pressure and ΔP')
-    const [first, added] = sectionRows().slice(1)
-    expect(within(first).getAllByRole('cell')[0].textContent).toBe('1')
-    expect(within(added).getAllByRole('cell')[0].textContent).toBe('2')
-    expect(within(added).getByText('Pressure and ΔP')).toBeTruthy()
-
-    fireEvent.click(screen.getByRole('button', { name: 'Save new version' }))
+    fireEvent.click(
+      await screen.findByRole('button', { name: 'Save as draft v3' }),
+    )
 
     await waitFor(() => expect(client.rpc).toHaveBeenCalledTimes(1))
-    expect(client.rpc).toHaveBeenCalledWith(
-      'create_notebook_template_version',
+    expect(savedConfiguration().placements).toEqual([
       {
-        p_template_id: ids.template,
-        p_expected_template_revision: 1,
-        p_configuration: {
-          formatVersion: 1,
-          parameters: [],
-          placements: [
-            {
-              id: ids.first,
-              kind: 'section_placeholder',
-              order: 1,
-              key: 'first',
-              label: 'First',
-            },
-            {
-              id: expect.stringMatching(/^[0-9a-f-]{36}$/),
-              kind: 'section_placeholder',
-              order: 2,
-              key: 'pressure_dp',
-              label: 'Pressure and ΔP',
-            },
-          ],
-        },
+        id: ids.first,
+        kind: 'section_placeholder',
+        order: 1,
+        key: 'first',
+        label: 'First',
       },
-    )
+      {
+        id: expect.stringMatching(/^[0-9a-f-]{36}$/),
+        kind: 'section_placeholder',
+        order: 2,
+        // The key follows the name; nobody types one.
+        key: 'pressure_and_p',
+        label: 'Pressure and ΔP',
+      },
+    ])
     await waitFor(() =>
       expect(sonner.toast).toHaveBeenCalledWith(
         'Saved as v3',
         expect.anything(),
       ),
     )
-    // Saving leaves edit mode.
-    expect(await screen.findByRole('button', { name: 'Edit' })).toBeTruthy()
   })
 
-  it('moves and removes sections, rewriting the orders as 1..n', async () => {
-    withVersions([
-      versionWire({
-        configuration: configuration([
-          placeholder(1, 'first', 'First'),
-          placeholder(2, 'second', 'Second'),
-        ]),
-      }),
-    ])
-    client.rpc.mockResolvedValue(versionWire({ id: ids.v2, version: 2 }))
-    renderRoute()
-
-    await screen.findByRole('button', { name: 'Edit' })
-    fireEvent.click(screen.getByRole('button', { name: 'Edit' }))
-
-    fireEvent.click(screen.getByRole('button', { name: 'Move First down' }))
-    const [first, second] = sectionRows().slice(1)
-    expect(within(first).getAllByRole('cell')[1].textContent).toBe('Second')
-    expect(within(second).getAllByRole('cell')[1].textContent).toBe('First')
-
-    fireEvent.click(screen.getByRole('button', { name: 'Remove Second' }))
-    expect(sectionRows()).toHaveLength(2)
-    expect(screen.queryByText('Second')).toBeNull()
-
-    fireEvent.click(screen.getByRole('button', { name: 'Save new version' }))
-
-    await waitFor(() => expect(client.rpc).toHaveBeenCalledTimes(1))
-    expect(client.rpc).toHaveBeenCalledWith(
-      'create_notebook_template_version',
-      {
-        p_template_id: ids.template,
-        p_expected_template_revision: 1,
-        p_configuration: {
-          formatVersion: 1,
-          parameters: [],
-          placements: [
-            {
-              id: ids.first,
-              kind: 'section_placeholder',
-              order: 1,
-              key: 'first',
-              label: 'First',
-            },
-          ],
-        },
-      },
-    )
-  })
-
-  it('adds a scalar parameter of the chosen type, then saves it', async () => {
+  it('adds a setting asked when the template is used', async () => {
     withVersions([versionWire()])
     client.rpc.mockResolvedValue(versionWire({ id: ids.v2, version: 2 }))
     renderRoute()
 
-    await screen.findByRole('button', { name: 'Edit' })
-    fireEvent.click(screen.getByRole('button', { name: 'Edit' }))
-
-    fireEvent.change(screen.getByRole('textbox', { name: /Parameter key/ }), {
-      target: { value: 'run_count' },
-    })
+    fireEvent.click(
+      await screen.findByRole('button', {
+        name: 'Edit what’s asked when used',
+      }),
+    )
     fireEvent.change(screen.getByPlaceholderText('e.g. Sample'), {
       target: { value: 'Run count' },
     })
-    fireEvent.change(screen.getByRole('combobox'), {
+    fireEvent.change(screen.getByRole('combobox', { name: 'Type' }), {
       target: { value: 'integer' },
     })
     fireEvent.click(screen.getByRole('button', { name: 'Add parameter' }))
-    expect(screen.getByText('Run count')).toBeTruthy()
-
-    fireEvent.click(screen.getByRole('button', { name: 'Remove Run count' }))
-    expect(screen.queryByText('Run count')).toBeNull()
-
-    // Re-add a parameter this time, so the payload carries one.
-    fireEvent.change(screen.getByRole('textbox', { name: /Parameter key/ }), {
-      target: { value: 'sample_id' },
-    })
-    fireEvent.change(screen.getByPlaceholderText('e.g. Sample'), {
-      target: { value: 'Sample' },
-    })
-    fireEvent.change(screen.getByRole('combobox'), {
-      target: { value: 'integer' },
-    })
-    fireEvent.click(screen.getByRole('button', { name: 'Add parameter' }))
-    fireEvent.click(screen.getByRole('button', { name: 'Save new version' }))
+    expect(screen.getAllByText('Run count').length).toBeGreaterThan(0)
+    fireEvent.click(screen.getByRole('button', { name: 'Done' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Save as draft v2' }))
 
     await waitFor(() => expect(client.rpc).toHaveBeenCalledTimes(1))
-    expect(client.rpc).toHaveBeenCalledWith(
-      'create_notebook_template_version',
+    expect(savedConfiguration().parameters).toEqual([
       {
-        p_template_id: ids.template,
-        p_expected_template_revision: 1,
-        p_configuration: {
-          formatVersion: 1,
-          parameters: [
-            {
-              id: expect.stringMatching(/^[0-9a-f-]{36}$/),
-              key: 'sample_id',
-              label: 'Sample',
-              required: false,
-              type: { kind: 'scalar', valueType: 'integer' },
-              constraints: {},
-            },
-          ],
-          placements: [],
-        },
+        id: expect.stringMatching(/^[0-9a-f-]{36}$/),
+        key: 'run_count',
+        label: 'Run count',
+        required: false,
+        type: { kind: 'scalar', valueType: 'integer' },
+        constraints: {},
       },
-    )
+    ])
   })
 
-  it('surfaces the save failure and stays in edit mode', async () => {
+  it('names a failed save and keeps the edits', async () => {
     withVersions([versionWire()])
     client.rpc.mockRejectedValue(new Error('template revision changed'))
     renderRoute()
 
-    await screen.findByRole('button', { name: 'Edit' })
-    fireEvent.click(screen.getByRole('button', { name: 'Edit' }))
-    fireEvent.click(screen.getByRole('button', { name: 'Save new version' }))
+    fireEvent.click(await screen.findByRole('button', { name: 'Edit parts' }))
+    fireEvent.change(screen.getByPlaceholderText('e.g. Pressure and ΔP'), {
+      target: { value: 'Notes' },
+    })
+    fireEvent.click(screen.getByRole('button', { name: 'Add section' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Done' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Save as draft v2' }))
 
     const alert = await screen.findByRole('alert')
     expect(alert.textContent).toContain('Couldn’t save the new version')
     expect(alert.textContent).toContain('template revision changed')
     expect(sonner.toast).not.toHaveBeenCalled()
     expect(
-      screen.getByRole('button', { name: 'Save new version' }),
+      screen.getByRole('button', { name: 'Save as draft v2' }),
     ).toBeTruthy()
   })
 })

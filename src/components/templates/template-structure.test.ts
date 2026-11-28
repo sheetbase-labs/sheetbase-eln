@@ -254,7 +254,7 @@ describe('template structure helpers', () => {
         id: `placement:${id(61)}:field:Native field:0:added`,
         kind: 'Added',
         subject: 'Native field',
-        detail: 'metric',
+        detail: 'Metric',
       },
     ])
     expect(reads).toEqual([

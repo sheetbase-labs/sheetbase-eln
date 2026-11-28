@@ -49,6 +49,11 @@ export default defineConfig({
   ],
   use: {
     baseURL: 'http://127.0.0.1:3100',
+    // The app's service worker serves navigations network-first and answers
+    // with its offline page when the dev server takes over five seconds to
+    // render a cold route, and reads under it skip `page.route`. Specs test
+    // the app, not the worker, so no page installs it.
+    serviceWorkers: 'block',
     trace: 'retain-on-failure',
     launchOptions: process.env.CHROMIUM_PATH
       ? { executablePath: process.env.CHROMIUM_PATH }

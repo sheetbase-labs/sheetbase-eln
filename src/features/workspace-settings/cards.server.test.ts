@@ -105,6 +105,12 @@ describe('the workspace settings cards', () => {
     expect(shown.summary).toBe('lock on sign stays')
   })
 
+  it('leaves units and abbreviations as written', () => {
+    expect(
+      plainWords('Four 10 mL samples at 25 U/mL, 2 mM MgCl2, 760 mmHg, cDNA'),
+    ).toBe('Four 10 mL samples at 25 U/mL, 2 mM MgCl2, 760 mmHg, cDNA')
+  })
+
   it('says so when a setting already is what was asked', async () => {
     const result = await buildWorkspaceSettingsProposal(
       WORKSPACE_RULES_TOOL,

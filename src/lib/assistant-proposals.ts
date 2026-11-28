@@ -344,14 +344,15 @@ export function proposalFromOutput(output: unknown): AssistantProposal | null {
 /**
  * Field names in card wording, as plain words: `requireChangeReason` and
  * `p_require_change_reason` both read "require change reason". The person never
- * sees an identifier, whatever the model wrote.
+ * sees an identifier, whatever the model wrote. Units and abbreviations such as
+ * mL, mM, mmHg, cDNA and siRNA are not field names and stay as written.
  */
 export function plainWords(text: string): string {
   return text
     .replaceAll(/\b(?:p_)?[a-z]+(?:_[a-z0-9]+)+\b/g, (word) =>
       word.replace(/^p_/, '').replaceAll('_', ' '),
     )
-    .replaceAll(/\b[a-z]+(?:[A-Z][a-z0-9]*)+\b/g, (word) =>
+    .replaceAll(/\b[a-z]{2,}(?:[A-Z][a-z0-9]{2,})+\b/g, (word) =>
       word.replaceAll(/[A-Z]/g, (letter) => ` ${letter.toLowerCase()}`),
     )
 }

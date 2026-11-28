@@ -16,6 +16,8 @@ import type {
 } from '@sheetbase-labs/sheetbase-shared'
 
 import { Button } from '#/components/ui/button'
+import { Icon } from '#/components/icons'
+import { cn } from '#/lib/utils'
 import {
   Popover,
   PopoverContent,
@@ -78,14 +80,21 @@ export function ListFilterButton({
           <Button
             variant="quiet"
             size="sm"
-            icon="filter"
-            className={count ? 'bg-selection hover:bg-selection' : undefined}
+            className={cn(
+              // On a phone only the icon shows, beside the search box; the
+              // chips under the toolbar already say what is filtered.
+              'max-md:size-10 max-md:px-0',
+              count ? 'bg-selection hover:bg-selection' : undefined,
+            )}
           />
         }
       >
-        {count
-          ? t('library.listFilter.addCount', { count })
-          : t('library.listFilter.add')}
+        <Icon name="filter" size={14} />
+        <span className="max-md:sr-only">
+          {count
+            ? t('library.listFilter.addCount', { count })
+            : t('library.listFilter.add')}
+        </span>
       </PopoverTrigger>
       <PopoverContent
         align="start"

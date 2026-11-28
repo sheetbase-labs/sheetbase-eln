@@ -22,7 +22,7 @@ import {
 } from '#/components/ui/dialog'
 import { EmptyState } from '#/components/ui/empty-state'
 import { Field, Input } from '#/components/ui/input'
-import { Muted, Section } from '#/components/ui/layout'
+import { Section } from '#/components/ui/layout'
 import { Skeleton } from '#/components/ui/skeleton'
 import { toast } from '#/components/ui/sonner'
 import { TableBox } from '#/components/ui/table'
@@ -233,6 +233,8 @@ function PreferenceSection({
     <Section
       title={title}
       count={rows.length > 0 ? rows.length : undefined}
+      description={hint}
+      wide
       action={
         canChange ? (
           <Button size="sm" onClick={onAdd}>
@@ -241,7 +243,6 @@ function PreferenceSection({
         ) : null
       }
     >
-      <Muted>{hint}</Muted>
       {loading ? (
         <Skeleton className="h-24 w-full" />
       ) : rows.length === 0 ? (

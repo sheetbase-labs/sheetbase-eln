@@ -50,11 +50,10 @@ export function SettingsSessions() {
   const sessions = query.data ?? []
 
   return (
-    <Section title={t('settings.sessions.mySessions')}>
-      <p className="m-0 text-body text-fg-muted">
-        {t('settings.sessions.devicesSignedEnding')}
-      </p>
-
+    <Section
+      title={t('settings.sessions.mySessions')}
+      description={t('settings.sessions.devicesSignedEnding')}
+    >
       {revoke.isError ? (
         <Notice tone="bad">
           {revoke.error instanceof Error
@@ -100,7 +99,7 @@ export function SettingsSessions() {
                   </p>
                   <p className="m-0 truncate text-label text-fg-muted">
                     {entry.ipAddress ?? '—'}
-                    {t('settings.sessions.started')}
+                    {t('settings.sessions.started')}{' '}
                     {formatWhen(entry.createdAt)}
                   </p>
                 </div>

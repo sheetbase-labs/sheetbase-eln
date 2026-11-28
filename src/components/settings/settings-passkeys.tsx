@@ -170,8 +170,10 @@ export function SettingsPasskeys() {
   ]
 
   return (
-    <Section title={t('people.passkeys.title')}>
-      <Muted>{t('people.passkeys.description')}</Muted>
+    <Section
+      title={t('people.passkeys.title')}
+      description={t('people.passkeys.description')}
+    >
       {list.isError ? (
         <Notice tone="bad">{messageOf(list.error)}</Notice>
       ) : rows.length === 0 ? (

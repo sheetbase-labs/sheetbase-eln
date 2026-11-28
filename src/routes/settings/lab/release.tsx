@@ -20,7 +20,9 @@ function ReleaseSettings() {
 
   return (
     <>
-      <SettingsHeader title={t('settings.storage.releaseChecks')} />
+      <SettingsHeader title={t('settings.storage.releaseChecks')}>
+        {t('settings.releaseRules.intro')}
+      </SettingsHeader>
       <ReleaseRulesPanel
         workspaceId={context.workspace?.id ?? ''}
         canManage={canManage}

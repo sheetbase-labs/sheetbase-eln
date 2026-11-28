@@ -203,6 +203,7 @@ export function LabWatchersPanel({ workspaceId }: { workspaceId: string }) {
 
       <Section
         title={t('agents.watchers.findingsTitle')}
+        wide
         action={
           <label className="flex items-center gap-2 text-label">
             <Checkbox

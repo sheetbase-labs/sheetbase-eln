@@ -19,24 +19,14 @@ export function ApiExample() {
   return (
     <Section
       title={t('settings.apiExample.useToken')}
-      action={
-        <CopyButton
-          value={command}
-          aria-label={t('settings.apiExample.copyExampleRequestAria')}
-        >
-          {t('common.actions.copy')}
-        </CopyButton>
-      }
+      description={rich('settings.apiExample.useTokenIntro', {
+        variable: (
+          <span className="mono">
+            {t('settings.apiExample.sheetbaseToken')}
+          </span>
+        ),
+      })}
     >
-      <p className="m-0 max-w-3xl text-body text-fg-muted">
-        {rich('settings.apiExample.useTokenIntro', {
-          variable: (
-            <span className="mono">
-              {t('settings.apiExample.sheetbaseToken')}
-            </span>
-          ),
-        })}
-      </p>
       <dl className="m-0 grid gap-x-8 gap-y-2 text-label sm:grid-cols-2">
         <div>
           <dt className="text-fg-muted">
@@ -56,9 +46,18 @@ export function ApiExample() {
           </dd>
         </div>
       </dl>
-      <pre className="m-0 overflow-auto rounded-md border border-border-subtle bg-surface-muted p-3 text-label">
-        <code>{command}</code>
-      </pre>
+      <div className="relative">
+        <pre className="m-0 overflow-auto rounded-md border border-border-subtle bg-surface-muted p-3 pr-20 text-label">
+          <code>{command}</code>
+        </pre>
+        <CopyButton
+          value={command}
+          aria-label={t('settings.apiExample.copyExampleRequestAria')}
+          className="absolute top-2 right-2"
+        >
+          {t('common.actions.copy')}
+        </CopyButton>
+      </div>
     </Section>
   )
 }

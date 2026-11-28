@@ -23,7 +23,9 @@ function WorkflowSettings() {
 
   return (
     <>
-      <SettingsHeader title={t('settings.storage.workflows')} />
+      <SettingsHeader title={t('settings.storage.workflows')}>
+        {t('settings.sampleWorkflows.intro')}
+      </SettingsHeader>
       <SampleWorkflowsPanel
         workspaceId={context.workspace?.id ?? ''}
         canManage={canManageSettings(context.workspace, 'storage')}

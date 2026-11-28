@@ -204,91 +204,102 @@ function Profile() {
 
   return (
     <>
-      <SettingsHeader title={t('settings.profile.profile')}>
-        {t('settings.profile.howAppearOthers')}
-      </SettingsHeader>
+      <SettingsHeader title={t('settings.profile.profile')} />
       <SettingsBody>
-        <div className="flex items-start gap-6 max-md:flex-col max-md:gap-4">
-          <ProfilePhoto
-            userId={user.id}
-            name={name}
-            initials={initials.trim().toUpperCase() || initialsOf(name)}
-          />
-          <div className="grid min-w-0 flex-1 grid-cols-1 gap-x-5 gap-y-4 md:grid-cols-[repeat(auto-fill,minmax(15rem,1fr))]">
-            <Field label={t('settings.profile.fullName')} error={error}>
-              <Input
-                value={name}
-                aria-invalid={Boolean(error) || undefined}
-                onChange={(e) => setName(e.target.value)}
-              />
-            </Field>
-            <Field label={t('settings.profile.initials')} error={initialsError}>
-              <Input
-                value={initials}
-                maxLength={6}
-                aria-invalid={Boolean(initialsError) || undefined}
-                onChange={(e) => setInitials(e.target.value)}
-              />
-            </Field>
-            <Field label={t('settings.profile.jobTitle')}>
-              <Input
-                value={jobTitle}
-                placeholder={t('settings.profile.researchScientistPlaceholder')}
-                onChange={(e) => setJobTitle(e.target.value)}
-              />
-            </Field>
-            <Field label={t('settings.profile.username')}>
-              <Input
-                value={context.workspace?.username ?? '—'}
-                readOnly
-                className="bg-surface-muted text-fg-muted"
-              />
-            </Field>
-            <Field label={t('settings.profile.timeZone')} error={timeZoneError}>
-              <Input
-                value={timeZone}
-                list="profile-time-zones"
-                placeholder={t('settings.profile.europeLondonPlaceholder')}
-                aria-invalid={Boolean(timeZoneError) || undefined}
-                onChange={(e) => setTimeZone(e.target.value)}
-              />
-              <datalist id="profile-time-zones">
-                {knownTimeZones().map((zoneName) => (
-                  <option key={zoneName} value={zoneName} />
-                ))}
-              </datalist>
-            </Field>
-            <Field label={t('settings.profile.email')}>
-              <div className="relative">
+        <Section
+          title={t('settings.profile.details')}
+          description={t('settings.profile.howAppearOthers')}
+        >
+          <div className="flex items-start gap-6 max-md:flex-col max-md:gap-4">
+            <ProfilePhoto
+              userId={user.id}
+              name={name}
+              initials={initials.trim().toUpperCase() || initialsOf(name)}
+            />
+            <div className="grid min-w-0 flex-1 grid-cols-1 gap-x-4 gap-y-4 sm:grid-cols-2">
+              <Field label={t('settings.profile.fullName')} error={error}>
                 <Input
-                  value={user.email}
-                  title={user.email}
-                  readOnly
-                  className="bg-surface-muted pr-[72px] text-fg-muted"
+                  value={name}
+                  aria-invalid={Boolean(error) || undefined}
+                  onChange={(e) => setName(e.target.value)}
                 />
-                <Button
-                  type="button"
-                  size="sm"
-                  variant="quiet"
-                  className="absolute right-0.5 top-0.5"
-                  onClick={(event) => {
-                    event.preventDefault()
-                    setChangingEmail(true)
-                  }}
-                >
-                  {t('account.email.change')}
-                </Button>
-              </div>
-            </Field>
-            <Field label={t('settings.profile.role')}>
-              <Input
-                value={context.workspace?.role ?? '—'}
-                readOnly
-                className="bg-surface-muted text-fg-muted"
-              />
-            </Field>
+              </Field>
+              <Field
+                label={t('settings.profile.initials')}
+                error={initialsError}
+              >
+                <Input
+                  value={initials}
+                  maxLength={6}
+                  aria-invalid={Boolean(initialsError) || undefined}
+                  onChange={(e) => setInitials(e.target.value)}
+                />
+              </Field>
+              <Field label={t('settings.profile.jobTitle')}>
+                <Input
+                  value={jobTitle}
+                  placeholder={t(
+                    'settings.profile.researchScientistPlaceholder',
+                  )}
+                  onChange={(e) => setJobTitle(e.target.value)}
+                />
+              </Field>
+              <Field label={t('settings.profile.username')}>
+                <Input
+                  value={context.workspace?.username ?? '—'}
+                  readOnly
+                  className="bg-surface-muted text-fg-muted"
+                />
+              </Field>
+              <Field
+                label={t('settings.profile.timeZone')}
+                error={timeZoneError}
+              >
+                <Input
+                  value={timeZone}
+                  list="profile-time-zones"
+                  placeholder={t('settings.profile.europeLondonPlaceholder')}
+                  aria-invalid={Boolean(timeZoneError) || undefined}
+                  onChange={(e) => setTimeZone(e.target.value)}
+                />
+                <datalist id="profile-time-zones">
+                  {knownTimeZones().map((zoneName) => (
+                    <option key={zoneName} value={zoneName} />
+                  ))}
+                </datalist>
+              </Field>
+              <Field label={t('settings.profile.email')}>
+                <div className="relative">
+                  <Input
+                    value={user.email}
+                    title={user.email}
+                    readOnly
+                    className="bg-surface-muted pr-[72px] text-fg-muted"
+                  />
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="quiet"
+                    className="absolute right-0.5 top-0.5"
+                    onClick={(event) => {
+                      event.preventDefault()
+                      setChangingEmail(true)
+                    }}
+                  >
+                    {t('account.email.change')}
+                  </Button>
+                </div>
+              </Field>
+              <Field label={t('settings.profile.role')}>
+                <Input
+                  value={context.workspace?.role ?? '—'}
+                  readOnly
+                  className="bg-surface-muted text-fg-muted"
+                />
+              </Field>
+            </div>
           </div>
-        </div>
+        </Section>
 
         <DisplayPreferences />
         {changingEmail ? (
@@ -302,9 +313,7 @@ function Profile() {
 
         <SettingsTwoFactor />
 
-        <Section title={t('settings.profile.sessions')}>
-          <SettingsSessions />
-        </Section>
+        <SettingsSessions />
 
         {context.workspace ? (
           <LeaveWorkspace

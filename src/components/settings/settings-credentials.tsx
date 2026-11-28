@@ -199,9 +199,9 @@ export function SettingsCredentials({
           </Button>
         ) : undefined
       }
+      description={copy.intro}
       className={className}
     >
-      <p className="m-0 max-w-3xl text-body text-fg-muted">{copy.intro}</p>
       {inactiveCount > 0 ? (
         <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
           <Muted>

@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 
-import { Muted, Section } from '#/components/ui/layout'
+import { Section } from '#/components/ui/layout'
 import { toast } from '#/components/ui/sonner'
 import { CheckRow } from '#/components/settings/settings-page'
 import { createDataClient } from '#/lib/data-client'
@@ -44,8 +44,10 @@ export function LakehouseSqlSection({
   const editable = canManage && dataAccess
 
   return (
-    <Section title={t('features.pipelineRemote.settings.lakeTitle')}>
-      <Muted>{t('features.pipelineRemote.settings.lakeHint')}</Muted>
+    <Section
+      title={t('features.pipelineRemote.settings.lakeTitle')}
+      description={t('features.pipelineRemote.settings.lakeHint')}
+    >
       <CheckRow
         title={t('features.pipelineRemote.settings.lakeSwitch')}
         body={

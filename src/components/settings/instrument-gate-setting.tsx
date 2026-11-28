@@ -69,10 +69,10 @@ export function InstrumentGateSetting({
   })
 
   return (
-    <Section title={t('settings.instruments.gateTitle')}>
-      <p className="m-0 max-w-2xl text-body text-fg-muted">
-        {t('settings.instruments.gateBody')}
-      </p>
+    <Section
+      title={t('settings.instruments.gateTitle')}
+      description={t('settings.instruments.gateBody')}
+    >
       <GateModeField
         label={t('settings.instruments.gateLabel')}
         options={OPTIONS}

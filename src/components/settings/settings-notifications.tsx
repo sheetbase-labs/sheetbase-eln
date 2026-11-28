@@ -9,6 +9,7 @@ import { useAutoSave } from './use-autosave'
 import { PhoneAlerts } from './phone-alerts'
 import { PluginChannels } from './plugin-channels'
 import { TableBox } from '#/components/ui/table'
+import { Section } from '#/components/ui/layout'
 import { RegistryGrid, bandRow } from '#/components/inventory/registry-grid'
 import type {
   RegistryColumn,
@@ -238,7 +239,7 @@ export function SettingsNotifications() {
   ]
 
   return (
-    <div className="flex flex-col gap-6">
+    <>
       {emailStatus.data && !emailStatus.data.configured ? (
         <Notice tone="warn">{t('settings.notifications.emailNotSetUp')}</Notice>
       ) : null}
@@ -247,15 +248,19 @@ export function SettingsNotifications() {
 
       <PluginChannels />
 
-      <TableBox>
-        <RegistryGrid
-          label={t('settings.notifications.notificationChannelsAria')}
-          rows={gridRows}
-          columns={columns}
-          getRowId={(row) => row.eventType}
-          selectable={false}
-        />
-      </TableBox>
+      <Section title={t('settings.notifications.eventsTitle')} wide>
+        {/* The ticks stay near the event they belong to instead of across
+            the whole pane. */}
+        <TableBox className="max-w-[60rem]">
+          <RegistryGrid
+            label={t('settings.notifications.notificationChannelsAria')}
+            rows={gridRows}
+            columns={columns}
+            getRowId={(row) => row.eventType}
+            selectable={false}
+          />
+        </TableBox>
+      </Section>
 
       <NotificationTimingFields
         quietStart={quietStart}
@@ -265,7 +270,7 @@ export function SettingsNotifications() {
         onQuietEndChange={setQuietEnd}
         onDigestTimeChange={setDigestTime}
       />
-    </div>
+    </>
   )
 }
 
@@ -288,10 +293,10 @@ function NotificationTimingFields({
 
   return (
     <>
-      <div className="flex flex-col gap-2">
-        <h3 className="text-label font-medium text-fg">
-          {t('settings.notifications.quietHours')}
-        </h3>
+      <Section
+        title={t('settings.notifications.quietHours')}
+        description={t('settings.notifications.reviewsDueToday', { zone })}
+      >
         <div className="flex flex-wrap items-center gap-2 text-body">
           <span className="text-fg-muted">
             {t('settings.notifications.holdEmailBetween')}
@@ -312,15 +317,12 @@ function NotificationTimingFields({
             onChange={(event) => onQuietEndChange(event.target.value || null)}
           />
         </div>
-        <p className="m-0 text-label text-fg-muted">
-          {t('settings.notifications.reviewsDueToday', { zone })}
-        </p>
-      </div>
+      </Section>
 
-      <div className="flex flex-col gap-2">
-        <h3 className="text-label font-medium text-fg">
-          {t('settings.notifications.digest')}
-        </h3>
+      <Section
+        title={t('settings.notifications.digest')}
+        description={t('settings.notifications.digestGoesOut')}
+      >
         <div className="flex flex-wrap items-center gap-2 text-body">
           <span className="text-fg-muted">
             {t('settings.notifications.send')}
@@ -336,10 +338,7 @@ function NotificationTimingFields({
             {t('settings.notifications.everyDay', { zone })}
           </span>
         </div>
-        <p className="m-0 text-label text-fg-muted">
-          {t('settings.notifications.digestGoesOut')}
-        </p>
-      </div>
+      </Section>
     </>
   )
 }

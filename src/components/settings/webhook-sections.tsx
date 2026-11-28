@@ -2,6 +2,7 @@ import { Link } from '@tanstack/react-router'
 import { useQuery } from '@tanstack/react-query'
 
 import { Muted } from '#/components/ui/layout'
+import { TableBox } from '#/components/ui/table'
 import { Status } from '#/components/ui/status'
 import { RegistryGrid } from '#/components/inventory/registry-grid'
 import type { RegistryColumn } from '#/components/inventory/registry-grid'
@@ -126,32 +127,27 @@ export function OutgoingWebhooks({ workspaceId }: { workspaceId: string }) {
   return (
     <section
       aria-label={t('settings.webhookSections.outgoingWebhooksAria')}
-      className="flex flex-col"
+      className="flex flex-col gap-3"
     >
       {subscriptions.error instanceof Error ? (
-        <p
-          role="alert"
-          className="px-4 py-3 text-label text-danger-text md:px-6"
-        >
+        <p role="alert" className="m-0 text-label text-danger-text">
           {t('settings.webhookSections.outgoingWebhooksCould')}
         </p>
       ) : rows.length ? (
-        <RegistryGrid
-          label={t('settings.webhookSections.outgoingWebhooksAria')}
-          rows={rows}
-          columns={outgoingColumns}
-          getRowId={(row) => row.sub.id}
-          selectable={false}
-          sortable={false}
-        />
+        <TableBox>
+          <RegistryGrid
+            label={t('settings.webhookSections.outgoingWebhooksAria')}
+            rows={rows}
+            columns={outgoingColumns}
+            getRowId={(row) => row.sub.id}
+            selectable={false}
+            sortable={false}
+          />
+        </TableBox>
       ) : subscriptions.isLoading ? (
-        <Muted className="px-4 py-3 md:px-6">
-          {t('settings.webhookSections.loadingOutgoingWebhooks')}
-        </Muted>
+        <Muted>{t('settings.webhookSections.loadingOutgoingWebhooks')}</Muted>
       ) : (
-        <Muted className="px-4 py-3 md:px-6">
-          {t('settings.webhookSections.nothingSentOther')}
-        </Muted>
+        <Muted>{t('settings.webhookSections.nothingSentOther')}</Muted>
       )}
     </section>
   )
@@ -205,20 +201,20 @@ export function IncomingWebhooks({ workspaceId }: { workspaceId: string }) {
   return (
     <section
       aria-label={t('settings.webhookSections.incomingWebhooksAria')}
-      className="flex flex-col"
+      className="flex flex-col gap-3"
     >
       {rows.length ? (
-        <RegistryGrid
-          label={t('settings.webhookSections.incomingWebhooksAria')}
-          rows={rows}
-          columns={incomingColumns}
-          getRowId={(row) => row.pipelineId}
-          selectable={false}
-        />
+        <TableBox>
+          <RegistryGrid
+            label={t('settings.webhookSections.incomingWebhooksAria')}
+            rows={rows}
+            columns={incomingColumns}
+            getRowId={(row) => row.pipelineId}
+            selectable={false}
+          />
+        </TableBox>
       ) : null}
-      <Muted className="px-4 py-3 md:px-6">
-        {t('settings.webhookSections.incomingWebhooksBelong')}
-      </Muted>
+      <Muted>{t('settings.webhookSections.incomingWebhooksBelong')}</Muted>
     </section>
   )
 }

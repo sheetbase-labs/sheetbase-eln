@@ -491,6 +491,7 @@ test('review comments use submitted cells after live edits and never rewrite fro
       JSON.stringify([{ rowKey: rows[1], fieldId: field, value: '77' }]),
     ],
   )
+  await page.setViewportSize({ width: 1800, height: 1000 })
   await page.goto(`/review/${revision.id}`)
   const frozenFour = page
     .getByRole('button', { name: /^Select Recovery row / })

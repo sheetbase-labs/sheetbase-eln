@@ -25,6 +25,7 @@ import { EmptyState } from '#/components/ui/empty-state'
 import { Notice } from '#/components/ui/alert'
 import { SettingsHeader } from '#/components/settings/settings-page'
 import { Tabs } from '#/components/ui/tabs'
+import { SectionLayout } from '#/components/ui/layout'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -250,45 +251,47 @@ function SettingsLayout() {
         </div>
         <div
           data-settings-content
-          className="relative flex min-h-0 min-w-0 flex-1 flex-col overflow-auto max-md:pb-20"
+          className="@container/settings relative flex min-h-0 min-w-0 flex-1 flex-col overflow-auto max-md:pb-20"
         >
-          {!allowed ? (
-            <>
-              <SettingsHeader title={current.label} />
-              <div className="px-4 md:px-6">
-                <EmptyState
-                  icon="lock"
-                  title={t('settings.page.roleOpenSection')}
-                  description={t(
-                    'settings.page.workspaceAdminChoosesDescription',
-                  )}
-                  action={
-                    <Button
-                      nativeButton={false}
-                      render={<Link to="/settings/account/profile" />}
-                    >
-                      {t('settings.page.openProfileSettings')}
-                    </Button>
-                  }
-                />
-              </div>
-            </>
-          ) : viewOnly ? (
-            <>
-              <div className="px-4 pt-3 md:px-6">
-                <Notice>{t('settings.page.viewSettingsRole')}</Notice>
-              </div>
-              {/* A disabled fieldset turns every control inside it read-only. */}
-              <fieldset
-                disabled
-                className="m-0 flex min-h-0 min-w-0 flex-1 flex-col border-0 p-0"
-              >
-                <Outlet />
-              </fieldset>
-            </>
-          ) : (
-            <Outlet />
-          )}
+          <SectionLayout mode="settings">
+            {!allowed ? (
+              <>
+                <SettingsHeader title={current.label} />
+                <div className="px-4 md:px-6">
+                  <EmptyState
+                    icon="lock"
+                    title={t('settings.page.roleOpenSection')}
+                    description={t(
+                      'settings.page.workspaceAdminChoosesDescription',
+                    )}
+                    action={
+                      <Button
+                        nativeButton={false}
+                        render={<Link to="/settings/account/profile" />}
+                      >
+                        {t('settings.page.openProfileSettings')}
+                      </Button>
+                    }
+                  />
+                </div>
+              </>
+            ) : viewOnly ? (
+              <>
+                <div className="px-4 pt-3 md:px-6">
+                  <Notice>{t('settings.page.viewSettingsRole')}</Notice>
+                </div>
+                {/* A disabled fieldset turns every control inside it read-only. */}
+                <fieldset
+                  disabled
+                  className="m-0 flex min-h-0 min-w-0 flex-1 flex-col border-0 p-0"
+                >
+                  <Outlet />
+                </fieldset>
+              </>
+            ) : (
+              <Outlet />
+            )}
+          </SectionLayout>
         </div>
       </div>
     </div>

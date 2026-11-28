@@ -206,6 +206,7 @@ None. Both the pure list and the live panel have stories.
 | Module                                                   | Why no story                                                                                                                                             |
 | -------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `src/components/ui/brand-mark-spokes.ts`                 | SVG path data for the mark, not a component. `BrandMark.stories.tsx` renders the assembled mark and `Spinner` renders the spokes individually.           |
+| `src/components/ui/section-layout.ts`                    | A context, not a component. `Section` reads it to lay out settings pages in two columns; the Section stories render it.                                  |
 | `src/components/audit/audit-icons.ts`                    | The icon vocabulary an audit row looks its icon up in; it renders no markup. `AuditTrail` stories exercise every event kind it resolves.                 |
 | `src/components/icons/icon-map.ts`                       | The name-to-icon map the `Icon` component reads; it renders no markup. The icon stories render each name through `Icon`.                                 |
 | `src/components/comments/comment-composer.tsx`           | The composer lives inside the thread it posts to; `CommentPanel.stories.tsx` renders it in place, with the same draft and submit contract.               |

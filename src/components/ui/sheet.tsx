@@ -1,4 +1,5 @@
 import { Dialog as DialogPrimitive } from '@base-ui/react/dialog'
+import { SectionLayoutContext } from './section-layout'
 import { Icon } from '#/components/icons'
 import { cn } from '#/lib/utils'
 import { t } from '#/copy'
@@ -34,49 +35,51 @@ export function SheetContent({
     <DialogPrimitive.Portal>
       <KeyboardAware />
       <DialogPrimitive.Backdrop className="fixed inset-0 z-50 bg-scrim animate-fade-in transition-opacity duration-250 ease-out data-ending-style:opacity-0 data-ending-style:duration-200 data-starting-style:opacity-0" />
-      <DialogPrimitive.Popup
-        data-slot="sheet"
-        className={cn(
-          'fixed z-50 flex flex-col border-border bg-surface shadow-dialog outline-none transition-transform duration-250 ease-drawer data-ending-style:duration-200',
-          sides[side],
-          className,
-        )}
-        {...props}
-      >
-        {side === 'bottom' || side === 'auto' ? (
+      <SectionLayoutContext value="stack">
+        <DialogPrimitive.Popup
+          data-slot="sheet"
+          className={cn(
+            'fixed z-50 flex flex-col border-border bg-surface shadow-dialog outline-none transition-transform duration-250 ease-drawer data-ending-style:duration-200',
+            sides[side],
+            className,
+          )}
+          {...props}
+        >
+          {side === 'bottom' || side === 'auto' ? (
+            <div
+              aria-hidden="true"
+              className={cn(
+                'flex justify-center pt-2',
+                side === 'auto' && 'lg:hidden',
+              )}
+            >
+              <span className="h-1 w-9 rounded-full bg-border-strong" />
+            </div>
+          ) : null}
           <div
-            aria-hidden="true"
             className={cn(
-              'flex justify-center pt-2',
-              side === 'auto' && 'lg:hidden',
+              'flex items-center gap-2 border-b border-border-subtle px-4 py-2.5',
+              // A full-height sheet runs under the status bar of the installed
+              // app, so its header clears it.
+              (side === 'left' || side === 'right') &&
+                'standalone:pt-[calc(0.625rem+env(safe-area-inset-top))]',
             )}
           >
-            <span className="h-1 w-9 rounded-full bg-border-strong" />
+            <DialogPrimitive.Title className="flex-1 font-heading text-[15px] font-semibold">
+              {title}
+            </DialogPrimitive.Title>
+            <DialogPrimitive.Close
+              aria-label={t('common.actions.close')}
+              className="inline-flex size-9 cursor-pointer items-center justify-center rounded-md border-0 bg-transparent text-fg transition-[background-color,scale] duration-150 ease-out hover:bg-surface-hover focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-focus active:scale-[.97]"
+            >
+              <Icon name="x" size={16} />
+            </DialogPrimitive.Close>
           </div>
-        ) : null}
-        <div
-          className={cn(
-            'flex items-center gap-2 border-b border-border-subtle px-4 py-2.5',
-            // A full-height sheet runs under the status bar of the installed
-            // app, so its header clears it.
-            (side === 'left' || side === 'right') &&
-              'standalone:pt-[calc(0.625rem+env(safe-area-inset-top))]',
-          )}
-        >
-          <DialogPrimitive.Title className="flex-1 font-heading text-[15px] font-semibold">
-            {title}
-          </DialogPrimitive.Title>
-          <DialogPrimitive.Close
-            aria-label={t('common.actions.close')}
-            className="inline-flex size-9 cursor-pointer items-center justify-center rounded-md border-0 bg-transparent text-fg transition-[background-color,scale] duration-150 ease-out hover:bg-surface-hover focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-focus active:scale-[.97]"
-          >
-            <Icon name="x" size={16} />
-          </DialogPrimitive.Close>
-        </div>
-        <div className="min-h-0 flex-1 overflow-auto overscroll-contain">
-          {children}
-        </div>
-      </DialogPrimitive.Popup>
+          <div className="min-h-0 flex-1 overflow-auto overscroll-contain">
+            {children}
+          </div>
+        </DialogPrimitive.Popup>
+      </SectionLayoutContext>
     </DialogPrimitive.Portal>
   )
 }

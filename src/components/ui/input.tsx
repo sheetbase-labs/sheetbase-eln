@@ -49,3 +49,18 @@ export function Field({
     </label>
   )
 }
+
+/**
+ * Fields and their buttons on one line: a domain and its Add button, a name,
+ * the role it gives and Add group. Everything sits on the inputs' baseline,
+ * and the row wraps as a whole on a narrow pane. Give each Field a width
+ * (`w-56`, `w-40`) rather than letting it stretch.
+ */
+export function FieldRow({ className, ...props }: React.ComponentProps<'div'>) {
+  return (
+    <div
+      className={cn('flex flex-wrap items-end gap-x-2 gap-y-3', className)}
+      {...props}
+    />
+  )
+}

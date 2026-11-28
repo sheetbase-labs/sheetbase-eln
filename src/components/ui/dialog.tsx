@@ -1,4 +1,5 @@
 import { Dialog as DialogPrimitive } from '@base-ui/react/dialog'
+import { SectionLayoutContext } from './section-layout'
 import { cn } from '#/lib/utils'
 import { KeyboardAware } from '#/lib/use-keyboard-inset'
 
@@ -66,20 +67,22 @@ export function DialogContent({
     <DialogPrimitive.Portal>
       <KeyboardAware />
       <DialogPrimitive.Backdrop className="fixed inset-0 z-50 bg-scrim animate-fade-in transition-opacity duration-200 ease-out data-ending-style:opacity-0 data-ending-style:duration-150 data-starting-style:opacity-0" />
-      <DialogPrimitive.Popup
-        data-slot="dialog-content"
-        className={cn(
-          'fixed left-1/2 top-[12vh] z-50 flex max-h-[80vh] w-[min(640px,calc(100vw-32px))] -translate-x-1/2 flex-col overflow-hidden rounded-lg border border-border bg-surface shadow-dialog outline-none data-open:animate-dialog-in max-md:data-open:animate-dialog-sheet-in transition-[opacity,scale,translate] duration-200 ease-out data-ending-style:scale-[.97] data-ending-style:duration-150 data-starting-style:scale-[.97] md:data-ending-style:opacity-0 md:data-starting-style:opacity-0 max-md:data-ending-style:scale-100 max-md:data-starting-style:scale-100 max-md:duration-250 max-md:ease-drawer max-md:data-ending-style:translate-y-full max-md:data-starting-style:translate-y-full max-md:inset-x-0 max-md:bottom-(--kb-lift) max-md:top-auto max-md:max-h-(--sheet-max-h) max-md:w-full! max-md:translate-x-0 max-md:rounded-b-none max-md:pb-[var(--kb-safe-bottom,env(safe-area-inset-bottom))]',
-          className,
-        )}
-        onKeyDown={(event) => {
-          onKeyDown?.(event)
-          submitOnEnter(event)
-        }}
-        {...props}
-      >
-        {children}
-      </DialogPrimitive.Popup>
+      <SectionLayoutContext value="stack">
+        <DialogPrimitive.Popup
+          data-slot="dialog-content"
+          className={cn(
+            'fixed left-1/2 top-[12vh] z-50 flex max-h-[80vh] w-[min(640px,calc(100vw-32px))] -translate-x-1/2 flex-col overflow-hidden rounded-lg border border-border bg-surface shadow-dialog outline-none data-open:animate-dialog-in max-md:data-open:animate-dialog-sheet-in transition-[opacity,scale,translate] duration-200 ease-out data-ending-style:scale-[.97] data-ending-style:duration-150 data-starting-style:scale-[.97] md:data-ending-style:opacity-0 md:data-starting-style:opacity-0 max-md:data-ending-style:scale-100 max-md:data-starting-style:scale-100 max-md:duration-250 max-md:ease-drawer max-md:data-ending-style:translate-y-full max-md:data-starting-style:translate-y-full max-md:inset-x-0 max-md:bottom-(--kb-lift) max-md:top-auto max-md:max-h-(--sheet-max-h) max-md:w-full! max-md:translate-x-0 max-md:rounded-b-none max-md:pb-[var(--kb-safe-bottom,env(safe-area-inset-bottom))]',
+            className,
+          )}
+          onKeyDown={(event) => {
+            onKeyDown?.(event)
+            submitOnEnter(event)
+          }}
+          {...props}
+        >
+          {children}
+        </DialogPrimitive.Popup>
+      </SectionLayoutContext>
     </DialogPrimitive.Portal>
   )
 }

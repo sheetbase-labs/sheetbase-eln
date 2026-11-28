@@ -1347,3 +1347,37 @@
     break-after: avoid;
   }
 }
+
+/*
+ * Settings sections (`Section` inside the settings shell, ui/layout.tsx).
+ * A hairline runs above every section after the first, across both columns,
+ * so the page reads as a list of groups. Unlayered so it beats utilities.
+ */
+:where(* + [data-settings-section]),
+:where(* + :not([data-settings-body])) > [data-settings-section]:first-child {
+  border-top: 1px solid var(--border-subtle);
+  padding-top: 1.75rem;
+}
+
+/* Forms in a section's control column keep a readable measure; a table there
+ * takes the column's whole width. */
+[data-settings-controls]
+  > :not(:has(table, [role='grid'], [role='table'], [data-full-width])) {
+  max-width: 44rem;
+}
+
+/* A field in a settings form is as wide as what goes in it: a choice or a
+ * password does not run across the whole column. */
+[data-settings-controls] label > span:has(> select[data-slot='select']) {
+  max-width: 22rem;
+}
+[data-settings-controls]
+  label
+  > :is(
+    input[type='password'],
+    input[type='number'],
+    input[type='time'],
+    input[type='date']
+  ) {
+  max-width: 16rem;
+}

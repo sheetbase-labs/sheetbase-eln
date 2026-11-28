@@ -480,7 +480,6 @@ export function ServiceLogSection({
 
   return (
     <Section
-      className="border-t border-border pt-4"
       title={t('library.instruments.serviceLog.title')}
       action={
         canLog ? (

@@ -165,7 +165,6 @@ export function ConvertedDataSection({
 
   return (
     <Section
-      className="border-t border-border pt-4"
       title={t('quality.instrumentData.title')}
       count={rows.length > 0 ? rows.length : undefined}
     >

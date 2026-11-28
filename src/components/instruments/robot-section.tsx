@@ -162,7 +162,6 @@ export function RobotSection({
 
   return (
     <Section
-      className="border-t border-border pt-4"
       title={t('automation.robot.title')}
       action={
         canManage ? (

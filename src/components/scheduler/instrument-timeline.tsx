@@ -121,10 +121,7 @@ export function InstrumentTimeline({ instrumentId }: { instrumentId: string }) {
   if (slots.isPending) return null
 
   return (
-    <Section
-      className="border-t border-border pt-4"
-      title={t('automation.schedule.timeline.title')}
-    >
+    <Section title={t('automation.schedule.timeline.title')}>
       <div className="flex flex-col gap-2">
         <p className="m-0 text-body text-fg-muted">
           {list.length === 0

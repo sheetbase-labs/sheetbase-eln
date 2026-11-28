@@ -54,7 +54,6 @@ export function QualificationSection({
 }) {
   return (
     <Section
-      className="border-t border-border pt-4"
       title={t('library.instruments.record.qualification')}
       count={qualificationsStatus === 'success' ? rows.length : undefined}
     >

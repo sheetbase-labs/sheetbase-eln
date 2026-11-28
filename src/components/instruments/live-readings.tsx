@@ -649,6 +649,8 @@ export function LiveReadingsSection({
       <ReadingsSection
         ownerId={instrument.id}
         fileLabel={instrument.displayId ?? 'instrument'}
+        // The record page spaces its sections; no rule above this one.
+        className=""
         feeds={rows}
         loaded={feeds.isSuccess}
         canSetLimits={canSetLimits}

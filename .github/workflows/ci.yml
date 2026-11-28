@@ -418,6 +418,21 @@ jobs:
             docker compose --env-file .env.ci-compose start postgres
             docker compose --env-file .env.ci-compose up -d --wait postgres
           fi
+          # The design workspace is a lab already in use, so its first-run setup
+          # is done. Without this the owner's Home opens over the "Set up your
+          # lab" dialog, which hides the page from every browser test. It is
+          # applied here, not in the seed: the sample-data load ends by marking
+          # this same workspace set up, so the seed must not mark it early.
+          node -e "
+            require('dotenv').config({ path: '.env.local', quiet: true });
+            const { Client } = require('pg');
+            (async () => {
+              const db = new Client({ connectionString: process.env.MIGRATION_DATABASE_URL });
+              await db.connect();
+              await db.query(\"update api.workspace_settings set setup_completed_at = now() where workspace_id = '00000000-0000-4000-8000-000000000300' and setup_completed_at is null\");
+              await db.end();
+            })();
+          "
           docker compose --env-file .env.ci-compose restart postgrest
           for attempt in $(seq 1 30); do
             if curl --fail --silent http://127.0.0.1:3002/ready; then break; fi

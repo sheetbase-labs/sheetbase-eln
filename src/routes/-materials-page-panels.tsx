@@ -3,7 +3,8 @@
  * and tabs, the list body with its toolbar and empty state, and the lot
  * inspector.
  */
-import { ListLoadError, listFailed } from '#/components/ui/list-load-error'
+import { ListLoadError } from '#/components/ui/list-load-error'
+import { listFailed } from '#/lib/list-failed'
 import { Link } from '@tanstack/react-router'
 
 import { Button } from '#/components/ui/button'

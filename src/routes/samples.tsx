@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
-import { ListLoadError, listFailed } from '#/components/ui/list-load-error'
+import { ListLoadError } from '#/components/ui/list-load-error'
+import { listFailed } from '#/lib/list-failed'
 import { useScrollLoad } from '#/lib/use-scroll-load'
 import { z } from 'zod'
 
@@ -865,7 +866,10 @@ function SamplesList() {
           id: string
           identifier: string
           project_id: string | null
-        }>('records', `?id=eq.${encodeURIComponent(search.experiment ?? '')}&kind=eq.experiment&select=id,identifier,project_id&limit=1`)
+        }>(
+          'records',
+          `?id=eq.${encodeURIComponent(search.experiment ?? '')}&kind=eq.experiment&select=id,identifier,project_id&limit=1`,
+        )
         .then((found) => found[0] ?? null),
     enabled: Boolean(search.experiment),
   })

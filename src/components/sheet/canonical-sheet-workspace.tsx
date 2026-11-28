@@ -179,6 +179,7 @@ import {
 import { sheetRecordTargetModelKey } from '#/lib/sheet-record-target'
 import type { CurrentContext } from '#/lib/current-user'
 import { useOfflineEdits } from '#/components/offline/offline-edits'
+import { isOfflineReplayOverlap } from '#/lib/offline/replay'
 import { overlayOfflineSheetEdits } from '#/lib/offline/sheet-overlay'
 import { requestBackgroundSync } from '#/lib/offline/service-worker'
 import type { OfflineJsonValue } from '#/lib/offline/store'
@@ -857,7 +858,7 @@ function useCanonicalWorkspaceSession({
     [],
   )
 
-  const persistLocalCells = useCallback(
+  const persistLocalCellsNow = useCallback(
     async (
       cells: Array<{
         rowKey: string
@@ -961,13 +962,11 @@ function useCanonicalWorkspaceSession({
         // a concurrent working-view write reads, so a stale rejection means a
         // sibling write landed first — not that the value is bad. Re-read the
         // instance and retry once so the typed value is not dropped.
-        if (
-          attempt === 0 &&
-          error instanceof Error &&
-          /stale/i.test(error.message)
-        ) {
+        // The server says SB073 "revision conflict" for this; older paths said
+        // "stale".
+        if (attempt === 0 && isOfflineReplayOverlap(error)) {
           if (await refreshInstanceForRetry()) {
-            return persistLocalCells(cells, extra, attempt + 1)
+            return persistLocalCellsNow(cells, extra, attempt + 1)
           }
         }
 
@@ -975,6 +974,28 @@ function useCanonicalWorkspaceSession({
       }
     },
     [keepCellsOnDevice, mutateLocalAsync, refreshInstanceForRetry],
+  )
+
+  /**
+   * Local writes go one at a time. Each sends the revision the one before it
+   * left, so a paste straight after a typed cell no longer races it with the
+   * same expected revision and comes back refused.
+   */
+  const localWrites = useRef<Promise<unknown> | null>(null)
+
+  const persistLocalCells = useCallback(
+    (
+      cells: Parameters<typeof persistLocalCellsNow>[0],
+      extra?: Parameters<typeof persistLocalCellsNow>[1],
+    ): Promise<SheetInstance> => {
+      const write = () => persistLocalCellsNow(cells, extra)
+      const run = localWrites.current?.then(write, write) ?? write()
+
+      localWrites.current = run.catch(() => undefined)
+
+      return run
+    },
+    [persistLocalCellsNow],
   )
 
   // GRID-04: presentation writes go through the existing sheet-instance state

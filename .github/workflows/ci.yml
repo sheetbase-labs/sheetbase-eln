@@ -162,6 +162,8 @@ jobs:
       - uses: actions/checkout@v4
       - uses: ./.github/actions/install
       - uses: ./.github/actions/services
+      # Files run four at a time: each copies one migrated template into a
+      # database of its own and starts its own PostgREST (tests/api/isolated-stack.ts).
       - run: pnpm test:api
       - name: Service diagnostics
         if: failure()
@@ -249,50 +251,39 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
+        # The journeys run against the production build (E2E_SERVER=build in
+        # playwright.config.ts), three browsers at a time. A dev server compiled
+        # each page on its first visit, which made every journey two to three
+        # times slower, and one browser per job left three of the runner's four
+        # cores idle while 17 jobs queued for runners. Playwright spreads files
+        # (and the tests of files marked parallel) evenly over the six shards.
         include:
-          - name: scientific workflow
-            files: tests/browser/journeys/complete-scientific-workflow.test.ts
-          - name: analysis and notebook
+          - name: built app 1/6
+            shard: 1/6
+          - name: built app 2/6
+            shard: 2/6
+          - name: built app 3/6
+            shard: 3/6
+          - name: built app 4/6
+            shard: 4/6
+          - name: built app 5/6
+            shard: 5/6
+          - name: built app 6/6
+            shard: 6/6
+          # The component tests that swap server functions for fixtures (and the
+          # dev-only /foundations page) need the Vite dev server.
+          - name: dev server
+            dev: true
             files: >-
-              tests/browser/journeys/analysis.test.ts
-              tests/browser/journeys/notebook-keys.test.ts
-          - name: settings components
-            files: tests/browser/settings
-          - name: workspace panes
-            files: >-
-              tests/browser/workspace-panes.test.ts
-              tests/browser/experiment-pane-render.test.ts
-              tests/browser/experiment-request-budget.test.ts
-              tests/browser/workspace/
-          # The Agent page against a scripted model: cards applied in a row,
-          # a plan, links in answers (tests/api/assistant has the API layer).
-          - name: assistant conversations
-            files: tests/browser/assistant-conversations.test.ts
-          # Two browsers typing in one notebook block through the bundled
-          # co-editing server.
-          - name: live co-editing
-            files: tests/browser/collab-01-co-editing.test.ts
-          # iPhone size, installed-app safe areas and a simulated keyboard:
-          # every menu, popover and sheet must open where it can be seen.
-          # Each file still ran 8 to 9 minutes alone, the longest job in the
-          # run, so each is split in two by test. The tests share no state
-          # (each signs in afresh), and each shard has its own database.
-          - name: phone pages 1/2
-            files: tests/browser/phone/pages.test.ts
-            fully: true
-            shard: 1/2
-          - name: phone pages 2/2
-            files: tests/browser/phone/pages.test.ts
-            fully: true
-            shard: 2/2
-          - name: phone slash menu 1/2
-            files: tests/browser/phone/slash-menu.test.ts
-            fully: true
-            shard: 1/2
-          - name: phone slash menu 2/2
-            files: tests/browser/phone/slash-menu.test.ts
-            fully: true
-            shard: 2/2
+              tests/browser/settings
+              tests/browser/workspace/pane-page.test.ts
+              tests/browser/shell-01-one-shell.test.ts
+              tests/browser/grid-keyboard-selection.test.ts
+          # The signing journeys run on their own config and server, because
+          # they sign in as fixture users with real passwords.
+          - name: signing
+            dev: true
+            signing: true
           # PARKED, to be rewritten against the current screens (each fails
           # today because its screens changed, not because the app is broken).
           # They are named here, not in a job, so the coverage test in
@@ -316,62 +307,54 @@ jobs:
           #   tests/browser/note-01-authoring.test.ts
           #   tests/browser/projects-workflow.test.ts
           #   tests/browser/note-01-review-document.test.ts
-          # Every other browser test, spread over six jobs by file. The list
-          # is checked against tests/browser by src/lib/browser-ci-coverage.test.ts,
-          # so a new test file cannot go unrun.
-          - name: other journeys 1/6
-            files: &other-journeys >-
-              tests/browser/ai-assistant.test.ts
-              tests/browser/click-targets.test.ts
-              tests/browser/client-viewer-scope.test.ts
-              tests/browser/data-007-dataset-explorer.test.ts
-              tests/browser/exp-06-history.test.ts
-              tests/browser/grid-keyboard-selection.test.ts
-              tests/browser/history-timeline.test.ts
-              tests/browser/home-quiet-ui.test.ts
-              tests/browser/home-ui.test.ts
-              tests/browser/list-keeps-place.test.ts
-              tests/browser/member-role-visibility.test.ts
-              tests/browser/navigation-smoothness.test.ts
-              tests/browser/phase4-proof.test.ts
-              tests/browser/proj-01-properties.test.ts
-              tests/browser/protocol-acknowledgement.test.ts
-              tests/browser/registry-grid.test.ts
-              tests/browser/registry-screens.test.ts
-              tests/browser/reviews-inbox.test.ts
-              tests/browser/route-smoke.test.ts
-              tests/browser/sci-009-virus-stability.test.ts
-              tests/browser/sci-04-visualisation.test.ts
-              tests/browser/sheet-comments.test.ts
-              tests/browser/shell-01-one-shell.test.ts
-              tests/browser/shell-03-keyboard.test.ts
-              tests/browser/workspace-same-page.test.ts
-              tests/browser/journeys/admin-more.test.ts
-              tests/browser/journeys/analysis-more.test.ts
-              tests/browser/journeys/core-loop.test.ts
-              tests/browser/journeys/seeded-sweep.test.ts
-            shard: 1/6
-          - name: other journeys 2/6
-            files: *other-journeys
-            shard: 2/6
-          - name: other journeys 3/6
-            files: *other-journeys
-            shard: 3/6
-          - name: other journeys 4/6
-            files: *other-journeys
-            shard: 4/6
-          - name: other journeys 5/6
-            files: *other-journeys
-            shard: 5/6
-          - name: other journeys 6/6
-            files: *other-journeys
-            shard: 6/6
-          # The signing journeys run on their own config and server, because
-          # they sign in as fixture users with real passwords.
-          - name: signing
-            signing: true
     env:
       SHEETBASE_DEV_AUTH_FREE: 'false'
+      # Every browser test on the production build. The list is checked
+      # against tests/browser by src/lib/browser-ci-coverage.test.ts, so a new
+      # test file cannot go unrun.
+      BUILT_APP_TESTS: >-
+        tests/browser/journeys/complete-scientific-workflow.test.ts
+        tests/browser/journeys/analysis.test.ts
+        tests/browser/journeys/notebook-keys.test.ts
+        tests/browser/workspace-panes.test.ts
+        tests/browser/experiment-pane-render.test.ts
+        tests/browser/experiment-request-budget.test.ts
+        tests/browser/workspace/record-page.test.ts
+        tests/browser/workspace/record-page-dataset.test.ts
+        tests/browser/workspace/record-page-instrument.test.ts
+        tests/browser/workspace/record-page-kinds.test.ts
+        tests/browser/workspace/record-page-sample.test.ts
+        tests/browser/assistant-conversations.test.ts
+        tests/browser/collab-01-co-editing.test.ts
+        tests/browser/phone/pages.test.ts
+        tests/browser/phone/slash-menu.test.ts
+        tests/browser/ai-assistant.test.ts
+        tests/browser/click-targets.test.ts
+        tests/browser/client-viewer-scope.test.ts
+        tests/browser/data-007-dataset-explorer.test.ts
+        tests/browser/exp-06-history.test.ts
+        tests/browser/history-timeline.test.ts
+        tests/browser/home-quiet-ui.test.ts
+        tests/browser/home-ui.test.ts
+        tests/browser/list-keeps-place.test.ts
+        tests/browser/member-role-visibility.test.ts
+        tests/browser/navigation-smoothness.test.ts
+        tests/browser/phase4-proof.test.ts
+        tests/browser/proj-01-properties.test.ts
+        tests/browser/protocol-acknowledgement.test.ts
+        tests/browser/registry-grid.test.ts
+        tests/browser/registry-screens.test.ts
+        tests/browser/reviews-inbox.test.ts
+        tests/browser/route-smoke.test.ts
+        tests/browser/sci-009-virus-stability.test.ts
+        tests/browser/sci-04-visualisation.test.ts
+        tests/browser/sheet-comments.test.ts
+        tests/browser/shell-03-keyboard.test.ts
+        tests/browser/workspace-same-page.test.ts
+        tests/browser/journeys/admin-more.test.ts
+        tests/browser/journeys/analysis-more.test.ts
+        tests/browser/journeys/core-loop.test.ts
+        tests/browser/journeys/seeded-sweep.test.ts
     steps:
       - uses: actions/checkout@v4
       - uses: ./.github/actions/install
@@ -407,7 +390,11 @@ jobs:
       # they confirm it is current.
       - name: Migrate and seed the acceptance workspace, and build
         run: |
-          pnpm build > "$RUNNER_TEMP/build.log" 2>&1 &
+          if [ "${{ matrix.dev }}" = 'true' ]; then
+            true &
+          else
+            pnpm build > "$RUNNER_TEMP/build.log" 2>&1 &
+          fi
           build=$!
           pnpm db:migrate
           if [ "${{ steps.seed-cache.outputs.cache-hit }}" != 'true' ]; then
@@ -449,7 +436,7 @@ jobs:
             echo "::error::Production build failed"
             exit 1
           fi
-          tail -5 "$RUNNER_TEMP/build.log"
+          if [ -f "$RUNNER_TEMP/build.log" ]; then tail -5 "$RUNNER_TEMP/build.log"; fi
       - name: Save the seeded database
         if: steps.seed-cache.outputs.cache-hit != 'true'
         uses: actions/cache/save@v4
@@ -470,12 +457,17 @@ jobs:
       # The browser's system libraries come to about 22 MB, mostly fonts, and
       # the runner's apt mirror sometimes serves them at 40 kB/s, which took
       # 9 to 15 minutes. Keep the downloaded packages between runs. (Timeouts
-      # do not help: the mirror is slow, not stalled.)
+      # do not help: the mirror is slow, not stalled.) Only the .deb files are
+      # kept: apt's root-owned partial/ and lock made every save fail, and the
+      # runner image version is a shell variable, not part of `env`.
+      - name: Find the runner image
+        id: image
+        run: echo "version=${ImageVersion:-unknown}" >> "$GITHUB_OUTPUT"
       - name: Restore the browser's system packages
         uses: actions/cache@v4
         with:
-          path: ~/apt-debs
-          key: apt-playwright-${{ runner.os }}-${{ env.ImageVersion }}-${{ steps.playwright.outputs.version }}
+          path: ~/apt-debs/*.deb
+          key: apt-playwright-${{ runner.os }}-${{ steps.image.outputs.version }}-${{ steps.playwright.outputs.version }}
       - name: Point apt at the cached packages
         run: |
           mkdir -p ~/apt-debs/partial
@@ -486,12 +478,16 @@ jobs:
       - name: Install browser system libraries
         if: steps.browser-cache.outputs.cache-hit == 'true'
         run: pnpm exec playwright install-deps chromium
+      - name: Let the cache read the packages
+        run: sudo chown -R "$(id -u):$(id -g)" ~/apt-debs
       - name: Browser journeys
         if: ${{ !matrix.signing }}
+        env:
+          E2E_SERVER: ${{ !matrix.dev && 'build' || '' }}
         run: >-
-          pnpm exec playwright test ${{ matrix.files }}
-          --project=browser --workers=1
-          ${{ matrix.shard && format('{0}--shard={1}', matrix.fully && '--fully-parallel ' || '', matrix.shard) || '' }}
+          pnpm exec playwright test ${{ matrix.files || env.BUILT_APP_TESTS }}
+          --project=browser --workers=3
+          ${{ matrix.shard && format('--shard={0}', matrix.shard) || '' }}
       - name: Native signing acceptance
         if: ${{ matrix.signing }}
         run: pnpm exec playwright test --config playwright.signatures.config.ts --workers=1

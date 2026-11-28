@@ -133,6 +133,7 @@ import {
 } from './semantic-tools.server'
 import { handleMcpMessage } from './mcp/handler'
 import type { McpContext } from './mcp/handler'
+import { formatWeekday } from '#/lib/format-date'
 
 /** Each feature folder's assistant tools (`src/features/<name>/assistant.server.ts`). */
 const FEATURE_SERVERS: readonly FeatureAssistantServer[] =
@@ -255,10 +256,7 @@ const CHAT_RULES = [
 function clockLine(timeZone: string, now: Date): string {
   const local = localFromInstant(now, timeZone)
 
-  const weekday = new Intl.DateTimeFormat('en-GB', {
-    timeZone,
-    weekday: 'long',
-  }).format(now)
+  const weekday = formatWeekday(now, { long: true, timeZone })
 
   return `It is ${weekday} ${local.replace('T', ' ')} on the person’s clock (${timeZone}). Give and take times on that clock; write them like ${describeSlot(now, new Date(now.getTime() + 3_600_000), timeZone)}.`
 }

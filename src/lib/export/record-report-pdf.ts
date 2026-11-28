@@ -18,6 +18,7 @@ import { drawFigure, figureHeight } from './figure-draw'
 import type { PdfFigure } from './chart-figure'
 import { frozenSheetGridFromEvidence } from '#/lib/frozen-sheet-grid'
 import { sheetEvidenceFromEnvelope } from '#/lib/sheet-evidence'
+import { formatDate } from '#/lib/format-date'
 
 const PAGE_WIDTH = 595.28
 const PAGE_HEIGHT = 841.89
@@ -61,30 +62,14 @@ export interface ReportInput {
   figures?: ReadonlyMap<string, PdfFigure>
 }
 
-const MONTHS = [
-  'Jan',
-  'Feb',
-  'Mar',
-  'Apr',
-  'May',
-  'Jun',
-  'Jul',
-  'Aug',
-  'Sep',
-  'Oct',
-  'Nov',
-  'Dec',
-]
-
 /** `21 Sep 2026, 13:10 UTC`: unambiguous and the same wherever it is read. */
 export function reportDateTime(value: string | null | undefined): string {
   if (!value) return '—'
   const parsed = new Date(value)
 
   if (Number.isNaN(parsed.getTime())) return '—'
-  const pad = (n: number) => String(n).padStart(2, '0')
 
-  return `${parsed.getUTCDate()} ${MONTHS[parsed.getUTCMonth()]} ${parsed.getUTCFullYear()}, ${pad(parsed.getUTCHours())}:${pad(parsed.getUTCMinutes())} UTC`
+  return formatDate(parsed, { time: true, timeZone: 'UTC', zone: true })
 }
 
 const MEANING_WORDS = new Map([

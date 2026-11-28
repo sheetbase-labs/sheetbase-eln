@@ -4,6 +4,55 @@
  * the same thing is always said the same way.
  */
 export const common = {
+  /** How a person is named when it is the reader. */
+  people: {
+    you: 'You',
+  },
+  /** Stored statuses as words, read through `statusWord`. */
+  status: {
+    draft: 'Draft',
+    planned: 'Planned',
+    inProgress: 'In progress',
+    running: 'Running',
+    inReview: 'In review',
+    returned: 'Returned',
+    approved: 'Approved',
+    signed: 'Signed',
+    locked: 'Locked',
+    onHold: 'On hold',
+    failed: 'Failed',
+    complete: 'Complete',
+    active: 'Active',
+    open: 'Open',
+    closed: 'Closed',
+    cancelled: 'Cancelled',
+    archived: 'Archived',
+    retired: 'Retired',
+    published: 'Published',
+    effective: 'Effective',
+    superseded: 'Superseded',
+    released: 'Released',
+    quarantine: 'Quarantine',
+    quarantined: 'Quarantined',
+    available: 'Available',
+    consumed: 'Consumed',
+    expired: 'Expired',
+    valid: 'Valid',
+    invalid: 'Invalid',
+    pending: 'Pending',
+    rejected: 'Rejected',
+  },
+  /** How long ago something happened, as `formatAgo` writes it. */
+  when: {
+    justNow: 'just now',
+    anyMoment: 'any moment',
+    minutes: '{count}m',
+    hours: '{count}h',
+    days: '{count}d',
+    weeks: '{count}w',
+    ago: '{amount} ago',
+    in: 'in {amount}',
+  },
   /** A storage path shortened to its most specific places. */
   locationTail: '… / {tail}',
   /** How a list orders and groups its rows, in every list's toolbar. */

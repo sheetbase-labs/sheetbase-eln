@@ -7,6 +7,7 @@ import { z } from 'zod'
 import type { MaterialListRow } from '#/components/materials/materials-data'
 import type { RecordFact } from '#/components/record-page/record-page'
 import type { ReagentMovement } from '#/lib/reagent-data'
+import { formatDate } from '#/lib/format-date'
 import { t } from '#/copy'
 
 import { stockOfTotal } from '../-materials-page-model'
@@ -38,36 +39,11 @@ export const lotTabSchema = z.enum([
 export type LotTab = z.infer<typeof lotTabSchema>
 
 export function dayLabel(iso: string | null): string {
-  if (!iso) return '—'
-  const date = new Date(iso)
-
-  if (Number.isNaN(date.getTime())) return '—'
-
-  return date
-    .toLocaleDateString('en-GB', {
-      day: 'numeric',
-      month: 'short',
-      year: 'numeric',
-      timeZone: 'UTC',
-    })
-    .replace('Sept', 'Sep')
+  return formatDate(iso, { timeZone: 'UTC' })
 }
 
 export function dateTimeLabel(iso: string): string {
-  const date = new Date(iso)
-
-  if (Number.isNaN(date.getTime())) return '—'
-
-  return date
-    .toLocaleString('en-GB', {
-      day: 'numeric',
-      month: 'short',
-      year: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
-      timeZone: 'UTC',
-    })
-    .replace('Sept', 'Sep')
+  return formatDate(iso, { time: true, timeZone: 'UTC' })
 }
 
 export function amount(value: number, unit: string | null): string {

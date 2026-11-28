@@ -29,9 +29,9 @@ pre-commit:
         - '{vite,vitest,drizzle}.config.ts'
       run: bunx oxlint --type-aware --deny-warnings --report-unused-disable-directives --format=agent {staged_files}
 
-    - name: copy and colours
+    - name: copy, colours and dates
       glob: 'src/**/*.{ts,tsx,css}'
-      run: bunx tsx scripts/check-copy.mts && bunx tsx scripts/check-colours.mts
+      run: bunx tsx scripts/check-copy.mts && bunx tsx scripts/check-colours.mts && bunx tsx scripts/check-dates.mts
 
     - name: react doctor
       glob: 'src/**/*.{ts,tsx}'

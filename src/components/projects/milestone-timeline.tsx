@@ -3,7 +3,12 @@ import { t } from '#/copy'
 import type { MilestoneRiskState, StudyTaskStatus } from '#/lib/planner'
 import { cn } from '#/lib/utils'
 import { now as appNow } from '#/lib/clock'
-import { formatDate } from '#/lib/format-date'
+import {
+  formatDate,
+  formatDay,
+  formatMonth,
+  formatRange,
+} from '#/lib/format-date'
 
 /**
  * The project plan timeline (R5-CONFIG-05): a month/week scale, a today
@@ -109,12 +114,7 @@ export function timelineTicks(
     while (cursor.getTime() < end) {
       ticks.push({
         at: cursor.getTime(),
-        label: cursor
-          .toLocaleDateString('en-GB', {
-            day: 'numeric',
-            month: 'short',
-          })
-          .replace('Sept', 'Sep'),
+        label: formatDay(cursor),
       })
       cursor.setDate(cursor.getDate() + 7)
     }
@@ -127,9 +127,7 @@ export function timelineTicks(
   while (cursor.getTime() < end) {
     ticks.push({
       at: cursor.getTime(),
-      label: cursor
-        .toLocaleDateString('en-GB', { month: 'short' })
-        .replace('Sept', 'Sep'),
+      label: formatMonth(cursor),
     })
     cursor.setMonth(cursor.getMonth() + 1)
   }
@@ -368,12 +366,7 @@ export function MilestoneTimeline({
     (d) => visible.has(d.predecessorId) && visible.has(d.successorId),
   )
 
-  const todayLabel = new Date(now)
-    .toLocaleDateString('en-GB', {
-      day: 'numeric',
-      month: 'short',
-    })
-    .replace('Sept', 'Sep')
+  const todayLabel = formatDay(new Date(now))
 
   return (
     <section
@@ -480,17 +473,7 @@ export function MilestoneTimeline({
                 </div>
                 <div className="truncate text-caption text-fg-muted">
                   {band.start
-                    ? `${new Date(band.start)
-                        .toLocaleDateString('en-GB', {
-                          day: 'numeric',
-                          month: 'short',
-                        })
-                        .replace('Sept', 'Sep')} – ${new Date(band.end)
-                        .toLocaleDateString('en-GB', {
-                          day: 'numeric',
-                          month: 'short',
-                        })
-                        .replace('Sept', 'Sep')}`
+                    ? formatRange(new Date(band.start), new Date(band.end))
                     : t('projects.milestoneTimeline.noDates')}
                 </div>
               </div>

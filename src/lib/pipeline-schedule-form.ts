@@ -25,6 +25,7 @@ import type {
   PipelineScheduleKind,
 } from './pipeline-schedule'
 import { now as appNow } from '#/lib/clock'
+import { formatAgo } from '#/lib/format-date'
 
 export type Repeat =
   'interval' | 'daily' | 'weekdays' | 'weekly' | 'monthly' | 'cron' | 'event'
@@ -541,20 +542,9 @@ export function describeParameters(stored: ScheduleSpecWire): string {
     .join(', ')
 }
 
-/** "in 3 h", "2 d ago": how far an instant is from now, for a quick read. */
+/** "in 3h", "2d ago": how far an instant is from now, for a quick read. */
 export function relativeTime(iso: string, now: Date = appNow()): string {
-  const diff = Date.parse(iso) - now.getTime()
+  if (Number.isNaN(Date.parse(iso))) return ''
 
-  if (Number.isNaN(diff)) return ''
-  const abs = Math.abs(diff)
-  const minutes = Math.round(abs / 60_000)
-  let amount: string
-
-  if (minutes < 1) return diff >= 0 ? 'any moment' : 'just now'
-
-  if (minutes < 60) amount = `${minutes} min`
-  else if (minutes < 60 * 48) amount = `${Math.round(minutes / 60)} h`
-  else amount = `${Math.round(minutes / 1440)} d`
-
-  return diff >= 0 ? `in ${amount}` : `${amount} ago`
+  return formatAgo(iso, now)
 }

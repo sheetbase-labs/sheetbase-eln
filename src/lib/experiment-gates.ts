@@ -20,6 +20,7 @@ import { z } from 'zod'
 
 import type { DataClient } from '#/lib/data-client'
 import type { NotebookBlock } from './notebook-data'
+import { formatDate as formatCalendarDate } from '#/lib/format-date'
 
 export type GateMode = 'warn' | 'block'
 
@@ -437,14 +438,7 @@ function partCondition(
 }
 
 function formatDate(iso: string): string {
-  const date = new Date(`${iso}T00:00:00Z`)
-
-  const month = date.toLocaleString('en-GB', {
-    month: 'short',
-    timeZone: 'UTC',
-  })
-
-  return `${date.getUTCDate()} ${month} ${date.getUTCFullYear()}`
+  return formatCalendarDate(iso, { timeZone: 'UTC' })
 }
 
 /** Check one condition against what the page has loaded. */

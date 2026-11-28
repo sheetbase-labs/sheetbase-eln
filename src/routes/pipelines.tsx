@@ -80,6 +80,8 @@ import { useListArrange } from '#/components/inventory/list-arrange'
 import type { ListArrange } from '#/components/inventory/list-arrange'
 import { ownerColumn, updatedColumn } from '#/components/inventory/list-columns'
 import { undoToast } from '#/lib/undo-toast'
+import { formatListDate } from '#/lib/list-date'
+import { now as appNow } from '#/lib/clock'
 
 const tabs = [
   'all',
@@ -197,12 +199,7 @@ interface ListContext {
 
 /** "10:12" for today, "21 Sep" before. */
 function shortWhen(iso: string): string {
-  const at = new Date(iso)
-  const now = new Date()
-
-  return at.toDateString() === now.toDateString()
-    ? at.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })
-    : at.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })
+  return formatListDate(iso, appNow())
 }
 
 /** What a run of this pipeline leaves behind: nothing, an addition or a new dataset. */

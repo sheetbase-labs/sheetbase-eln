@@ -11,10 +11,9 @@
  * role but does not assume enforcement — every mutation is a controlled RPC.
  */
 import type { DataClient } from './data-client'
-import { formatDate as formatDateOnly } from './format-date'
+import { formatAgo, formatDate as formatDateOnly } from './format-date'
 import { DataClientError } from './data-client'
 import type { AuditEventWire } from './audit-history'
-import { now as appNow } from '#/lib/clock'
 
 /** A JSON value stored in a workspace setting. */
 export type JsonValue =
@@ -676,31 +675,9 @@ export function isOwnerRole(role: string): boolean {
 export function formatRelativeTime(
   timestamp: string | null | undefined,
 ): string {
-  if (!timestamp) return 'Never'
-  const elapsed = appNow().getTime() - new Date(timestamp).getTime()
+  if (!timestamp || Number.isNaN(Date.parse(timestamp))) return 'Never'
 
-  if (!Number.isFinite(elapsed)) return 'Never'
-  const future = elapsed < 0
-  const seconds = Math.round(Math.abs(elapsed) / 1000)
-
-  const units: Array<[number, string]> = [
-    [31_536_000, 'year'],
-    [2_592_000, 'month'],
-    [604_800, 'week'],
-    [86_400, 'day'],
-    [3_600, 'hour'],
-    [60, 'minute'],
-    [1, 'second'],
-  ]
-
-  const [size, name] =
-    units.find(([unitSize]) => seconds >= unitSize) ?? units[6]
-
-  const value = Math.max(1, Math.floor(seconds / size))
-
-  return future
-    ? `in ${value} ${name}${value === 1 ? '' : 's'}`
-    : `${value} ${name}${value === 1 ? '' : 's'} ago`
+  return formatAgo(timestamp)
 }
 
 export function formatDate(timestamp: string | null | undefined): string {

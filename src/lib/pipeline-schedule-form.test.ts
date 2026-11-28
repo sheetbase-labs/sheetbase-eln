@@ -312,10 +312,10 @@ describe('relativeTime', () => {
   const now = new Date('2026-10-21T12:00:00Z')
   it('reads past and future', () => {
     expect(relativeTime('2026-10-21T12:00:20Z', now)).toBe('any moment')
-    expect(relativeTime('2026-10-21T12:45:00Z', now)).toBe('in 45 min')
-    expect(relativeTime('2026-10-21T18:00:00Z', now)).toBe('in 6 h')
-    expect(relativeTime('2026-10-21T09:00:00Z', now)).toBe('3 h ago')
-    expect(relativeTime('2026-10-14T12:00:00Z', now)).toBe('7 d ago')
+    expect(relativeTime('2026-10-21T12:45:00Z', now)).toBe('in 45m')
+    expect(relativeTime('2026-10-21T18:00:00Z', now)).toBe('in 6h')
+    expect(relativeTime('2026-10-21T09:00:00Z', now)).toBe('3h ago')
+    expect(relativeTime('2026-10-14T12:00:00Z', now)).toBe('1w ago')
   })
 })
 

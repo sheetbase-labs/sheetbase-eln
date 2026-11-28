@@ -92,6 +92,7 @@ import {
   unavailableSections,
 } from './-home-first-run'
 import type { HomeQueryState } from './-home-first-run'
+import { formatLongDay } from '#/lib/format-date'
 
 /** Rows Home's recent activity shows, and how many events it reads to fill
  * them. */
@@ -837,12 +838,7 @@ export function useHomeModel({
       for (const query of queries) if (query.isError) void query.refetch()
     }
 
-  const today = appNow().toLocaleDateString('en-GB', {
-    timeZone: base.timeZone,
-    weekday: 'long',
-    day: 'numeric',
-    month: 'long',
-  })
+  const today = formatLongDay(appNow(), { timeZone: base.timeZone })
 
   return {
     context,
@@ -972,6 +968,7 @@ export function homeGreeting(
   if (!first) return t('projects.home.title')
 
   const hour = Number(
+    // date-format-ignore-next-line -- Reads the hour as a number to pick the greeting; nothing is shown.
     at.toLocaleString('en-GB', { timeZone, hour: '2-digit', hour12: false }),
   )
 

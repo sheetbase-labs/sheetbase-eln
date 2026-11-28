@@ -49,6 +49,8 @@ import {
   FIELD_LABELS,
 } from './gate-description'
 import type { GateTargets } from './gate-description'
+import { formatDate } from '#/lib/format-date'
+import { partTitle } from '#/lib/experiment-parts'
 
 export type { GateTargets } from './gate-description'
 
@@ -1109,9 +1111,7 @@ function ConditionRow({
 }) {
   return (
     <div className="flex flex-col gap-1.5" data-condition={condition.kind}>
-      <span className="text-caption font-semibold uppercase tracking-wide text-fg-muted">
-        {lead}
-      </span>
+      <span className="text-caption font-semibold text-fg-muted">{lead}</span>
       <div className="flex flex-wrap items-center gap-2">
         <Select
           aria-label={t('notebook.gates.dialog.kindLabel')}
@@ -1172,10 +1172,7 @@ function ConditionRow({
             </option>
             {targets.parts.map((part) => (
               <option key={part.id} value={part.id}>
-                {t('notebook.parts.partTitle', {
-                  number: String(part.number),
-                  title: part.title,
-                })}
+                {partTitle(String(part.number), part.title)}
               </option>
             ))}
           </Select>
@@ -1489,7 +1486,7 @@ export function GateDialog({
               </p>
             </div>
             <fieldset className="flex flex-col gap-2 border-t border-border pt-3">
-              <legend className="mb-1 text-caption font-semibold uppercase tracking-wide text-fg-muted">
+              <legend className="mb-1 text-caption font-semibold text-fg-muted">
                 {t('notebook.gates.dialog.untilThen')}
               </legend>
               <RadioGroup
@@ -1660,11 +1657,7 @@ export function GateOverridesPanel({ recordId }: { recordId: string }) {
               </span>
               <span className="text-fg-muted">
                 {t('notebook.gates.review.who')} {nameOf(row.createdByUserId)} ·{' '}
-                {new Date(row.createdAt).toLocaleString('en-GB', {
-                  dateStyle: 'medium',
-                  timeStyle: 'short',
-                  timeZone,
-                })}
+                {formatDate(row.createdAt, { time: true, timeZone })}
               </span>
             </div>
             {row.missing.length > 0 ? (

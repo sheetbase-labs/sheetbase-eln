@@ -7,6 +7,7 @@ import type { DataClient } from '#/lib/data-client'
 import { notebookDataClient } from '#/lib/notebook-data'
 import { listByIds } from '#/lib/chunk-ids'
 import { now as appNow } from '#/lib/clock'
+import { formatDate } from '#/lib/format-date'
 
 /**
  * UI port (roadmap-4/ui-app3): the Instruments area (LAB-06, folded from
@@ -209,14 +210,8 @@ export function formatInstrumentDay(iso: string | null | undefined): string {
   const parsed = Date.parse(iso)
 
   if (Number.isNaN(parsed)) return '—'
-  const date = new Date(parsed)
 
-  // `en-GB` gives the four-letter "Sept"; the design uses three-letter months.
-  const month = date
-    .toLocaleDateString('en-GB', { month: 'short', timeZone: 'UTC' })
-    .slice(0, 3)
-
-  return `${date.getUTCDate()} ${month} ${date.getUTCFullYear()}`
+  return formatDate(new Date(parsed), { timeZone: 'UTC' })
 }
 
 export const instrumentQueryKeys = {

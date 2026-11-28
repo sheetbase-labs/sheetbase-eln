@@ -45,6 +45,7 @@ import { instrumentTypeLabel } from '#/lib/instrument-type-label'
 import { cn } from '#/lib/utils'
 import { undoToast } from '#/lib/undo-toast'
 import { intakeMethodOf } from './-instruments-model'
+import { formatDate } from '#/lib/format-date'
 
 /** The calibration standing the list already worked out for this instrument. */
 interface CalibrationStandingProp {
@@ -149,7 +150,7 @@ function nextBookingLabel(booking: {
 
   if (!booking.data.next) return 'None'
 
-  return `${booking.data.next.startsAt.slice(0, 16).replace('T', ' ')} · ${booking.data.next.title}`
+  return `${formatDate(booking.data.next.startsAt, { year: false, time: true })} · ${booking.data.next.title}`
 }
 
 /** The parser row: which parser, and whether it is validated. */
@@ -452,7 +453,7 @@ function IntakeSection({
           [
             t('library.instruments.list.lastData'),
             lastDataAt
-              ? lastDataAt.slice(0, 16).replace('T', ' ')
+              ? formatDate(lastDataAt, { time: true })
               : t('library.instruments.list.nothingReceived'),
           ],
           ['Parser', parserLabel],

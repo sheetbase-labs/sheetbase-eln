@@ -33,7 +33,6 @@ import {
 } from '#/lib/cite-view-in-notebook'
 import { toast } from '#/components/ui/sonner'
 import { useNotebookAnalysisBlocks } from './notebook-analyses-section'
-import { formatInstant } from '#/lib/display-time-zone'
 import { filterRowsByFlags } from '#/lib/dataset-flags'
 import { materialiseLiveChart, resolveChartDataset } from '#/lib/chart-data'
 import type { ResolvedDataset } from '#/lib/chart-data'
@@ -48,6 +47,7 @@ import type { SeriesSummaryRow } from './results-summary'
 import { useUserNames } from '#/lib/user-names'
 import { cn } from '#/lib/utils'
 import { t } from '#/copy'
+import { formatTime } from '#/lib/format-date'
 
 type OutputKey = string
 
@@ -451,11 +451,7 @@ function ResultDetails({
           {t('projects.resultsWorkspace.lastRun', {
             id: view.display_id ?? t('projects.resultsWorkspace.thisAnalysis'),
             date: formatDate(view.updated_at),
-            time: formatInstant(view.updated_at, {
-              hour: '2-digit',
-              minute: '2-digit',
-              hour12: false,
-            }),
+            time: formatTime(view.updated_at),
             name: owners.userLabel(view.owner_user_id),
           })}
         </Muted>

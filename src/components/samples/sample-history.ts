@@ -1,4 +1,5 @@
 import type { SampleEvent } from '#/lib/samples'
+import { formatDate, formatDay } from '#/lib/format-date'
 
 /**
  * LAB-03 / step 4 — presentation helpers for the sample History tab. The tab
@@ -78,34 +79,13 @@ export function sampleEventChange(event: SampleEvent): string | null {
   return `Volume ${formatQuantity(event.quantityBefore)} → ${formatQuantity(event.quantityAfter)}${unit}`
 }
 
-// Month abbreviations are fixed so the output does not depend on the
-// environment ICU data (Node prints "Sept" for en-GB, browsers "Sep").
-const MONTHS = [
-  'Jan',
-  'Feb',
-  'Mar',
-  'Apr',
-  'May',
-  'Jun',
-  'Jul',
-  'Aug',
-  'Sep',
-  'Oct',
-  'Nov',
-  'Dec',
-] as const
-
-function pad(value: number): string {
-  return String(value).padStart(2, '0')
-}
-
 /** Design "When" cell: "23 Sep 09:15". Deterministic UTC to avoid SSR drift. */
 export function formatSampleEventTime(iso: string): string {
   const date = new Date(iso)
 
   if (Number.isNaN(date.getTime())) return iso
 
-  return `${pad(date.getUTCDate())} ${MONTHS[date.getUTCMonth()]} ${pad(date.getUTCHours())}:${pad(date.getUTCMinutes())}`
+  return formatDate(date, { year: false, time: true })
 }
 
 /** Design day cell for Recent history, e.g. "23 Sep". */
@@ -114,7 +94,7 @@ export function formatSampleEventDay(iso: string): string {
 
   if (Number.isNaN(date.getTime())) return iso
 
-  return `${pad(date.getUTCDate())} ${MONTHS[date.getUTCMonth()]}`
+  return formatDay(date)
 }
 
 /** Full timestamp for the cell `title`, e.g. "23 Sep 2026, 09:15 UTC". */
@@ -123,12 +103,12 @@ export function formatSampleEventTimestamp(iso: string): string {
 
   if (Number.isNaN(date.getTime())) return iso
 
-  return `${pad(date.getUTCDate())} ${MONTHS[date.getUTCMonth()]} ${date.getUTCFullYear()}, ${pad(date.getUTCHours())}:${pad(date.getUTCMinutes())} UTC`
+  return formatDate(date, { time: true, zone: true })
 }
 
 /** Design detail "When" cell: "23 Sep, 09:15" (comma before the clock). */
 export function formatSampleEventDayTime(iso: string): string {
-  return formatSampleEventTime(iso).replace(/^(\d+ \w+) /, '$1, ')
+  return formatSampleEventTime(iso)
 }
 
 /** Design "Harvested" value: "20 Sep 2026, 16:30" (no UTC suffix). */

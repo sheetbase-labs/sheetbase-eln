@@ -111,7 +111,7 @@ describe('buildLabelLines with a template', () => {
     sampleType: 'Harvest',
     lot: 'L1',
     condition: '-80 °C',
-    useBy: '04-Oct',
+    useBy: '4 Oct',
   }
 
   it('prints the lot and storage by default, not the type', () => {
@@ -128,7 +128,7 @@ describe('buildLabelLines with a template', () => {
         showLot: false,
         showCondition: false,
       }).map((l) => l.text),
-    ).toEqual(['SMP-1', 'Harvest', 'use by 04-Oct'])
+    ).toEqual(['SMP-1', 'Harvest', 'use by 4 Oct'])
     expect(
       buildLabelLines(source, {
         showLot: false,

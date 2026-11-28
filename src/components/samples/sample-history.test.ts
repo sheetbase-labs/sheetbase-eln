@@ -114,7 +114,7 @@ describe('sampleEventDetail', () => {
 describe('sample event time formatting', () => {
   it('formats the When cell deterministically in UTC', () => {
     expect(formatSampleEventTime('2026-09-23T09:15:00.000Z')).toBe(
-      '23 Sep 09:15',
+      '23 Sep, 09:15',
     )
   })
 

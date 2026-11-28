@@ -15,7 +15,6 @@ import { AddSheetColumnButton } from './add-sheet-column'
 import { RegistryGrid } from '#/components/inventory/registry-grid'
 import type { RegistryColumn } from '#/components/inventory/registry-grid'
 import { formatDate } from '#/lib/notebook-data'
-import { formatInstant } from '#/lib/display-time-zone'
 import type { NotebookTemplateVersion } from '#/lib/notebook-template-data'
 import type { NotebookTemplatePlacement } from '#/lib/notebook-template'
 import { useUserNames } from '#/lib/user-names'
@@ -30,6 +29,7 @@ import {
   sheetColumnRows,
 } from './template-structure'
 import { t } from '#/copy'
+import { formatTime } from '#/lib/format-date'
 
 /**
  * What the template inspector reads about a version: the version before it,
@@ -120,13 +120,7 @@ export function useTemplateVersionFacts(
     ? names.userLabel(version.updatedByUserId)
     : null
 
-  const editedAt = version.updatedAt
-    ? formatInstant(version.updatedAt, {
-        hour: '2-digit',
-        minute: '2-digit',
-        hour12: false,
-      })
-    : null
+  const editedAt = version.updatedAt ? formatTime(version.updatedAt) : null
 
   return {
     sheets,

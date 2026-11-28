@@ -50,12 +50,12 @@ describe('formatReadingValue', () => {
 describe('formatAgo and feedIsLive', () => {
   it('says how long ago, and calls a feed quiet after two minutes', () => {
     expect(formatAgo(null, NOW)).toBe('—')
-    expect(formatAgo(feed.lastAt, NOW)).toBe('30 s ago')
+    expect(formatAgo(feed.lastAt, NOW)).toBe('just now')
     expect(formatAgo(new Date(NOW - 5 * 60_000).toISOString(), NOW)).toBe(
-      '5 min ago',
+      '5m ago',
     )
     expect(formatAgo(new Date(NOW - 3 * 3_600_000).toISOString(), NOW)).toBe(
-      '3 h ago',
+      '3h ago',
     )
     expect(feedIsLive(feed, NOW)).toBe(true)
     expect(

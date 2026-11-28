@@ -102,6 +102,7 @@ function micros(value: bigint): string {
   const ms = Number(value / 1000n)
   const rest = Number(((value % 1000n) + 1000n) % 1000n)
   const iso = new Date(ms).toISOString()
+  // date-format-ignore-next-line -- DuckLake's own text form for a bound, not for reading.
   const base = iso.slice(0, 10) + ' ' + iso.slice(11, 19)
   const fraction = iso.slice(20, 23) + String(rest).padStart(3, '0')
 

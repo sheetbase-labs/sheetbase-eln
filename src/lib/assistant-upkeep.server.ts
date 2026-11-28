@@ -90,6 +90,7 @@ import { toHandoverItems } from './handover'
 import type { HandoverItemWire } from './handover'
 import { WORKSPACE_ROLE_LABELS } from './workspace-admin'
 import type { ProviderToolDef } from './ai-providers/types'
+import { formatDate } from '#/lib/format-date'
 
 /**
  * Cards for keeping the lab tidy (see `assistant-upkeep.ts`). Each builder
@@ -1101,7 +1102,7 @@ export async function buildUpkeepProposal(
           {
             label: 'Run',
             before: null,
-            after: `Run again from ${new Date(run.created_at).toLocaleString('en-GB')} and compare`,
+            after: `Run again from ${formatDate(run.created_at, { time: true, timeZone: context.timeZone })} and compare`,
           },
         ],
         action: {

@@ -30,7 +30,7 @@ describe('SampleLabelCard', () => {
     )
     expect(screen.getByText('SMP-2231')).toBeTruthy()
     expect(screen.getByText('HL-0934')).toBeTruthy()
-    expect(screen.getByText('2–8 °C · use by 04-Oct')).toBeTruthy()
+    expect(screen.getByText('2–8 °C · use by 4 Oct')).toBeTruthy()
     expect(
       screen.getByRole('group', { name: 'Printable label for SMP-2231' }),
     ).toBeTruthy()
@@ -130,7 +130,7 @@ describe('SampleLabelCard', () => {
 
       expect(facts.condition).toBe('cold')
       expect(facts.lot).toBe(' Lot A ')
-      expect(facts.useBy).toBe(duration === true ? '21-Sep' : '22-Sep')
+      expect(facts.useBy).toBe(duration === true ? '21 Sep' : '22 Sep')
       expect(
         labelFacts(
           {

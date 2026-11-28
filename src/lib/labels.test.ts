@@ -36,19 +36,19 @@ describe('buildLabelLines', () => {
         identifier: 'SMP-2231',
         lot: 'HL-0934',
         condition: '2–8 °C',
-        useBy: '04-Oct',
+        useBy: '4 Oct',
       }),
     ).toEqual([
       { kind: 'identifier', text: 'SMP-2231' },
       { kind: 'lot', text: 'HL-0934' },
-      { kind: 'storage', text: '2–8 °C · use by 04-Oct' },
+      { kind: 'storage', text: '2–8 °C · use by 4 Oct' },
     ])
   })
 
   it('prints a use-by date on its own when no condition is recorded', () => {
-    expect(buildLabelLines({ identifier: 'SMP-2', useBy: '04-Oct' })).toEqual([
+    expect(buildLabelLines({ identifier: 'SMP-2', useBy: '4 Oct' })).toEqual([
       { kind: 'identifier', text: 'SMP-2' },
-      { kind: 'storage', text: 'use by 04-Oct' },
+      { kind: 'storage', text: 'use by 4 Oct' },
     ])
   })
 

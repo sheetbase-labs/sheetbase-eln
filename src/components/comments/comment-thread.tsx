@@ -10,7 +10,7 @@ import type { MentionCandidate } from '#/lib/mentions'
 
 import { LinkedText } from '#/components/ui/linked-text'
 import { MentionTextarea } from './mention-textarea'
-import { now as appNow } from '#/lib/clock'
+import { formatAgo } from '#/lib/format-date'
 
 /**
  * REV-004: a single anchored comment thread with replies, a reply composer,
@@ -98,25 +98,6 @@ function describeTarget(
   return `${TARGET_KIND_LABEL.diff} ${target.changeId ?? ''}`.trim()
 }
 
-function formatRelative(iso: string): string {
-  const then = new Date(iso).getTime()
-
-  if (Number.isNaN(then)) return iso
-  const seconds = Math.max(0, Math.round((appNow().getTime() - then) / 1000))
-
-  if (seconds < 60) return t('notebook.commentThread.justNow')
-  const minutes = Math.round(seconds / 60)
-
-  if (minutes < 60)
-    return t('notebook.commentThread.minutesAgo', { count: minutes })
-  const hours = Math.round(minutes / 60)
-
-  if (hours < 24) return t('notebook.commentThread.hoursAgo', { count: hours })
-  const days = Math.round(hours / 24)
-
-  return t('notebook.commentThread.daysAgo', { count: days })
-}
-
 function CommentRow({
   comment,
   currentUserId,
@@ -155,7 +136,7 @@ function CommentRow({
           <span className="text-xs font-medium">{label}</span>
         </span>
         <span className="text-xs text-fg-muted">
-          {formatRelative(comment.created_at)}
+          {formatAgo(comment.created_at)}
         </span>
       </div>
       <p className="mt-2 break-words text-sm leading-6 text-fg whitespace-pre-wrap">

@@ -4,7 +4,6 @@ import { DataClientError } from '#/lib/data-client'
 import type { Tone } from '#/components/ui/status'
 import { changeSetFromVersions } from '#/lib/notebook-template-change-set'
 import type { TemplateChangeSetEntry } from '#/lib/notebook-template-change-set'
-import { formatInstant } from '#/lib/display-time-zone'
 import type { NotebookTemplateVersion } from '#/lib/notebook-template-data'
 import {
   diffTemplatePlacements,
@@ -12,6 +11,7 @@ import {
 } from '#/components/templates/template-structure'
 import type { SheetVersionLookup } from '#/components/templates/template-structure'
 import { t } from '#/copy'
+import { formatTime } from '#/lib/format-date'
 
 /** The Versions tab's search: which version and comparison it opens. */
 export const versionsSearch = z.object({
@@ -43,11 +43,7 @@ export function isStaleRevisionError(error: unknown): boolean {
 
 /** "09:50" in the workspace's display zone. */
 export function formatClock(iso: string): string {
-  return formatInstant(iso, {
-    hour: '2-digit',
-    minute: '2-digit',
-    hour12: false,
-  })
+  return formatTime(iso)
 }
 
 // oxlint-disable-next-line anti-slop/no-unknown-parameters -- A failed template action is a caught throw; its own message selects the words the screen shows.

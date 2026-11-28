@@ -884,6 +884,7 @@ export const projects = {
   relatedWork: {
     title: 'Related work',
     loading: 'Loading related work…',
+    showAll: 'Show all {count}',
   },
   experimentHistory: {
     apiCredential: 'API credential',

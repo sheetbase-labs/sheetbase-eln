@@ -7,12 +7,14 @@
  * (renders null) when there is nothing to show — mounts never need an
  * empty-state branch.
  */
+import { useState } from 'react'
+
 import { notebookDataClient } from '#/lib/notebook-data'
 import { useRecordKindNames } from '#/lib/record-kind-names'
 import { LoadingBlock } from '#/components/ui/page-skeleton'
 import type { IconName } from '#/components/icons'
 
-import { InspectorSection } from '#/components/record'
+import { InspectorSection } from '#/components/ui/layout'
 import { RecordLink } from '#/components/scientific/record-link'
 import { RowList } from '#/components/ui/row'
 import { relatedKindLabel, useRelatedWork } from '#/lib/related-work'
@@ -39,7 +41,14 @@ const RECORD_KIND_ICON = new Map<string, IconName>([
 ])
 
 /** Pure render of resolved items — the unit under the component test. */
-export function RelatedWorkList({ items }: { items: RelatedWorkItem[] }) {
+export function RelatedWorkList({
+  items,
+  typeInMeta = false,
+}: {
+  items: RelatedWorkItem[]
+  /** Say each row's kind beside its reason, as a record page's Links do. */
+  typeInMeta?: boolean
+}) {
   return (
     <RowList>
       {items.map((item) => (
@@ -50,6 +59,7 @@ export function RelatedWorkList({ items }: { items: RelatedWorkItem[] }) {
           title={item.label}
           meta={item.reason}
           to={item.destination}
+          typeInMeta={typeInMeta}
           icon={
             item.kind === 'record' && item.recordKind
               ? (RECORD_KIND_ICON.get(item.recordKind) ?? KIND_ICON.record)
@@ -68,26 +78,62 @@ export function RelatedWorkList({ items }: { items: RelatedWorkItem[] }) {
 export function RelatedWorkPanel({
   kind,
   id,
+  title = t('projects.relatedWork.title'),
+  exclude,
+  limit,
 }: {
   kind: RelatedWorkKind
   id: string
+  /** The section's heading; a record page calls it Links. */
+  title?: string
+  /** Ids the page already shows elsewhere (its header's project). */
+  exclude?: readonly string[]
+  /**
+   * Show this many and fold the rest behind "Show all", for a side panel that
+   * also holds properties and activity. Rows then say their kind beside the
+   * reason rather than above the title.
+   */
+  limit?: number
 }) {
   useRecordKindNames(notebookDataClient)
   const { data, isLoading } = useRelatedWork(kind, id)
+  const [expanded, setExpanded] = useState(false)
 
   if (isLoading) {
     return (
-      <InspectorSection title={t('projects.relatedWork.title')}>
+      <InspectorSection title={title}>
         <LoadingBlock label={t('projects.relatedWork.loading')} />
       </InspectorSection>
     )
   }
 
-  if (!data || data.length === 0) return null
+  const items = exclude?.length
+    ? data?.filter((item) => !exclude.includes(item.id))
+    : data
+
+  if (!items || items.length === 0) return null
+
+  const folded = limit !== undefined && !expanded && items.length > limit
 
   return (
-    <InspectorSection title={t('projects.relatedWork.title')}>
-      <RelatedWorkList items={data} />
+    <InspectorSection
+      title={title}
+      action={
+        folded ? (
+          <button
+            type="button"
+            className="text-link"
+            onClick={() => setExpanded(true)}
+          >
+            {t('projects.relatedWork.showAll', { count: items.length })}
+          </button>
+        ) : undefined
+      }
+    >
+      <RelatedWorkList
+        items={folded ? items.slice(0, limit) : items}
+        typeInMeta={limit !== undefined}
+      />
     </InspectorSection>
   )
 }

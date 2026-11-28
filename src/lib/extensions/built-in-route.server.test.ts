@@ -91,4 +91,64 @@ describe('POST /api/plugins/built-in', () => {
 
     expect(response.status).toBe(403)
   })
+
+  it('shares one install between requests that arrive together', async () => {
+    const { client } = rpcBoundary(Response.json({}))
+    let calls = 0
+    let finish: (() => void) | undefined
+
+    const ensureBuiltIn = async () => {
+      calls += 1
+      await new Promise<void>((resolve) => {
+        finish = resolve
+      })
+
+      return [{ key: 'chemistry', action: 'installed' as const }]
+    }
+
+    const deps = { auth: signedIn, makeClient: () => client, ensureBuiltIn }
+    const first = handleBuiltInPlugins(post(), deps)
+    const second = handleBuiltInPlugins(post(), deps)
+
+    await vi.waitFor(() => expect(finish).toBeDefined())
+    finish?.()
+    const responses = await Promise.all([first, second])
+
+    expect(responses.map((response) => response.status)).toEqual([200, 200])
+    expect(calls).toBe(1)
+  })
+
+  it('looks again when another server installed a plugin first', async () => {
+    const { client } = rpcBoundary(Response.json({}))
+    let calls = 0
+
+    const response = await handleBuiltInPlugins(post(), {
+      auth: signedIn,
+      makeClient: () => client,
+      ensureBuiltIn: async () => {
+        calls += 1
+
+        if (calls === 1) throw new Error('duplicate key value')
+
+        return [{ key: 'chemistry', action: 'unchanged' as const }]
+      },
+    })
+
+    expect(response.status).toBe(200)
+    expect(calls).toBe(2)
+  })
+
+  it('still refuses an install that fails twice', async () => {
+    const { client } = rpcBoundary(Response.json({}))
+
+    const response = await handleBuiltInPlugins(post(), {
+      auth: signedIn,
+      makeClient: () => client,
+      ensureBuiltIn: async () => {
+        throw new Error('manifest refused')
+      },
+    })
+
+    expect(response.status).toBe(409)
+  })
 })

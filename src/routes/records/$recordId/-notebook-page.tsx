@@ -4119,10 +4119,12 @@ function NotebookTagsEditor({ record }: { record: NotebookRecord }) {
   }
 
   const add = () => {
+    const have = new Set(tags)
+
     const typed = draft
       .split(',')
       .map((tag) => tag.trim())
-      .filter((tag) => tag && !tags.includes(tag))
+      .filter((tag) => tag && !have.has(tag))
 
     setDraft('')
 

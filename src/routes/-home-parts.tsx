@@ -45,9 +45,10 @@ import { rich, t } from '#/copy'
 import { HOME_ACTIVITY_ROWS } from './-home-model'
 import { homeRecentColumns, homeReviewColumns } from './-home-columns'
 import type { HomeReviewRow } from './-home-columns'
-import type { CalendarBooking } from '#/lib/calendar'
 import type { WorkItem } from '#/lib/work-items/data'
 import type { RecentItem } from '#/lib/recents'
+import { TodayBookingsList } from '#/components/home/today-bookings-list'
+import type { TodayBooking } from '#/components/home/today-bookings-list'
 import { formatTime } from '#/lib/format-date'
 
 /** Where a flagged dataset opens: the flagged value when Home knows it. */
@@ -68,11 +69,6 @@ export type AttentionMaterial = Pick<
 >
 
 /** The one booking shape the sections state. */
-export type TodayBooking = Pick<
-  CalendarBooking,
-  'id' | 'title' | 'location' | 'startsAt'
->
-
 /** A section that could not be read says so and offers the retry. */
 export function SectionUnavailable({
   what,
@@ -312,38 +308,6 @@ export function HomeChips({
         {t('projects.home.openInbox', { count: inboxCount ?? '—' })}
       </Link>
     </nav>
-  )
-}
-
-/** A booking as a phone states it: when, what and where. */
-export function TodayBookingsList({
-  bookings,
-  timeZone,
-  className,
-}: {
-  bookings: TodayBooking[]
-  timeZone: string
-  className?: string
-}): React.ReactElement {
-  return (
-    <ul className={cn('m-0 flex list-none flex-col p-0', className)}>
-      {bookings.map((b) => (
-        <li
-          key={b.id}
-          className="flex min-h-11 items-center gap-3 border-b border-border-subtle py-2 last:border-0"
-        >
-          <span className="num w-10 shrink-0 font-medium text-link">
-            {formatTime(b.startsAt, { timeZone })}
-          </span>
-          <div className="min-w-0">
-            <div className="font-medium">{b.title}</div>
-            {b.location ? (
-              <div className="text-label text-fg-muted">{b.location}</div>
-            ) : null}
-          </div>
-        </li>
-      ))}
-    </ul>
   )
 }
 
@@ -795,24 +759,7 @@ export function HomeInspectorToday({
             onRetry={onRetryBookings}
           />
         ) : todayBookings.length ? (
-          <ul className="m-0 flex list-none flex-col p-0">
-            {todayBookings.map((b) => (
-              <li
-                key={b.id}
-                className="flex gap-3 border-b border-border-subtle py-2 last:border-0"
-              >
-                <span className="num w-10 shrink-0 font-medium text-link">
-                  {formatTime(b.startsAt, { timeZone })}
-                </span>
-                <div className="min-w-0">
-                  <div className="font-medium">{b.title}</div>
-                  {b.location ? (
-                    <div className="text-label text-fg-muted">{b.location}</div>
-                  ) : null}
-                </div>
-              </li>
-            ))}
-          </ul>
+          <TodayBookingsList bookings={todayBookings} timeZone={timeZone} />
         ) : (
           <p className="m-0 text-label text-fg-muted">
             {t('projects.home.noBookings')}

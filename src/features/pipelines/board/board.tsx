@@ -304,6 +304,14 @@ export function BoardInput({
   return <input className={cn('input', mono && 'mono', className)} {...rest} />
 }
 
+/** The board's `.input` for longer text: it wraps and grows with what is typed. */
+export function BoardTextarea({
+  className,
+  ...rest
+}: React.TextareaHTMLAttributes<HTMLTextAreaElement>) {
+  return <textarea className={cn('input', className)} {...rest} />
+}
+
 /** The board's `.select`, a native select so it works with a keyboard and on phones. */
 export function BoardSelect({
   className,

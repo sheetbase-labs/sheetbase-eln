@@ -3,8 +3,8 @@ import { useState } from 'react'
 import { t } from '#/copy'
 import {
   BoardButton,
-  BoardInput,
   BoardIo,
+  BoardTextarea,
 } from '#/features/pipelines/board/board'
 import {
   Dialog,
@@ -350,22 +350,25 @@ function DraftSection() {
     <InspectorSection title={t('data.stepList.draftSection')}>
       <p className="m-0 text-label leading-[18px]">
         {draft
-          ? t('data.stepList.draftSaved', {
+          ? `${t('data.stepList.draftSaved', {
               version: draft.version,
               when: formatNotebookDateTime(draft.updated_at, { zone: true }),
-            })
-          : t('data.stepList.noDraftYet')}{' '}
-        {current?.lifecycle === 'published'
-          ? t('data.stepList.runsKeepUsing', { version: current.version })
-          : t('data.stepList.publishToRun')}
+            })} `
+          : null}
+        {current?.lifecycle !== 'published'
+          ? t('data.stepList.publishToRun')
+          : draft || editor.dirty
+            ? t('data.stepList.runsKeepUsing', { version: current.version })
+            : t('data.stepList.runsUse', { version: current.version })}
       </p>
       <div className="mt-3 text-xs">
         <label htmlFor="pipeline-description" className="muted">
           {t('data.pipelineSteps.description')}
         </label>
-        <BoardInput
+        <BoardTextarea
           id="pipeline-description"
           className="mt-1"
+          rows={1}
           placeholder={t('data.pipelineSteps.whatPipeline')}
           value={config.description ?? ''}
           onChange={(e) =>

@@ -84,6 +84,7 @@
 }
 .pb-scope .btn:focus-visible,
 .pb-scope input:focus-visible,
+.pb-scope textarea:focus-visible,
 .pb-scope select:focus-visible {
   outline: 2px solid var(--focus);
   outline-offset: 1px;
@@ -104,6 +105,15 @@
   .pb-scope .select {
     width: 100%;
   }
+}
+.pb-scope textarea.input {
+  display: block;
+  height: auto;
+  min-height: 30px;
+  padding: 5px 8px;
+  line-height: 18px;
+  resize: none;
+  field-sizing: content;
 }
 .pb-scope .input[aria-invalid='true'] {
   border-color: var(--danger);

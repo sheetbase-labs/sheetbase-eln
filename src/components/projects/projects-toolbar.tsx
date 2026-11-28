@@ -10,6 +10,7 @@ import {
 } from '#/components/ui/dropdown-menu'
 import { Icon } from '#/components/icons'
 import { ListToolbar } from '#/components/inventory/list'
+import { GroupMenu, SortMenu } from '#/components/inventory/list-arrange'
 import type { ListFilter } from '#/components/inventory/list-filter'
 import { t } from '#/copy'
 
@@ -19,6 +20,8 @@ import type {
   ProjectsSearch,
   ProjectsSort,
 } from './projects-page-model'
+
+const groups = ['stage', 'lead'] as const
 
 /**
  * The list's controls: sort, filter, group, the search box, which columns are
@@ -127,73 +130,23 @@ export function ProjectsToolbar({
         </>
       }
     >
-      <DropdownMenu>
-        <DropdownMenuTrigger
-          render={
-            <Button
-              variant="quiet"
-              className="max-md:hidden"
-              aria-label={t('projects.projectsPage.view.label')}
-            />
-          }
-        >
-          {t('projects.projectsPage.view.table')}
-          <Icon name="chevronDown" size={12} />
-        </DropdownMenuTrigger>
-        <DropdownMenuContent className="w-[180px]">
-          <DropdownMenuItem icon="check">
-            {t('projects.projectsPage.view.table')}
-          </DropdownMenuItem>
-        </DropdownMenuContent>
-      </DropdownMenu>
-
-      <DropdownMenu>
-        <DropdownMenuTrigger render={<Button variant="quiet" />}>
-          <span className="max-lg:hidden">
-            {t('projects.projectsPage.sortBy', { sort: sortLabel(sort) })}
-          </span>
-          <span className="lg:hidden">{t('projects.projectsPage.sort')}</span>
-          <Icon name="chevronDown" size={12} />
-        </DropdownMenuTrigger>
-        <DropdownMenuContent className="w-[180px]">
-          {sorts.map((k) => (
-            <DropdownMenuItem
-              key={k}
-              icon={sort === k ? 'check' : undefined}
-              className={sort === k ? '' : 'pl-[30px]'}
-              onClick={() => setSearch({ sort: k })}
-            >
-              {sortLabel(k)}
-            </DropdownMenuItem>
-          ))}
-        </DropdownMenuContent>
-      </DropdownMenu>
-
-      <DropdownMenu>
-        <DropdownMenuTrigger
-          render={<Button variant="quiet" className="max-lg:hidden" />}
-        >
-          {group === 'none'
-            ? t('projects.projectsPage.group.label')
-            : t('projects.projectsPage.group.by', {
-                group: t(`projects.projectsPage.group.${group}`),
-              })}
-        </DropdownMenuTrigger>
-        <DropdownMenuContent className="w-[180px]">
-          {(['none', 'stage', 'lead'] as const).map((g) => (
-            <DropdownMenuItem
-              key={g}
-              icon={group === g ? 'check' : undefined}
-              className={group === g ? '' : 'pl-[30px]'}
-              onClick={() => setSearch({ group: g })}
-            >
-              {g === 'none'
-                ? t('projects.projectsPage.group.none')
-                : t(`projects.projectsPage.group.${g}`)}
-            </DropdownMenuItem>
-          ))}
-        </DropdownMenuContent>
-      </DropdownMenu>
+      <SortMenu
+        options={sorts.map((k) => ({ value: k, label: sortLabel(k) }))}
+        value={sort}
+        onChange={(next) =>
+          setSearch({ sort: sorts.find((k) => k === next) ?? 'updated' })
+        }
+      />
+      <GroupMenu
+        options={groups.map((g) => ({
+          value: g,
+          label: t(`projects.projectsPage.group.${g}`),
+        }))}
+        value={group === 'none' ? undefined : group}
+        onChange={(next) =>
+          setSearch({ group: groups.find((g) => g === next) ?? 'none' })
+        }
+      />
     </ListToolbar>
   )
 }

@@ -59,16 +59,25 @@ export function ProjectsHeader({
   return (
     <header
       className={cn(
-        'flex flex-col gap-1 border-b border-border bg-surface px-4 pt-4 md:px-6',
+        'flex flex-col gap-1 border-b border-border bg-surface px-4 pt-3 md:px-6 md:pt-4',
         !hasProjects && 'pb-3',
       )}
     >
-      <div className="flex max-md:flex-wrap items-center gap-2">
-        <h1 className="text-title">{t('projects.projectsPage.title')}</h1>
+      <div className="flex min-h-7 items-center gap-2 max-md:flex-wrap">
+        {/* The pane header already prints the name on a desktop pane, as on
+            every other list; on a phone this is the visible title. */}
+        <h1 className="text-title max-md:text-[18px] max-md:leading-6 md:sr-only">
+          {t('projects.projectsPage.title')}
+        </h1>
         {/* A number here would be asserted as fact. While the read is
             unresolved — stalled or failed — the page does not know it. */}
         {loading || error ? null : (
-          <span className="num text-body text-fg-muted">{count}</span>
+          <span className="num text-body text-fg-muted">
+            <span className="md:hidden">{count.toLocaleString('en-GB')}</span>
+            <span className="max-md:hidden">
+              {t('projects.projectsPage.countNoun', { count })}
+            </span>
+          </span>
         )}
         <span className="flex-1" />
         <Button

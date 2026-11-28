@@ -30,12 +30,7 @@ import { DueChip } from '#/components/ui/due-chip'
 import { RowAction, RowHoverActions } from '#/components/ui/row-hover-actions'
 import { toast } from '#/components/ui/toast'
 import { Dot, Status } from '#/components/ui/status'
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from '#/components/ui/dropdown-menu'
+import { GroupMenu, SortMenu } from '#/components/inventory/list-arrange'
 import { RegistryGrid, bandRow } from '#/components/inventory/registry-grid'
 import { useBulkSelection } from '#/components/inventory/bulk-selection'
 import { useListView } from '#/lib/list-views'
@@ -557,30 +552,32 @@ function ExperimentsToolbar({
       onSearch={(q) => onSearch({ q: q.trim() || undefined })}
       filter={filter}
     >
-      <DropdownMenu>
-        <DropdownMenuTrigger render={<Button variant="quiet" />}>
-          {t('projects.experimentsList.sort', {
-            by:
-              sort === 'id'
-                ? t('projects.experimentsList.sortId')
-                : t('projects.experimentsList.sortUpdated'),
-          })}
-        </DropdownMenuTrigger>
-        <DropdownMenuContent className="w-[180px]">
-          {(['updated', 'id'] as const).map((k) => (
-            <DropdownMenuItem
-              key={k}
-              icon={sort === k ? 'check' : undefined}
-              className={sort === k ? '' : 'pl-[30px]'}
-              onClick={() => onSort(k)}
-            >
-              {k === 'id'
-                ? t('projects.experimentsList.sortId')
-                : t('projects.experimentsList.sortUpdated')}
-            </DropdownMenuItem>
-          ))}
-        </DropdownMenuContent>
-      </DropdownMenu>
+      <SortMenu
+        options={[
+          {
+            value: 'updated',
+            label: t('projects.experimentsList.sortUpdated'),
+          },
+          { value: 'id', label: t('projects.experimentsList.sortId') },
+        ]}
+        value={sort}
+        onChange={(next) => onSort(next === 'id' ? 'id' : 'updated')}
+      />
+      <GroupMenu
+        options={(['status', 'project', 'owner'] as const).map((value) => ({
+          value,
+          label: t(`projects.experimentsList.columns.${value}`),
+        }))}
+        value={group}
+        onChange={(next) =>
+          onSearch({
+            group:
+              next === 'status' || next === 'project' || next === 'owner'
+                ? next
+                : 'none',
+          })
+        }
+      />
       {projectName ? (
         <Button
           variant="quiet"
@@ -591,43 +588,6 @@ function ExperimentsToolbar({
           {t('projects.experimentsList.projectFilter', { name: projectName })}
         </Button>
       ) : null}
-      <DropdownMenu>
-        <DropdownMenuTrigger render={<Button variant="quiet" />}>
-          {t('projects.experimentsList.group', {
-            by:
-              group === 'project'
-                ? t('projects.experimentsList.columns.project')
-                : group === 'owner'
-                  ? t('projects.experimentsList.columns.owner')
-                  : group === 'status'
-                    ? t('projects.experimentsList.columns.status')
-                    : t('projects.experimentsList.none'),
-          })}
-        </DropdownMenuTrigger>
-        <DropdownMenuContent className="w-[180px]">
-          {(
-            [
-              ['none', t('projects.experimentsList.none')],
-              ['status', t('projects.experimentsList.columns.status')],
-              ['project', t('projects.experimentsList.columns.project')],
-              ['owner', t('projects.experimentsList.columns.owner')],
-            ] as const
-          ).map(([value, label]) => {
-            const active = value === 'none' ? !group : group === value
-
-            return (
-              <DropdownMenuItem
-                key={value}
-                icon={active ? 'check' : undefined}
-                className={active ? '' : 'pl-[30px]'}
-                onClick={() => onSearch({ group: value })}
-              >
-                {label}
-              </DropdownMenuItem>
-            )
-          })}
-        </DropdownMenuContent>
-      </DropdownMenu>
       <FilterMenu
         label={t('projects.experimentsList.columns.updated')}
         value={search.older ? 'any' : '30d'}

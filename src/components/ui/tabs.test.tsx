@@ -18,6 +18,7 @@ import userEvent from '@testing-library/user-event'
 import { useState } from 'react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
+import { phoneTabsThatFit } from './phone-tabs'
 import { Tabs } from './tabs'
 import type * as router from '@tanstack/react-router'
 
@@ -286,5 +287,40 @@ describe('Tabs — url mode is a nav of links', () => {
       { exact: false, includeSearch: false },
       { exact: false, includeSearch: false },
     ])
+  })
+})
+
+describe('phoneTabsThatFit — a list header keeps its views on one phone row', () => {
+  it('keeps every tab when they all fit', () => {
+    expect(
+      phoneTabsThatFit(
+        [
+          { label: 'All', count: 3 },
+          { label: 'Active', count: 3 },
+        ],
+        345,
+      ),
+    ).toBeUndefined()
+  })
+
+  it('keeps as many as fit beside More', () => {
+    const items = [
+      { label: 'In stock', count: 34 },
+      { label: 'Expiring soon', count: 2 },
+      { label: 'Quarantine', count: 2 },
+      { label: 'Expired', count: 2 },
+      { label: 'Archived', count: 0 },
+    ]
+
+    expect(phoneTabsThatFit(items, 345)).toBe(2)
+  })
+
+  it('always keeps the first tab', () => {
+    expect(
+      phoneTabsThatFit(
+        [{ label: 'A very long first view name indeed' }, { label: 'Other' }],
+        200,
+      ),
+    ).toBe(1)
   })
 })

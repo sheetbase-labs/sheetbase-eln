@@ -1,3 +1,4 @@
+import { useContext } from 'react'
 import { Tabs as TabsPrimitive } from '@base-ui/react/tabs'
 import { Link } from '@tanstack/react-router'
 import type { LinkProps } from '@tanstack/react-router'
@@ -9,6 +10,7 @@ import {
   DropdownMenuTrigger,
 } from '#/components/ui/dropdown-menu'
 import { TabIndicator } from '#/components/ui/tab-indicator'
+import { PhoneTabsWidth, phoneTabsThatFit } from '#/components/ui/phone-tabs'
 import { t } from '#/copy'
 import { cn } from '#/lib/utils'
 
@@ -296,9 +298,17 @@ function UrlTabs({
   value,
   variant = 'strip',
   className,
-  phoneKeep,
+  phoneKeep: ownPhoneKeep,
   keepFilter = false,
 }: Extract<TabsProps, { mode: 'url' }>) {
+  const phoneWidth = useContext(PhoneTabsWidth)
+
+  const phoneKeep =
+    ownPhoneKeep ??
+    (phoneWidth === undefined
+      ? undefined
+      : phoneTabsThatFit(tabItems, phoneWidth))
+
   const items = keepFilter ? tabItems.map(carryFilter) : tabItems
 
   // The tabs a phone moves into the More menu: those past `phoneKeep`, except

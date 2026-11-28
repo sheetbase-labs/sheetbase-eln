@@ -123,6 +123,28 @@ A read that waits alone is sent as the ordinary request it always was.
 - `tests/browser/experiment-request-budget.test.ts` opens an experiment and
   fails when the page goes back to one request per read.
 
+## Warm start for record pages
+
+A record page makes the same reads every time, but only once its code has
+loaded and its record has arrived, so they queue in waves.
+`src/lib/route-warm-start.ts` watches the reads each kind of page makes (the
+first six seconds after it opens), keeps the ones that name only the page's own
+record, and starts them together the moment a person navigates to the same kind
+of page, opens one beside another, or loads the app on one. It needs no wiring
+in a page, so every record page (experiments, records, materials, instruments
+and the rest) gets it.
+
+- A started read is a primed read (`primeRead` in `data-client.ts`): the first
+  reader gets the answer already in flight, an unused one is forgotten after
+  10 s, and any write or live change empties them all, so it never shows rows
+  from before a change the app knows about. It runs as the signed-in person
+  like every other read.
+- A read that names another record (the project, a linked record, a person) is
+  left for the page, because it cannot be known before the record arrives.
+- What is learned is kept in `localStorage` (`sheetbase.warm-start.v1`) and
+  replaced on each visit, so a page that changes its reads is not replayed as it
+  was. A page never opened before starts nothing.
+
 ## First vertical slice (API-004)
 
 The `api.projects` table is the first PostgREST-exposed resource the

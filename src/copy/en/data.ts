@@ -1656,6 +1656,10 @@ export const data = {
     publishConfirm: 'Publish v{version}',
     startsAndRuns: 'Starts and runs',
     activity: 'Activity',
+    publishedFact: 'Published',
+    ownerFact: 'Owner',
+    modeFact: 'Editor',
+    notPublishedLine: 'No version is published yet, so the pipeline can’t run.',
   },
   pipelineMenu: {
     aria: 'More for pipeline {id}',

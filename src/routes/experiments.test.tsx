@@ -206,25 +206,22 @@ describe('experiments header reflows at 400 % zoom (QA4-zoom-experiments)', () =
   // past the viewport with no ancestor able to scroll to it, and the document
   // itself scrolled sideways (WCAG 1.4.10). The row wraps below `md` instead,
   // as the Inbox header does.
-  it('wraps the title row rather than pushing the action off the column', async () => {
+  it('lets the title give way rather than pushing the action off the column', async () => {
     renderList()
 
-    const row = (await screen.findByText('Experiments', { selector: 'h1' }))
-      .parentElement
+    const title = await screen.findByText('Experiments', { selector: 'h1' })
+    const row = title.parentElement
 
     expect(row).not.toBeNull()
-    // The header is `ListHeader` now, so the wrap is the header's guarantee:
-    // the row wraps, and below `md` the actions take a line of their own
-    // rather than being pushed past the column edge.
-    expect(row!.className).toContain('flex-wrap')
+    // The header is `ListHeader`: on a phone the title row keeps the main
+    // action (and a More menu for the rest), and the title truncates before
+    // anything is pushed past the column edge.
+    expect(title.className).toContain('max-md:min-w-0')
+    expect(title.className).toContain('max-md:truncate')
 
-    const actions = row!.parentElement!.querySelector(
-      '[class*="max-md:w-full"]',
-    )
+    const actions = row!.querySelector('[data-list-actions]')
 
     expect(actions).not.toBeNull()
-    expect(
-      row!.parentElement!.contains(screen.getByText('New experiment')),
-    ).toBe(true)
+    expect(actions!.contains(screen.getByText('New experiment'))).toBe(true)
   })
 })

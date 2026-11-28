@@ -10,11 +10,13 @@ export function PopoverContent({
   className,
   align = 'end',
   sideOffset = 4,
+  keepMounted,
   ...props
 }: PopoverPrimitive.Popup.Props &
-  Pick<PopoverPrimitive.Positioner.Props, 'align' | 'sideOffset'>) {
+  Pick<PopoverPrimitive.Positioner.Props, 'align' | 'sideOffset'> &
+  Pick<PopoverPrimitive.Portal.Props, 'keepMounted'>) {
   return (
-    <PopoverPrimitive.Portal>
+    <PopoverPrimitive.Portal keepMounted={keepMounted}>
       <PopoverPositioner align={align} sideOffset={sideOffset}>
         <PopoverPrimitive.Popup
           data-slot="popover-content"

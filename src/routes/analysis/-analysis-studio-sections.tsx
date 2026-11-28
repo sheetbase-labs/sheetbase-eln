@@ -394,7 +394,6 @@ export function AnalysisModeSection({
   selectedDatasetId,
   onDatasetChange,
   activeSnapshotId,
-  definitionId,
   experimentId,
 }: {
   sources: CanonicalDatasetSource[]
@@ -403,7 +402,6 @@ export function AnalysisModeSection({
   selectedDatasetId: string | null
   onDatasetChange: (id: string) => void
   activeSnapshotId: string | null
-  definitionId?: string
   experimentId?: string
 }) {
   return (
@@ -415,7 +413,6 @@ export function AnalysisModeSection({
         initialDatasetId={selectedDatasetId}
         onDatasetChange={onDatasetChange}
         initialSnapshotId={activeSnapshotId}
-        initialDefinitionId={definitionId}
         experimentId={experimentId}
       />
     </div>

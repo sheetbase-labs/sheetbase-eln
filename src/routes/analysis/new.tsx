@@ -54,10 +54,19 @@ export const Route = createFileRoute('/analysis/new')({
 
     return next
   },
-  beforeLoad: async ({ context: rootContext, location }) => {
+  beforeLoad: async ({ context: rootContext, location, search }) => {
     const context = rootContext.auth
 
     if (!context) throw redirect(signInRedirect(location))
+
+    // A saved statistic has its own page; older links still land on it.
+    if (search.definition) {
+      throw redirect({
+        to: '/analysis/$analysisId',
+        params: { analysisId: search.definition },
+        replace: true,
+      })
+    }
 
     return { context }
   },

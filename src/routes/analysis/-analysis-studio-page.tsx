@@ -608,7 +608,6 @@ export function AnalysisStudio() {
             selectedDatasetId={studio.selectedDatasetId}
             onDatasetChange={studio.setSelectedDatasetId}
             activeSnapshotId={studio.activeSnapshotId}
-            definitionId={studio.search.definition}
             experimentId={studio.search.experiment}
           />
         ) : studio.mode === 'compare' ? (

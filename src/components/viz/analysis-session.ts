@@ -51,6 +51,8 @@ export interface AnalysisPanelProps {
   initialDefinitionId?: string
   /** The experiment the studio was opened from; Cite offers it first. */
   experimentId?: string
+  /** A saved statistic's own page: just that statistic, no list of the others. */
+  standalone?: boolean
 }
 
 const noDefinitions: AnalysisDefinitionWire[] = []

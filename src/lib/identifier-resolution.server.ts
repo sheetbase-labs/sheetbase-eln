@@ -31,7 +31,15 @@ const ENTITY_SPECS: Record<IdentifierEntity, EntitySpec> = {
   instrument: { table: 'api.instruments', column: 'display_id' },
   sheet: { table: 'api.sheet_instances', column: 'display_id' },
   pipeline: { table: 'api.pipeline_definitions', column: 'display_id' },
-  analysis: { table: 'api.analysis_views', column: 'display_id' },
+  // Saved charts and saved statistics share the AN- numbering and one page.
+  analysis: {
+    table: `(SELECT id, workspace_id, display_id, created_at
+               FROM api.analysis_views
+             UNION ALL
+             SELECT id, workspace_id, display_id, created_at
+               FROM api.analysis_definitions) AS analyses`,
+    column: 'display_id',
+  },
   record: { table: 'api.records', column: 'identifier' },
   experiment: {
     table: 'api.records',

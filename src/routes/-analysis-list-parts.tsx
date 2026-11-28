@@ -192,20 +192,11 @@ export function AnalysisListBody({
               id: view.identifier,
               title: view.name,
               sub: `${kindLabel(view)} · ${datasetName(view.datasetId)}`,
-              link:
-                view.kind === 'chart'
-                  ? {
-                      to: '/analysis/$analysisId',
-                      params: { analysisId: view.id },
-                      onClick: (event: React.MouseEvent) =>
-                        openAnalysis(view, event),
-                    }
-                  : {
-                      to: '/analysis/new',
-                      search: { mode: 'analyse', definition: view.id },
-                      onClick: (event: React.MouseEvent) =>
-                        openAnalysis(view, event),
-                    },
+              link: {
+                to: '/analysis/$analysisId',
+                params: { analysisId: view.id },
+                onClick: (event: React.MouseEvent) => openAnalysis(view, event),
+              },
             }))}
           />
         </>
@@ -244,17 +235,10 @@ export function AnalysisInspector({
           variant="primary"
           nativeButton={false}
           render={
-            selected.kind === 'chart' ? (
-              <Link
-                to="/analysis/$analysisId"
-                params={{ analysisId: selected.id }}
-              />
-            ) : (
-              <Link
-                to="/analysis/new"
-                search={{ mode: 'analyse', definition: selected.id }}
-              />
-            )
+            <Link
+              to="/analysis/$analysisId"
+              params={{ analysisId: selected.id }}
+            />
           }
         >
           {t('common.actions.open')}

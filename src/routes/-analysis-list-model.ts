@@ -1,4 +1,7 @@
+import { z } from 'zod'
+
 import { t } from '#/copy'
+import type { AnalysisDefinitionWire } from '#/lib/analysis-definitions-data'
 
 /** One saved analysis, as the list shows it whichever save it came from. */
 export interface AnalysisRow {
@@ -99,5 +102,37 @@ export function emptyCopyFor(
   return {
     title: t('data.analysisList.analysesYet'),
     body: t('data.analysisList.analysisReadsPinnedDataset'),
+  }
+}
+
+/** The part of a saved statistic's definition that names it. */
+const statisticSummarySchema = z.object({
+  kind: z.string().optional(),
+  datasets: z.array(z.object({ datasetId: z.string().optional() })).optional(),
+})
+
+/** What a saved statistic is, in words, and the dataset it reads. */
+export interface StatisticSummary {
+  kindLabel: string
+  datasetId: string | undefined
+}
+
+/** Name a saved statistic from its stored definition. */
+export function statisticSummary(
+  saved: AnalysisDefinitionWire,
+): StatisticSummary {
+  const parsed = statisticSummarySchema.safeParse(saved.definition)
+  const summary = parsed.success ? parsed.data : {}
+
+  return {
+    kindLabel:
+      summary.kind === 'curve'
+        ? t('data.analysisList.doseResponseCurve')
+        : summary.kind === 'comparison'
+          ? t('data.analysisList.groupComparison')
+          : summary.kind === 'survival'
+            ? t('data.analysisList.survivalCurve')
+            : (summary.kind ?? 'analysis'),
+    datasetId: summary.datasets?.at(0)?.datasetId,
   }
 }

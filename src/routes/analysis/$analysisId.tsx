@@ -55,15 +55,18 @@ import { DuplicateAnalysisDialog } from '#/components/analysis/duplicate-analysi
 import { CitationList } from '#/components/viz/citation-list'
 import { resolveIdentifierParam } from '#/lib/identifier-resolution'
 import { signInRedirect } from '#/lib/sign-in-redirect'
-import { useDatasetSummaries } from '#/components/datasets/datasets-data'
-import type { DatasetListRow } from '#/components/datasets/datasets-data'
-import type { Crumb } from '#/components/ui/breadcrumb'
-import { fetchProject, notebookDataClient } from '#/lib/notebook-data'
+import { analysisTrail, useAnalysisPlace } from './-analysis-trail'
+import { SavedStatisticPage } from './-saved-statistic-page'
+import {
+  analysisDefinitionQueryKeys,
+  fetchAnalysisDefinitions,
+} from '#/lib/analysis-definitions-data'
 import { formatDate } from '#/lib/format-date'
 
-/** UI port (roadmap-4/ui-app3): a saved analysis view, rebuilt from its stored
- * ChartSpec and the current source dataset. The studio at /analysis is the
- * authoring surface; this route is the shareable, read-only view. */
+/** UI port (roadmap-4/ui-app3): a saved analysis, under its own name and
+ * address. A saved chart is rebuilt from its stored ChartSpec and the current
+ * source dataset; a saved statistic opens loaded and already run. The studio at
+ * /analysis/new is where new ones are made. */
 export const Route = createFileRoute('/analysis/$analysisId')({
   beforeLoad: async ({ context: rootContext, params, location }) => {
     const context = rootContext.auth
@@ -80,68 +83,11 @@ export const Route = createFileRoute('/analysis/$analysisId')({
 
     return { context }
   },
-  component: AnalysisView,
+  component: AnalysisPage,
 })
 
 /** What the stored spec's own check answered. */
 type AnalysisSpecCheck = ReturnType<typeof validateAnalysisSpec>
-
-/** The breadcrumb from the analysis back through its dataset, experiment and project. */
-function analysisTrail({
-  view,
-  source,
-  sourceProjectId,
-  sourceProjectTitle,
-}: {
-  view: AnalysisViewWire
-  source: DatasetListRow | null
-  sourceProjectId: string | null
-  sourceProjectTitle: string | null
-}): Crumb[] {
-  const fromAnalysis: Crumb = {
-    label: t('data.analysisPage.analysis'),
-    link: { to: '/analysis' },
-  }
-
-  return [
-    ...(source
-      ? [
-          ...(sourceProjectId
-            ? [
-                {
-                  label: sourceProjectTitle ?? t('data.analysisPage.project'),
-                  link: {
-                    to: '/projects/$projectId' as const,
-                    params: { projectId: sourceProjectId },
-                  },
-                },
-              ]
-            : []),
-          ...(source.experimentId
-            ? [
-                {
-                  label: source.experimentId,
-                  mono: true,
-                  link: {
-                    to: '/experiments/$expId' as const,
-                    params: { expId: source.experimentId },
-                  },
-                },
-              ]
-            : []),
-          {
-            label: source.id,
-            mono: true,
-            link: {
-              to: '/datasets/$datasetId' as const,
-              params: { datasetId: source.uuid },
-            },
-          },
-        ]
-      : [fromAnalysis]),
-    { label: view.display_id ?? `v${view.version}`, mono: true },
-  ]
-}
 
 /** The source check's answer, the saved version and when it was last updated. */
 function AnalysisMeta({
@@ -589,19 +535,9 @@ function useAnalysisView(analysisId: string) {
 
   // Where the analysis sits, for the trail: the dataset it draws on, the
   // experiment that made it and that experiment's project.
-  const summaries = useDatasetSummaries()
-  const sourceId = view ? specSourceDatasetId(view.charts[0]) : null
-  const source = summaries.data?.find((d) => d.uuid === sourceId) ?? null
-  const sourceProjectId = source?.projectId ?? null
-
-  const sourceProject = useQuery({
-    queryKey: ['ui-port', 'analysis', 'source-project', sourceProjectId ?? ''],
-    queryFn: () =>
-      sourceProjectId
-        ? fetchProject(notebookDataClient, sourceProjectId)
-        : null,
-    enabled: Boolean(sourceProjectId),
-  })
+  const place = useAnalysisPlace(
+    (view ? specSourceDatasetId(view.charts[0]) : null) ?? null,
+  )
 
   const status = statusQuery.data ?? null
 
@@ -638,16 +574,76 @@ function useAnalysisView(analysisId: string) {
     materialised,
     statusQuery,
     citationsQuery,
-    source,
-    sourceProject,
-    sourceProjectId,
+    place,
     status,
     movedSources,
     addChart,
   }
 }
 
-function AnalysisView() {
+/** The page while the analysis loads, or when there is none at this address. */
+function AnalysisMissing({ loading }: { loading: boolean }) {
+  return (
+    <div className="flex min-w-0 flex-1 flex-col">
+      <PageHeader
+        trail={[
+          {
+            label: t('data.analysisPage.analysis'),
+            link: { to: '/analysis' },
+          },
+        ]}
+        title={
+          loading
+            ? t('data.analysisPage.loadingAnalysis')
+            : t('data.analysisPage.analysisFound')
+        }
+      />
+      {loading ? null : (
+        <div className="px-4 py-4 md:px-6">
+          <EmptyState
+            icon="chart"
+            title={t('data.analysisPage.analysisDoesExist')}
+            description={t('data.analysisPage.mayHaveBeenDeleted')}
+            action={
+              <Button nativeButton={false} render={<Link to="/analysis/new" />}>
+                {t('data.analysisPage.openStudio')}
+              </Button>
+            }
+          />
+        </div>
+      )}
+    </div>
+  )
+}
+
+/** One address for every saved analysis: a statistic opens as one, anything else as a chart. */
+function AnalysisPage() {
+  const { analysisId } = Route.useParams()
+  const { context } = Route.useRouteContext()
+
+  const definitions = useQuery({
+    queryKey: analysisDefinitionQueryKeys.all,
+    queryFn: () => fetchAnalysisDefinitions(),
+    staleTime: 10_000,
+  })
+
+  const statistic = definitions.data?.find((row) => row.id === analysisId)
+
+  if (statistic) {
+    return (
+      <SavedStatisticPage
+        key={statistic.id}
+        statistic={statistic}
+        workspaceId={context.workspace?.id ?? ''}
+        userId={context.user.id}
+      />
+    )
+  }
+
+  return <AnalysisView definitionsPending={definitions.isPending} />
+}
+
+function AnalysisView({ definitionsPending }: { definitionsPending: boolean }) {
   const { analysisId } = Route.useParams()
   const { context } = Route.useRouteContext()
   const [duplicating, setDuplicating] = useState(false)
@@ -671,55 +667,16 @@ function AnalysisView() {
     materialised,
     statusQuery,
     citationsQuery,
-    source,
-    sourceProject,
-    sourceProjectId,
+    place,
     status,
     movedSources,
     addChart,
   } = page
 
-  if (viewQuery.isLoading) {
-    return (
-      <div className="flex min-w-0 flex-1 flex-col">
-        <PageHeader
-          trail={[
-            {
-              label: t('data.analysisPage.analysis'),
-              link: { to: '/analysis' },
-            },
-          ]}
-          title={t('data.analysisPage.loadingAnalysis')}
-        />
-      </div>
-    )
-  }
-
+  // Not a chart (yet): it may still be loading, or be a statistic still to arrive.
   if (!view) {
     return (
-      <div className="flex min-w-0 flex-1 flex-col">
-        <PageHeader
-          trail={[
-            {
-              label: t('data.analysisPage.analysis'),
-              link: { to: '/analysis' },
-            },
-          ]}
-          title={t('data.analysisPage.analysisFound')}
-        />
-        <div className="px-4 py-4 md:px-6">
-          <EmptyState
-            icon="chart"
-            title={t('data.analysisPage.analysisDoesExist')}
-            description={t('data.analysisPage.mayHaveBeenDeleted')}
-            action={
-              <Button nativeButton={false} render={<Link to="/analysis/new" />}>
-                {t('data.analysisPage.openStudio')}
-              </Button>
-            }
-          />
-        </div>
-      </div>
+      <AnalysisMissing loading={viewQuery.isLoading || definitionsPending} />
     )
   }
 
@@ -730,10 +687,8 @@ function AnalysisView() {
       <div className="flex min-h-0 min-w-0 flex-1 flex-col">
         <PageHeader
           trail={analysisTrail({
-            view,
-            source,
-            sourceProjectId,
-            sourceProjectTitle: sourceProject.data?.title ?? null,
+            place,
+            label: view.display_id ?? `v${view.version}`,
           })}
           title={view.name}
           meta={

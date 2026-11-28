@@ -242,6 +242,9 @@ function RecordActions({
   followKind: FollowKind
   recordId: string | null | undefined
 }) {
+  // A page with nothing under ⋯ and nothing to follow has no menu at all.
+  if (!more && !recordId) return <>{actions}</>
+
   return (
     <>
       {actions}

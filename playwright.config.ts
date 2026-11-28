@@ -11,6 +11,9 @@ export default defineConfig({
   workers: 1,
   timeout: 30_000,
   expect: {
+    // The dev server compiles a route on its first request, and a runner is
+    // slower than a laptop: 5 seconds read a slow first load as a missing page.
+    timeout: 15_000,
     // DSYS-06: anti-aliasing only. Never raise this or add per-test exceptions.
     toHaveScreenshot: {
       maxDiffPixelRatio: 0.001,

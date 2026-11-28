@@ -19,6 +19,9 @@ import {
   useFilterPopover,
 } from './list-filter'
 import type { ListFilter } from './list-filter'
+import { ArrangeMenus, SortMenu } from './list-arrange'
+import type { ListArrange } from './list-arrange'
+import type { RowData } from '@tanstack/react-table'
 import { t } from '#/copy'
 
 export { nameSorts, sortByName, footerCount } from './list-data'
@@ -144,12 +147,11 @@ export function ViewControls({
   const [localSort, setLocalSort] = useState(sort ?? sorts?.[0])
   const cur = sort ?? localSort
 
-  const pick = (s: string) => {
+  const pick = (s: string | undefined) => {
+    if (!s) return
     setLocalSort(s)
     onSort?.(s)
   }
-
-  const item = (on: boolean) => (on ? '' : 'pl-[30px]')
 
   return (
     <>
@@ -176,29 +178,11 @@ export function ViewControls({
         </DropdownMenu>
       ) : null}
       {sorts?.length && onSort ? (
-        <DropdownMenu>
-          <DropdownMenuTrigger
-            render={
-              <Button size="sm" variant="quiet" className="max-md:hidden" />
-            }
-          >
-            {showSortValue
-              ? t('library.inventory.list.sort', { cur: cur ?? '' })
-              : t('library.inventory.list.sort2')}
-          </DropdownMenuTrigger>
-          <DropdownMenuContent className="w-[180px]">
-            {sorts.map((k) => (
-              <DropdownMenuItem
-                key={k}
-                icon={cur === k ? 'check' : undefined}
-                className={item(cur === k)}
-                onClick={() => pick(k)}
-              >
-                {k}
-              </DropdownMenuItem>
-            ))}
-          </DropdownMenuContent>
-        </DropdownMenu>
+        <SortMenu
+          options={sorts.map((k) => ({ value: k, label: k }))}
+          value={showSortValue ? cur : undefined}
+          onChange={pick}
+        />
       ) : null}
     </>
   )
@@ -241,7 +225,22 @@ export function FieldsButton({
   )
 }
 
-export function ListToolbar({
+/** The controls before the toolbar's right edge: Sort and Group, then the page's own. */
+function toolbarLead(
+  arranged: React.ReactNode,
+  own: React.ReactNode,
+): React.ReactNode {
+  if (!arranged && !own) return null
+
+  return (
+    <>
+      {arranged}
+      {own}
+    </>
+  )
+}
+
+export function ListToolbar<T extends RowData>({
   q,
   onSearch,
   placeholder,
@@ -250,7 +249,10 @@ export function ListToolbar({
   right,
   views,
   filter,
+  arrange,
 }: {
+  /** Sort and Group, from the table's own columns (`useListArrange`). */
+  arrange?: ListArrange<T>
   /** Column filters: adds the Filter button and the chips under the toolbar. */
   filter?: ListFilter
   q?: string
@@ -261,7 +263,11 @@ export function ListToolbar({
   right?: React.ReactNode
   views?: ViewOptions
 }) {
-  const lead = views ? <ViewControls {...views} /> : children
+  const lead = toolbarLead(
+    arrange ? <ArrangeMenus arrange={arrange} /> : null,
+    views ? <ViewControls {...views} /> : children,
+  )
+
   const popover = useFilterPopover()
   const fields = views?.fields
   const onToggleField = views?.onToggleField

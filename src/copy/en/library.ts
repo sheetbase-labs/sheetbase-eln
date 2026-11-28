@@ -609,8 +609,6 @@ export const library = {
   },
   inventory: {
     list: {
-      sort: 'Sort: {cur}',
-      sort2: 'Sort',
       fields: 'Fields',
     },
   },
@@ -3795,7 +3793,7 @@ export const library = {
   },
   stocktake: {
     title: 'Stocktake',
-    subtitle: 'Count a freezer, shelf, rack or box against its records',
+    searchPlaceholder: 'Search by count or place',
     startCount: 'Start a count',
     startTitle: 'Start a count',
     startHelp:

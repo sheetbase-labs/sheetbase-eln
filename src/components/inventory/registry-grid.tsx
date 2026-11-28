@@ -240,6 +240,21 @@ export interface RegistryGridProps<T extends RowData> {
 }
 
 /**
+ * Under fixed widths the row's name takes the room the other columns leave, so
+ * a long name is cut only once nothing else can give way. A screen can name
+ * another column with `meta.grow`; otherwise it is the second data column, the
+ * one after the identifier.
+ */
+function growColumnId<T extends RowData>(
+  columns: readonly RegistryColumn<T>[],
+  stableWidths: boolean | undefined,
+): string | undefined {
+  if (!stableWidths) return undefined
+
+  return (columns.find((column) => column.meta?.grow) ?? columns.at(1))?.id
+}
+
+/**
  * What a column needs to take part in header sorting: the shared comparison,
  * and a header that is a button. A column with no value to sort (a menu, a row
  * of buttons) does not sort, and its header stays as the screen wrote it.
@@ -440,11 +455,16 @@ export function RegistryGrid<T extends RowData>({
   // The tick column carries no label, so a band's label sits in the next one.
   const labelIndex = showTicks ? 1 : 0
 
+  const growId = growColumnId(columns, stableWidths)
+
   const decorated = useMemo<RegistryColumn<RegistryRow<T>>[]>(
     () =>
       allColumns.map((column, index): RegistryColumn<RegistryRow<T>> => {
         const result = { ...column }
         Object.assign(result, sortingFor(column, sortable))
+
+        if (growId !== undefined && column.id === growId)
+          result.meta = { ...result.meta, grow: true }
         result.cell = (context) => {
           const original = context.row.original
 
@@ -508,7 +528,7 @@ export function RegistryGrid<T extends RowData>({
 
         return result
       }),
-    [allColumns, labelIndex, sortable],
+    [allColumns, labelIndex, sortable, growId],
   )
 
   // The row's identity and its state do not scroll away from each other, and

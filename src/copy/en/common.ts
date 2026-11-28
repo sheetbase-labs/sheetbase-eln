@@ -6,6 +6,18 @@
 export const common = {
   /** A storage path shortened to its most specific places. */
   locationTail: '… / {tail}',
+  /** How a list orders and groups its rows, in every list's toolbar. */
+  list: {
+    sort: 'Sort',
+    sortBy: 'Sort: {by}',
+    listOrder: 'List order',
+    group: 'Group',
+    groupBy: 'Group: {by}',
+    noGroups: 'None',
+    notSet: 'No {column}',
+    ascending: 'Ascending',
+    descending: 'Descending',
+  },
   /** Column names every record list offers in its filter. */
   filter: {
     id: 'ID',

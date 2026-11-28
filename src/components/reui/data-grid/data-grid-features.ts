@@ -107,6 +107,13 @@ export interface DataGridColumnMeta<TData> {
    * absorbed space compensates), the flex-column trade-off.
    */
   fillWidth?: boolean
+  /**
+   * Under a fixed table layout (not resizable), this column takes whatever
+   * width the others leave, and never less than its own `size`: the table
+   * grows no narrower than every column's size together, so it scrolls (or
+   * drops a column) before this one is squeezed. One column per grid.
+   */
+  grow?: boolean
 }
 
 /**

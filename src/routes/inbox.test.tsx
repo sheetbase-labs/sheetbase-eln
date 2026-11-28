@@ -782,24 +782,23 @@ describe('Inbox URL and tab keyboard (QA3-inbox-3, QA3-inbox-4)', () => {
 })
 
 describe('Inbox header fits the phone width (QA4-inbox-phone)', () => {
-  it('keeps both header actions on a row that wraps below `md`', () => {
+  it('keeps both header actions reachable without widening the page', () => {
     const { getByRole, getByText } = renderInbox()
     const row = getByText('Inbox', { selector: 'h1' }).parentElement
     expect(row).not.toBeNull()
-    // On one non-wrapping row the title and the two actions could not share a
-    // 390px viewport (Mark all seen ended at 408), which clipped the action
-    // with no ancestor able to scroll to it. `ListHeader` wraps instead — and
-    // below `md` the actions take a line of their own — so both controls stay
-    // on the page rather than being dropped from the affordance set the
-    // reference's desktop header shows. The header is the shared one now, so
-    // the wrap is the header's guarantee rather than this screen's.
-    expect(row!.className).toContain('flex-wrap')
-
-    const actions = row!.parentElement!.querySelector(
-      '[class*="max-md:w-full"]',
+    // On a phone the title row holds the main action and a More menu; the
+    // other text buttons fold into More (the header's own guarantee), so the
+    // row never runs past a 390px viewport. The title gives way first.
+    expect(getByText('Inbox', { selector: 'h1' }).className).toContain(
+      'max-md:truncate',
     )
 
+    const actions = row!.querySelector('[data-list-actions]')
+
     expect(actions).not.toBeNull()
+    expect(actions!.className).toContain(
+      'max-md:[&_[data-slot=button]:not([data-variant=primary]):not([data-main]):not([data-size^=icon])]:hidden',
+    )
     // Both actions stay in the header: "Mark all seen" is a real button,
     // "Notification settings" is a Link-based button (its role comes from Base
     // UI, so the shared Link mock leaves it roleless here).

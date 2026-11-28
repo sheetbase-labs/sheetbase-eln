@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useLayoutEffect, useRef, useState } from 'react'
 import { Link } from '@tanstack/react-router'
 import type { LinkProps } from '@tanstack/react-router'
 import { Button } from '#/components/ui/button'
@@ -10,6 +10,13 @@ import {
 } from '#/components/ui/dropdown-menu'
 import { Icon } from '#/components/icons'
 import { Input } from '#/components/ui/input'
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from '#/components/ui/popover'
+import { PhoneTabsWidth } from '#/components/ui/phone-tabs'
+import { usePhone } from '#/lib/use-phone'
 import { Skeleton } from '#/components/ui/skeleton'
 import { SEARCH_SETTLE_MS, useSettledValue } from '#/lib/settled-value'
 import { cn } from '#/lib/utils'
@@ -49,6 +56,15 @@ export function ReadOnlyNote({ children }: { children: React.ReactNode }) {
 export const PHONE_SCROLL_ROW =
   'contents max-md:-mx-4 max-md:flex max-md:min-w-0 max-md:basis-[calc(100%+2rem)] max-md:items-center max-md:gap-1 max-md:overflow-x-auto max-md:px-4 max-md:[scrollbar-width:none] max-md:[&>*]:shrink-0'
 
+/** A text button in a list header that is not the page's main action. On a
+ * phone these move from the header row into its More menu. */
+/** A phone's width less the header's side padding (393 - 2 x 16), with room
+ * to spare for wider type. */
+const PHONE_TABS_WIDTH = 345
+
+const SECONDARY_ACTION =
+  '[data-slot=button]:not([data-variant=primary]):not([data-main]):not([data-size^=icon])'
+
 export function ListHeader({
   title,
   total,
@@ -68,13 +84,19 @@ export function ListHeader({
   /** What this list is, beside its name. Hidden on phones, where the title is
    * the whole reference header. */
   subtitle?: React.ReactNode
+  /** The page's buttons. On a phone the main one (primary, or marked
+   * `data-main` when its look changes with a selection) and any icon buttons
+   * stay beside the title; the other text buttons fold into a More
+   * menu, so the list starts right under the header. */
   actions?: React.ReactNode
   tabs?: React.ReactNode
 }) {
+  const phone = usePhone()
+
   return (
     <header className="flex flex-col gap-1 border-b border-border bg-surface px-4 pt-3 md:px-6 md:pt-4">
-      <div className="flex min-h-7 flex-wrap items-center gap-2">
-        <h1 className="text-title max-md:text-[18px] max-md:leading-6 md:sr-only">
+      <div className="flex min-h-7 flex-wrap items-center gap-2 max-md:min-h-10 max-md:flex-nowrap">
+        <h1 className="text-title max-md:min-w-0 max-md:truncate max-md:text-[18px] max-md:leading-6 md:sr-only">
           {title}
         </h1>
         {total != null ? (
@@ -97,21 +119,112 @@ export function ListHeader({
         ) : null}
         <span className="flex-1" />
         {actions ? (
-          // On a phone, text actions share the row; an icon-only action
-          // keeps its square size instead of stretching into an empty pill.
-          <div className="flex shrink-0 flex-wrap gap-2 max-md:w-full max-md:[&>*:not([data-size=icon])]:flex-1">
+          <div
+            data-list-actions
+            className={cn(
+              'flex shrink-0 flex-wrap items-center gap-2 max-md:flex-nowrap',
+              // A note in place of the buttons (a read-only role) is prose:
+              // it takes the row under the title rather than squeezing it.
+              'max-md:has-[>p]:basis-full max-md:has-[>p]:shrink',
+              'max-md:[&_[data-slot=button]:not([data-variant=primary]):not([data-main]):not([data-size^=icon])]:hidden',
+            )}
+          >
             {actions}
           </div>
         ) : null}
+        {actions && phone ? <MoreListActions>{actions}</MoreListActions> : null}
       </div>
-      {tabs ? (
-        <div className="-mx-4 overflow-x-auto px-4 [scrollbar-width:none] md:mx-0 md:px-0">
-          {tabs}
-        </div>
-      ) : (
-        <div className="h-3" />
-      )}
+      <PhoneTabsWidth value={PHONE_TABS_WIDTH}>
+        {tabs ? (
+          <div className="-mx-4 overflow-x-auto px-4 [scrollbar-width:none] md:mx-0 md:px-0">
+            {tabs}
+          </div>
+        ) : (
+          <div className="h-3" />
+        )}
+      </PhoneTabsWidth>
     </header>
+  )
+}
+
+/**
+ * The phone's More menu for a list header: the same actions rendered again,
+ * showing only the text buttons the header row hides. It stays mounted while
+ * closed, so a dialog one of them opened keeps its state after the menu shuts.
+ * The button appears only when there is something in it.
+ */
+function MoreListActions({ children }: { children: React.ReactNode }) {
+  const [open, setOpen] = useState(false)
+  const [count, setCount] = useState(0)
+  // The menu's content mounts in a portal after the button, so it is watched
+  // from the moment it appears rather than from the first render.
+  const [root, setRoot] = useState<HTMLDivElement | null>(null)
+
+  useLayoutEffect(() => {
+    if (!root) return
+
+    const measure = () =>
+      setCount(
+        [...root.querySelectorAll<HTMLElement>(SECONDARY_ACTION)].filter(
+          (el) => getComputedStyle(el).display !== 'none',
+        ).length,
+      )
+
+    measure()
+    const watch = new MutationObserver(measure)
+
+    watch.observe(root, { childList: true, subtree: true, attributes: true })
+
+    // Each action reads as a menu row, and picking one shuts the menu. Its
+    // own dialog stays open: it lives on in the mounted menu.
+    const pick = (event: Event) => {
+      if (
+        event.target instanceof Element &&
+        event.target.closest(SECONDARY_ACTION)
+      )
+        setOpen(false)
+    }
+
+    root.addEventListener('click', pick, { capture: true })
+
+    return () => {
+      watch.disconnect()
+      root.removeEventListener('click', pick, { capture: true })
+    }
+  }, [root])
+
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger
+        render={
+          <Button
+            size="icon"
+            variant="secondary"
+            icon="more"
+            aria-label={t('common.actions.more')}
+            data-list-more
+            className={cn(count === 0 && 'hidden')}
+          />
+        }
+      />
+      <PopoverContent
+        keepMounted
+        align="end"
+        className="min-w-[200px] p-1"
+        aria-label={t('common.actions.more')}
+      >
+        <div
+          ref={setRoot}
+          className={cn(
+            'flex flex-col [&_[data-slot=button]]:w-full [&_[data-slot=button]]:justify-start [&_[data-slot=button]]:border-transparent [&_[data-slot=button]]:bg-transparent [&_[data-slot=button]:hover]:bg-surface-hover',
+            '[&_:is(span,div):has([data-slot=button])]:flex [&_:is(span,div):has([data-slot=button])]:flex-col [&_:is(span,div):has([data-slot=button])]:items-stretch',
+            '[&_[data-variant=primary]]:hidden [&_[data-main]]:hidden [&_[data-size^=icon]]:hidden [&_p]:hidden',
+          )}
+        >
+          {children}
+        </div>
+      </PopoverContent>
+    </Popover>
   )
 }
 
@@ -288,10 +401,10 @@ export function ListToolbar<T extends RowData>({
 
   return (
     <>
-      <div className="flex flex-wrap items-center gap-1 border-b border-border-subtle px-4 py-2 md:px-6">
+      <div className="flex flex-wrap items-center gap-1 border-b border-border-subtle px-4 py-2 max-md:flex-nowrap md:px-6">
         <form
           role="search"
-          className="relative min-w-0 flex-1 max-md:basis-full md:w-[280px] md:flex-none"
+          className="relative min-w-0 flex-1 max-md:min-w-[10rem] md:w-[280px] md:flex-none"
           onSubmit={(e) => e.preventDefault()}
         >
           <label>
@@ -315,18 +428,10 @@ export function ListToolbar<T extends RowData>({
             beside Filter, so the toolbar has one rhythm from page to page. */}
         <span className="flex-1 max-md:hidden" />
         {lead ? (
-          <div
-            className={cn(
-              PHONE_SCROLL_ROW,
-              // With Fields, Filter or an action to the right, the scrolling
-              // controls share their line on a phone instead of pushing those
-              // onto a row of their own; the far edge fades to show it scrolls.
-              trailing &&
-                'max-md:mr-0 max-md:flex-1 max-md:basis-0 max-md:pr-6 max-md:[mask-image:linear-gradient(to_right,#000_calc(100%-24px),transparent)]',
-            )}
-          >
-            {lead}
-          </div>
+          // On a phone the view controls are icons that share the search
+          // box's row, so the first record sits a row higher. Any the row
+          // cannot fit scroll sideways rather than wrapping under it.
+          <PhoneToolbarRow>{lead}</PhoneToolbarRow>
         ) : null}
         {lead && trailing ? (
           <span aria-hidden className="mx-1 h-4 w-px bg-border max-md:hidden" />
@@ -343,6 +448,49 @@ export function ListToolbar<T extends RowData>({
       </div>
       {filter ? <ListFilterChips filter={filter} popover={popover} /> : null}
     </>
+  )
+}
+
+/** The toolbar's view controls: in the flow on a desktop; on a phone one
+ * row beside the search box that scrolls sideways, its far edge faded only
+ * while there is more to scroll to. */
+function PhoneToolbarRow({ children }: { children: React.ReactNode }) {
+  const row = useRef<HTMLDivElement>(null)
+  const [more, setMore] = useState(false)
+
+  useLayoutEffect(() => {
+    const el = row.current
+
+    if (!el) return
+
+    const measure = () =>
+      setMore(el.scrollLeft + el.clientWidth < el.scrollWidth - 1)
+
+    measure()
+
+    const resize =
+      'ResizeObserver' in globalThis ? new ResizeObserver(measure) : null
+
+    resize?.observe(el)
+    el.addEventListener('scroll', measure, { passive: true })
+
+    return () => {
+      resize?.disconnect()
+      el.removeEventListener('scroll', measure)
+    }
+  }, [])
+
+  return (
+    <div
+      ref={row}
+      className={cn(
+        'contents max-md:flex max-md:min-w-0 max-md:flex-[0_1_auto] max-md:items-center max-md:gap-0.5 max-md:overflow-x-auto max-md:[scrollbar-width:none] max-md:[&>*]:shrink-0',
+        more &&
+          'max-md:[mask-image:linear-gradient(to_right,#000_calc(100%-24px),transparent)]',
+      )}
+    >
+      {children}
+    </div>
   )
 }
 

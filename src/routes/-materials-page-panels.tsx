@@ -110,6 +110,7 @@ export function MaterialsHeader({
             <>
               <Button
                 variant={sel ? 'secondary' : 'primary'}
+                data-main
                 icon="plus"
                 // On a phone Receive lot sits in More, so Register lot is
                 // the one main action and always reads as primary.

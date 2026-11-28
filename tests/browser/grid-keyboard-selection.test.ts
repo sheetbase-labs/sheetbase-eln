@@ -31,6 +31,10 @@ import { signInAsDesignUser } from '../visual/sign-in'
 
 config({ path: ['.env.local', '.env'] })
 
+// The first test opens the sheet route cold, and its 30 second wait for the
+// compile is as long as the default test timeout.
+test.setTimeout(90_000)
+
 const SHEET_NAME = 'Clarification working sheet'
 // Gareth owns the design workspace (…0300) the sheet's project lives in.
 const USER = '00000000-0000-4000-8000-000000000310'

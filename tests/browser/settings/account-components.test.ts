@@ -544,13 +544,23 @@ async function passkeys(page: Page, existing = false) {
       return
     }
 
-    const response = await route.fetch({
-      url: route
-        .request()
-        .url()
-        .replace('http://localhost:3100', 'http://127.0.0.1:3100'),
-    })
-    await route.fulfill({ response })
+    const url = route
+      .request()
+      .url()
+      .replace('http://localhost:3100', 'http://127.0.0.1:3100')
+
+    // This forwards every module of the page one by one. Vite, busy with the
+    // other browsers of the job, now and then drops one of those connections;
+    // the browser would ask again, so the proxy does too.
+    for (let attempt = 1; ; attempt += 1) {
+      try {
+        await route.fulfill({ response: await route.fetch({ url }) })
+
+        return
+      } catch (error) {
+        if (attempt === 3 || !String(error).includes('ECONNRESET')) throw error
+      }
+    }
   })
   const cdp = await page.context().newCDPSession(page)
   await cdp.send('WebAuthn.enable')

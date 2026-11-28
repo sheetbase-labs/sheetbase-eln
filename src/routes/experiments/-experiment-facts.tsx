@@ -1,7 +1,8 @@
 /**
  * The experiment's header facts and tabs as data for the shared record page:
- * who owns and reviews it, when it started, the protocol it runs on and when
- * it is due, and its sections from Notebook to History.
+ * who owns and reviews it, the protocol it runs on and when it is due (when
+ * it started stays in the side panel), and its sections from Notebook to
+ * History.
  */
 import type { RecordFact } from '#/components/record-page/record-page'
 import type { Crumb } from '#/components/ui/breadcrumb'
@@ -38,12 +39,6 @@ export function experimentFacts({
           ),
         }
       : null,
-    e.status === 'draft' || e.status === 'planned'
-      ? null
-      : {
-          label: t('projects.experimentPage.facts.started'),
-          value: formatDate(e.created_at),
-        },
     protocolLink?.target_record_id
       ? {
           label: t('projects.experimentPage.facts.protocol'),

@@ -2068,7 +2068,6 @@ export const projects = {
     facts: {
       owner: 'Owner',
       reviewer: 'Reviewer',
-      started: 'Started',
       protocol: 'Protocol',
       due: 'Due',
     },

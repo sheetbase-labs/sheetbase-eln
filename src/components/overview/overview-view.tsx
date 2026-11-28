@@ -1132,6 +1132,10 @@ function renderPropertiesSection({
               t('projects.overview.notRecorded')
             ),
           ],
+          [
+            t('projects.overview.properties.started'),
+            formatNotebookDateTime(record.createdAt),
+          ],
           ...(clientId
             ? ([
                 [t('projects.overview.properties.client'), clientId],

@@ -15,22 +15,30 @@ test('inbox lists work items, filters by type and fits the phone width', async (
   await page.route('**/api/db/**', async (route) => {
     const path = new URL(route.request().url()).pathname
     let body: unknown = []
-    if (path.endsWith('/my_work_items'))
-      body = [
-        {
-          kind: 'review_requested',
-          record_id: 'record-1',
-          identifier: 'EXP-001',
-          title: 'Stability assay',
-          project_id: 'project-1',
-          reason: 'Review requested',
-          // An item without a due date belongs to the collapsed "Later" group
-          // (see groupWorkItems), so a needs-action row carries one.
-          due_at: new Date().toISOString(),
-          state: 'needs_action',
-          created_at: '2026-09-06T10:00:00Z',
-        },
-      ]
+    const item = {
+      kind: 'review_requested',
+      record_id: 'record-1',
+      identifier: 'EXP-001',
+      title: 'Stability assay',
+      project_id: 'project-1',
+      reason: 'Review requested',
+      // An item without a due date belongs to the collapsed "Later" group
+      // (see groupWorkItems), so a needs-action row carries one.
+      due_at: new Date().toISOString(),
+      state: 'needs_action',
+      created_at: '2026-09-06T10:00:00Z',
+    }
+    // The Inbox reads one server-side page: the rows with the exact tab and
+    // type counts around them.
+    if (path.endsWith('/rpc/inbox_work_items_page'))
+      body = {
+        items: [item],
+        total: 1,
+        offset: 0,
+        tabs: { needs_action: 1 },
+        types: { review_requested: 1 },
+      }
+    else if (path.endsWith('/my_work_items')) body = [item]
     await route.fulfill({
       status: 200,
       contentType: 'application/json',

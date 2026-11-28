@@ -44,7 +44,7 @@ export function PluginRecordList({
           <Fragment key={flag.id}>
             <Row
               data-plugin-flag={flag.flag_key}
-              eyebrow={t('plugins.recordPanel.from', {
+              kind={t('plugins.recordPanel.from', {
                 plugin: flag.extension_name,
               })}
               title={flag.title}
@@ -93,7 +93,7 @@ export function PluginRecordList({
       {state.summaries.map((summary) => (
         <Row
           key={`${summary.extension_key}:${summary.hook_id}`}
-          eyebrow={t('plugins.recordPanel.from', {
+          kind={t('plugins.recordPanel.from', {
             plugin: summary.extension_name,
           })}
           title={summary.summary}

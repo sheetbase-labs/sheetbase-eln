@@ -115,7 +115,7 @@ export function SlashCommandMenu({
         return (
           <div key={group.id} className="mb-1">
             {group.label ? (
-              <p className="px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.14em] text-fg-muted">
+              <p className="px-2 py-1 text-[10px] font-semibold text-fg-muted">
                 {group.label}
               </p>
             ) : null}

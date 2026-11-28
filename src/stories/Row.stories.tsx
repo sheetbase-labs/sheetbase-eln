@@ -17,7 +17,7 @@ const meta = {
   tags: ['autodocs'],
   args: {
     title: 'Virus stability — 4 °C',
-    eyebrow: 'Experiment',
+    kind: 'Experiment',
     meta: 'EXP-2026-0041',
   },
 } satisfies Meta<typeof Row>
@@ -93,7 +93,7 @@ export const TrailingSlots: Story = {
         <Row
           {...args}
           title="Data integrity"
-          eyebrow="Check"
+          kind="Check"
           meta={undefined}
           trailing={
             <>
@@ -109,7 +109,7 @@ export const TrailingSlots: Story = {
         <Row
           {...args}
           title="protocol.pdf"
-          eyebrow="File"
+          kind="File"
           meta={undefined}
           leading={
             <Icon

@@ -232,14 +232,14 @@ function RunningPart({
   return (
     <>
       <div className="flex flex-col gap-1">
-        <p className="m-0 text-label font-semibold uppercase tracking-[0.06em] text-fg-muted">
-          {t('notebook.parts.nowPartEyebrow', { part: String(part.number) })}
-        </p>
         <h2 className="m-0 font-heading text-doc font-semibold leading-snug text-fg">
           {part.title}
         </h2>
         <p className="m-0 text-body text-fg-muted">
-          {later ?? t('notebook.parts.noSteps')}
+          {[
+            t('notebook.parts.nowPartPosition', { part: String(part.number) }),
+            later ?? t('notebook.parts.noSteps'),
+          ].join(' · ')}
         </p>
       </div>
       <div className="flex flex-wrap items-center gap-2 max-md:[&>button]:flex-1">
@@ -306,7 +306,22 @@ function RunningStep({
       ),
   })
 
+  const position =
+    step.partNumber != null &&
+    step.partStepIndex != null &&
+    step.partStepCount != null
+      ? t('notebook.parts.nowPosition', {
+          part: String(step.partNumber),
+          number: String(step.partStepIndex),
+          total: String(step.partStepCount),
+        })
+      : t('notebook.currentStep.position', {
+          number: String(step.index),
+          total: String(total),
+        })
+
   const evidence = [
+    position,
     stepEvidence(step, timerRunning),
     partLaterLine(part, startedAt),
   ]
@@ -316,20 +331,6 @@ function RunningStep({
   return (
     <>
       <div className="flex flex-col gap-1">
-        <p className="m-0 text-label font-semibold uppercase tracking-[0.06em] text-fg-muted">
-          {step.partNumber != null &&
-          step.partStepIndex != null &&
-          step.partStepCount != null
-            ? t('notebook.parts.nowEyebrow', {
-                part: String(step.partNumber),
-                number: String(step.partStepIndex),
-                total: String(step.partStepCount),
-              })
-            : t('notebook.currentStep.eyebrow', {
-                number: String(step.index),
-                total: String(total),
-              })}
-        </p>
         <h2 className="m-0 font-heading text-doc font-semibold leading-snug text-fg">
           {step.text}
         </h2>
@@ -426,11 +427,16 @@ function RunningStep({
 /** One line on what the page already shows for the step. */
 function stepEvidence(step: StepProgress, timerRunning: boolean): string {
   const parts: string[] = []
-  parts.push(
+
+  const state =
     step.status === 'in_progress'
       ? t('notebook.currentStep.inProgress')
-      : t('notebook.currentStep.notStarted'),
-  )
+      : t('notebook.currentStep.notStarted')
+
+  // A note that already opens with the state ("In progress: plate 4 today")
+  // says it once.
+  if (!step.note?.toLowerCase().startsWith(state.toLowerCase()))
+    parts.push(state)
 
   if (timerRunning) parts.push(t('notebook.currentStep.timerRunning'))
 

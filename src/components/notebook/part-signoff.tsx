@@ -539,7 +539,7 @@ export function SignOffPartCard({
   return (
     <>
       <div className="flex flex-col gap-1" data-testid="sign-off-card">
-        <p className="m-0 text-label font-semibold uppercase tracking-[0.06em] text-fg-muted">
+        <p className="m-0 text-label font-semibold text-fg-muted">
           {t('notebook.partSignoff.eyebrow', { number: String(part.number) })}
         </p>
         <h2 className="m-0 font-heading text-doc font-semibold leading-snug text-fg">
@@ -798,7 +798,7 @@ export function PartSignoffReviewSection({ recordId }: { recordId: string }) {
 
   return (
     <section data-testid="part-signoff-review">
-      <h2 className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+      <h2 className="mb-2 text-xs font-semibold text-muted-foreground">
         {t('notebook.partSignoff.reviewTitle')}
       </h2>
       <TableBox>

@@ -112,7 +112,7 @@ function CheckResultItem({ item }: { item: CheckItemResult }) {
       </button>
       {expanded && hasEvidence && (
         <div className="border-t border-border-subtle px-3 py-2">
-          <div className="mb-1 text-label font-medium uppercase tracking-wide text-fg-muted">
+          <div className="mb-1 text-label font-medium text-fg-muted">
             {t('projects.checkResults.evidence')}
           </div>
           <CodeBlock
@@ -184,7 +184,7 @@ export function ReviewCheckResults({ result }: ReviewCheckResultsProps) {
       </div>
 
       <div className="flex flex-col gap-1">
-        <div className="text-label font-medium uppercase tracking-wide text-fg-muted">
+        <div className="text-label font-medium text-fg-muted">
           {t('projects.checkResults.definition', {
             key: result.check_definition_key,
             version: result.check_definition_version,

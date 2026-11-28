@@ -1700,7 +1700,7 @@ function DiffPanel({
           <div className="min-w-0">
             <label
               htmlFor="review-comparison-select"
-              className="text-xs font-semibold uppercase tracking-wide text-muted-foreground"
+              className="text-xs font-semibold text-muted-foreground"
             >
               {t('projects.revisionPage.diffPanel.compareAgainst')}
             </label>

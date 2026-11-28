@@ -863,10 +863,6 @@ export const notebook = {
       one: '{count} field',
       other: '{count} fields',
     },
-    justNow: 'just now',
-    minutesAgo: '{count}m ago',
-    hoursAgo: '{count}h ago',
-    daysAgo: '{count}d ago',
   },
   mentionTextarea: {
     ariaLabel: 'Mention a teammate',
@@ -3064,7 +3060,8 @@ export const notebook = {
     nameVersionVersion: '{name} · version {version}',
     upgradeAvailableVVersion: 'Upgrade available · v{version}',
     notebookTagsAriaLabel: 'Notebook tags',
-    commaSeparatedTags: 'Comma-separated tags.',
+    addTag: 'Add a tag',
+    removeTag: 'Remove tag {tag}',
     propertiesLabel: 'Properties',
     typeLabel: 'Type',
     idLabel: 'ID',
@@ -3401,8 +3398,7 @@ export const notebook = {
   },
   currentStep: {
     label: 'Current step',
-    eyebrow: 'Now · step {number} of {total}',
-    eyebrowDone: 'All steps done',
+    position: 'Step {number} of {total}',
     allDone: 'All {total} steps are done.',
     allDoneHint: 'Submit the notebook for review when you are ready.',
     allDoneReturned:
@@ -3446,8 +3442,8 @@ export const notebook = {
     stateNow: 'Now',
     stateLater: 'Up next',
     eyebrow: 'Part {number} · Day {day} · {date}',
-    nowEyebrow: 'Now · Part {part} · Step {number} of {total}',
-    nowPartEyebrow: 'Now · Part {part}',
+    nowPosition: 'Part {part}, step {number} of {total}',
+    nowPartPosition: 'Part {part}',
     stepsLeft: {
       one: '{count} step left',
       other: '{count} steps left',

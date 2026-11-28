@@ -471,7 +471,7 @@ function renderConclusion(payload: NotebookBlock['payload']): React.ReactNode {
   return (
     <div className="space-y-1.5 rounded-md border border-border bg-surface px-3.5 py-2.5 text-sm leading-6">
       <div className="flex items-center gap-2">
-        <span className="text-xs font-medium uppercase tracking-wide text-fg-muted">
+        <span className="text-xs font-medium text-fg-muted">
           {t('notebook.blockPreview.conclusion')}
         </span>
         <span
@@ -572,9 +572,7 @@ function LinkedRecordPreview({ payload }: { payload: unknown }) {
       </Badge>
       {label ? <span className="text-xs text-fg-muted">{label}</span> : null}
       {linkType && linkType !== 'general' ? (
-        <span className="text-xs uppercase tracking-wide text-fg-muted/70">
-          {linkType}
-        </span>
+        <span className="text-xs text-fg-muted/70">{linkType}</span>
       ) : null}
       {openTo ? (
         <OpenLink to={openTo}>
@@ -902,7 +900,7 @@ function renderMetric(payload: NotebookBlock['payload']): React.ReactNode {
 
   return (
     <dl className="flex flex-col gap-0.5">
-      <dt className="text-xs font-medium uppercase tracking-wide text-fg-muted">
+      <dt className="text-xs font-medium text-fg-muted">
         {label || t('notebook.blockPreview.metric')}
       </dt>
       <dd className="font-display text-2xl font-semibold leading-tight tabular-nums text-fg">

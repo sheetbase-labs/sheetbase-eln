@@ -106,7 +106,7 @@ function StartList({
           return (
             <div key={choice.key}>
               {heading ? (
-                <p className="px-2 pb-1 pt-3 text-[11px] font-semibold uppercase tracking-[0.12em] text-fg-muted">
+                <p className="px-2 pb-1 pt-3 text-[11px] font-semibold text-fg-muted">
                   {heading}
                 </p>
               ) : null}
@@ -202,7 +202,7 @@ function StartPreview({
       aria-live="polite"
       className="min-w-0 border-t pt-4 md:border-l md:border-t-0 md:pl-6 md:pt-0"
     >
-      <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-fg-muted">
+      <p className="text-[11px] font-semibold text-fg-muted">
         {t('projects.newExperiment.previewTitle')}
       </p>
       <p className="mt-1 text-base font-semibold text-fg">{label}</p>

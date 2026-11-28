@@ -10,7 +10,12 @@ import {
   openBesideOnAlt,
   useWorkspaceNavigation,
 } from '#/components/workspace/workspace-navigation'
-import { formatPartDate, partDate, partIsLate } from '#/lib/experiment-parts'
+import {
+  formatPartDate,
+  partDate,
+  partIsLate,
+  partTitle,
+} from '#/lib/experiment-parts'
 import type { PartProgress } from '#/lib/experiment-parts'
 import type { NotebookBlock } from '#/lib/notebook-data'
 import { notebookOutline } from '#/lib/notebook-outline'
@@ -246,10 +251,7 @@ function DesktopStrip({
         {parts.map((part) => {
           const href = partHref(expId, part.number)
 
-          const title = t('notebook.parts.partTitle', {
-            number: String(part.number),
-            title: part.title,
-          })
+          const title = partTitle(String(part.number), part.title)
 
           return (
             <PartTarget
@@ -417,10 +419,7 @@ function PhonePicker({
                         !planned && part.state === 'later' && 'text-fg-muted',
                       )}
                     >
-                      {t('notebook.parts.partTitle', {
-                        number: String(part.number),
-                        title: part.title,
-                      })}
+                      {partTitle(String(part.number), part.title)}
                     </span>
                     <span className="text-label text-fg-muted">
                       {dayLineOf(part, startedAt, planned)}
@@ -526,10 +525,7 @@ export function PartFooter({
   const card = (part: PartProgress, direction: 'previous' | 'next') => {
     const href = partHref(expId, part.number)
 
-    const title = t('notebook.parts.partTitle', {
-      number: String(part.number),
-      title: part.title,
-    })
+    const title = partTitle(String(part.number), part.title)
 
     const when = t(
       direction === 'previous'
@@ -677,17 +673,14 @@ export function PartsOutline({
       data-testid="parts-outline"
       className="flex flex-col gap-1"
     >
-      <p className="m-0 text-label font-semibold uppercase tracking-[0.06em] text-fg-muted">
+      <p className="m-0 text-label font-semibold text-fg-muted">
         {t('notebook.parts.outlineTitle')}
       </p>
       <ol className="m-0 flex list-none flex-col p-0">
         {parts.map((part) => {
           const href = partHref(expId, part.number)
 
-          const title = t('notebook.parts.partTitle', {
-            number: String(part.number),
-            title: part.title,
-          })
+          const title = partTitle(String(part.number), part.title)
 
           return (
             <li key={part.id} className="flex flex-col">
@@ -764,10 +757,7 @@ export function PartFilter({
         <option value="all">{t('notebook.parts.filterAll')}</option>
         {parts.map((part) => (
           <option key={part.id} value={part.id}>
-            {t('notebook.parts.partTitle', {
-              number: String(part.number),
-              title: part.title,
-            })}
+            {partTitle(String(part.number), part.title)}
           </option>
         ))}
       </Select>

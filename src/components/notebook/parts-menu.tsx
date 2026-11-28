@@ -28,6 +28,7 @@ import {
   deleteExperimentPart,
   moveExperimentPart,
   partQueryKeys,
+  partTitle,
   setPartDone,
   splitPointsAtHeadings,
   splitRecordIntoParts,
@@ -547,10 +548,7 @@ function DeletePartDialog({
               >
                 {others.map((other) => (
                   <option key={other.id} value={other.id}>
-                    {t('notebook.parts.partTitle', {
-                      number: String(other.number),
-                      title: other.title,
-                    })}
+                    {partTitle(String(other.number), other.title)}
                   </option>
                 ))}
               </Select>
@@ -617,10 +615,7 @@ export function SplitIntoPartsDialog({
           <ol className="m-0 flex list-none flex-col gap-1 p-0 text-body text-fg">
             {points.map((point, index) => (
               <li key={point.firstBlockId}>
-                {t('notebook.parts.partTitle', {
-                  number: String(index + 1),
-                  title: point.title,
-                })}
+                {partTitle(String(index + 1), point.title)}
               </li>
             ))}
           </ol>

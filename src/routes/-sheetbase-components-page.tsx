@@ -111,7 +111,7 @@ export function SheetbaseComponentsDemo() {
       <div className="mx-auto max-w-5xl px-6 py-10">
         <header className="border-b pb-6">
           <div className="flex flex-wrap items-center gap-2">
-            <p className="text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+            <p className="text-xs font-semibold text-muted-foreground">
               Sheetbase components
             </p>
             <Badge variant="kind">Development only</Badge>

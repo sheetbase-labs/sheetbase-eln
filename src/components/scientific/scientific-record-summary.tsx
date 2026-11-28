@@ -87,7 +87,7 @@ export function ScientificRecordSummary({
       </header>
 
       <section>
-        <h4 className="mb-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">
+        <h4 className="mb-2 text-xs font-medium text-muted-foreground">
           {kind
             ? t('notebook.scientificRecordSummary.kindProperties', {
                 kind: KIND_LABEL[kind],
@@ -113,7 +113,7 @@ export function ScientificRecordSummary({
 
       {linkedCounts && linkedCounts.length > 0 ? (
         <section>
-          <h4 className="mb-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">
+          <h4 className="mb-2 text-xs font-medium text-muted-foreground">
             {t('notebook.scientificRecordSummary.linkedRecords')}
           </h4>
           <ul className="space-y-1">

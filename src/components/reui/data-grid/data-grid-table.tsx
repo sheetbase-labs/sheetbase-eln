@@ -155,7 +155,8 @@ function getPinningStyles<TData extends object>(
     position: isPinned ? 'sticky' : undefined,
     transform: isPinned ? 'translateZ(0)' : undefined,
     contain: isPinned ? 'paint' : undefined,
-    width: column.getSize(),
+    // A growing column takes the table's slack, so it never names a width.
+    width: column.columnDef.meta?.grow ? undefined : column.getSize(),
     zIndex: isPinned ? 30 : undefined,
     backgroundClip: isPinned ? 'padding-box' : undefined,
   }
@@ -1029,6 +1030,19 @@ function DataGridTableFillCol() {
   )
 }
 
+/**
+ * The screen widths at which a column's header hides itself ("max-xl:hidden"),
+ * so its `<col>` hides with it. Otherwise the column's width stays reserved
+ * and every cell after it lands one width to the left.
+ */
+function responsiveHidden(className: string | undefined): string | undefined {
+  const tokens = className
+    ?.split(/\s+/)
+    .filter((token) => token === 'hidden' || token.endsWith(':hidden'))
+
+  return tokens?.length ? tokens.join(' ') : undefined
+}
+
 function DataGridTableFillHeadCell({
   rowSpan,
 }: {
@@ -1271,17 +1285,25 @@ function DataGridTableBase({ children }: { children: ReactNode }) {
               ...columnSizeVars,
               width: `calc(${table.getTotalSize()}px + var(--data-grid-fill-size, 0px))`,
             }
-          : undefined
+          : props.tableLayout?.width === 'fixed' &&
+              table
+                .getVisibleLeafColumns()
+                .some((column) => column.columnDef.meta?.grow)
+            ? // The growing column takes the slack, never less than its size.
+              { minWidth: table.getTotalSize() }
+            : undefined
       }
     >
       <colgroup>
         {[...leftVisibleColumns, ...centerVisibleColumns].map((column) => (
           <col
             key={column.id}
+            className={responsiveHidden(column.columnDef.meta?.headerClassName)}
             style={
               props.tableLayout?.columnsResizable
                 ? { width: `calc(var(--col-${column.id}-size) * 1px)` }
-                : props.tableLayout?.width === 'fixed'
+                : props.tableLayout?.width === 'fixed' &&
+                    !column.columnDef.meta?.grow
                   ? { width: column.getSize() }
                   : undefined
             }
@@ -1291,10 +1313,12 @@ function DataGridTableBase({ children }: { children: ReactNode }) {
         {rightVisibleColumns.map((column) => (
           <col
             key={column.id}
+            className={responsiveHidden(column.columnDef.meta?.headerClassName)}
             style={
               props.tableLayout?.columnsResizable
                 ? { width: `calc(var(--col-${column.id}-size) * 1px)` }
-                : props.tableLayout?.width === 'fixed'
+                : props.tableLayout?.width === 'fixed' &&
+                    !column.columnDef.meta?.grow
                   ? { width: column.getSize() }
                   : undefined
             }
@@ -1595,7 +1619,8 @@ function DataGridTableHeadRowCell<TData extends object>({
       data-span={isSpan ? colSpan : undefined}
       style={{
         ...(props.tableLayout?.width === 'fixed' &&
-          !props.tableLayout.columnsResizable && {
+          !props.tableLayout.columnsResizable &&
+          !column.columnDef.meta?.grow && {
             width: size,
           }),
         ...(props.tableLayout?.columnsPinnable &&

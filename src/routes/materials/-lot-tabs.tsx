@@ -5,6 +5,9 @@
  */
 import { Link } from '@tanstack/react-router'
 
+import { RecordResults } from '#/components/record/record-results'
+import { RecordHistoryTab } from '#/components/record-page/record-side-panel'
+
 import { DescriptionList } from '#/components/ui/layout'
 import { TableBox } from '#/components/ui/table'
 import {
@@ -29,6 +32,7 @@ import {
   dayLabel,
   movementChange,
 } from './-lot-page-model'
+import type { LotTab } from './-lot-page-model'
 
 const madeFromColumns: RegistryColumn<MadeFromIngredient>[] = [
   {
@@ -341,4 +345,71 @@ export function LotUsedTab({
       </section>
     </>
   )
+}
+
+/** The section the lot page's current tab shows. */
+export function LotTabPanel({
+  tab,
+  lotId,
+  recordId,
+  row,
+  title,
+  projectId,
+  canEdit,
+  madeFrom,
+  certificate,
+  ledger,
+  userLabel,
+  preparedWith,
+  usage,
+}: {
+  tab: LotTab
+  lotId: string
+  recordId: string
+  row: MaterialListRow
+  title: string
+  projectId: string | null
+  canEdit: boolean
+  madeFrom: readonly MadeFromIngredient[] | null | undefined
+  certificate: CertificateFile | null | undefined
+  ledger: { data: readonly ReagentMovement[] | undefined; isLoading: boolean }
+  userLabel: (userId: string) => string
+  preparedWith: readonly PreparedWithLot[] | null | undefined
+  usage: { data: readonly ReagentUsageLink[] | undefined; isLoading: boolean }
+}) {
+  switch (tab) {
+    case 'details':
+      return (
+        <LotDetailsTab
+          lotId={lotId}
+          row={row}
+          title={title}
+          projectId={projectId}
+          canEdit={canEdit}
+          madeFrom={madeFrom}
+          certificate={certificate}
+          certificateNote={row.certificate}
+        />
+      )
+    case 'ledger':
+      return (
+        <LotLedgerTab
+          ledger={ledger.data}
+          isLoading={ledger.isLoading}
+          userLabel={userLabel}
+        />
+      )
+    case 'used':
+      return (
+        <LotUsedTab
+          preparedWith={preparedWith}
+          usage={usage.data}
+          usageLoading={usage.isLoading}
+        />
+      )
+    case 'results':
+      return <RecordResults recordId={recordId} />
+    case 'history':
+      return <RecordHistoryTab recordId={recordId} />
+  }
 }

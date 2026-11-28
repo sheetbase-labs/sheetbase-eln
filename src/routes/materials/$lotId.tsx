@@ -15,24 +15,21 @@ import { useHasCapability } from '#/lib/use-capability'
 import { solutionQueryKeys } from '#/lib/solution-prep'
 import { t } from '#/copy'
 import { RecordPage } from '#/components/record-page/record-page'
-import { RecordHistoryTab } from '#/components/record-page/record-side-panel'
-import {
-  LotActions,
-  LotMarks,
-  LotMoreItems,
-  LotStateLine,
-  lotFacts,
-} from './-lot-header'
-import { LotDetailsTab, LotLedgerTab, LotUsedTab } from './-lot-tabs'
+import { LotActions, LotMarks, LotMoreItems, LotStateLine } from './-lot-header'
+import { LotTabPanel } from './-lot-tabs'
 import { LotSidePanel } from './-lot-inspector'
 import {
   QuarantineLotDialog,
   ReplacementLotDialog,
   UseLotDialog,
 } from './-lot-dialogs'
-import { isLotUsable, lotLabelSource, lotTabSchema } from './-lot-page-model'
+import {
+  isLotUsable,
+  lotFacts,
+  lotLabelSource,
+  lotTabSchema,
+} from './-lot-page-model'
 import type { LotTab } from './-lot-page-model'
-import { RecordResults } from '#/components/record/record-results'
 import { useRecordResults } from '#/lib/record-results'
 import { useLotPageData } from './-lot-page-data'
 
@@ -293,34 +290,21 @@ function LotPage() {
         </>
       }
     >
-      {tab === 'details' ? (
-        <LotDetailsTab
-          lotId={lotId}
-          row={row}
-          title={reagent.title}
-          projectId={reagent.projectId}
-          canEdit={canEdit}
-          madeFrom={madeFrom.data}
-          certificate={certificate.data}
-          certificateNote={row.certificate}
-        />
-      ) : null}
-      {tab === 'ledger' ? (
-        <LotLedgerTab
-          ledger={ledger.data}
-          isLoading={ledger.isLoading}
-          userLabel={userLabel}
-        />
-      ) : null}
-      {tab === 'results' ? <RecordResults recordId={reagent.id} /> : null}
-      {tab === 'used' ? (
-        <LotUsedTab
-          preparedWith={preparedWith.data}
-          usage={usage.data}
-          usageLoading={usage.isLoading}
-        />
-      ) : null}
-      {tab === 'history' ? <RecordHistoryTab recordId={reagent.id} /> : null}
+      <LotTabPanel
+        tab={tab}
+        lotId={lotId}
+        recordId={reagent.id}
+        row={row}
+        title={reagent.title}
+        projectId={reagent.projectId}
+        canEdit={canEdit}
+        madeFrom={madeFrom.data}
+        certificate={certificate.data}
+        ledger={ledger}
+        userLabel={userLabel}
+        preparedWith={preparedWith.data}
+        usage={usage}
+      />
     </RecordPage>
   )
 }

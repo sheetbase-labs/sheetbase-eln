@@ -4,7 +4,12 @@
  */
 import { z } from 'zod'
 
+import type { MaterialListRow } from '#/components/materials/materials-data'
+import type { RecordFact } from '#/components/record-page/record-page'
 import type { ReagentMovement } from '#/lib/reagent-data'
+import { t } from '#/copy'
+
+import { stockOfTotal } from '../-materials-page-model'
 
 export const lotQueryKey = (lotId: string) =>
   ['ui-port', 'materials', 'lot', lotId] as const
@@ -117,4 +122,14 @@ export function lotLabelSource(
     useBy: expiry ? dayLabel(expiry) : null,
     signalWord,
   }
+}
+
+/** Lot, stock, location and supplier: what a person checks before using it. */
+export function lotFacts(row: MaterialListRow): RecordFact[] {
+  return [
+    { label: t('library.materials.lot.lot'), value: row.lot, mono: true },
+    { label: t('library.materials.lot.stock'), value: stockOfTotal(row) },
+    { label: t('library.materials.lot.location'), value: row.location },
+    { label: t('library.materials.lot.supplier'), value: row.supplier },
+  ]
 }

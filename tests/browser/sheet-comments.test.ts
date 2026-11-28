@@ -9,6 +9,7 @@ import { z } from 'zod'
 import { createAdHocTextField } from '../../src/lib/sheet-local-data'
 import { parseSheetInstanceState } from '../../src/lib/sheet-instance'
 import { signInAsDesignUser } from '../visual/sign-in'
+import { openTab } from './journeys/helpers'
 
 config({ path: ['.env.local', '.env'] })
 const user = '00000000-0000-4000-8000-000000000310'
@@ -356,8 +357,11 @@ for (const theme of ['light', 'dark']) {
         ])
       ).rows[0].target,
     ).toEqual(root.target)
+    // The record's inspector, with its Comments tab, sits beside the notebook
+    // at this width and wider.
+    await page.setViewportSize({ width: 1800, height: 1000 })
     await page.goto(`/records/${record}/notebook`)
-    await page.getByRole('tab', { name: 'Comments', exact: true }).click()
+    await openTab(page, 'Comments')
     await expect(
       page.getByRole('region', { name: 'Record comments' }),
     ).toContainText(cellBody)

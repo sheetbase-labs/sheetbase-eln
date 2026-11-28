@@ -7,6 +7,7 @@ import { formatInstrumentDay } from '#/components/instruments/instruments-data'
 import type { InstrumentRow } from '#/components/instruments/instruments-data'
 import { RecordProperties } from '#/components/record-page/record-side-panel'
 import { InspectorSection, Muted } from '#/components/ui/layout'
+import { formatDate } from '#/lib/format-date'
 import { instrumentTypeLabel } from '#/lib/instrument-type-label'
 import { t } from '#/copy'
 
@@ -72,7 +73,12 @@ export function InstrumentSidePanel({
           <ul className="m-0 flex list-none flex-col gap-1 p-0 text-label">
             {week.map((b) => (
               <li key={b.id}>
-                {b.starts_at.slice(5, 10)} {b.starts_at.slice(11, 16)} ·{' '}
+                {formatDate(b.starts_at, {
+                  year: false,
+                  weekday: true,
+                  time: true,
+                })}{' '}
+                ·{' '}
                 {b.created_by_user_id
                   ? userLabel(b.created_by_user_id)
                   : b.title}

@@ -12,6 +12,7 @@ import { PaneRouteError } from '#/components/workspace/pane-error-boundary'
 import { noCapabilities } from './lib/capabilities'
 import { ROOT_CONTEXT_QUERY_KEY } from './lib/root-context-cache'
 import { enableReadBatching } from './lib/read-batch'
+import { adoptEarlyReads } from './lib/early-reads'
 import { installWarmStart, warmStart } from './lib/route-warm-start'
 
 export function getRouter() {
@@ -52,9 +53,14 @@ export function getRouter() {
 
   setupRouterSsrQueryIntegration({ router, queryClient: context.queryClient })
 
-  // A record page starts the reads it made last time as soon as a person goes
-  // to it (route-warm-start.ts).
-  if (inBrowser) installWarmStart(router, window.location.pathname)
+  // A page starts the reads it made last time as soon as a person goes to it
+  // (route-warm-start.ts). For the page the app opens on, those reads were
+  // already sent from the page's head before the code loaded (early-reads.ts):
+  // their answers are taken up first, so they are not sent twice.
+  if (inBrowser) {
+    adoptEarlyReads()
+    installWarmStart(router, window.location.pathname)
+  }
 
   // The root context is cached between navigations (src/lib/root-context-cache).
   // Every caller of router.invalidate() wants a fresh shell, so drop the cached

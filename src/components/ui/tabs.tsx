@@ -67,7 +67,15 @@ export interface TabItem {
   /** Trailing count; nothing is rendered when it is undefined. */
   count?: React.ReactNode
   link?: LinkProps
+  /**
+   * Set the tab apart at the far end of the strip, for the one tab that is
+   * about the thing rather than part of it (a record's History).
+   */
+  end?: boolean
 }
+
+/** The far-end tab's push; a phone's wrapped row keeps every tab in order. */
+const END = 'md:ml-auto'
 
 /**
  * How a strip is drawn: `strip` is the section row that sits under a page
@@ -243,7 +251,12 @@ function StateTabs({
     >
       <TabsList variant={variant} aria-label={label} className={className}>
         {items.map((item) => (
-          <TabsTab key={item.key} value={item.key} variant={variant}>
+          <TabsTab
+            key={item.key}
+            value={item.key}
+            variant={variant}
+            className={item.end ? END : undefined}
+          >
             {item.label}
             <TabCount count={item.count} />
           </TabsTab>
@@ -317,6 +330,7 @@ function UrlTabs({
             className={cn(
               ITEM[variant],
               ACTIVE_LINK[variant],
+              item.end && END,
               tucked.has(item) && 'max-md:hidden',
             )}
             // Where the caller names the current key, only that key is current:

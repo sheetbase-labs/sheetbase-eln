@@ -15,9 +15,11 @@ export function PageHeader({
   meta,
   actions,
   tabs,
+  notice,
   titleLevel = 1,
   paneTitle,
   compact = false,
+  wrapTitle = false,
   className,
 }: {
   /**
@@ -30,6 +32,12 @@ export function PageHeader({
   meta?: React.ReactNode
   actions?: React.ReactNode
   tabs?: React.ReactNode
+  /**
+   * One line about the page's state (in review, expiring, read-only) between
+   * the meta and the tabs. It takes the place of banners stacked above the
+   * content, so the page says its state once, where the eye already is.
+   */
+  notice?: React.ReactNode
   /**
    * Heading level for `title`. Only for a header that sits under another
    * page's H1 — the client portal's project header, where the topbar owns the
@@ -48,6 +56,11 @@ export function PageHeader({
    * Desktop is unchanged.
    */
   compact?: boolean
+  /**
+   * Let a long title run to a second line instead of ending in an ellipsis:
+   * a record's name is how people tell it apart, so it is shown whole.
+   */
+  wrapTitle?: boolean
   className?: string
 }) {
   const ref = useRef<HTMLElement>(null)
@@ -81,12 +94,24 @@ export function PageHeader({
           paneTitle={paneTitle}
           hasMeta={Boolean(meta)}
           compact={compact}
+          wrap={wrapTitle}
         >
           {title}
         </PageHeaderTitle>
         <HeaderActions compact={compact}>{actions}</HeaderActions>
         <HeaderMeta compact={compact}>{meta}</HeaderMeta>
       </div>
+      {notice ? (
+        <div
+          data-page-notice
+          className={cn(
+            'mt-0.5',
+            compact && 'max-md:group-data-[collapsed]/header:hidden',
+          )}
+        >
+          {notice}
+        </div>
+      ) : null}
       <HeaderTabs compact={compact}>{tabs}</HeaderTabs>
     </header>
   )
@@ -113,12 +138,14 @@ function PageHeaderTitle({
   paneTitle,
   hasMeta,
   compact,
+  wrap,
   children,
 }: {
   titleLevel: 1 | 2 | 3
   paneTitle?: string
   hasMeta: boolean
   compact: boolean
+  wrap: boolean
   children: React.ReactNode
 }) {
   const Title = PAGE_TITLE_TAGS[titleLevel]
@@ -127,8 +154,9 @@ function PageHeaderTitle({
     <Title
       data-pane-title={paneTitle}
       className={cn(
-        'col-start-1 row-start-1 min-w-0 text-title max-md:text-[18px] max-md:leading-6 md:truncate',
-        titleClassName(compact, hasMeta),
+        'col-start-1 row-start-1 min-w-0 text-title max-md:text-[18px] max-md:leading-6',
+        wrap ? 'line-clamp-2 text-balance break-words' : 'md:truncate',
+        titleClassName(compact && !wrap, hasMeta),
       )}
     >
       {children}

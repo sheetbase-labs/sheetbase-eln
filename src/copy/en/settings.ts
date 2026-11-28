@@ -692,13 +692,16 @@ export const settings = {
   },
   joinDomains: {
     title: 'Let colleagues join',
-    domainLabel: 'Add a domain',
+    description:
+      'Anyone who signs in with an address at one of these domains joins this workspace with the role you choose.',
+    domainLabel: 'Domain',
     domainPlaceholder: 'acme-bio.com',
     add: 'Add',
     remove: 'Remove {domain}',
     joinAs: 'They join as',
     saved: 'Domains saved',
     suggest: 'Add {domain}',
+    noDomains: 'No domains yet, so people join by invitation only.',
     invalid: '{domain} isn’t a valid domain',
     roleScientist: 'Scientist',
     roleAnalyst: 'Analyst',
@@ -723,6 +726,7 @@ export const settings = {
   },
   members: {
     membersRoles: 'Members and roles',
+    yourRole: 'Your role is {role}. {description}',
     onlyWorkspaceMembers: 'Only workspace members can see the roster',
     clientAccountShowsDescription:
       'This is a client account. It shows the records your CDMO team shares with your client, not the workspace’s own members and invitations.',
@@ -863,6 +867,7 @@ export const settings = {
     digestHint: 'Adds it to your daily digest email.',
     emailNotSetUp:
       'Email isn’t set up on this server yet, so nothing is sent. Your choices are kept for when an administrator turns it on.',
+    eventsTitle: 'Where each event reaches you',
     quietHours: 'Quiet hours',
     holdEmailBetween: 'Hold email between',
     quietHoursStartAria: 'Quiet hours start',
@@ -877,6 +882,7 @@ export const settings = {
       'The digest goes out when the clock in your time zone reaches that time.',
   },
   profile: {
+    details: 'Your details',
     system: 'System',
     light: 'Light',
     dark: 'Dark',
@@ -905,7 +911,6 @@ export const settings = {
     alwaysShowLayoutHint:
       'They appear on their own once you split a page into panes. Tick this to keep them on a single pane too.',
     displaySavedFailed: 'Could not save your display choice',
-    sessions: 'Sessions',
     appliesInBrowserOnly: 'It applies in this browser only. {reason}',
     databaseRefused: 'Your account didn’t accept it.',
     tryAgain: 'Try again.',

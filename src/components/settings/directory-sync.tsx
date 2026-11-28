@@ -136,7 +136,10 @@ export function DirectorySyncSection({
   const origin = typeof window === 'undefined' ? '' : window.location.origin
 
   return (
-    <Section title={t('people.directorySync.title')}>
+    <Section
+      title={t('people.directorySync.title')}
+      description={t('people.directorySync.description')}
+    >
       {summary && summary.peopleManaged > 0 ? (
         <Muted>
           {t('people.directorySync.summary', {
@@ -172,7 +175,7 @@ export function DirectorySyncSection({
         </TableBox>
       ) : null}
       <form
-        className="flex flex-wrap items-end gap-2"
+        className="flex flex-wrap items-end gap-x-2 gap-y-3"
         onSubmit={(event) => {
           event.preventDefault()
 
@@ -181,7 +184,7 @@ export function DirectorySyncSection({
       >
         <Field
           label={t('people.directorySync.nameLabel')}
-          className="min-w-[200px] max-w-[320px] flex-1"
+          className="w-56 max-md:min-w-0 max-md:flex-1"
           error={error}
         >
           <Input
@@ -204,7 +207,6 @@ export function DirectorySyncSection({
           copyLabel={t('common.actions.copy')}
         />
       </Field>
-      <Muted>{t('people.directorySync.hint')}</Muted>
 
       <ConfirmDialog
         open={revoking !== null}

@@ -83,10 +83,12 @@ export const people = {
   },
   groups: {
     title: 'Sign-in groups',
+    description:
+      'Map a group from your company sign-in to a role. People in the group get that role each time they sign in.',
     groupColumn: 'Group',
     roleColumn: 'Gives the role',
     groupLabel: 'Group name',
-    groupPlaceholder: 'As your sign-in spells it, for example lab-scientists',
+    groupPlaceholder: 'For example, lab-scientists',
     givesRole: 'Gives the role',
     add: 'Add group',
     remove: 'Remove',
@@ -102,6 +104,8 @@ export const people = {
   },
   directorySync: {
     title: 'Directory sync',
+    description:
+      'Let your company directory add, update and switch off people here. People it switches off are suspended and their work stays; owners are never changed.',
     summary: {
       one: '{count} person is kept up to date by your directory; {off} switched off',
       other:
@@ -123,9 +127,8 @@ export const people = {
     secretBody:
       'It is shown once. Paste it into your directory as the access token.',
     secretDone: 'I have copied it',
-    urlLabel: 'Address for your directory',
+    urlLabel: 'Directory address',
     couldNotSave: 'Could not save',
-    hint: 'People your directory switches off are suspended here, and their work stays. Owners are never changed by the directory.',
   },
   passkeys: {
     title: 'Passkeys',

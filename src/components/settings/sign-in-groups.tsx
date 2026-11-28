@@ -127,6 +127,7 @@ export function SignInGroupsSection({
   return (
     <Section
       title={t('people.groups.title')}
+      description={t('people.groups.description')}
       action={
         canManage && rows.length > 0 ? (
           <Button disabled={adopt.isPending} onClick={() => adopt.mutate()}>
@@ -150,7 +151,7 @@ export function SignInGroupsSection({
       {canManage ? (
         <>
           <form
-            className="flex flex-wrap items-end gap-2"
+            className="flex flex-wrap items-end gap-x-2 gap-y-3"
             onSubmit={(event) => {
               event.preventDefault()
 
@@ -159,7 +160,7 @@ export function SignInGroupsSection({
           >
             <Field
               label={t('people.groups.groupLabel')}
-              className="min-w-[200px] max-w-[320px] flex-1"
+              className="w-72 max-md:basis-full"
               error={error}
             >
               <Input
@@ -172,7 +173,7 @@ export function SignInGroupsSection({
                 }}
               />
             </Field>
-            <Field label={t('people.groups.givesRole')}>
+            <Field label={t('people.groups.givesRole')} className="w-40">
               <Select
                 value={role}
                 onChange={(event) => {

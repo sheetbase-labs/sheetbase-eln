@@ -111,6 +111,7 @@ export function ExperimentStateLine({
   reviewing,
   inReview,
   ownerName,
+  isAuthor,
   submittedAt,
   revisionId,
   waitingNames,
@@ -118,6 +119,8 @@ export function ExperimentStateLine({
   reviewing: boolean
   inReview: boolean
   ownerName: string
+  /** Whether the reader wrote it: only the author reads "You submitted". */
+  isAuthor: boolean
   submittedAt?: string
   revisionId?: string
   waitingNames: readonly string[]
@@ -154,7 +157,12 @@ export function ExperimentStateLine({
               name: ownerName,
               date,
             })
-          : t('projects.experimentPage.reviewBand.authorBody', { date })}
+          : isAuthor
+            ? t('projects.experimentPage.reviewBand.authorBody', { date })
+            : t('projects.experimentPage.reviewBand.othersBody', {
+                name: ownerName,
+                date,
+              })}
       </span>
     </RecordStateLine>
   )

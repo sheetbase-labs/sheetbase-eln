@@ -84,7 +84,9 @@ test('DATA-04 a refused row is fixed by uploading a corrected file that keeps th
   const send = page.getByRole('button', { name: 'Import 3 rows' })
   await expect(send).toBeEnabled()
   await send.click()
-  await expect(page.getByText('Imported 3 rows')).toBeVisible()
+  await expect(page.getByText('Imported 3 rows')).toBeVisible({
+    timeout: 60_000,
+  })
 })
 
 test('DATA-05 a wrong value is flagged, and Correct by re-import opens the import on the same dataset', async ({

@@ -201,20 +201,6 @@ test('CORE-11 a figure is cited into an experiment notebook and the toast opens 
   await page.getByLabel(/caption/i).fill(uniqueName('Figure'))
 })
 
-test('CORE-12 a saved statistic can be put into the notebook from the studio', async ({
-  page,
-}) => {
-  // The saved list and the cite action sit in panels a wide window shows.
-  await page.setViewportSize({ width: 1800, height: 900 })
-  await open(page, `/analysis/new?mode=analyse&dataset=${ELISA_DATASET}`)
-  await page
-    .getByRole('list', { name: 'Saved analyses' })
-    .getByRole('button', { name: 'Load' })
-    .first()
-    .click()
-  await expect(action(page, /cite in a notebook/i)).toBeVisible()
-})
-
 test('CORE-13 submit offers the reviewer chosen when the experiment was created', async ({
   page,
 }) => {

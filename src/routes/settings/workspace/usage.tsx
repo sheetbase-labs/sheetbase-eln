@@ -246,52 +246,55 @@ function Usage() {
         {t('settings.usage.currentWorkspace', { formatPeriod: formatPeriod() })}
       </SettingsHeader>
       <SettingsBody>
-        <UsageMeters usage={d} storage={s} />
+        <SeatsSection usage={d} members={members.data ?? []} />
 
-        <div className="grid grid-cols-1 gap-x-8 gap-y-6 lg:grid-cols-2">
-          <SeatsByRole members={members.data ?? []} />
+        <Section
+          title={t('settings.usage.storage')}
+          description={
+            storageRows.length
+              ? t('settings.usage.snapshotsCitedRecords2')
+              : undefined
+          }
+        >
+          <StorageFigure usage={d} storage={s} />
+          {storageRows.length ? (
+            <>
+              {/*
+               * R5-CONFIG-01: the design's four kinds (datasets, retained
+               * snapshots, files and instrument exports, evidence packages)
+               * are not all real here. Bytes are measured per file, and
+               * dataset versions are counted, not weighed — so this table
+               * keeps the honest kinds and does not invent evidence-package
+               * bytes.
+               */}
+              <BreakdownTable
+                head={['Kind', 'Size']}
+                rows={storageRows.map(([kind, size]) => [kind, size])}
+              />
+            </>
+          ) : (
+            <Muted>{t('settings.usage.nothingStoredYet')}</Muted>
+          )}
+        </Section>
 
-          <Section title={t('settings.usage.storageKind')}>
-            {storageRows.length ? (
-              <>
-                {/*
-                 * R5-CONFIG-01: the design's four kinds (datasets, retained
-                 * snapshots, files and instrument exports, evidence packages)
-                 * are not all real here. Bytes are measured per file, and
-                 * dataset versions are counted, not weighed — so this table
-                 * keeps the honest kinds and does not invent evidence-package
-                 * bytes.
-                 */}
-                <BreakdownTable
-                  head={['Kind', 'Size']}
-                  rows={storageRows.map(([kind, size]) => [kind, size])}
-                />
-                <Muted>{t('settings.usage.snapshotsCitedRecords2')}</Muted>
-              </>
-            ) : (
-              <Muted>{t('settings.usage.nothingStoredYet')}</Muted>
-            )}
-          </Section>
-
-          <Section
-            title={t('settings.usage.runActivity')}
-            action={
-              <Link to="/pipelines" className="text-label">
-                {t('settings.usage.pipelines')}
-              </Link>
-            }
-          >
-            <BreakdownTable
-              head={['What', 'Runs']}
-              rows={[
-                ['Pipeline runs', String(d.pipelineRuns)],
-                ['Connector runs', String(d.connectorRuns)],
-                ['Pipelines', `${d.pipelineDefinitions} definitions`],
-              ]}
-            />
-            <RunTrend trend={d.trend} />
-          </Section>
-        </div>
+        <Section
+          title={t('settings.usage.runActivity')}
+          action={
+            <Link to="/pipelines" className="text-label">
+              {t('settings.usage.pipelines')}
+            </Link>
+          }
+        >
+          <BreakdownTable
+            head={['What', 'Runs']}
+            rows={[
+              ['Pipeline runs', String(d.pipelineRuns)],
+              ['Connector runs', String(d.connectorRuns)],
+              ['Pipelines', `${d.pipelineDefinitions} definitions`],
+            ]}
+          />
+          <RunTrend trend={d.trend} />
+        </Section>
 
         {d.capacityWarnings.length ? (
           <Section title={t('settings.usage.capacityWarnings')}>
@@ -315,7 +318,14 @@ function Usage() {
   )
 }
 
-function SeatsByRole({ members }: { members: WorkspaceMember[] }) {
+function SeatsSection({
+  usage: d,
+  members,
+}: {
+  usage: UsageResult
+  members: WorkspaceMember[]
+}) {
+  const seatLimit = d.limits.seats.seatLimit
   const membersByRole = new Map<WorkspaceRole | 'client', number>()
 
   for (const member of members) {
@@ -329,13 +339,26 @@ function SeatsByRole({ members }: { members: WorkspaceMember[] }) {
 
   return (
     <Section
-      title={t('settings.usage.seatsRole')}
+      title={t('settings.usage.seats')}
+      description={
+        seatLimit
+          ? t('settings.usage.everyoneWorkspaceAccess')
+          : t('settings.usage.everyoneWorkspaceAccess2')
+      }
       action={
         <Link to="/settings/workspace/members" className="text-label">
           {t('settings.usage.membersRoles')}
         </Link>
       }
     >
+      {/* Percent and thresholds only appear where a limit is actually
+          configured; an unmeasured or unlimited figure never gets a bar. */}
+      <UsageFigure
+        label={t('settings.usage.seats')}
+        value={`${d.members.toLocaleString('en-GB')} ${d.members === 1 ? 'seat' : 'seats'}`}
+        limit={seatLimit ? seatLimit.toLocaleString('en-GB') : null}
+        percent={seatLimit ? (d.members / seatLimit) * 100 : null}
+      />
       {seatsByRole.length ? (
         <BreakdownTable
           head={['Role', 'People']}
@@ -353,52 +376,38 @@ function SeatsByRole({ members }: { members: WorkspaceMember[] }) {
   )
 }
 
-function UsageMeters({
+function StorageFigure({
   usage: d,
   storage: s,
 }: {
   usage: UsageResult
   storage: StorageOverviewResult | null | undefined
 }) {
-  const seatLimit = d.limits.seats.seatLimit
   const byteLimit = d.limits.fileBytes.byteLimit
   const storageBytes = s ? s.fileBytes : d.fileBytes
-  // Percent and thresholds only appear where a limit is actually configured;
-  // an unmeasured or unlimited figure never gets a bar or a colour.
-  const seatPercent = seatLimit ? (d.members / seatLimit) * 100 : null
-  const storagePercent = byteLimit ? (storageBytes / byteLimit) * 100 : null
 
   return (
-    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-      <MeterCard
-        label={t('settings.usage.seats')}
-        value={d.members.toLocaleString('en-GB')}
-        limit={seatLimit ? `${seatLimit.toLocaleString('en-GB')} seats` : null}
-        percent={seatPercent}
-        note={
-          seatLimit
-            ? t('settings.usage.everyoneWorkspaceAccess')
-            : t('settings.usage.everyoneWorkspaceAccess2')
-        }
-      />
-      <MeterCard
-        label={t('settings.usage.storage')}
-        value={formatFileSize(storageBytes)}
-        limit={byteLimit ? formatFileSize(byteLimit) : null}
-        percent={storagePercent}
-        note={
-          byteLimit
-            ? `${(s ? s.fileCount : d.files).toLocaleString('en-GB')} files · ${d.limits.fileBytes.atLimitBehaviour ?? ''}`.trim()
-            : s
-              ? `${s.fileCount.toLocaleString('en-GB')} files. No storage quota is configured.`
-              : t('settings.usage.filesInstrumentExports')
-        }
-      />
-    </div>
+    <UsageFigure
+      label={t('settings.usage.storage')}
+      value={formatFileSize(storageBytes)}
+      limit={byteLimit ? formatFileSize(byteLimit) : null}
+      percent={byteLimit ? (storageBytes / byteLimit) * 100 : null}
+      note={
+        byteLimit
+          ? `${(s ? s.fileCount : d.files).toLocaleString('en-GB')} files · ${d.limits.fileBytes.atLimitBehaviour ?? ''}`.trim()
+          : s
+            ? `${s.fileCount.toLocaleString('en-GB')} files. No storage quota is configured.`
+            : t('settings.usage.filesInstrumentExports')
+      }
+    />
   )
 }
 
-function MeterCard({
+/**
+ * One measured figure in a line: the value, its limit when one is set, and a
+ * bar against that limit. Not a big number over a label.
+ */
+function UsageFigure({
   label,
   value,
   limit,
@@ -411,27 +420,21 @@ function MeterCard({
   limit: string | null
   /** Usage percent against the configured limit, or null when unmeasured. */
   percent: number | null
-  note: string
+  note?: string
 }) {
   return (
-    <section
-      className="flex flex-col gap-2 rounded-md border border-border p-3.5"
-      aria-label={label}
-    >
-      <h2 className="text-label font-medium text-fg-muted">{label}</h2>
-      <div className="flex flex-col">
-        <span className="num whitespace-nowrap font-heading text-[22px] font-semibold leading-7">
-          {value}
-        </span>
-        {limit ? (
-          <span className="num text-label text-fg-muted">of {limit}</span>
-        ) : null}
-      </div>
+    <div role="group" aria-label={label} className="flex flex-col gap-1.5">
+      <p className="m-0 flex flex-wrap items-baseline gap-x-2 text-body">
+        <span className="num font-medium text-fg">{value}</span>
+        {limit ? <span className="num text-fg-muted">of {limit}</span> : null}
+        {note ? <span className="text-label text-fg-muted">{note}</span> : null}
+      </p>
       {percent != null ? (
-        <UsageProgress label={label} percent={percent} />
+        <div className="max-w-80">
+          <UsageProgress label={label} percent={percent} />
+        </div>
       ) : null}
-      <Muted>{note}</Muted>
-    </section>
+    </div>
   )
 }
 
@@ -499,7 +502,7 @@ function RunTrend({ trend }: { trend: UsageTrendPoint[] }) {
   const latest = totals[totals.length - 1] ?? 0
 
   return (
-    <div className="mt-2 flex flex-col gap-1">
+    <div className="mt-2 flex max-w-[32rem] flex-col gap-1">
       <svg
         role="img"
         aria-label={t('settings.usage.runsPerMonthAria', { series })}
@@ -516,7 +519,7 @@ function RunTrend({ trend }: { trend: UsageTrendPoint[] }) {
         />
       </svg>
       <span className="text-label text-fg-muted">
-        {t('settings.usage.last6Months')}
+        {t('settings.usage.last6Months')}{' '}
         {monthLabel(trend[trend.length - 1].month)}{' '}
         {latest.toLocaleString('en-GB')} {latest === 1 ? 'run' : 'runs'}
       </span>
@@ -561,7 +564,9 @@ function BreakdownTable({
   )
 
   return (
-    <div className="overflow-hidden rounded-md border border-border">
+    // A two-column breakdown keeps its figures next to their labels rather
+    // than across the whole pane.
+    <div className="max-w-[32rem] overflow-hidden rounded-md border border-border">
       <RegistryGrid
         label={head.join(' · ')}
         rows={gridRows}

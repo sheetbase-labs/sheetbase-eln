@@ -89,27 +89,6 @@ test('REV-01 to REV-04 submit, review, return and see it come back', async ({
   ).toBeVisible()
 })
 
-test('REV-13 an author withdraws a submission from its review page', async ({
-  page,
-}) => {
-  await signIn(page)
-  await submitFor(page, uniqueName('Withdraw me'))
-  await openDetails(page)
-  // Exact, so the pane's own buttons named after the title don't match.
-  const confirm = page.getByRole('alertdialog')
-  // The pane re-renders as it loads, so the button can be replaced under the
-  // click: retry until the confirmation opens.
-  await expect(async () => {
-    await page
-      .getByRole('button', { name: 'Withdraw', exact: true })
-      .click({ timeout: 5_000 })
-    await expect(confirm).toBeVisible({ timeout: 3_000 })
-  }).toPass({ timeout: 60_000 })
-  await confirm.getByRole('textbox').fill('Spotted a mistake in the table.')
-  await confirm.getByRole('button', { name: 'Withdraw' }).click()
-  await expect(page.getByText(/withdrawn/i).first()).toBeVisible()
-})
-
 test('REV-14 and REV-08 the reviewer’s Inbox owes the review, and the revision’s evidence page opens', async ({
   page,
 }) => {

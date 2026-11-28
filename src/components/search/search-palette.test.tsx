@@ -129,6 +129,12 @@ beforeAll(() => {
   })
 })
 
+// Files share a worker, and a later one would go on running as a Mac: the
+// notebook editor then reads Ctrl+A as a plain key and never selects its text.
+afterAll(() => {
+  Reflect.deleteProperty(window.navigator, 'platform')
+})
+
 afterEach(() => {
   cleanup()
   dropSharedReads()

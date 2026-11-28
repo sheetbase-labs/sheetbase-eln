@@ -30,6 +30,14 @@ import { rich, t } from '#/copy'
 - Numbers passed as values are formatted for the language (`1,200`).
 - Code that is not a component (a `lib` module building a message) imports
   `t` the same way.
+- Write at least the first two parts of a key out in the module that uses
+  it: ``t(`spend.periods.${key}`)``, or a constant such as
+  `const SOON = 'features.resultsAnalysis.block'`, never
+  ``t(`${area}.title`)`` with the area held elsewhere. The browser build
+  sends each section (`spend.periods`, `features.resultsAnalysis`) only with
+  the modules that name it (`scripts/lib/copy-split.mjs`), so a first visit
+  downloads the wording of the screens it opens rather than of every screen.
+  `src/copy/copy-split.test.ts` fails on a key built any other way.
 
 ## Where text goes
 

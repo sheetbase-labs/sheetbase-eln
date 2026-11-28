@@ -16,6 +16,7 @@ import { config } from 'dotenv'
 import { Client } from 'pg'
 import { expect, test } from 'playwright/test'
 import type { Page } from 'playwright/test'
+import { z } from 'zod'
 
 import { FIXTURE_USER_ID, FIXTURE_WORKSPACE_ID } from '#/db/seed/identities'
 import { signInAsDesignUser } from '../visual/sign-in'
@@ -27,10 +28,16 @@ test.setTimeout(120_000)
 const PROJECT = '6a000000-0000-4000-8000-000000000001'
 const EXPERIMENT = '6a000000-0000-4000-8000-000000000011'
 const IDENTIFIER = 'EXP-9951'
+const SECOND_EXPERIMENT = '6a000000-0000-4000-8000-000000000012'
+const SECOND_IDENTIFIER = 'EXP-9952'
 
 /** Opening from the list, inside the running app. Costs 11 today (79 before). */
 const CLIENT_OPEN_BUDGET = 24
 
+/** Reads in the first request once the app has seen the page before. */
+const FIRST_REQUEST_READS = 10
+/** Opening a page the app has seen before: fewer waves than the first time. */
+const WARM_OPEN_BUDGET = 9
 /** A fresh load of the experiment URL, shell included. */
 const FRESH_LOAD_BUDGET = 40
 
@@ -47,7 +54,9 @@ async function clean() {
   await admin.query('DELETE FROM api.experiment_parts WHERE record_id = $1', [
     EXPERIMENT,
   ])
-  await admin.query('DELETE FROM api.records WHERE id = $1', [EXPERIMENT])
+  await admin.query('DELETE FROM api.records WHERE id = ANY($1)', [
+    [EXPERIMENT, SECOND_EXPERIMENT],
+  ])
   await admin.query('DELETE FROM api.projects WHERE id = $1', [PROJECT])
 }
 
@@ -77,19 +86,33 @@ test.beforeAll(async () => {
     [EXPERIMENT, FIXTURE_WORKSPACE_ID, PROJECT, IDENTIFIER, FIXTURE_USER_ID],
   )
 
-  for (let part = 1; part <= 5; part += 1) {
-    await admin.query(
-      `INSERT INTO api.experiment_parts(workspace_id,record_id,position,title,day_offset,created_by_user_id)
-       VALUES ($1,$2,$3,$4,$5,$6)`,
-      [
-        FIXTURE_WORKSPACE_ID,
-        EXPERIMENT,
-        part,
-        `Milestone ${part}`,
-        part - 1,
-        FIXTURE_USER_ID,
-      ],
-    )
+  await admin.query(
+    `INSERT INTO api.records(id,workspace_id,project_id,kind,identifier,title,status,created_by_user_id)
+     VALUES ($1,$2,$3,'experiment',$4,'Second budget experiment','draft',$5)`,
+    [
+      SECOND_EXPERIMENT,
+      FIXTURE_WORKSPACE_ID,
+      PROJECT,
+      SECOND_IDENTIFIER,
+      FIXTURE_USER_ID,
+    ],
+  )
+
+  for (const record of [EXPERIMENT, SECOND_EXPERIMENT]) {
+    for (let part = 1; part <= 5; part += 1) {
+      await admin.query(
+        `INSERT INTO api.experiment_parts(workspace_id,record_id,position,title,day_offset,created_by_user_id)
+         VALUES ($1,$2,$3,$4,$5,$6)`,
+        [
+          FIXTURE_WORKSPACE_ID,
+          record,
+          part,
+          `Milestone ${part}`,
+          part - 1,
+          FIXTURE_USER_ID,
+        ],
+      )
+    }
   }
 })
 
@@ -113,18 +136,29 @@ test.afterAll(async () => {
 interface Counted {
   /** Browser requests to /api (data, batches, events) since counting began. */
   all: string[]
+  /** How many reads each of those carried: a batch carries several, anything else one. */
+  reads: number[]
   failed: string[]
 }
 
 function countApiRequests(page: Page): Counted {
-  const counted: Counted = { all: [], failed: [] }
+  const counted: Counted = { all: [], reads: [], failed: [] }
 
   page.on('request', (request) => {
     const url = new URL(request.url())
 
     // The live event stream is one long-lived request, not page data.
-    if (url.pathname.startsWith('/api/') && url.pathname !== '/api/events')
+    if (url.pathname.startsWith('/api/') && url.pathname !== '/api/events') {
       counted.all.push(`${request.method()} ${url.pathname}`)
+
+      const batch: unknown = url.pathname.endsWith('/db-batch')
+        ? request.postDataJSON()
+        : null
+
+      const sent = z.object({ reads: z.array(z.unknown()) }).safeParse(batch)
+
+      counted.reads.push(sent.success ? sent.data.reads.length : 1)
+    }
   })
   page.on('response', (response) => {
     const url = new URL(response.url())
@@ -214,4 +248,43 @@ test('a fresh load of an experiment stays inside its request budget', async ({
     counted.all.length,
     `requests to load one experiment:\n${summary(counted)}`,
   ).toBeLessThanOrEqual(FRESH_LOAD_BUDGET)
+})
+
+test('a second experiment starts its reads together before its page has loaded', async ({
+  page,
+}) => {
+  // The first experiment is opened once so the app learns what the page reads.
+  await page.goto('/experiments')
+  await expect(
+    page.getByRole('link', { name: IDENTIFIER }).first(),
+  ).toBeVisible({ timeout: 90_000 })
+  await page
+    .locator(`a[href^="/experiments/${EXPERIMENT}"]`)
+    .first()
+    .evaluate((link: HTMLElement) => link.click())
+  await settle(page, countApiRequests(page))
+  await page.goBack()
+  await expect(
+    page.getByRole('link', { name: SECOND_IDENTIFIER }).first(),
+  ).toBeVisible({ timeout: 60_000 })
+  await page.waitForTimeout(1500)
+
+  const counted = countApiRequests(page)
+  await page
+    .locator(`a[href^="/experiments/${SECOND_EXPERIMENT}"]`)
+    .first()
+    .evaluate((link: HTMLElement) => link.click())
+  await settle(page, counted)
+
+  expect(counted.failed).toEqual([])
+  // Everything that depends only on the experiment goes out in the first
+  // request, ahead of the page, not in the waves behind its code.
+  expect(
+    counted.reads[0],
+    `reads in the first request:\n${summary(counted)}`,
+  ).toBeGreaterThanOrEqual(FIRST_REQUEST_READS)
+  expect(
+    counted.all.length,
+    `requests to open the second experiment:\n${summary(counted)}`,
+  ).toBeLessThanOrEqual(WARM_OPEN_BUDGET)
 })

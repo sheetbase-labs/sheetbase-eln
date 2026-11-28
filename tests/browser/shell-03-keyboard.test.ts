@@ -416,9 +416,11 @@ test('Review N/P navigate real changes and R focuses an actual comment reply', a
     await expect(active).not.toHaveAttribute('data-revision-change-id', first, {
       timeout: 3_000,
     })
+    await page.keyboard.press('p')
+    await expect(active).toHaveAttribute('data-revision-change-id', first, {
+      timeout: 3_000,
+    })
   }).toPass({ timeout: 20_000 })
-  await page.keyboard.press('p')
-  await expect(active).toHaveAttribute('data-revision-change-id', first)
   await page.getByRole('link', { name: 'Comments', exact: true }).click()
   await page
     .getByRole('textbox', { name: 'New comment body' })

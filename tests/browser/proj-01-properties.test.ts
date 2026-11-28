@@ -156,8 +156,8 @@ test('PROJ-01 native URL fields and archived views survive reload', async ({
 }) => {
   await page.goto('/projects?fields=stage,experiments&sort=id')
   await expect(
-    page.getByRole('button', {
-      name: 'Quick view of AAV9 process transfer',
+    page.getByRole('table', { name: 'Projects' }).getByRole('link', {
+      name: 'AAV9 process transfer',
       exact: true,
     }),
   ).toBeVisible()
@@ -173,8 +173,8 @@ test('PROJ-01 native URL fields and archived views survive reload', async ({
   ).toHaveCount(0)
   await page.goto('/projects?tab=archived')
   await expect(
-    page.getByRole('button', {
-      name: 'Quick view of AAV9 process transfer',
+    page.getByRole('table', { name: 'Projects' }).getByRole('link', {
+      name: 'AAV9 process transfer',
       exact: true,
     }),
   ).toHaveCount(0)

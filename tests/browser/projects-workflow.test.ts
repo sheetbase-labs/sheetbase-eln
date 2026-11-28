@@ -43,7 +43,10 @@ test('new project is created from the list and the list stays usable', async ({
     })
   })
   await page.goto('/projects')
-  await page.getByRole('button', { name: 'New project', exact: true }).click()
+  await page
+    .getByRole('button', { name: 'New project', exact: true })
+    .first()
+    .click()
   // The dialog's first field is "Name" (projects-page.tsx: `Field label="Name"`,
   // the design's NewProjectDialog, and DialogsCreate-light.png).
   const dialog = page.getByRole('dialog', { name: 'New project' })
@@ -73,15 +76,6 @@ test('new project is created from the list and the list stays usable', async ({
   await expect(
     page.getByRole('link', { name: project.title, exact: true }),
   ).toBeVisible()
-  // A quiet control keeps no fill at rest (variant="quiet" only fills on hover).
-  expect(
-    await page
-      .getByRole('button', {
-        name: `Quick view of ${project.title}`,
-        exact: true,
-      })
-      .evaluate((el) => getComputedStyle(el).backgroundColor),
-  ).toBe('rgba(0, 0, 0, 0)')
   // The column menu is "Fields" with plain menu items (the design's Fields
   // dropdown); the old "Columns" menu and its "Created" column are gone.
   await page.getByRole('button', { name: 'Fields', exact: true }).click()
@@ -153,6 +147,7 @@ test.describe('native project activity', () => {
       // about the feature.
       await page
         .getByRole('button', { name: 'New project', exact: true })
+        .first()
         .click()
       const dialog = page.getByRole('dialog', { name: 'New project' })
       await dialog
@@ -196,17 +191,14 @@ test.describe('native project activity', () => {
       }, created.record.id)
       expect(identity.title).toBe(recordTitle)
       await page.goto('/projects')
+      // Clicking a row shows that project in the side panel.
       await page
-        .getByRole('button', {
-          name: `Quick view of ${projectTitle}`,
-          exact: true,
-        })
+        .getByRole('row', { name: new RegExp(projectTitle) })
+        .first()
         .click()
       await expect(
-        page.getByTitle('Current record identity').filter({
-          hasText: `${identity.identifier} · ${recordTitle}`,
-        }),
-      ).not.toHaveCount(0)
+        page.getByText(`${identity.identifier} · ${recordTitle}`).first(),
+      ).toBeVisible()
       await page.screenshot({
         path: '.amp/in/artifacts/proj01-integrated-activity.png',
       })

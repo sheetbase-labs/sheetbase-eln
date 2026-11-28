@@ -3,11 +3,13 @@
  * incident): the header says the ID, status and facts once, the page opens on
  * the model's Details, the notebook's Submit stays in the header on every tab,
  * and History sits at the far end. A locked record says so once, in a state
- * line with Amend, not again in the pane header and the notebook.
+ * line with Amend, not again in the pane header and the notebook. A field the
+ * model marks "Show in header" leads the header and leaves Details.
  */
 import { Client } from 'pg'
 import { expect, test } from 'playwright/test'
 
+import { withAdminDb } from '../journeys/helpers'
 import { DESIGN_USER_IDS } from '../../visual/design-states'
 import { signInAsDesignUser } from '../../visual/sign-in'
 
@@ -105,4 +107,56 @@ test('a locked record says so once, with Amend beside it', async ({ page }) => {
   ).toBeVisible({ timeout: 30_000 })
   await expect(page.getByRole('button', { name: 'Amend…' })).toBeVisible()
   await expect(page.getByText(/Approved · locked/)).toHaveCount(0)
+})
+
+test('a field the model puts in the header leads it and leaves Details', async ({
+  page,
+}) => {
+  // Mark Severity on the version INC-0001 is pinned to, as the model editor's
+  // "Show in the record’s header" does on a draft before it is published, and
+  // put it back afterwards. A published version is otherwise immutable, so the
+  // guard is set aside inside this one transaction only.
+  const setHeader = (on: boolean) =>
+    withAdminDb(async (db) => {
+      await db.query('begin')
+      await db.query(
+        'alter table api.record_model_versions disable trigger record_model_versions_guard_write',
+      )
+      await db.query(
+        `update api.record_model_versions v
+            set definition = jsonb_set(v.definition, '{fields}', (
+              select jsonb_agg(case when f->>'field_name' = 'severity'
+                then f || jsonb_build_object('show_in_header', $1::boolean)
+                else f end order by n)
+                from jsonb_array_elements(v.definition->'fields') with ordinality as e(f, n)))
+          where v.id = (select model_version_id from api.records where identifier = 'INC-0001')`,
+        [on],
+      )
+      await db.query('set constraints all immediate')
+      await db.query(
+        'alter table api.record_model_versions enable trigger record_model_versions_guard_write',
+      )
+      await db.query('commit')
+    })
+
+  await setHeader(true)
+
+  try {
+    await page.goto('/records/INC-0001/notebook')
+
+    const facts = page.locator(
+      '[data-record-page] [data-page-meta] [data-record-fact]',
+    )
+
+    await expect(facts.first()).toContainText('Major', { timeout: 30_000 })
+    expect(await facts.count()).toBeLessThan(5)
+    await expect(
+      page.getByText('Door latch worn.', { exact: false }),
+    ).toBeVisible()
+    await expect(
+      page.locator('[data-record-page] dt', { hasText: /^Severity$/ }),
+    ).toHaveCount(0)
+  } finally {
+    await setHeader(false)
+  }
 })

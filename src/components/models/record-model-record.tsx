@@ -21,6 +21,7 @@ import { typeForVersion } from '#/lib/model-subtypes'
 import { useModelTypes, useTypeFields } from './model-subtype-data'
 import { displayModelFieldValue, modelFieldValueText } from '#/lib/model-fields'
 import type { ModelFieldDefinition } from '#/lib/model-fields'
+import { headerFieldsOf } from '#/lib/model-header-fields'
 import {
   laterAddedModelFields,
   recordFieldValue,
@@ -507,6 +508,13 @@ function RecordDetailValues({
     fields.some((field) => field.logicalType === 'person'),
   )
 
+  // The fields the header already says, when the record page shows it.
+  const inHeader = new Set(
+    inShell
+      ? headerFieldsWithValues(fields, record).map((f) => f.fieldName)
+      : [],
+  )
+
   const meta: [React.ReactNode, React.ReactNode][] = [
     ...identityRows(record, inShell),
     ...(subtype
@@ -542,62 +550,118 @@ function RecordDetailValues({
   return (
     <div className="grid items-start gap-x-10 gap-y-5 md:grid-cols-2">
       {meta.length ? <DescriptionList items={meta} /> : null}
-      {fieldSections(fields.filter((f) => !shownByPanel.has(f.fieldName))).map(
-        (group) => (
-          <div key={group.name} className="min-w-0">
-            {group.name ? (
-              <h3 className="m-0 mb-1.5 font-sans text-label font-semibold">
-                {group.name}
-              </h3>
-            ) : null}
-            <DescriptionList
-              items={group.fields.map<[React.ReactNode, React.ReactNode]>(
-                (field) => {
-                  // A date-typed field stores an ISO date; show it in the
-                  // same short form as the record's own metadata.
-                  const raw = recordFieldValue(record, field.fieldName)
-
-                  const shown =
-                    field.logicalType === 'date'
-                      ? formatDate(
-                          raw == null ? null : modelFieldValueText(raw),
-                        )
-                      : displayModelFieldValue(field, raw, people)
-
-                  const result = resultByField.get(field.fieldName)
-                  const limits = limitsByField.get(field.fieldName)
-
-                  return [
-                    field.label,
-                    result ? (
-                      <span
-                        key={field.id}
-                        className="flex flex-wrap items-center gap-x-3 gap-y-1"
-                      >
-                        <span>{shown}</span>
-                        <SpecVerdictBadge
-                          verdict={result.verdict}
-                          title={
-                            limits
-                              ? t('quality.limits.limitsTip', {
-                                  range: describeLimits(limits),
-                                })
-                              : undefined
-                          }
-                        />
-                      </span>
-                    ) : (
-                      shown
-                    ),
-                  ]
-                },
-              )}
-            />
-          </div>
+      {fieldSections(
+        fields.filter(
+          (f) => !shownByPanel.has(f.fieldName) && !inHeader.has(f.fieldName),
         ),
-      )}
+      ).map((group) => (
+        <div key={group.name} className="min-w-0">
+          {group.name ? (
+            <h3 className="m-0 mb-1.5 font-sans text-label font-semibold">
+              {group.name}
+            </h3>
+          ) : null}
+          <DescriptionList
+            items={group.fields.map<[React.ReactNode, React.ReactNode]>(
+              (field) => {
+                const shown = recordFieldText(field, record, people)
+
+                const result = resultByField.get(field.fieldName)
+                const limits = limitsByField.get(field.fieldName)
+
+                return [
+                  field.label,
+                  result ? (
+                    <span
+                      key={field.id}
+                      className="flex flex-wrap items-center gap-x-3 gap-y-1"
+                    >
+                      <span>{shown}</span>
+                      <SpecVerdictBadge
+                        verdict={result.verdict}
+                        title={
+                          limits
+                            ? t('quality.limits.limitsTip', {
+                                range: describeLimits(limits),
+                              })
+                            : undefined
+                        }
+                      />
+                    </span>
+                  ) : (
+                    shown
+                  ),
+                ]
+              },
+            )}
+          />
+        </div>
+      ))}
     </div>
   )
+}
+
+/** A field's value as the page says it: a date-typed field in the short
+ * form of the record's own dates, the rest as the field's type reads. */
+function recordFieldText(
+  field: ModelFieldDefinition,
+  record: Pick<
+    NonNullable<RecordPage['record']>,
+    'custom_fields' | 'properties'
+  >,
+  people: ReadonlyMap<string, string> | undefined,
+): string {
+  const raw = recordFieldValue(record, field.fieldName)
+
+  return field.logicalType === 'date'
+    ? formatDate(raw == null ? null : modelFieldValueText(raw))
+    : displayModelFieldValue(field, raw, people)
+}
+
+/** The model's header fields that hold a value on this record; an empty one
+ * leaves its place to the page's own facts and stays in Details. */
+function headerFieldsWithValues(
+  fields: ModelFieldDefinition[],
+  record: Pick<
+    NonNullable<RecordPage['record']>,
+    'custom_fields' | 'properties'
+  >,
+): ModelFieldDefinition[] {
+  return headerFieldsOf(fields).filter((field) => {
+    const raw = recordFieldValue(record, field.fieldName)
+
+    return raw != null && raw !== '' && !(Array.isArray(raw) && !raw.length)
+  })
+}
+
+/**
+ * The facts a record's model puts in the record page's header: the fields its
+ * version marks "Show in header" that hold a value, read from the same
+ * definition and record as Details.
+ */
+export function useRecordHeaderFacts(
+  modelKey: string,
+  recordId: string,
+): { label: string; value: string }[] {
+  const recordQuery = useRecordModelRecord(recordId)
+  const record = recordQuery.data
+
+  const { fieldsQuery } = usePinnedFields(modelKey, record?.model_version_id)
+
+  const shown = record
+    ? headerFieldsWithValues(fieldsQuery.data ?? [], record)
+    : []
+
+  const people = usePersonNames(
+    shown.some((field) => field.logicalType === 'person'),
+  )
+
+  if (!record) return []
+
+  return shown.map((field) => ({
+    label: field.label,
+    value: recordFieldText(field, record, people),
+  }))
 }
 
 /** The ID and name rows, which the shared record page's header already says. */

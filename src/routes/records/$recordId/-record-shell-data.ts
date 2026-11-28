@@ -5,6 +5,7 @@
 import type { RecordFact } from '#/components/record-page/record-page'
 import type { TabsProps } from '#/components/ui/tabs'
 import { formatDate } from '#/lib/format-date'
+import { withHeaderFacts } from '#/lib/model-header-fields'
 import type { NotebookRecord } from '#/lib/notebook-data'
 import { t } from '#/copy'
 
@@ -17,17 +18,22 @@ export type RecordShellTab =
   | 'signatures'
   | 'history'
 
-/** Type, project, owner and last change: what the header says once. */
+/**
+ * The fields the record's model chooses for the header come first; type,
+ * project, owner and last change fill the room that is left.
+ */
 export function recordShellFacts({
   record,
   modelName,
   projectTitle,
   ownerName,
+  modelFacts = [],
 }: {
   record: NotebookRecord
   modelName: string
   projectTitle: string | null
   ownerName: string
+  modelFacts?: readonly RecordFact[]
 }): RecordFact[] {
   const facts: RecordFact[] = [
     { label: t('notebook.recordPage.typeFact'), value: modelName },
@@ -48,7 +54,7 @@ export function recordShellFacts({
     },
   )
 
-  return facts
+  return withHeaderFacts(modelFacts, facts)
 }
 
 /** Details first, the notebook beside it, History at the far end. */

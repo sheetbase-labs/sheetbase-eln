@@ -5,6 +5,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Icon } from '#/components/icons'
 import { Notice } from '#/components/ui/alert'
 import { Button } from '#/components/ui/button'
+import { Checkbox } from '#/components/ui/checkbox'
 import {
   Dialog,
   DialogBody,
@@ -69,6 +70,7 @@ import {
   useRecordModelVersionUsage,
 } from './record-model-data'
 import { cn } from '#/lib/utils'
+import { HEADER_FIELD_LIMIT, headerFieldCount } from '#/lib/model-header-fields'
 import { useInheritedFieldGroups } from './model-subtype-ui'
 import { InheritedLabel, InheritedTableRows } from './inherited-fields-table'
 import { t } from '#/copy'
@@ -1371,6 +1373,7 @@ function DraftInspector({ state }: { state: DraftEditorState }) {
     setChoices,
     patchValidation,
     removeField,
+    fields,
   } = state
 
   return (
@@ -1391,6 +1394,10 @@ function DraftInspector({ state }: { state: DraftEditorState }) {
             usage.data?.reduce((sum, row) => sum + row.record_count, 0) ?? 0
           }
           draftVersion={draft.version}
+          headerFull={
+            !selected.show_in_header &&
+            headerFieldCount(fields) >= HEADER_FIELD_LIMIT
+          }
           onPatch={(p) => patch(selected.id, p)}
           onKind={(k) => setKind(selected, k)}
           onDecimals={(n) => setDecimalPlaces(selected, n)}
@@ -1474,6 +1481,7 @@ function FieldInspector({
   publishedVersion,
   recordCount,
   draftVersion,
+  headerFull,
   onPatch,
   onKind,
   onDecimals,
@@ -1491,6 +1499,8 @@ function FieldInspector({
   publishedVersion: number | null
   recordCount: number
   draftVersion: number
+  /** Four other fields already sit in the header. */
+  headerFull: boolean
   onPatch: (patch: ModelMetadataPatch<ModelVersionField>) => void
   onKind: (kind: FieldKind) => void
   onDecimals: (places: number) => void
@@ -1666,6 +1676,25 @@ function FieldInspector({
         onRequired={onRequired}
         onPatch={onPatch}
       />
+      <div className="flex flex-col gap-1">
+        <label className="flex items-center gap-2 text-label">
+          <Checkbox
+            checked={Boolean(field.show_in_header)}
+            disabled={headerFull}
+            onCheckedChange={(checked) =>
+              onPatch({ show_in_header: checked === true })
+            }
+          />
+          {t('library.models.recordModelEdit.showInHeader')}
+        </label>
+        {headerFull ? (
+          <Muted>
+            {t('library.models.recordModelEdit.headerFull', {
+              limit: HEADER_FIELD_LIMIT,
+            })}
+          </Muted>
+        ) : null}
+      </div>
       <div className="flex flex-col gap-1">
         <h3 className="m-0 text-label font-semibold">
           {t('library.models.recordModelEdit.inRecords')}

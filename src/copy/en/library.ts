@@ -1404,6 +1404,8 @@ export const library = {
       lockedPublishedInVRecords:
         'Locked: published in v{publishedVersion}. Records store values by key.',
       section: 'Section',
+      showInHeader: 'Show in the record’s header',
+      headerFull: 'The header holds {limit} fields. Take one out to add this.',
       decimalPlaces: 'Decimal places',
       minimum: 'Minimum',
       maximum: 'Maximum',

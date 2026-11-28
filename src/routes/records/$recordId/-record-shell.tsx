@@ -14,7 +14,10 @@ import { useQuery } from '@tanstack/react-query'
 import { useEffect, useState } from 'react'
 
 import { FavouriteToggle } from '#/components/favourites/favourite-toggle'
-import { RecordModelDetails } from '#/components/models/record-model-record'
+import {
+  RecordModelDetails,
+  useRecordHeaderFacts,
+} from '#/components/models/record-model-record'
 import { useWorkspaceRecordModel } from '#/components/models/models-data'
 import {
   RecordActionItems,
@@ -124,6 +127,7 @@ function RecordShell({
   const offered = useOfferedRecordActions()
   const canWrite = hasCapability(context.workspace?.role, 'record.create')
   const { userLabel } = useUserNames([record.createdByUserId])
+  const modelFacts = useRecordHeaderFacts(record.kind, record.id)
 
   const project = useQuery({
     queryKey: notebookQueryKeys.project(record.projectId ?? 'none'),
@@ -155,6 +159,7 @@ function RecordShell({
         modelName,
         projectTitle: project.data?.title ?? null,
         ownerName: userLabel(record.createdByUserId),
+        modelFacts,
       })}
       actions={
         <>

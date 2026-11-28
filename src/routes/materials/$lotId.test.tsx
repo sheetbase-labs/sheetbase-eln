@@ -188,6 +188,8 @@ describe('lot page', () => {
     expect(await screen.findByText('Used in EXP-0001')).toBeTruthy()
     expect(screen.getByText('−1 mL')).toBeTruthy()
     expect(screen.getByText('+6 mL')).toBeTruthy()
+    // The certificate is part of the lot's details, not its side panel.
+    await user.click(screen.getByRole('tab', { name: 'Details' }))
     expect(await screen.findByText('coa.pdf')).toBeTruthy()
   })
 

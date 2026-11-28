@@ -895,6 +895,7 @@ export const library = {
       lotContext: 'Lot context',
       release: 'Release',
       releasedBy: 'Released by',
+      releasedOn: 'Released on',
       replacementLot: 'Replacement lot',
       noReplacementLot: 'No replacement lot',
       recentMovements: 'Recent movements',
@@ -915,6 +916,19 @@ export const library = {
         'Only {available} is left in this lot, so {n} can’t be used.',
       quantity: 'Quantity ({unit})',
       quantity2: 'Quantity',
+      supplier: 'Supplier',
+      stock: 'Stock',
+      location: 'Location',
+      catalogue: 'Catalogue',
+      expiry: 'Expiry',
+      received: 'Received',
+      quarantinedLine:
+        'Quarantined. Experiments can’t use it until it’s restored.',
+      noReplacementYet: '{note}. No replacement lot is registered yet.',
+      replacementRegistered:
+        '{note}. Replacement lot {identifier} is registered.',
+      lowStockLine: 'Low stock: {stock} left.',
+      registerReplacement: 'Register replacement',
     },
   },
   models: {

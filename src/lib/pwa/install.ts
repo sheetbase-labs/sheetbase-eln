@@ -2,7 +2,9 @@
  * Installing Sheetbase as an app. Chrome and Edge offer an install prompt the
  * page can trigger once the browser has said the app is installable; iOS
  * Safari has no such prompt, so there the page can only point at Share > Add
- * to Home Screen. A person who says "not now" is not asked again for a month.
+ * to Home Screen. The offer shows for one visit: the first time it appears it
+ * is snoozed for a month, and stays up only until that browser session ends.
+ * "Not now" hides it at once.
  */
 import { useSyncExternalStore } from 'react'
 
@@ -25,6 +27,9 @@ export type InstallOffer = 'none' | 'prompt' | 'ios'
 
 export const INSTALL_SNOOZE_KEY = 'sheetbase.install.snoozedUntil'
 export const INSTALL_SNOOZE_MS = 30 * 24 * 60 * 60 * 1000
+/** Set for the browser session in which the offer was first shown. */
+
+export const INSTALL_SHOWING_KEY = 'sheetbase.install.showing'
 
 /** True when the page is already running as an installed app. */
 export function isStandalone(win: Window = window): boolean {
@@ -107,10 +112,53 @@ function localStore(): Storage | null {
   }
 }
 
+function sessionStore(): Storage | null {
+  try {
+    return window.sessionStorage
+  } catch {
+    return null
+  }
+}
+
+/** True in the visit where the offer was first shown, after its snooze began. */
+export function installShowingThisVisit(
+  storage: Pick<Storage, 'getItem'> | null,
+): boolean {
+  try {
+    return storage?.getItem(INSTALL_SHOWING_KEY) === '1'
+  } catch {
+    return false
+  }
+}
+
+/**
+ * Called when the offer appears. The first time, it starts the month's snooze
+ * and marks this visit, so the offer stays for this visit and not the next.
+ */
+export function noteInstallOfferShown(
+  local: Pick<Storage, 'getItem' | 'setItem'> | null,
+  session: Pick<Storage, 'getItem' | 'setItem'> | null,
+  now: number,
+): void {
+  if (installShowingThisVisit(session) || installSnoozed(local, now)) return
+  snoozeInstall(local, now)
+
+  try {
+    session?.setItem(INSTALL_SHOWING_KEY, '1')
+  } catch {
+    /* private mode: the offer simply comes back next visit */
+  }
+}
+
 function snapshot(): InstallOffer {
   if (typeof window === 'undefined' || installed || snoozedNow) return 'none'
 
-  if (isStandalone() || installSnoozed(localStore(), Date.now())) return 'none'
+  if (
+    isStandalone() ||
+    (installSnoozed(localStore(), Date.now()) &&
+      !installShowingThisVisit(sessionStore()))
+  )
+    return 'none'
 
   if (deferred) return 'prompt'
   const nav = window.navigator
@@ -155,9 +203,21 @@ export async function promptInstall(): Promise<boolean> {
   }
 }
 
+/** Mark the offer as seen: see `noteInstallOfferShown`. */
+export function markInstallOfferShown(): void {
+  noteInstallOfferShown(localStore(), sessionStore(), Date.now())
+}
+
 /** "Not now": hide the offer for a month. */
 export function dismissInstallOffer(): void {
   snoozeInstall(localStore(), Date.now())
+
+  try {
+    sessionStore()?.removeItem(INSTALL_SHOWING_KEY)
+  } catch {
+    /* nothing kept, nothing to clear */
+  }
+
   snoozedNow = true
   emit()
 }

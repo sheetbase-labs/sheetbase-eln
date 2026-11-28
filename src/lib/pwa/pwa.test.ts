@@ -7,8 +7,10 @@ import { readFileSync } from 'node:fs'
 import {
   INSTALL_SNOOZE_KEY,
   INSTALL_SNOOZE_MS,
+  installShowingThisVisit,
   installSnoozed,
   isIos,
+  noteInstallOfferShown,
   isIosSafari,
   snoozeInstall,
 } from './install'
@@ -36,6 +38,35 @@ describe('install offer', () => {
     expect(isIos('Mozilla/5.0 (Macintosh)', 'MacIntel', 0)).toBe(false)
     expect(isIosSafari(IPHONE)).toBe(true)
     expect(isIosSafari(IPHONE.replace('Version/18.0', 'CriOS/130'))).toBe(false)
+  })
+
+  it('shows for the first visit only', () => {
+    const memory = () => {
+      const store = new Map<string, string>()
+
+      return {
+        getItem: (key: string) => store.get(key) ?? null,
+        setItem: (key: string, value: string) => void store.set(key, value),
+      }
+    }
+
+    const local = memory()
+    const firstVisit = memory()
+
+    noteInstallOfferShown(local, firstVisit, 1000)
+    // Snoozed from now on, but this visit keeps it up.
+    expect(installSnoozed(local, 2000)).toBe(true)
+    expect(installShowingThisVisit(firstVisit)).toBe(true)
+    // Seeing it again in the same visit changes nothing.
+    noteInstallOfferShown(local, firstVisit, 5000)
+    expect(local.getItem(INSTALL_SNOOZE_KEY)).toBe(
+      String(1000 + INSTALL_SNOOZE_MS),
+    )
+
+    // The next visit starts with a fresh session: the offer stays away.
+    const nextVisit = memory()
+    noteInstallOfferShown(local, nextVisit, 9000)
+    expect(installShowingThisVisit(nextVisit)).toBe(false)
   })
 
   it('stays quiet for a month after Not now', () => {

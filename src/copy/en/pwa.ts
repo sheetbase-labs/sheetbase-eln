@@ -8,7 +8,9 @@ export const pwa = {
     ios: {
       title: 'Add Sheetbase to your Home Screen',
       body: 'In Safari, tap the Share button, then choose Add to Home Screen.',
+      short: 'Tap Share, then Add to Home Screen',
     },
+    short: 'Install Sheetbase as an app',
   },
   share: {
     action: 'Share',

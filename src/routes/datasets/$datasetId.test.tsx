@@ -178,6 +178,7 @@ function renderRoute(component: React.ComponentType) {
 
 beforeEach(() => {
   dataClient.rpc.mockResolvedValue([])
+  dataClient.list.mockResolvedValue([])
   fixtures.routerState.search = {}
   fixtures.routerState.pathname = '/datasets/ds-1'
 })
@@ -255,12 +256,56 @@ describe('dataset detail tab search parameter', () => {
     }
   })
 
-  it('renders the Overview screen when no tab is selected', () => {
+  it('renders the Overview screen when no tab is selected', async () => {
+    dataClient.list.mockImplementation(async (table: string) =>
+      table === 'datasets'
+        ? [{ schema_version_id: 'sv-1' }]
+        : [
+            {
+              field_id: 'f-1',
+              key: 'sample',
+              label: 'Sample',
+              logical_type: 'text',
+            },
+            {
+              field_id: 'f-2',
+              key: 'titre',
+              label: 'Titre',
+              logical_type: 'number',
+            },
+          ],
+    )
+    dataClient.rpc.mockImplementation(async (name: string) =>
+      name === 'query_dataset_rows'
+        ? {
+            totalCount: 31,
+            rows: [{ rowId: 'r-1', values: { 'f-1': 'S-0042', 'f-2': 1.8 } }],
+          }
+        : [],
+    )
+
     renderRoute(DetailIndex)
-    // The index is the Overview the tab links to: the dataset's own facts,
-    // not a redirect to Snapshots.
-    expect(screen.getByText('ambr')).toBeTruthy()
-    expect(screen.getByText('31')).toBeTruthy()
-    expect(screen.getByText('Not linked to an experiment')).toBeTruthy()
+    // The index is the Overview the tab links to: the first rows of the
+    // dataset and its checks, not a redirect to Snapshots.
+    expect(await screen.findByText('S-0042')).toBeTruthy()
+    expect(screen.getByText('Titre')).toBeTruthy()
+    expect(screen.getByText('1 of 31')).toBeTruthy()
+    expect(screen.getByText('Open all rows')).toBeTruthy()
+    expect(screen.getByText('Checks')).toBeTruthy()
+    expect(screen.getByText('None open')).toBeTruthy()
+  })
+
+  it('says so when the dataset has no rows yet', async () => {
+    dataClient.list.mockResolvedValue([])
+    dataClient.rpc.mockImplementation(async (name: string) =>
+      name === 'query_dataset_rows' ? { totalCount: 0, rows: [] } : [],
+    )
+
+    renderRoute(DetailIndex)
+    expect(
+      await screen.findByText(
+        'No rows yet. Import a file or add rows in a sheet.',
+      ),
+    ).toBeTruthy()
   })
 })

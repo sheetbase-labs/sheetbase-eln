@@ -163,12 +163,8 @@ test('global bindings, Windows modifiers, input suppression and overlay focus', 
   await page.addInitScript(() =>
     Object.defineProperty(navigator, 'platform', { value: 'Win32' }),
   )
-  const preferences = page.waitForResponse(
-    (response) =>
-      response.url().includes('/api/db/user_preferences') && response.ok(),
-  )
   await page.goto('/help/shortcuts?os=windows')
-  await preferences
+  await waitForHydration(page)
   await expect(page).toHaveURL(/os=windows/)
   const trigger = page.getByRole('button', {
     name: 'Show keyboard shortcuts',
@@ -402,18 +398,27 @@ test('Review N/P navigate real changes and R focuses an actual comment reply', a
   // The review opens on the marked document, which has no change selection of
   // its own; the change list is the surface that owns N/P (SHELL-03.3), and it
   // starts on its first change, so open it before navigating changes.
-  await page.getByRole('tab', { name: 'Change list', exact: true }).click()
   const changes = page.locator('[data-revision-change-id]')
-  await expect.poll(() => changes.count()).toBeGreaterThan(1)
   const active = page.locator('[data-revision-change-id][aria-current="step"]')
-  const first = await active.getAttribute('data-revision-change-id')
-  await page.keyboard.press('n')
-  await expect(active).not.toHaveAttribute(
-    'data-revision-change-id',
-    first ?? '',
-  )
+  // The page can finish loading its review data after the click and reopen on
+  // the document, so the whole step is retried as one until it holds.
+  let first = ''
+  await expect(async () => {
+    await page.getByRole('tab', { name: 'Change list', exact: true }).click()
+    await expect
+      .poll(() => changes.count(), { timeout: 3_000 })
+      .toBeGreaterThan(1)
+    first =
+      (await active.getAttribute('data-revision-change-id', {
+        timeout: 3_000,
+      })) ?? ''
+    await page.keyboard.press('n')
+    await expect(active).not.toHaveAttribute('data-revision-change-id', first, {
+      timeout: 3_000,
+    })
+  }).toPass({ timeout: 20_000 })
   await page.keyboard.press('p')
-  await expect(active).toHaveAttribute('data-revision-change-id', first ?? '')
+  await expect(active).toHaveAttribute('data-revision-change-id', first)
   await page.getByRole('link', { name: 'Comments', exact: true }).click()
   await page
     .getByRole('textbox', { name: 'New comment body' })

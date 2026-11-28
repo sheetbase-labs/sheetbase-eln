@@ -7,6 +7,8 @@
  * can never reorder or merge a change.
  */
 export const BATCHABLE_READ_RPCS: ReadonlySet<string> = new Set([
+  'audit_events',
+  'inbox_needs_action_counts',
   'my_profile',
   'record_comments',
   'record_gates',
@@ -15,6 +17,7 @@ export const BATCHABLE_READ_RPCS: ReadonlySet<string> = new Set([
   'reporting_columns',
   'reporting_models',
   'workspace_member_photos',
+  'workspace_members_list',
 ])
 
 /** A data path as the client builds it: `/records?id=eq.…` or `/rpc/name`. */

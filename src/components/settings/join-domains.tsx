@@ -3,7 +3,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 
 import { Button } from '#/components/ui/button'
 import { Chip } from '#/components/ui/chip'
-import { Field, Input } from '#/components/ui/input'
+import { Field, FieldRow, Input } from '#/components/ui/input'
 import { Section } from '#/components/ui/layout'
 import { Select } from '#/components/ui/select'
 import { toast } from '#/components/ui/sonner'
@@ -104,37 +104,29 @@ export function JoinDomainsSection({
   if (!canManage && domains.length === 0) return null
 
   return (
-    <Section title={t('settings.joinDomains.title')}>
-      <div className="flex flex-wrap items-center gap-2">
-        {domains.length === 0
-          ? null
-          : domains.map((domain) => (
-              <Chip
-                key={domain}
-                variant="remove"
-                removeLabel={
-                  canManage
-                    ? t('settings.joinDomains.remove', { domain })
-                    : undefined
-                }
-                onRemove={
-                  canManage
-                    ? () =>
-                        save.mutate({
-                          domains: domains.filter((item) => item !== domain),
-                          role,
-                        })
-                    : undefined
-                }
-              >
-                {domain}
-              </Chip>
-            ))}
-      </div>
+    <Section
+      title={t('settings.joinDomains.title')}
+      description={t('settings.joinDomains.description')}
+    >
+      <JoinDomainChips
+        domains={domains}
+        suggestion={canManage ? suggestion : null}
+        disabled={save.isPending}
+        onAdd={add}
+        onRemove={
+          canManage
+            ? (domain) =>
+                save.mutate({
+                  domains: domains.filter((item) => item !== domain),
+                  role,
+                })
+            : undefined
+        }
+      />
       {canManage ? (
-        <>
+        <FieldRow>
           <form
-            className="flex max-w-[420px] flex-wrap items-end gap-2"
+            className="contents"
             onSubmit={(event) => {
               event.preventDefault()
               add(draft)
@@ -142,7 +134,7 @@ export function JoinDomainsSection({
           >
             <Field
               label={t('settings.joinDomains.domainLabel')}
-              className="min-w-[200px] flex-1"
+              className="w-56 max-md:min-w-0 max-md:flex-1"
               error={error}
             >
               <Input
@@ -159,20 +151,10 @@ export function JoinDomainsSection({
             <Button type="submit" disabled={save.isPending || !draft.trim()}>
               {t('settings.joinDomains.add')}
             </Button>
-            {suggestion ? (
-              <Button
-                type="button"
-                variant="quiet"
-                disabled={save.isPending}
-                onClick={() => add(suggestion)}
-              >
-                {t('settings.joinDomains.suggest', { domain: suggestion })}
-              </Button>
-            ) : null}
           </form>
           <Field
             label={t('settings.joinDomains.joinAs')}
-            className="max-w-[240px]"
+            className="w-40 max-md:basis-full md:ml-4"
           >
             <Select
               value={role}
@@ -192,8 +174,56 @@ export function JoinDomainsSection({
               ))}
             </Select>
           </Field>
-        </>
+        </FieldRow>
       ) : null}
     </Section>
+  )
+}
+
+/** The domains people join from, with the admin's own domain offered beside
+ * them until it is added. */
+function JoinDomainChips({
+  domains,
+  suggestion,
+  disabled,
+  onAdd,
+  onRemove,
+}: {
+  domains: string[]
+  suggestion: string | null
+  disabled: boolean
+  onAdd: (domain: string) => void
+  onRemove?: (domain: string) => void
+}) {
+  return (
+    <div className="flex min-h-6 flex-wrap items-center gap-1.5">
+      {domains.map((domain) => (
+        <Chip
+          key={domain}
+          variant="remove"
+          removeLabel={
+            onRemove ? t('settings.joinDomains.remove', { domain }) : undefined
+          }
+          onRemove={onRemove ? () => onRemove(domain) : undefined}
+        >
+          {domain}
+        </Chip>
+      ))}
+      {suggestion ? (
+        <Chip
+          icon="plus"
+          className="border-dashed text-fg-muted hover:text-fg"
+          disabled={disabled}
+          onClick={() => onAdd(suggestion)}
+        >
+          {t('settings.joinDomains.suggest', { domain: suggestion })}
+        </Chip>
+      ) : null}
+      {domains.length === 0 && !suggestion ? (
+        <span className="text-label text-fg-muted">
+          {t('settings.joinDomains.noDomains')}
+        </span>
+      ) : null}
+    </div>
   )
 }

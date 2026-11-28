@@ -37,13 +37,13 @@ import {
   DialogHeader,
 } from '#/components/ui/dialog'
 import { TableBox } from '#/components/ui/table'
-import {
-  RegistryGrid,
-  rightAligned,
-} from '#/components/inventory/registry-grid'
+import { RegistryGrid } from '#/components/inventory/registry-grid'
 import type { RegistryColumn } from '#/components/inventory/registry-grid'
 import { toast } from '#/components/ui/sonner'
-import { SettingsHeader } from '#/components/settings/settings-page'
+import {
+  SettingsBody,
+  SettingsHeader,
+} from '#/components/settings/settings-page'
 import { JoinDomainsSection } from '#/components/settings/join-domains'
 import { DirectorySyncSection } from '#/components/settings/directory-sync'
 import { SignInGroupsSection } from '#/components/settings/sign-in-groups'
@@ -474,9 +474,11 @@ function useMemberDirectory({
     {
       id: 'lastActive',
       header: t('settings.members.lastActive'),
+      // Last active and the Manage button sit together at the row's end; the
+      // spare width goes to the columns before them.
       meta: {
-        ...rightAligned<(typeof rows)[number]>().meta,
-        cellClassName: 'text-right text-fg-muted',
+        headerClassName: 'w-px text-right',
+        cellClassName: 'w-px text-right text-fg-muted',
       },
       cell: ({ row }) => {
         const member = row.original
@@ -497,7 +499,10 @@ function useMemberDirectory({
       header: () => (
         <span className="sr-only">{t('settings.members.actions')}</span>
       ),
-      meta: rightAligned<(typeof rows)[number]>().meta,
+      meta: {
+        headerClassName: 'w-px text-right',
+        cellClassName: 'w-px text-right',
+      },
       cell: ({ row }) => {
         const member = row.original
 
@@ -553,7 +558,10 @@ function useMemberDirectory({
       header: () => (
         <span className="sr-only">{t('settings.members.actions')}</span>
       ),
-      meta: rightAligned<(typeof pending)[number]>().meta,
+      meta: {
+        headerClassName: 'w-px text-right',
+        cellClassName: 'w-px text-right',
+      },
       cell: ({ row }) =>
         canManage ? (
           <div className="flex justify-end gap-1">
@@ -676,7 +684,14 @@ function InternalMembers({
             ) : null}
           </>
         }
-      ></SettingsHeader>
+      >
+        {memberRole
+          ? t('settings.members.yourRole', {
+              role: WORKSPACE_ROLE_LABELS[memberRole],
+              description: WORKSPACE_ROLE_DESCRIPTIONS[memberRole],
+            })
+          : null}
+      </SettingsHeader>
       <div
         role="toolbar"
         aria-label={t('settings.members.filterMembersAria')}
@@ -750,26 +765,20 @@ function InternalMembers({
             </div>
           )}
         </div>
-        <div className="shrink-0 border-t border-border-subtle px-4 py-4 max-md:pb-20 md:px-6">
-          <div className="mb-6">
-            <JoinDomainsSection
-              workspaceId={workspaceId}
-              canManage={canManage}
-              ownEmail={context.user.email}
-            />
-          </div>
-          <div className="mb-6">
-            <SignInGroupsSection
-              workspaceId={workspaceId}
-              canManage={canManage}
-            />
-          </div>
-          <div className="mb-6">
-            <DirectorySyncSection
-              workspaceId={workspaceId}
-              canManage={canManage}
-            />
-          </div>
+        <SettingsBody className="shrink-0 border-t border-border-subtle max-md:pb-20">
+          <JoinDomainsSection
+            workspaceId={workspaceId}
+            canManage={canManage}
+            ownEmail={context.user.email}
+          />
+          <SignInGroupsSection
+            workspaceId={workspaceId}
+            canManage={canManage}
+          />
+          <DirectorySyncSection
+            workspaceId={workspaceId}
+            canManage={canManage}
+          />
           <Section
             title={t('settings.members.invitations')}
             count={pending.length}
@@ -788,10 +797,7 @@ function InternalMembers({
               <Muted>{t('settings.members.pendingInvitations2')}</Muted>
             )}
           </Section>
-          <p className="mt-3 text-label text-fg-muted">
-            {WORKSPACE_ROLE_DESCRIPTIONS[memberRole ?? 'viewer']}
-          </p>
-        </div>
+        </SettingsBody>
       </div>
 
       <MembersDialog

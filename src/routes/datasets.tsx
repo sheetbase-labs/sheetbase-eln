@@ -1,5 +1,6 @@
 import { filterParamSchema } from '#/lib/list-filter'
-import { ListLoadError, listFailed } from '#/components/ui/list-load-error'
+import { ListLoadError } from '#/components/ui/list-load-error'
+import { listFailed } from '#/lib/list-failed'
 import type { FilterParam } from '#/lib/search-filter'
 import type { ListFilter } from '#/components/inventory/list-filter'
 import { useRowFilter } from '#/components/inventory/row-filter'

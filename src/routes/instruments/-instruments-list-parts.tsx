@@ -6,7 +6,8 @@
  * Each section reads the list model and reports intent back; none of them
  * fetch, filter or own the selection.
  */
-import { ListLoadError, listFailed } from '#/components/ui/list-load-error'
+import { ListLoadError } from '#/components/ui/list-load-error'
+import { listFailed } from '#/lib/list-failed'
 import { Link } from '@tanstack/react-router'
 
 import { t } from '#/copy'

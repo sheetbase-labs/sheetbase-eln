@@ -512,43 +512,45 @@ function ChatBody({
 }
 
 const SUGGESTIONS = [
+  'suggestHoldUps',
+  'suggestInbox',
   'suggestSchedule',
   'suggestReagents',
-  'suggestInbox',
-  'suggestInstruments',
 ] as const
 
-/** The empty chat: what the agent is for, and a few things to start with. */
+/**
+ * The empty chat: one plain line on what the agent is for and a few questions
+ * to start with, set just above the prompt where the answer will appear.
+ */
 function AgentEmpty({ onAsk }: { onAsk: (question: string) => void }) {
   return (
-    <div className="flex flex-1 flex-col items-center justify-center gap-6 py-10 text-center">
-      <span className="inline-flex size-12 items-center justify-center rounded-full border border-border-subtle bg-surface-muted text-fg-muted">
-        <Icon name="spark" size={22} />
-      </span>
-      <div className="flex flex-col gap-1.5">
-        <h2 className="m-0 font-heading text-[20px] font-semibold text-fg">
+    <div
+      className="flex flex-1 flex-col justify-end gap-3 pb-1"
+      data-testid="agent-empty"
+    >
+      <div className="flex flex-col gap-1 px-1">
+        <h2 className="m-0 text-body font-semibold text-fg">
           {t('features.assistantConversations.page.emptyTitle')}
         </h2>
-        <Muted className="mx-auto max-w-[420px]">
-          {t('features.assistantConversations.page.emptyBody')}
-        </Muted>
+        <Muted>{t('features.assistantConversations.page.emptyBody')}</Muted>
       </div>
-      <div className="grid w-full max-w-xl grid-cols-1 gap-2 sm:grid-cols-2">
+      <ul className="m-0 flex list-none flex-col p-0">
         {SUGGESTIONS.map((key) => {
           const text = t(`features.assistantConversations.page.${key}`)
 
           return (
-            <button
-              key={key}
-              type="button"
-              onClick={() => onAsk(text)}
-              className="cursor-pointer rounded-xl border border-border bg-surface px-3 py-2.5 text-left text-body text-fg hover:bg-surface-hover"
-            >
-              {text}
-            </button>
+            <li key={key} className="border-t border-border-subtle">
+              <button
+                type="button"
+                onClick={() => onAsk(text)}
+                className="w-full cursor-pointer border-0 bg-transparent px-1 py-2 text-left text-body text-fg-muted hover:bg-surface-hover hover:text-fg"
+              >
+                {text}
+              </button>
+            </li>
           )
         })}
-      </div>
+      </ul>
     </div>
   )
 }

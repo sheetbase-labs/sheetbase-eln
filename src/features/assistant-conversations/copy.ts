@@ -13,15 +13,14 @@ export const copy = {
     saveFailed:
       'This chat could not be saved. It stays on screen until you leave.',
     untitled: 'New chat',
-    emptyTitle: 'What do you want to get done?',
-    emptyBody:
-      'Ask about your lab, or have it do the work. Anything that changes data waits for you to confirm it.',
+    emptyTitle: 'Ask about your lab, or hand it a job',
+    emptyBody: 'Anything that changes data waits for you to confirm it.',
     placeholder: 'Message the agent…',
     placeholderFollowUp: 'Write a reply…',
     suggestSchedule: 'What is on my schedule this week?',
     suggestReagents: 'Which reagents are running low?',
     suggestInbox: 'What needs my attention in the Inbox?',
-    suggestInstruments: 'Which instruments are out of service?',
+    suggestHoldUps: 'What is holding up my experiments?',
     groups: {
       today: 'Today',
       yesterday: 'Yesterday',

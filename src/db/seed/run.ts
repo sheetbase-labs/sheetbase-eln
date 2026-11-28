@@ -21,6 +21,7 @@ import { monthSteps } from './month'
 import { seedScale } from './scale'
 import { DESIGN_WORKSPACE_IDS, designSteps } from './design'
 import { buildDemoSteps } from './demo-steps'
+import { joinDesignAsLead } from './design-lead'
 import { bootstrapWorkspaceForUser } from '#/lib/bootstrap'
 import {
   FIXTURE_PROJECT_ID,
@@ -235,6 +236,57 @@ export const demoSteps: Array<SeedStep> = buildDemoSteps({
   devUserId: DEV_USER.id,
 })
 
+/**
+ * What `--design` adds after the design seed for the auth-free development
+ * person. The dev session defaults to the fixture workspace, which only carries
+ * minimal fixtures, so it joins the design Process Development workspace as its
+ * lead and makes it the active one: the dev surface shows the full data set.
+ */
+export function designDevSessionSteps(
+  devUserId: string = DEV_USER.id,
+): Array<SeedStep> {
+  return [
+    {
+      name: 'design dev session workspace',
+      run: async (db: ReturnType<typeof createDb>) => {
+        const workspaceId = DESIGN_WORKSPACE_IDS.processDevelopment
+        // The same standing a person gets from the Demo choice: owner,
+        // and the lead's project access, without which every project's
+        // experiments read as not found.
+        await joinDesignAsLead(db, devUserId)
+        await db
+          .insert(schema.userPreferences)
+          .values({ userId: devUserId, activeWorkspaceId: workspaceId })
+          .onConflictDoUpdate({
+            target: schema.userPreferences.userId,
+            set: { activeWorkspaceId: workspaceId },
+          })
+      },
+    },
+    {
+      // The design steps use the fixture owner as the signing-identity
+      // verifier, and that leaves it as an Admin in the design
+      // workspace. Nobody there should see a test account in Members
+      // or Signatures, so drop it unless it is the dev session itself.
+      name: 'design fixture owner not a member',
+      run: async (db: ReturnType<typeof createDb>) => {
+        if (devUserId === FIXTURE_USER_ID) return
+        await db
+          .delete(schema.workspaceMemberships)
+          .where(
+            and(
+              eq(
+                schema.workspaceMemberships.workspaceId,
+                DESIGN_WORKSPACE_IDS.processDevelopment,
+              ),
+              eq(schema.workspaceMemberships.userId, FIXTURE_USER_ID),
+            ),
+          )
+      },
+    },
+  ]
+}
+
 async function main() {
   const databaseUrl = process.env.DATABASE_URL
 
@@ -252,59 +304,7 @@ async function main() {
 
   const steps = [
     ...(firstRun ? firstRunSteps : fixtureSteps),
-    ...(withDesign
-      ? [
-          ...designSteps,
-          // The auth-free dev session defaults to the fixture workspace, which
-          // only carries minimal fixtures. Put it in the design Process
-          // Development workspace and make that the active one, so the dev
-          // surface shows the full design data set.
-          {
-            name: 'design dev session workspace',
-            run: async (db: ReturnType<typeof createDb>) => {
-              const workspaceId = DESIGN_WORKSPACE_IDS.processDevelopment
-              await db
-                .insert(schema.workspaceMemberships)
-                .values({ workspaceId, userId: DEV_USER.id, role: 'owner' })
-                .onConflictDoUpdate({
-                  target: [
-                    schema.workspaceMemberships.workspaceId,
-                    schema.workspaceMemberships.userId,
-                  ],
-                  set: { role: 'owner' },
-                })
-              await db
-                .insert(schema.userPreferences)
-                .values({ userId: DEV_USER.id, activeWorkspaceId: workspaceId })
-                .onConflictDoUpdate({
-                  target: schema.userPreferences.userId,
-                  set: { activeWorkspaceId: workspaceId },
-                })
-            },
-          },
-          {
-            // The design steps use the fixture owner as the signing-identity
-            // verifier, and that leaves it as an Admin in the design
-            // workspace. Nobody there should see a test account in Members
-            // or Signatures, so drop it unless it is the dev session itself.
-            name: 'design fixture owner not a member',
-            run: async (db: ReturnType<typeof createDb>) => {
-              if (DEV_USER.id === FIXTURE_USER_ID) return
-              await db
-                .delete(schema.workspaceMemberships)
-                .where(
-                  and(
-                    eq(
-                      schema.workspaceMemberships.workspaceId,
-                      DESIGN_WORKSPACE_IDS.processDevelopment,
-                    ),
-                    eq(schema.workspaceMemberships.userId, FIXTURE_USER_ID),
-                  ),
-                )
-            },
-          },
-        ]
-      : []),
+    ...(withDesign ? [...designSteps, ...designDevSessionSteps()] : []),
     ...(withDemo ? demoSteps : []),
     ...(withMonth ? monthSteps : []),
     ...(withScale

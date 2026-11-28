@@ -3,11 +3,29 @@ import { useState } from 'react'
 import type { QualificationRow } from './-instrument-columns'
 import { isoDay } from './-instrument-day'
 
+/** The instrument page's tabs, Details first and History last. */
+export const INSTRUMENT_TABS = [
+  'details',
+  'bookings',
+  'calibration',
+  'service',
+  'data',
+  'history',
+] as const
+
+export type InstrumentTab = (typeof INSTRUMENT_TABS)[number]
+
+/** A tab key from the strip, or Details for anything else. */
+export function instrumentTabOf(key: string): InstrumentTab {
+  return INSTRUMENT_TABS.find((tab) => tab === key) ?? 'details'
+}
+
 /**
- * The instrument record's form and dialog state: which dialog is open, and
+ * The instrument record's open tab, and its form and dialog state: which dialog is open, and
  * what has been typed into it.
  */
 export function useInstrumentPageState() {
+  const [tab, setTab] = useState<InstrumentTab>('details')
   const [recordOpen, setRecordOpen] = useState(false)
   const [downOpen, setDownOpen] = useState(false)
   const [upOpen, setUpOpen] = useState(false)
@@ -32,6 +50,8 @@ export function useInstrumentPageState() {
   )
 
   return {
+    tab,
+    setTab,
     recordOpen,
     setRecordOpen,
     downOpen,

@@ -518,7 +518,11 @@ describe('instrument record actions and dates', () => {
     ]
     renderPage()
 
-    // In the summary, the history table and the side panel (and the Fields list for the due date), below it.
+    // The due date is a header fact; the Calibration tab says both again in
+    // its summary and its history table.
+    await userEvent
+      .setup()
+      .click(await screen.findByRole('tab', { name: /^Calibration/ }))
     expect(await screen.findByText('Last performed')).toBeTruthy()
     expect(screen.getAllByText('11 Sep 2026').length).toBeGreaterThanOrEqual(2)
     expect(screen.getAllByText('9 Apr 2027').length).toBeGreaterThanOrEqual(2)
@@ -541,11 +545,12 @@ describe('J-INS-10 overdue calibration and its certificate', () => {
     calibrations.current = [OVERDUE]
     renderPage()
 
-    await screen.findByText('Calibration overdue.')
-    // One in the header and one in the notice.
+    const line = await screen.findByText(/^Calibration overdue\./)
+    // The page's one state line, with the step that clears it.
+    expect(line.closest('[data-record-state="bad"]')).toBeTruthy()
     expect(
       screen.getAllByRole('button', { name: 'Record calibration' }).length,
-    ).toBe(2)
+    ).toBe(1)
   })
 
   it('names who can record it when the viewer cannot', async () => {
@@ -553,8 +558,11 @@ describe('J-INS-10 overdue calibration and its certificate', () => {
     calibrations.current = [OVERDUE]
     renderPage()
 
-    await screen.findByText('Calibration overdue.')
+    await screen.findByText(/^Calibration overdue\./)
     expect(screen.getByText(/Ask someone with write access/)).toBeTruthy()
+    expect(
+      screen.queryByRole('button', { name: 'Record calibration' }),
+    ).toBeNull()
   })
 
   it('opens the record dialog from the registry deep link', async () => {
@@ -655,8 +663,12 @@ describe('J-INS-09 an automated instrument that is not delivering', () => {
     renderPage()
 
     await screen.findByText('Next booking')
+    await userEvent
+      .setup()
+      .click(screen.getByRole('button', { name: 'More instrument actions' }))
+    // The ⋯ menu's Upload item is a link to the import page.
     expect(
-      screen.getByRole('link', { name: 'Upload' }).getAttribute('href'),
+      (await screen.findByText('Upload')).closest('a')?.getAttribute('href'),
     ).toBe('/import?instrument=inst-1')
   })
 
@@ -666,6 +678,10 @@ describe('J-INS-09 an automated instrument that is not delivering', () => {
     renderPage()
 
     await screen.findByText('Next booking')
-    expect(screen.queryByRole('link', { name: 'Upload' })).toBeNull()
+    // A viewer has nothing under ⋯, so there is no menu to open.
+    expect(
+      screen.queryByRole('button', { name: 'More instrument actions' }),
+    ).toBeNull()
+    expect(screen.queryByText('Upload')).toBeNull()
   })
 })

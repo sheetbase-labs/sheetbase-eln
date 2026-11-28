@@ -11,6 +11,7 @@ import {
 import userEvent from '@testing-library/user-event'
 import type { UserEvent } from '@testing-library/user-event'
 import {
+  afterAll,
   afterEach,
   beforeAll,
   beforeEach,
@@ -86,6 +87,12 @@ beforeAll(() => {
     value: 'MacIntel',
     configurable: true,
   })
+})
+
+// Files share a worker, and a later one would go on running as a Mac: the
+// notebook editor then reads Ctrl+A as a plain key and never selects its text.
+afterAll(() => {
+  Reflect.deleteProperty(window.navigator, 'platform')
 })
 
 // oxlint-disable-next-line anti-slop/no-module-mocking -- The app shell is built from the generated route tree and renders inside the root route; this suite renders it alone and needs only the router context and navigation the shell reads, with every other export real.

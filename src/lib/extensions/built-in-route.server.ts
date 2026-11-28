@@ -24,6 +24,42 @@ export interface BuiltInRouteDeps {
   ) => Promise<BuiltInResult[]>
 }
 
+/**
+ * The install running for each workspace. Every page an administrator opens
+ * asks for the built-in plugins, so two tabs (or two people) ask at once; they
+ * share one install instead of both inserting the same plugin, where the
+ * second would be refused for a key the first had just taken.
+ */
+const running = new Map<string, Promise<BuiltInResult[]>>()
+
+async function ensureOnce(
+  ensure: NonNullable<BuiltInRouteDeps['ensureBuiltIn']>,
+  client: DataClient,
+  context: { workspaceId: string; userId: string },
+): Promise<BuiltInResult[]> {
+  const pending = running.get(context.workspaceId)
+
+  if (pending) return pending
+
+  const install = (async () => {
+    try {
+      return await ensure(client, context)
+    } catch {
+      // Another server can still have installed a plugin in between. Once it
+      // has, a second pass finds it in place and leaves it as it is.
+      return await ensure(client, context)
+    }
+  })()
+
+  running.set(context.workspaceId, install)
+
+  try {
+    return await install
+  } finally {
+    running.delete(context.workspaceId)
+  }
+}
+
 export async function handleBuiltInPlugins(
   request: Request,
   deps: BuiltInRouteDeps = {
@@ -60,7 +96,7 @@ export async function handleBuiltInPlugins(
 
   try {
     const ensure = deps.ensureBuiltIn ?? ensureBuiltInPlugins
-    const results = await ensure(client, context)
+    const results = await ensureOnce(ensure, client, context)
 
     return Response.json({ plugins: results })
   } catch (error) {

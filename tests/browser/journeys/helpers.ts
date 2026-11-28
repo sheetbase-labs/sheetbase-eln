@@ -240,10 +240,14 @@ export async function createUser(name: string): Promise<FixtureUser> {
   return { id, name }
 }
 
-/** An empty workspace with one owner, the state a founder signs up into. */
+/**
+ * An empty workspace with one owner, the state a founder signs up into. Lab
+ * setup opens on it until `setUp` marks it done.
+ */
 export async function createWorkspace(
   owner: FixtureUser,
   name: string,
+  options: { setUp?: boolean } = {},
 ): Promise<string> {
   const workspaceId = crypto.randomUUID()
   await withAdminDb(async (db) => {
@@ -256,8 +260,9 @@ export async function createWorkspace(
       [workspaceId, owner.id],
     )
     await db.query(
-      `insert into api.workspace_settings(workspace_id, timezone, created_by_user_id) values ($1, 'Europe/London', $2)`,
-      [workspaceId, owner.id],
+      `insert into api.workspace_settings(workspace_id, timezone, created_by_user_id, setup_completed_at)
+       values ($1, 'Europe/London', $2, case when $3::boolean then now() end)`,
+      [workspaceId, owner.id, options.setUp ?? false],
     )
   })
   return workspaceId

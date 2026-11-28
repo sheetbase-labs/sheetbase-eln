@@ -44,8 +44,8 @@ test('ADMIN-20 a person in two workspaces can switch between them', async ({
   const person = await createUser(uniqueName('Switcher'))
   const first = uniqueName('First lab')
   const second = uniqueName('Second lab')
-  await createWorkspace(person, first)
-  await createWorkspace(person, second)
+  await createWorkspace(person, first, { setUp: true })
+  await createWorkspace(person, second, { setUp: true })
   await signInAs(page, person)
   await open(page, '/')
   const switcher = page.getByRole('button', { name: 'Switch workspace' })
@@ -66,16 +66,53 @@ test('ADMIN-22 a record is shared with a client and previewed as that client', a
   await expect(
     page.getByRole('combobox', { name: 'Client' }).locator('option:checked'),
   ).toContainText(client)
-  await pickRecord(
-    page,
-    page.getByRole('button', { name: 'Share an approved record' }),
-    'first',
-  )
-  await page.getByRole('button', { name: 'Share', exact: true }).click()
-  await page.getByRole('button', { name: 'Preview as client' }).click()
-  await expect(
-    page.getByRole('button', { name: 'Close preview' }),
-  ).toBeVisible()
+  // A record is offered to the client its project belongs to, so a project
+  // with approved records is lent to the new client for the length of the test.
+  const lent = await withAdminDb(async (db) => {
+    const project = (
+      await db.query<{ id: string; client_id: string | null }>(
+        `SELECT p.id, p.client_id FROM api.projects p
+          WHERE p.workspace_id = '00000000-0000-4000-8000-000000000300'
+            AND EXISTS (SELECT 1 FROM api.records r
+                         WHERE r.project_id = p.id AND r.status = 'approved'
+                           AND r.deleted_at IS NULL)
+          ORDER BY p.id LIMIT 1`,
+      )
+    ).rows[0]
+    const created = (
+      await db.query<{ id: string }>(
+        `SELECT id FROM api.clients WHERE name = $1`,
+        [client],
+      )
+    ).rows[0]
+    await db.query(`UPDATE api.projects SET client_id = $2 WHERE id = $1`, [
+      project?.id,
+      created?.id,
+    ])
+
+    return project
+  })
+
+  try {
+    await page.reload()
+    await pickRecord(
+      page,
+      page.getByRole('button', { name: 'Share an approved record' }),
+      'first',
+    )
+    await page.getByRole('button', { name: 'Share', exact: true }).click()
+    await page.getByRole('button', { name: 'Preview as client' }).click()
+    await expect(
+      page.getByRole('button', { name: 'Close preview' }),
+    ).toBeVisible()
+  } finally {
+    await withAdminDb((db) =>
+      db.query(`UPDATE api.projects SET client_id = $2 WHERE id = $1`, [
+        lent?.id,
+        lent?.client_id ?? null,
+      ]),
+    )
+  }
 })
 
 test('REV-12 the evidence page of a signed revision offers the PDF and the package', async ({
@@ -97,11 +134,11 @@ test('REV-12 the evidence page of a signed revision offers the PDF and the packa
   expect(signedRevision).toBeTruthy()
   await open(page, `/evidence/${signedRevision}`)
 
-  for (const heading of ['Integrity', 'Signatures', 'Revision']) {
-    await expect(
-      page.getByRole('heading', { name: heading }).first(),
-    ).toBeVisible()
-  }
+  // The page reads the frozen revision: what was signed, as it was signed.
+  await expect(page.getByText(/Signed · frozen revision/)).toBeVisible()
+  await expect(
+    page.getByRole('table', { name: 'Frozen revision content' }),
+  ).toBeVisible()
 
   await expect(
     page.getByRole('button', { name: 'Download record (PDF)' }),

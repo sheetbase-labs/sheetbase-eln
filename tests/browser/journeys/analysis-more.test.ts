@@ -17,7 +17,7 @@ import {
 } from './helpers'
 
 test.setTimeout(60_000)
-test.use({ viewport: { width: 1280, height: 900 } })
+test.use({ viewport: { width: 1800, height: 1000 } })
 
 test.beforeEach(async ({ page }) => {
   await signIn(page)
@@ -150,6 +150,20 @@ test('ANA-07 an analysis whose source changed is refreshed from the studio', asy
 test('ANA-08 an analysis is rerun on a snapshot, or on other data', async ({
   page,
 }) => {
+  // A second dataset with the columns the chart reads: a copy of the ELISA
+  // dataset's row, since no other seeded dataset has them.
+  const other = uniqueName('Titre run')
+  await withAdminDb(async (db) => {
+    await db.query(
+      `CREATE TEMP TABLE copy_of AS SELECT * FROM api.datasets WHERE id = $1`,
+      [ELISA_DATASET],
+    )
+    await db.query(
+      `UPDATE copy_of SET id = gen_random_uuid(), name = $1, display_id = NULL`,
+      [other],
+    )
+    await db.query(`INSERT INTO api.datasets SELECT * FROM copy_of`)
+  })
   await open(page, `/datasets/${ELISA_DATASET}/snapshots`)
   await waitForHydration(page)
   await page.getByRole('row').nth(1).click()
@@ -172,11 +186,11 @@ test('ANA-08 an analysis is rerun on a snapshot, or on other data', async ({
   await pickRecord(
     page,
     dialog.getByRole('button', { name: /^Dataset/ }),
-    /Titre run/,
+    new RegExp(other),
   )
   await dialog.getByRole('button', { name: 'Save copy' }).click()
   await expect(page).toHaveURL(/\/analysis\/[0-9a-f-]{36}/)
-  await expect(page.getByText(/Titre run/).first()).toBeVisible()
+  await expect(page.getByText(new RegExp(other)).first()).toBeVisible()
 })
 
 test('ANA-10 a comparison is promoted to a chart without leaving the studio', async ({
@@ -186,7 +200,7 @@ test('ANA-10 a comparison is promoted to a chart without leaving the studio', as
   await waitForHydration(page)
   await page.getByRole('tab', { name: 'Compare' }).click()
   await page
-    .getByRole('button', { name: /Promote/ })
+    .getByRole('button', { name: 'Use in a chart or analysis' })
     .first()
     .click()
   await expect(

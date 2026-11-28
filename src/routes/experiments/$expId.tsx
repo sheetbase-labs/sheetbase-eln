@@ -1,7 +1,7 @@
 import { Outlet, createFileRoute, redirect } from '@tanstack/react-router'
 import { TitleSkeleton } from '#/components/ui/page-skeleton'
 import { RecordUnavailable } from '#/components/ui/record-unavailable'
-import { useQuery } from '@tanstack/react-query'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 
 import { PageHeader } from '#/components/ui/layout'
 import { experimentNextStep } from '#/components/experiments/next-step'
@@ -28,6 +28,7 @@ import { hasCapability } from '#/lib/capability'
 import { RecordActionsProvider } from '#/components/notebook/record-actions'
 
 import {
+  experimentQueryKeys,
   experimentFrozenReason,
   experimentRunningDay,
   experimentStatusFor,
@@ -92,6 +93,7 @@ function ExperimentLayout() {
   const partsQuery = useRecordParts(expId)
 
   const plateRunCount = useExperimentPlateRunCount(expId)
+  const queryClient = useQueryClient()
 
   const e = record.data
 
@@ -243,6 +245,14 @@ function ExperimentLayout() {
             submittedAt={review.data?.submission?.submitted_at}
             revisionId={reviewRevisionId}
             waitingNames={waitingNames}
+            locked={experimentLock(
+              e,
+              canWrite,
+              () =>
+                void queryClient.invalidateQueries({
+                  queryKey: experimentQueryKeys.record(e.id),
+                }),
+            )}
           />
         }
         aboveTabs={<SeriesBar recordId={e.id} placement="header" />}
@@ -257,4 +267,20 @@ function ExperimentLayout() {
       </RecordPage>
     </RecordActionsProvider>
   )
+}
+
+/** The approval's lock, with whether this person may amend it. */
+function experimentLock(
+  e: { id: string; locked_at: string | null; archived_at: string | null },
+  canWrite: boolean,
+  onAmended: () => void,
+): React.ComponentProps<typeof ExperimentStateLine>['locked'] {
+  if (!e.locked_at) return null
+
+  return {
+    recordId: e.id,
+    lockedAt: e.locked_at,
+    canAmend: canWrite && !e.archived_at,
+    onAmended,
+  }
 }

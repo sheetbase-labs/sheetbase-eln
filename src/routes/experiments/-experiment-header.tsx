@@ -4,6 +4,7 @@ import { PublishControl } from '#/components/open-data/publish-control'
 import { AskAiButton } from '#/components/assist/ask-ai-button'
 import { Person } from '#/components/ui/person'
 import type { NextStep } from '#/components/experiments/next-step'
+import { RecordLockedLine } from '#/components/record-page/record-locked-line'
 import { RecordStateLine } from '#/components/record-page/record-state-line'
 import { formatDate } from '#/lib/notebook-data'
 import { RecordTitleInput } from '../records/$recordId/-notebook-page'
@@ -105,7 +106,8 @@ export function ExperimentActions({
 
 /**
  * While the experiment is in review, one line says so: to the reviewer, that
- * it waits for them; to the author, who it waits for.
+ * it waits for them; to the author, who it waits for. Once approved and
+ * locked, the line says that instead, with the way to amend it.
  */
 export function ExperimentStateLine({
   reviewing,
@@ -115,6 +117,7 @@ export function ExperimentStateLine({
   submittedAt,
   revisionId,
   waitingNames,
+  locked,
 }: {
   reviewing: boolean
   inReview: boolean
@@ -124,8 +127,16 @@ export function ExperimentStateLine({
   submittedAt?: string
   revisionId?: string
   waitingNames: readonly string[]
+  /** The record's lock, when an approval locked it. */
+  locked?: {
+    recordId: string
+    lockedAt: string
+    canAmend: boolean
+    onAmended: () => void
+  } | null
 }) {
-  if (!reviewing && (!inReview || waitingNames.length === 0)) return null
+  if (!reviewing && (!inReview || waitingNames.length === 0))
+    return locked ? <RecordLockedLine {...locked} /> : null
 
   const date = submittedAt ? formatDate(submittedAt) : ''
 

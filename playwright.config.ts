@@ -63,6 +63,12 @@ export default defineConfig({
       env: {
         SHEETBASE_DEV_AUTH_FREE: 'false',
         SHEETBASE_NO_ERROR_OVERLAY: 'true',
+        // The data proxy allows 600 reads a minute per person, counting each
+        // read inside a batch. A journey clicks through a whole workflow far
+        // faster than a person, went over it, and got 429s that left a pane
+        // on "Loading dataset…". The limiter guards against abuse; it is not
+        // what these tests are about.
+        SHEETBASE_RATE_LIMIT_MAX: '100000',
         // The assistant browser tests script the model from the test process.
         AI_PROVIDER_PROFILES: scriptedProfiles(
           `http://127.0.0.1:${BROWSER_MODEL_PORT}/v1`,

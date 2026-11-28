@@ -2,6 +2,7 @@ import { expect, test } from 'playwright/test'
 import { mkdir } from 'node:fs/promises'
 import { eq } from 'drizzle-orm'
 import { drizzle } from 'drizzle-orm/node-postgres'
+import { z } from 'zod'
 
 import * as schema from '#/db/schema'
 import {
@@ -426,10 +427,15 @@ test('an imported plate analysis remains reconstructable after independent revie
       navigator.clipboard.writeText(Array(94).fill('1').join('\n')),
     )
     await cell(3, 3).click()
+    // The paste's own save: it writes many cells, where the typed cells above
+    // write one each and may still be landing.
     const pasted = page.waitForResponse(
       (response) =>
         response.url().endsWith('/rpc/mutate_sheet_instance_local_state') &&
-        response.ok(),
+        response.ok() &&
+        z
+          .object({ p_cells: z.array(z.unknown()).min(2) })
+          .safeParse(response.request().postDataJSON()).success,
     )
     await page.keyboard.press('ControlOrMeta+V')
     await pasted

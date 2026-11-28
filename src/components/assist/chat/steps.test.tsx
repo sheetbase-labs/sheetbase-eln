@@ -48,30 +48,53 @@ describe('StepList', () => {
     expect(screen.getByTestId('assistant-lookup-each').children).toHaveLength(2)
   })
 
-  it('shows the records a lookup found and why a step failed', () => {
+  it('shows the records a lookup found and why a card failed', () => {
     render(
       <StepList
         Text={Plain}
         calls={[
           search('PicoGreen'),
           stepCallOf({
-            toolName: 'sheetbase.templates.read',
-            input: { template: 'T-12' },
+            toolName: 'sheetbase.booking.create',
+            input: { instrument: 'Plate reader' },
             state: 'output-error',
-            errorText: 'Template not found.',
+            errorText: 'That time is taken.',
           }),
         ]}
       />,
     )
 
     expect(screen.getByText(/Found SMP-0042 and SMP-0043/)).toBeTruthy()
-    expect(
-      screen.getByText('Couldn’t open template T-12: template not found'),
-    ).toBeTruthy()
+    expect(screen.getByText(/that time is taken$/)).toBeTruthy()
     expect(
       screen
         .getAllByTestId('assistant-lookup')
         .map((row) => row.getAttribute('data-state')),
     ).toEqual(['done', 'failed'])
+  })
+
+  it('leaves a failed lookup out, so its raw error never shows', () => {
+    render(
+      <StepList
+        Text={Plain}
+        calls={[
+          stepCallOf({
+            toolName: 'sheetbase.canonical.read',
+            input: { resource: 'review_submissions' },
+            state: 'output-error',
+            errorText:
+              "Filter 'experiment_ref' is not a readable column on review_submissions.",
+          }),
+          search('PicoGreen'),
+        ]}
+      />,
+    )
+
+    expect(screen.queryByText(/experiment_ref/)).toBeNull()
+    expect(
+      screen
+        .getAllByTestId('assistant-lookup')
+        .map((row) => row.getAttribute('data-state')),
+    ).toEqual(['done'])
   })
 })

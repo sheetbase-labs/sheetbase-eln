@@ -246,6 +246,13 @@ const READ_SPECS = {
   'sheetbase.series.read': about('read', 'series of experiment'),
   'sheetbase.parts.read': about('read', 'parts of experiment'),
   'sheetbase.gates.read': about('check', 'what holds back experiment'),
+  'sheetbase.blockers.read': (args) => {
+    const record = recordArg(args, 'record')
+
+    return record
+      ? { verb: 'check', noun: 'what holds up', ref: record }
+      : { verb: 'check', noun: 'what holds up your experiments' }
+  },
   'sheetbase.protocol.read': (args) =>
     'recordId' in args
       ? open('protocol', 'recordId')(args)
@@ -552,14 +559,26 @@ export interface StepItem {
 }
 
 /**
+ * A lookup that failed is the assistant's own business: it tries again or says
+ * in its answer what it could not find, so the person never reads a tool's raw
+ * complaint ("filter 'x' is not a readable column"). A card that could not be
+ * prepared still shows, because it is something the person asked for.
+ */
+export function isQuietFailure(call: StepCall): boolean {
+  return call.state === 'failed' && READ_STEPS.has(call.toolName)
+}
+
+/**
  * The calls of one answer as list lines. Finished calls of one family that
  * follow each other become one item; a running or failed call always stands
- * alone, so what is happening and what went wrong stay in view.
+ * alone, so what is happening and what went wrong stay in view. Failed
+ * lookups are left out (`isQuietFailure`).
  */
 export function groupSteps(calls: readonly StepCall[]): StepItem[] {
   const items: StepItem[] = []
 
   for (const call of calls) {
+    if (isQuietFailure(call)) continue
     const words = stepWords(call)
     const last = items.at(-1)
     const previous = last?.words.at(-1)

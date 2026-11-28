@@ -161,7 +161,7 @@ export async function readCanonicalResource(
   for (const key of Object.keys(filters)) {
     if (!readableColumns.has(key)) {
       throw new Error(
-        `Filter '${key}' is not a readable column on ${input.resource}.`,
+        `Filter '${key}' is not a readable column on ${input.resource}. Readable columns: ${columns.join(', ')}.`,
       )
     }
   }

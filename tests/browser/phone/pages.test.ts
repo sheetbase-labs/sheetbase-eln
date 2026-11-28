@@ -26,6 +26,10 @@ import {
 test.use({ ...PHONE })
 test.setTimeout(180_000)
 
+// Each test signs in afresh and only reads, so they spread across workers
+// (and CI shards) instead of queueing behind each other in one.
+test.describe.configure({ mode: 'parallel' })
+
 const LIST_PAGES = [
   '/',
   '/inbox',

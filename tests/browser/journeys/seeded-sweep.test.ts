@@ -9,7 +9,7 @@ import type { Page } from 'playwright/test'
 
 import { signIn, withAdminDb } from './helpers'
 
-test.setTimeout(600_000)
+test.setTimeout(300_000)
 test.use({ viewport: { width: 1280, height: 900 } })
 
 const TABS = [
@@ -34,10 +34,11 @@ async function watch(page: Page, problems: string[], where: () => string) {
   })
 }
 
-test('every seeded experiment opens on every tab without an error', async ({
-  page,
-}) => {
-  await signIn(page)
+// One test per tab, each sweeping every sampled experiment, so the sweep
+// spreads across workers instead of running as one long test.
+test.describe.configure({ mode: 'parallel' })
+
+async function sampledExperiments() {
   const experiments = await withAdminDb(
     async (db) =>
       (
@@ -51,16 +52,23 @@ test('every seeded experiment opens on every tab without an error', async ({
   expect(experiments.length).toBeGreaterThan(10)
   // Up to four of each state keeps the sweep to a few minutes.
   const perStatus = new Map<string, number>()
-  const sample = experiments.filter((exp) => {
+  return experiments.filter((exp) => {
     const n = perStatus.get(exp.status) ?? 0
     perStatus.set(exp.status, n + 1)
     return n < 4
   })
-  const problems: string[] = []
-  let current = ''
-  await watch(page, problems, () => current)
-  for (const exp of sample) {
-    for (const tab of TABS) {
+}
+
+for (const tab of TABS) {
+  test(`every seeded experiment opens on its ${tab} tab without an error`, async ({
+    page,
+  }) => {
+    await signIn(page)
+    const sample = await sampledExperiments()
+    const problems: string[] = []
+    let current = ''
+    await watch(page, problems, () => current)
+    for (const exp of sample) {
       current = `${exp.identifier} (${exp.status}) /${tab}`
       await page.goto(`/experiments/${exp.id}/${tab}`)
       await page.locator('main').waitFor()
@@ -69,6 +77,6 @@ test('every seeded experiment opens on every tab without an error', async ({
       const hit = text.match(ERROR_TEXT)
       if (hit) problems.push(`${current} shows "${hit[0]}"`)
     }
-  }
-  expect(problems).toEqual([])
-})
+    expect(problems).toEqual([])
+  })
+}

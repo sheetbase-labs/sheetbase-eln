@@ -14,6 +14,10 @@ import { open, signIn } from './journeys/helpers'
  */
 test.setTimeout(120_000)
 
+// Each test signs in afresh and only reads, so they spread across workers
+// (and CI shards) instead of queueing behind each other in one.
+test.describe.configure({ mode: 'parallel' })
+
 /** Seeded design data: these ids are stable across runs. */
 const LISTS = [
   '/',

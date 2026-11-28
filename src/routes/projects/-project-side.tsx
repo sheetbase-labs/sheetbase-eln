@@ -5,20 +5,22 @@
 import { useQuery } from '@tanstack/react-query'
 
 import { AddedFields } from '#/components/models/added-fields'
+import { projectActivityEntry } from '#/components/projects/project-activity'
 import {
   fetchProjectActivity,
   fetchProjectMembers,
 } from '#/components/projects/project-data'
 import type { ProjectSummary } from '#/components/projects/project-data'
-import { RecordProperties } from '#/components/record-page/record-side-panel'
+import {
+  ActivityList,
+  RecordProperties,
+} from '#/components/record-page/record-side-panel'
 import { InspectorSection } from '#/components/ui/layout'
 import { ObjectLink } from '#/components/ui/object-link'
-import { LoadingBlock } from '#/components/ui/page-skeleton'
-import { describeAuditEvent } from '#/lib/audit-history'
+import { groupActivityByDay } from '#/lib/record-activity'
 import {
   fetchRecordsForProject,
   formatDate,
-  formatRelativeTime,
   notebookDataClient,
   notebookQueryKeys,
 } from '#/lib/notebook-data'
@@ -151,45 +153,13 @@ function OverviewActivity({
 }) {
   return (
     <InspectorSection title={t('projects.projectOverview.activity.title')}>
-      <div className="flex flex-col gap-2 text-label">
-        {activity.map((event) => {
-          const description = describeAuditEvent(event)
-
-          return (
-            <div key={event.id} className="flex gap-2 break-words">
-              <time
-                className="shrink-0 text-fg-muted"
-                dateTime={event.createdAt}
-                title={formatDate(event.createdAt)}
-              >
-                {formatRelativeTime(event.createdAt)}
-              </time>
-              <span>
-                {t('projects.projectOverview.activity.line', {
-                  actor:
-                    event.currentActorName ??
-                    t('projects.projectOverview.activity.system'),
-                  action: description.action,
-                  subject: event.currentRecord
-                    ? `${event.currentRecord.identifier} · ${event.currentRecord.title}`
-                    : description.subject,
-                })}
-              </span>
-            </div>
-          )
-        })}
-        {!activity.length ? (
-          loading ? (
-            <LoadingBlock
-              label={t('projects.projectOverview.activity.loading')}
-            />
-          ) : (
-            <span className="text-fg-muted">
-              {t('projects.projectOverview.activity.empty')}
-            </span>
-          )
-        ) : null}
-      </div>
+      <ActivityList
+        groups={groupActivityByDay(
+          activity.map(projectActivityEntry),
+          activity.length,
+        )}
+        loading={loading}
+      />
     </InspectorSection>
   )
 }

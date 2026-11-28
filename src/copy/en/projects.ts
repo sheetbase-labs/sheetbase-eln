@@ -481,9 +481,6 @@ export const projects = {
     activity: {
       title: 'Recent activity',
       system: 'System',
-      line: '{actor} {action} {subject}',
-      loading: 'Loading activity…',
-      empty: 'No recent activity',
     },
   },
   projectMembers: {

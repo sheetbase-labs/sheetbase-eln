@@ -30,7 +30,7 @@ test('ADMIN-13 the bell lists what needs me and leads to the inbox and its setti
   await page.getByRole('button', { name: /^Notifications/ }).click()
   await expect(page.getByText('Mark all read')).toBeVisible()
   await page.getByText('Notification settings').click()
-  await expect(page).toHaveURL(/\/settings\/notifications/)
+  await expect(page).toHaveURL(/\/settings\/account\/notifications/)
   await page.keyboard.press('Escape')
   await page.getByRole('button', { name: /^Notifications/ }).click()
   await page.getByText('Open inbox').click()

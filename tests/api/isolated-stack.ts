@@ -1,10 +1,13 @@
 import { spawn } from 'node:child_process'
-import { randomUUID } from 'node:crypto'
+import { createHash, randomUUID } from 'node:crypto'
 import { once } from 'node:events'
 import { createServer } from 'node:net'
 import { Client } from 'pg'
 
-import { applyMigrations } from '../../scripts/lib/migrations.mjs'
+import {
+  applyMigrations,
+  readMigrations,
+} from '../../scripts/lib/migrations.mjs'
 
 function localUrl(name: string): URL {
   const url = new URL(process.env[name] ?? '')
@@ -27,6 +30,74 @@ async function freePort(): Promise<number> {
     server.close((error) => (error ? reject(error) : resolve())),
   )
   return port
+}
+
+/**
+ * Every file starts from a copy of one migrated template rather than replaying
+ * the whole migration history itself, which was most of a file's setup. The
+ * template is rebuilt when any migration changes (its marker is a hash of
+ * them all), and the first file to need it builds it under a lock.
+ */
+const TEMPLATE_DATABASE = 'sheetbase_api_template'
+
+function migrationsHash(): string {
+  const hash = createHash('sha256')
+  for (const migration of readMigrations('drizzle')) hash.update(migration.hash)
+  return hash.digest('hex')
+}
+
+async function cloneTemplate(
+  admin: Client,
+  migrationUrl: URL,
+  database: string,
+) {
+  const wanted = migrationsHash()
+  await admin.query('select pg_advisory_lock(918273646)')
+  try {
+    const template = new URL(migrationUrl)
+    template.pathname = `/${TEMPLATE_DATABASE}`
+    const probe = new Client({ connectionString: template.toString() })
+    const marker = await probe
+      .connect()
+      .then(() =>
+        probe
+          .query<{ hash: string }>(
+            'select hash from public.api_template_meta limit 1',
+          )
+          .then((result) => result.rows[0]?.hash),
+      )
+      .catch(() => undefined)
+    // Closed before cloning: PostgreSQL refuses to copy a database while
+    // anyone is connected to it.
+    await probe.end().catch(() => undefined)
+    if (marker !== wanted) await buildTemplate(admin, template, wanted)
+    // Cloned under the lock too, so no other file's probe is connected.
+    await admin.query(
+      `CREATE DATABASE ${database} TEMPLATE ${TEMPLATE_DATABASE} OWNER migrator`,
+    )
+  } finally {
+    await admin.query('select pg_advisory_unlock(918273646)').catch(() => {})
+  }
+}
+
+async function buildTemplate(admin: Client, template: URL, wanted: string) {
+  await admin.query(`DROP DATABASE IF EXISTS ${TEMPLATE_DATABASE} WITH (FORCE)`)
+  await admin.query(`CREATE DATABASE ${TEMPLATE_DATABASE} OWNER migrator`)
+  const db = new Client({ connectionString: template.toString() })
+  await db.connect()
+  try {
+    // Match the migration runner's historical Sheet Instance backfills.
+    await db.query(
+      "SELECT set_config('sheetbase.sheet_instance_write','rpc-v1',false)",
+    )
+    await applyMigrations(db, 'drizzle')
+    await db.query('create table public.api_template_meta(hash text not null)')
+    await db.query('insert into public.api_template_meta(hash) values($1)', [
+      wanted,
+    ])
+  } finally {
+    await db.end()
+  }
 }
 
 /** Only creates/drops its own random database on a local disposable cluster. */
@@ -65,7 +136,7 @@ export async function startApiTestStack() {
   const admin = new Client({ connectionString: adminUrl.toString() })
   await admin.connect()
   try {
-    await admin.query(`CREATE DATABASE ${database} OWNER migrator`)
+    await cloneTemplate(admin, migrationUrl, database)
   } catch (error) {
     await admin.end()
     throw error
@@ -114,19 +185,6 @@ export async function startApiTestStack() {
     }
     process.env.SHEETBASE_ENV = 'test'
     process.env.SHEETBASE_DEV_AUTH_FREE = 'false'
-    const migrationClient = new Client({
-      connectionString: migrationUrl.toString(),
-    })
-    await migrationClient.connect()
-    try {
-      // Match the migration runner's historical Sheet Instance backfills.
-      await migrationClient.query(
-        "SELECT set_config('sheetbase.sheet_instance_write','rpc-v1',false)",
-      )
-      await applyMigrations(migrationClient, 'drizzle')
-    } finally {
-      await migrationClient.end()
-    }
     const port = await freePort()
     const adminPort = await freePort()
     process.env.POSTGREST_URL = `http://127.0.0.1:${port}`

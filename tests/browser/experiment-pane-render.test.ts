@@ -16,10 +16,12 @@ import type { Page } from 'playwright/test'
 
 import { FIXTURE_USER_ID, FIXTURE_WORKSPACE_ID } from '#/db/seed/identities'
 import { signInAsDesignUser } from '../visual/sign-in'
+import { ensureOwnUser } from './own-user'
 
 config({ path: ['.env.local', '.env'] })
 
 test.setTimeout(120_000)
+test.describe.configure({ mode: 'parallel' })
 
 const PROJECT = '69000000-0000-4000-8000-000000000001'
 
@@ -89,7 +91,8 @@ const STATES: State[] = [
 ]
 
 let admin: Client
-let previousActiveWorkspace: string | null = null
+/** This spec's own owner of the fixture workspace (see own-user.ts). */
+const OWNER = '7e570000-0000-4000-8000-000000000001'
 
 async function clean() {
   const ids = STATES.map((state) => state.id)
@@ -107,20 +110,31 @@ async function clean() {
 test.beforeAll(async () => {
   admin = new Client({ connectionString: process.env.DATABASE_URL })
   await admin.connect()
+  await ensureOwnUser(admin, {
+    id: OWNER,
+    name: 'Pane render owner',
+    workspaceId: FIXTURE_WORKSPACE_ID,
+  })
+  // The tests only open these experiments, so they run side by side and share
+  // one set of rows: the first worker in makes them, under a lock, and no
+  // worker removes them while another may still be reading them.
+  await admin.query('SELECT pg_advisory_lock(735700001)')
+  try {
+    const present = await admin.query<{ n: number }>(
+      'SELECT count(*)::int AS n FROM api.records WHERE id = ANY($1)',
+      [STATES.map((state) => state.id)],
+    )
+    if (present.rows[0].n !== STATES.length) await createExperiments()
+  } finally {
+    await admin.query('SELECT pg_advisory_unlock(735700001)')
+  }
+})
+
+async function createExperiments() {
   await clean()
-  const prior = await admin.query<{ active_workspace_id: string | null }>(
-    'SELECT active_workspace_id FROM api.user_preferences WHERE user_id=$1',
-    [FIXTURE_USER_ID],
-  )
-  previousActiveWorkspace = prior.rows[0]?.active_workspace_id ?? null
-  await admin.query(
-    `INSERT INTO api.user_preferences(user_id, active_workspace_id) VALUES($1,$2)
-     ON CONFLICT (user_id) DO UPDATE SET active_workspace_id = excluded.active_workspace_id`,
-    [FIXTURE_USER_ID, FIXTURE_WORKSPACE_ID],
-  )
   await admin.query(
     `INSERT INTO api.projects(id,workspace_id,key,title,lead_user_id) VALUES ($1,$2,'PANE01','Pane render',$3)`,
-    [PROJECT, FIXTURE_WORKSPACE_ID, FIXTURE_USER_ID],
+    [PROJECT, FIXTURE_WORKSPACE_ID, OWNER],
   )
 
   for (const [index, state] of STATES.entries()) {
@@ -164,20 +178,9 @@ test.beforeAll(async () => {
       )
     }
   }
-})
+}
 
 test.afterAll(async () => {
-  await clean()
-  if (previousActiveWorkspace) {
-    await admin.query(
-      'UPDATE api.user_preferences SET active_workspace_id=$2 WHERE user_id=$1',
-      [FIXTURE_USER_ID, previousActiveWorkspace],
-    )
-  } else {
-    await admin.query('DELETE FROM api.user_preferences WHERE user_id=$1', [
-      FIXTURE_USER_ID,
-    ])
-  }
   await admin.end()
 })
 
@@ -225,7 +228,7 @@ test.beforeAll(async ({ browser }) => {
   test.setTimeout(180_000)
   const context = await browser.newContext()
   const page = await context.newPage()
-  await signInAsDesignUser(page, FIXTURE_USER_ID)
+  await signInAsDesignUser(page, OWNER)
   await page.goto(`/experiments/${STATES[0]?.id}/notebook`)
   await page
     .getByRole('link', { name: 'Notebook', exact: true })
@@ -239,7 +242,7 @@ for (const state of STATES) {
 
   test.describe(state.name, () => {
     test.beforeEach(async ({ page }) => {
-      await signInAsDesignUser(page, FIXTURE_USER_ID)
+      await signInAsDesignUser(page, OWNER)
     })
 
     test('as the page itself', async ({ page }) => {

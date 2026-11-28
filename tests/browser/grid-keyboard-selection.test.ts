@@ -66,7 +66,8 @@ async function openBoundSheet(page: Page): Promise<Locator> {
   await signInAsDesignUser(page, USER)
   await page.goto(`/sheets/${sheet.id}?projectId=${sheet.projectId}`)
   const grid = page.getByRole('grid')
-  await expect(grid).toBeVisible()
+  // The first request of a run compiles the sheet route on the dev server.
+  await expect(grid).toBeVisible({ timeout: 30_000 })
   return grid
 }
 

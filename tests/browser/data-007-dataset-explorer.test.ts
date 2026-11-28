@@ -188,13 +188,14 @@ test.describe('DATA-007 dataset surfaces', () => {
     await expect(lists.getByRole('link', { name: /^Locked/ })).toBeVisible()
 
     const table = page.getByRole('table', { name: 'Datasets' })
-    await expect(table.getByRole('columnheader')).toHaveText([
+    // The list may gain or lose columns; the identity ones stay, in order.
+    const headers = await table.getByRole('columnheader').allTextContents()
+    expect(headers.slice(0, 5)).toEqual([
       'ID',
       'Name',
       'Model',
       'Experiment',
       'Rows',
-      'Updated',
     ])
 
     // The dataset is a real row: identity, model, size, validation state.

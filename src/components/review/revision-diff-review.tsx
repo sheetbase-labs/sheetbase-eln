@@ -94,9 +94,7 @@ function ChangeValue({
 }) {
   return (
     <div className="min-w-0 rounded-md border bg-surface px-3 py-2">
-      <p className="text-xs font-semibold uppercase tracking-wide text-fg-muted">
-        {label}
-      </p>
+      <p className="text-xs font-semibold text-fg-muted">{label}</p>
       <pre className="mt-1 whitespace-pre-wrap break-words font-sans text-xs leading-5 text-fg">
         {exactText(value)}
       </pre>
@@ -154,7 +152,7 @@ export function ChangeCard({
     >
       <div className="flex flex-wrap items-start justify-between gap-2">
         <div className="min-w-0">
-          <p className="text-xs font-semibold uppercase tracking-wide text-fg-muted">
+          <p className="text-xs font-semibold text-fg-muted">
             {areaLabel(change.area)}
           </p>
           <h3 className="break-words text-sm font-semibold">{change.label}</h3>
@@ -217,7 +215,7 @@ function TableDiffCard({
     >
       <div className="flex flex-wrap items-center gap-3 p-3">
         <div className="min-w-0 flex-1">
-          <p className="text-xs font-semibold uppercase tracking-wide text-fg-muted">
+          <p className="text-xs font-semibold text-fg-muted">
             {t('projects.diffReview.areas.tables')}
           </p>
           <h3 className="text-sm font-semibold">{summary.label}</h3>
@@ -483,7 +481,7 @@ export function RevisionDiffReview({
     >
       <header className="flex flex-wrap items-start justify-between gap-3 rounded-lg border bg-surface p-3">
         <div>
-          <p className="text-xs font-semibold uppercase tracking-wide text-fg-muted">
+          <p className="text-xs font-semibold text-fg-muted">
             {t('projects.diffReview.compare')}
           </p>
           <div className="mt-1 flex items-center gap-2 text-sm font-semibold">

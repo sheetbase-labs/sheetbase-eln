@@ -144,7 +144,7 @@ export function RecordLink({
           )}
         </span>
       }
-      eyebrow={typeInMeta ? undefined : type}
+      kind={typeInMeta ? undefined : type}
       title={<span className={stateInfo?.className}>{title}</span>}
       meta={stateInfo ? stateInfo.label : rowMeta(type, meta, typeInMeta)}
       trailing={

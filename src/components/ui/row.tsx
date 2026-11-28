@@ -35,7 +35,6 @@ const densities = {
   /** Card: a bordered block, for a row that stands on its own. */
   card: {
     row: 'gap-3 rounded-md border border-border bg-surface p-3',
-    eyebrow: 'text-xs font-semibold uppercase tracking-wide text-fg-muted',
     // copy-ignore-next-line
     title: 'text-sm font-medium',
     meta: 'text-xs text-fg-muted',
@@ -43,8 +42,6 @@ const densities = {
   /** List: the compact row inside a panel — 12px title and one muted line. */
   list: {
     row: 'gap-2 rounded-md px-2 py-1.5',
-    eyebrow:
-      'text-[0.65rem] font-semibold uppercase tracking-wide text-fg-muted',
     // copy-ignore-next-line
     title: 'text-xs font-medium',
     meta: 'text-[0.65rem] text-fg-muted',
@@ -64,8 +61,12 @@ export type RowProps = Omit<
   [dataAttribute: `data-${string}`]: string | number | boolean | undefined
   /** Leading slot: an icon tile, an avatar, a dot, a time. */
   leading?: React.ReactNode
-  /** Small label above the title — a record type, a column, a heading. */
-  eyebrow?: React.ReactNode
+  /**
+   * What kind of thing the row is ("Protocol template", "Sheet"). It leads
+   * the second line in sentence case, never a capitalised label above the
+   * title.
+   */
+  kind?: React.ReactNode
   /** The row's identity: one line, truncating. */
   title: React.ReactNode
   /** Second line: an identifier, a reason, a detail. Truncates. */
@@ -94,14 +95,14 @@ export type RowProps = Omit<
 /** The row's three text slots and its two edge slots, in reading order. */
 function RowBody({
   leading,
-  eyebrow,
+  kind,
   title,
   meta,
   trailing,
   scale,
 }: {
   leading: React.ReactNode
-  eyebrow: React.ReactNode
+  kind: React.ReactNode
   title: React.ReactNode
   meta: React.ReactNode
   trailing: React.ReactNode
@@ -113,12 +114,13 @@ function RowBody({
         <span className="flex shrink-0 items-center">{leading}</span>
       ) : null}
       <span className="min-w-0 flex-1">
-        {eyebrow ? (
-          <span className={cn('block truncate', scale.eyebrow)}>{eyebrow}</span>
-        ) : null}
         <span className={cn('block truncate', scale.title)}>{title}</span>
-        {meta !== undefined && meta !== null ? (
-          <span className={cn('block truncate', scale.meta)}>{meta}</span>
+        {kind || (meta !== undefined && meta !== null) ? (
+          <span className={cn('block truncate', scale.meta)}>
+            {kind ? <span>{kind}</span> : null}
+            {kind && meta !== undefined && meta !== null ? ' · ' : null}
+            {meta !== undefined && meta !== null ? <span>{meta}</span> : null}
+          </span>
         ) : null}
       </span>
       {trailing ? (
@@ -130,7 +132,7 @@ function RowBody({
 
 export function Row({
   leading,
-  eyebrow,
+  kind,
   title,
   meta,
   trailing,
@@ -161,7 +163,7 @@ export function Row({
   const body = (
     <RowBody
       leading={leading}
-      eyebrow={eyebrow}
+      kind={kind}
       title={title}
       meta={meta}
       trailing={trailing}

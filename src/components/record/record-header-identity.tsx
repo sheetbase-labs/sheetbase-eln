@@ -18,9 +18,7 @@ export function RecordHeaderIdentity({
 }) {
   return (
     <div className="flex flex-wrap items-center gap-2 text-xs">
-      <span className="font-semibold uppercase tracking-[0.14em] text-fg-muted">
-        {recordType}
-      </span>
+      <span className="font-semibold text-fg-muted">{recordType}</span>
       {identifier ? (
         <span className="font-mono text-xs tabular-nums text-fg-muted">
           {identifier}

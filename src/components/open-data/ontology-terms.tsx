@@ -45,9 +45,7 @@ function LinkedTermRow({
       >
         {annotation.label}
       </a>
-      <span className="text-label text-fg-muted uppercase">
-        {annotation.ontology}
-      </span>
+      <span className="text-label text-fg-muted">{annotation.ontology}</span>
       {canEdit ? (
         <Button
           size="sm"
@@ -128,7 +126,7 @@ function OntologyTermSearch({
               >
                 <span className="line-clamp-2 break-words">
                   {hit.label}{' '}
-                  <span className="text-label text-fg-muted uppercase">
+                  <span className="text-label text-fg-muted">
                     {hit.ontology}
                   </span>
                 </span>

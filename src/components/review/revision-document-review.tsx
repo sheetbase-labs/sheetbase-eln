@@ -218,7 +218,7 @@ function ChangeGutter({
 function InlineMark({ change }: { change: RevisionChange }) {
   return (
     <p className="mt-1.5 max-w-[680px] text-sm leading-6 text-fg-muted">
-      <span className="mr-1.5 text-xs uppercase tracking-wide">
+      <span className="mr-1.5 text-xs">
         {t('projects.documentReview.text')}
       </span>
       {change.before === undefined ? null : (
@@ -826,7 +826,7 @@ function renderDocumentBlocks({
               />
             ) : null}
             {marked ? (
-              <span className="truncate text-xs uppercase tracking-wide text-fg-muted">
+              <span className="truncate text-xs text-fg-muted">
                 {entry.label}
               </span>
             ) : null}
@@ -968,7 +968,7 @@ function renderDocumentContents({
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div className="min-w-0">
             {document.comparison ? (
-              <p className="text-xs font-semibold uppercase tracking-wide text-fg-muted">
+              <p className="text-xs font-semibold text-fg-muted">
                 {t('projects.documentReview.annotated')}
               </p>
             ) : null}
@@ -1063,7 +1063,7 @@ function renderDocumentContents({
           )}
         >
           <div className="flex flex-wrap items-center justify-between gap-2">
-            <span className="text-xs uppercase tracking-wide text-fg-muted">
+            <span className="text-xs text-fg-muted">
               {t('projects.documentReview.tableHeading', {
                 label: table.label,
               })}
@@ -1112,9 +1112,7 @@ function renderDocumentContents({
           className="min-w-0 rounded-lg border border-border bg-surface/60 px-6 py-4 outline-none md:px-10"
         >
           <div className="flex flex-wrap items-center justify-between gap-2">
-            <span className="text-xs uppercase tracking-wide text-fg-muted">
-              {area.label}
-            </span>
+            <span className="text-xs text-fg-muted">{area.label}</span>
             <KindBadge kind="modified" />
           </div>
           {showMarks ? (
@@ -1145,7 +1143,7 @@ function renderDocumentContents({
           aria-label={t('projects.documentReview.unplaced')}
           className="min-w-0 rounded-lg border border-dashed px-6 py-4 md:px-10"
         >
-          <p className="text-xs uppercase tracking-wide text-fg-muted">
+          <p className="text-xs text-fg-muted">
             {t('projects.documentReview.otherChanges')}
           </p>
           <ChangeCards

@@ -177,6 +177,7 @@ import type {
   WellAssignment,
 } from '#/lib/plate-map'
 import type { ScientificRecordKind } from '#/lib/scientific-records'
+import { partTitle } from '#/lib/experiment-parts'
 
 export type { AutosaveStatus, SaveResult }
 
@@ -1070,7 +1071,7 @@ function ConclusionEditor({
     <div className={className}>
       <div className="space-y-2 rounded-md border border-border px-3.5 py-2.5 text-sm leading-6">
         <div className="flex items-center justify-between gap-2">
-          <span className="text-xs font-medium uppercase tracking-wide text-fg-muted">
+          <span className="text-xs font-medium text-fg-muted">
             {t('notebook.blockEditor.conclusion')}
           </span>
           <Select
@@ -1229,7 +1230,7 @@ function MetricEditor({
               a.setDraft({ ...a.draft, label: event.target.value })
             }}
             onBlur={() => a.flush()}
-            className="w-full border-0 bg-transparent p-0 text-xs font-medium uppercase tracking-wide text-fg-muted outline-none placeholder:text-fg-faint focus:ring-0"
+            className="w-full border-0 bg-transparent p-0 text-xs font-medium text-fg-muted outline-none placeholder:text-fg-faint focus:ring-0"
           />
         </dt>
         <dd className="flex items-baseline gap-1.5 font-display text-2xl font-semibold leading-tight tabular-nums text-fg">
@@ -1806,10 +1807,7 @@ function LinkedRecordSearch({
                   {row.identifier} ›
                 </span>
                 <span className="truncate">
-                  {t('notebook.parts.partTitle', {
-                    number: String(index + 1),
-                    title: part.title,
-                  })}
+                  {partTitle(String(index + 1), part.title)}
                 </span>
               </button>
             ))}
@@ -1850,7 +1848,7 @@ function LinkedRecordEditor({
       <div
         className={cn('flex flex-wrap items-center gap-2 text-sm', className)}
       >
-        <Badge variant="kind" className="uppercase">
+        <Badge variant="kind" className="">
           <Icon name="link" className="size-3" />
           {a.draft.linkType}
         </Badge>
@@ -2017,7 +2015,7 @@ function Field({
     <div className="space-y-1.5">
       <label
         htmlFor={htmlFor}
-        className="block text-xs font-semibold uppercase tracking-wide text-fg-muted"
+        className="block text-xs font-semibold text-fg-muted"
       >
         {label}
       </label>
@@ -3808,7 +3806,7 @@ function WellInspector({
       {/* Sample link (for sample and control roles) */}
       {role !== 'empty' && role !== 'blank' ? (
         <div className="space-y-1.5">
-          <p className="block text-xs font-semibold uppercase tracking-wide text-fg-muted">
+          <p className="block text-xs font-semibold text-fg-muted">
             {t('notebook.blockEditor.sample')}
           </p>
           {well?.sampleRef ? (
@@ -3913,7 +3911,7 @@ function WellVolumeEditor({
     <div className="space-y-1.5">
       <label
         htmlFor={`well-volume-${wellCode}`}
-        className="block text-xs font-semibold uppercase tracking-wide text-fg-muted"
+        className="block text-xs font-semibold text-fg-muted"
       >
         {t('notebook.blockEditor.volume')}
       </label>
@@ -3984,7 +3982,7 @@ function ValidationConfigEditor({
           aria-label={t('notebook.blockEditor.requiredRoles')}
           className="space-y-1.5"
         >
-          <p className="block text-xs font-semibold uppercase tracking-wide text-fg-muted">
+          <p className="block text-xs font-semibold text-fg-muted">
             {t('notebook.blockEditor.requiredRoles')}
           </p>
           <div className="flex flex-wrap gap-x-4 gap-y-2">

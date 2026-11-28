@@ -15,6 +15,13 @@ const partName = z
   .optional()
   .describe('The part (a day or stage) this belongs to, by its title.')
 
+interface ChecklistItem {
+  id: string
+  text: string
+  checked: boolean
+  durationSeconds?: number
+}
+
 export const templateDraftBlockSchema = z.discriminatedUnion('type', [
   z.strictObject({
     type: z.literal('step'),
@@ -163,27 +170,45 @@ export function buildTemplateConfiguration(
   for (const part of input.parts ?? []) partFor(part.title, part.dayOffset)
 
   const placements: NotebookTemplateConfiguration['placements'] = []
-  let stepNumber = 0
+  let stepList: { partId: string | undefined; items: ChecklistItem[] } | null =
+    null
 
   for (const block of input.blocks) {
     const partId = block.part ? partFor(block.part) : undefined
+
+    if (block.type !== 'step') stepList = null
 
     const base = baseFor(newId(), placements.length + 1, partId)
 
     switch (block.type) {
       case 'step': {
-        stepNumber += 1
+        // A notebook template cannot hold procedure steps: those belong to a
+        // protocol record, and an experiment only takes them from a pinned
+        // protocol. Steps become a checklist, each item timed when it has a
+        // length, so the template can start an experiment.
+        const item: ChecklistItem = {
+          id: newId(),
+          text: block.text,
+          checked: false,
+        }
 
-        const payload = { text: block.text, stepNumber }
+        if (block.minutes) item.durationSeconds = block.minutes * 60
 
-        placements.push({
-          ...base,
-          blockType: 'procedure_step',
-          payload: block.minutes
-            ? { ...payload, durationSeconds: block.minutes * 60 }
-            : payload,
-        })
-        break
+        if (stepList && stepList.partId === partId) {
+          stepList.items.push(item)
+        } else {
+          const items = [item]
+
+          placements.push({
+            ...base,
+            blockType: 'checklist',
+            payload: { items },
+          })
+
+          stepList = { partId, items }
+        }
+
+        continue
       }
 
       case 'note':

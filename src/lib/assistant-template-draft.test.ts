@@ -46,19 +46,31 @@ describe('buildTemplateConfiguration', () => {
       'Assay',
     ])
     expect(config.placements.map((placement) => placement.order)).toEqual([
-      1, 2, 3, 4, 5, 6,
+      1, 2, 3, 4, 5,
     ])
 
-    const steps = config.placements.flatMap((placement) =>
-      placement.kind === 'narrative' && placement.blockType === 'procedure_step'
+    // Steps are checklist items (a template cannot carry procedure steps),
+    // timed when they have a length, grouped while they follow each other.
+    const lists = config.placements.flatMap((placement) =>
+      placement.kind === 'narrative' && placement.blockType === 'checklist'
         ? [placement.payload]
         : [],
     )
 
-    expect(steps).toEqual([
-      { text: 'Coat the plate.', stepNumber: 1 },
-      { text: 'Block.', stepNumber: 2, durationSeconds: 3600 },
-    ])
+    expect(
+      config.placements.some(
+        (placement) =>
+          placement.kind === 'narrative' &&
+          placement.blockType === 'procedure_step',
+      ),
+    ).toBe(false)
+
+    expect(lists[0]).toMatchObject({
+      items: [
+        { text: 'Coat the plate.', checked: false },
+        { text: 'Block.', checked: false, durationSeconds: 3600 },
+      ],
+    })
   })
 
   it('makes a part for a block that names one the draft did not list', () => {

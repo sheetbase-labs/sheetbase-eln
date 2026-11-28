@@ -1227,17 +1227,16 @@ export async function buildPlanningProposal(
         const { TEMPLATE_USE_TOOL } =
           await import('#/features/template-versions/cards')
 
-        return buildTemplateVersionsProposal(
-          TEMPLATE_USE_TOOL,
-          {
-            title: input.title,
-            summary: input.summary,
-            template: input.template,
-            project: input.project,
-            ...(input.experimentTitle ? { name: input.experimentTitle } : {}),
-          },
-          context,
-        )
+        const use: Record<string, string> = {
+          title: input.title,
+          summary: input.summary,
+          template: input.template,
+          project: input.project,
+        }
+
+        if (input.experimentTitle) use['name'] = input.experimentTitle
+
+        return buildTemplateVersionsProposal(TEMPLATE_USE_TOOL, use, context)
       }
 
       if (template.value.archived_at || template.value.status !== 'active') {

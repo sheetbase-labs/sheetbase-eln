@@ -49,6 +49,7 @@ import type { ShellPinned } from '#/lib/shell-chrome.server'
 import type { Notification } from '#/components/types'
 import { parseThemeCookie, themeScript } from '#/lib/theme-cookie'
 import { FAVICON_LIGHT_UI, faviconScript } from '#/lib/favicon'
+import { earlyReadsScript } from '#/lib/early-reads'
 import type { ThemePref } from '#/lib/theme-cookie'
 import { clientPortalRedirect } from '#/lib/client-portal-only'
 import { capabilitiesFromEnv } from '#/lib/capabilities'
@@ -531,6 +532,12 @@ function AppDocument({ children }: { children: React.ReactNode }) {
         />
         <script
           dangerouslySetInnerHTML={{ __html: faviconScript }}
+          suppressHydrationWarning
+        />
+        {/* Sends the page's usual reads now, so its data arrives while the
+            app's code is still loading (src/lib/early-reads.ts). */}
+        <script
+          dangerouslySetInnerHTML={{ __html: earlyReadsScript }}
           suppressHydrationWarning
         />
       </head>

@@ -111,6 +111,12 @@ async function parseError(response: Response): Promise<DataClientError> {
 export interface DataClient {
   /** Starts a read ahead of whoever will ask for it (see `primeRead`). Optional: test doubles leave it out. */
   prime?: (read: ReadSpec) => void
+  /** Holds an answer already on its way for a read (see `primeReadWith`). */
+  primeWith?: (
+    read: ReadSpec,
+    answer: Promise<ReadAnswer>,
+    since: number,
+  ) => void
   list: <T>(resource: string, query?: string) => Promise<T[]>
   /**
    * Cheap total count for a resource query. Uses PostgREST's
@@ -161,13 +167,20 @@ const SHARED_READ_MS = 1000
  */
 const PRIMED_READ_MS = 10_000
 
+/** What a read answered: enough to hand it to each caller as a response. */
+export interface ReadAnswer {
+  body: string
+  status: number
+  contentRange: string | null
+}
+
 interface SharedRead {
   at: number
   created: number
   settled: boolean
   /** Started ahead of time and not yet asked for by anything. */
   primed: boolean
-  result: Promise<{ body: string; status: number; contentRange: string | null }>
+  result: Promise<ReadAnswer>
 }
 
 /** One read as the client sends it: enough to send the same read again. */
@@ -188,6 +201,20 @@ export function observeReads(listener: ((read: ReadSpec) => void) | null) {
 /** Starts a read ahead of the page that will ask for it; the first reader gets its answer. */
 export function primeRead(read: ReadSpec): void {
   createDataClient().prime?.(read)
+}
+
+/**
+ * Holds an answer that is already on its way, started at `since` (the page's
+ * first reads, sent before the app's code loaded: early-reads.ts). The first
+ * reader gets it, the same as a primed read; if it fails, the reader asks for
+ * itself.
+ */
+export function primeReadWith(
+  read: ReadSpec,
+  answer: Promise<ReadAnswer>,
+  since: number,
+): void {
+  createDataClient().primeWith?.(read, answer, since)
 }
 
 const readStores = new Set<Map<string, SharedRead>>()
@@ -270,10 +297,14 @@ function batchedHeaders(headers: Headers) {
 export function createDataClient(fetchImpl: typeof fetch = fetch): DataClient {
   const reads = readStoreFor(fetchImpl)
 
+  function readKey(spec: ReadSpec): string {
+    return `${spec.method} ${spec.path}\n${spec.headers.prefer}\n${spec.headers.range}\n${spec.body ?? ''}`
+  }
+
   async function sharedRead(
     spec: ReadSpec,
     primed = false,
-  ): Promise<{ body: string; status: number; contentRange: string | null }> {
+  ): Promise<ReadAnswer> {
     const run = async () => {
       const response = await request(spec.path, {
         method: spec.method,
@@ -291,7 +322,7 @@ export function createDataClient(fetchImpl: typeof fetch = fetch): DataClient {
     if (!reads) return run()
 
     if (!primed) readObserver?.(spec)
-    const key = `${spec.method} ${spec.path}\n${spec.headers.prefer}\n${spec.headers.range}\n${spec.body ?? ''}`
+    const key = readKey(spec)
     const known = reads.get(key)
 
     if (known?.primed) {
@@ -450,6 +481,34 @@ export function createDataClient(fetchImpl: typeof fetch = fetch): DataClient {
       if (!reads) return
       // A guess that fails is not an error anyone should see; the page's own read will say so.
       sharedRead(read, true).catch(() => undefined)
+    },
+
+    primeWith(read: ReadSpec, answer: Promise<ReadAnswer>, since: number) {
+      if (!reads) return
+      const key = readKey(read)
+
+      if (reads.has(key)) return
+
+      const entry: SharedRead = {
+        at: since,
+        created: since,
+        settled: false,
+        primed: true,
+        result: answer,
+      }
+
+      reads.set(key, entry)
+      // A failed answer is dropped, so whoever asks next sends the read itself.
+      answer.then(
+        () => {
+          entry.settled = true
+        },
+        () => {
+          entry.settled = true
+
+          if (reads.get(key) === entry) reads.delete(key)
+        },
+      )
     },
 
     list: listRows,

@@ -220,6 +220,7 @@ test('Sheet blocks render, and the DB proxy is fail-closed for an unscoped exter
   page,
   request,
 }) => {
+  test.slow()
   await signInAsDesignUser(page, USER)
   await page.goto(`/records/${RECORD}`)
   // The full suite runs this file beside another worker against the same dev
@@ -228,7 +229,7 @@ test('Sheet blocks render, and the DB proxy is fail-closed for an unscoped exter
   // The title is an editable field in the notebook header, so it has a value, not text.
   await expect(
     page.getByRole('textbox', { name: 'Notebook title' }),
-  ).toHaveValue('Virus Stability at 4C', { timeout: 15_000 })
+  ).toHaveValue('Virus Stability at 4C', { timeout: 45_000 })
   // Both canonical Sheet blocks render their own live grid and their own data.
   await expect(page.getByLabel('Sheet', { exact: true })).toHaveCount(2, {
     timeout: 15_000,

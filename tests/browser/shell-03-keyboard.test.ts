@@ -230,7 +230,7 @@ test('global bindings, Windows modifiers, input suppression and overlay focus', 
   }
 })
 
-test('Inbox arrows, J/K, Space/X selection, filter and Enter open actual items', async ({
+test('Inbox arrows, J/K, X selection, filter and Enter open actual items', async ({
   page,
 }) => {
   // Needs action is the tab the person is working through, so its membership
@@ -246,8 +246,10 @@ test('Inbox arrows, J/K, Space/X selection, filter and Enter open actual items',
   await expect.poll(() => rows.count()).toBeGreaterThan(1)
   const first = rows.nth(0)
   const second = rows.nth(1)
-  await page.getByRole('heading', { name: 'Inbox', exact: true }).click()
-  await page.keyboard.press('Space')
+  // Click empty page space (the heading's own line is covered by its subtitle).
+  await page.locator('#main').click({ position: { x: 4, y: 4 } })
+  // X selects; Space is the peek key now.
+  await page.keyboard.press('x')
   await expect(first.getByRole('button')).toHaveAttribute(
     'aria-pressed',
     'true',
@@ -272,11 +274,6 @@ test('Inbox arrows, J/K, Space/X selection, filter and Enter open actual items',
   await expect(second).toHaveAttribute('aria-current', 'true')
   await page.keyboard.press('k')
   await expect(first).toHaveAttribute('aria-current', 'true')
-  await page.keyboard.press('Space')
-  await expect(second.getByRole('button')).toHaveAttribute(
-    'aria-pressed',
-    'false',
-  )
   await page.keyboard.press('/')
   await expect(
     page.getByRole('button', { name: 'All types', exact: true }),

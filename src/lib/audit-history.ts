@@ -327,15 +327,16 @@ export const ENTITY_LABELS: AuditEntityLabels = {
   folder: 'Folder',
   record: 'Record',
   block: 'Notebook block',
-  record_link: 'Record link',
+  registry_entry: 'Registry entry',
+  record_link: 'Link',
   file: 'File',
   dataset: 'Dataset',
-  dataset_version: 'Dataset Version',
+  dataset_version: 'Dataset version',
   dataset_schema: 'Dataset schema',
   sheet_instance: 'Sheet',
-  sheet_definition: 'Sheet Definition',
-  sheet_definition_version: 'Sheet Definition version',
-  notebook_template: 'Notebook Template',
+  sheet_definition: 'Sheet definition',
+  sheet_definition_version: 'Sheet definition version',
+  notebook_template: 'Notebook template',
   notebook_template_version: 'Template version',
   review_submission: 'Review submission',
   review_decision: 'Review decision',
@@ -541,10 +542,6 @@ export function readableChangeValue(value: string | undefined): string {
     : value
 }
 
-function shortId(id: string | null | undefined): string {
-  return id ? id.slice(0, 8) : ''
-}
-
 /** Subject noun with a stable identifier where the payload carries one. */
 /** "API client" keeps its capitals; "Record" reads "record" mid-sentence. */
 function lowerFirstWord(text: string): string {
@@ -564,7 +561,39 @@ function sentenceSubjectFor(event: AuditEventWire): string {
       : 'a signature'
   }
 
-  return lowerFirstWord(subjectFor(event, false))
+  if (event.entityType === 'block') {
+    const type = isString(event.payload['type']) ? event.payload['type'] : null
+
+    const kind = type
+      ? ((hasKey(BLOCK_TYPE_LABELS, type)
+          ? BLOCK_TYPE_LABELS[type]
+          : undefined) ?? humanizeToken(type))
+      : 'Notebook block'
+
+    return `a ${lowerFirstWord(kind)}`
+  }
+
+  if (event.entityType === 'project_access') return 'access to a project'
+
+  if (event.entityType === 'record_link') {
+    const target = firstString(event.payload, [
+      'targetIdentifier',
+      'identifier',
+      'title',
+      'name',
+    ])
+
+    return target ?? 'a record'
+  }
+
+  const subject = subjectFor(event)
+  const label = entityLabel(event.entityType)
+
+  // A thing with no name of its own takes an article: "created a template
+  // version", not "created template version".
+  return subject === label
+    ? `${/^[aeiou]/i.test(label) ? 'an' : 'a'} ${lowerFirstWord(label)}`
+    : lowerFirstWord(subject)
 }
 
 /** The scheduled audit-chain check records its result as a `system` event. */
@@ -581,7 +610,7 @@ export function isRoutineAuditCheck(event: AuditEventWire): boolean {
   return isAuditVerification(event) && event.payload['ok'] !== false
 }
 
-function subjectFor(event: AuditEventWire, withId = true): string {
+function subjectFor(event: AuditEventWire): string {
   if (isAuditVerification(event)) return 'the audit trail'
   const label = entityLabel(event.entityType)
   const payload = event.payload
@@ -622,7 +651,9 @@ function subjectFor(event: AuditEventWire, withId = true): string {
       : label
   }
 
-  return withId ? `${label} ${shortId(event.entityUuid)}` : label
+  // An internal id names nothing to a reader: a subject with no name of its
+  // own is its kind alone, never "Project access aa404192".
+  return label
 }
 
 function actionFor(event: AuditEventWire): string {
@@ -696,6 +727,30 @@ function actionFor(event: AuditEventWire): string {
   }
 
   if (event.entityType === 'signature') return 'signed'
+
+  // A link is made or removed, never "created" or "linked a link".
+  if (event.entityType === 'record_link') {
+    if (event.operation === 'create' || event.operation === 'link')
+      return 'linked'
+
+    if (event.operation === 'delete' || event.operation === 'unlink')
+      return 'unlinked'
+  }
+
+  if (event.entityType === 'block') {
+    if (event.operation === 'create') return 'added'
+
+    if (event.operation === 'delete') return 'removed'
+  }
+
+  if (event.entityType === 'project_access') {
+    if (event.operation === 'create') return 'gave'
+
+    if (event.operation === 'delete' || event.operation === 'revoke')
+      return 'removed'
+
+    return 'changed'
+  }
 
   return base
 }
@@ -779,7 +834,7 @@ export function describeAuditEvent(event: AuditEventWire): DescribedAuditEvent {
     event,
     action: actionFor(event),
     subject: subjectFor(event),
-    readableSubject: subjectFor(event, false),
+    readableSubject: subjectFor(event),
     sentenceSubject: sentenceSubjectFor(event),
     changes: fields,
   }
@@ -909,7 +964,12 @@ export function auditEventsCsv(events: AuditEventWire[]): string {
             event.actorCredentialId ??
             'System',
           described.action,
-          described.subject,
+          // The export is for auditors: a nameless object keeps its id here,
+          // though the app's own lists never show one.
+          described.subject === entityLabel(event.entityType) &&
+          event.entityUuid
+            ? `${described.subject} ${event.entityUuid.slice(0, 8)}`
+            : described.subject,
           change?.label ?? '',
           change?.from ?? '',
           change?.to ?? '',

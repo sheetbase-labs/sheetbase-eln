@@ -76,8 +76,23 @@ const tabLabel: Record<TemplateTab, string> = {
   retired: t('library.templates.list.retired'),
 }
 
-/** The key format the catalogue and the create RPC both accept. */
-const templateKeyPattern = /^[a-z][a-z0-9_]{0,59}$/
+/**
+ * The catalogue's internal key, made from the name so nobody has to type one:
+ * lowercase words joined by underscores, as the create RPC accepts
+ * (`^[a-z][a-z0-9_]{0,59}$`), with a short suffix so two templates of the same
+ * name never clash. People see the template's number, never its key.
+ */
+export function templateKeyFromName(name: string, suffix: string): string {
+  const words = name
+    .toLowerCase()
+    .normalize('NFKD')
+    .replace(/[^a-z0-9]+/g, '_')
+    .replace(/^_+|_+$/g, '')
+
+  const base = /^[a-z]/.test(words) ? words : `t_${words}`
+
+  return `${base.slice(0, 50).replace(/_+$/, '')}_${suffix}`
+}
 
 /** The board's address bar: which tab, search text and row it names. Anything
  * else in the address is dropped, and a value of the wrong kind reads as absent. */
@@ -312,7 +327,9 @@ function TemplateInspector({ template }: { template: TemplateRow }) {
       className="w-[320px] gap-0 p-0"
     >
       <div className="flex flex-col gap-1 border-b border-border px-4 pb-3 pt-3.5">
-        <span className="mono text-fg-muted">{template.key}</span>
+        {template.displayId ? (
+          <span className="num text-fg-muted">{template.displayId}</span>
+        ) : null}
         <div className="font-heading text-doc font-semibold">
           {template.name}
         </div>
@@ -355,7 +372,6 @@ function TemplateInspector({ template }: { template: TemplateRow }) {
           <DescriptionList
             labelWidth={80}
             items={[
-              [t('library.templates.list.key'), template.key],
               [
                 t('library.templates.list.published'),
                 template.published ? `v${template.published.version}` : '—',
@@ -585,7 +601,6 @@ function NewTemplateDialog({
     setOpen(true)
     onAutoOpened?.()
   }, [autoOpen, onAutoOpened])
-  const [key, setKey] = useState('')
   const [name, setName] = useState('')
   const [description, setDescription] = useState('')
 
@@ -593,7 +608,13 @@ function NewTemplateDialog({
     mutationFn: () =>
       createNotebookTemplate({
         workspaceId,
-        key: key.trim(),
+        key: templateKeyFromName(
+          name,
+          Math.random()
+            .toString(36)
+            .slice(2, 6)
+            .replace(/[^a-z0-9]/g, 'x'),
+        ),
         name: name.trim(),
         description: description.trim() || null,
         configuration: { formatVersion: 1, parameters: [], placements: [] },
@@ -620,14 +641,7 @@ function NewTemplateDialog({
     },
   })
 
-  const trimmedKey = key.trim()
   const trimmedName = name.trim()
-  const keyOk = templateKeyPattern.test(trimmedKey)
-
-  const keyError =
-    trimmedKey.length > 0 && !keyOk
-      ? t('library.templates.list.lowercaseLettersDigitsAndUnderscore')
-      : null
 
   return (
     <Dialog
@@ -636,7 +650,6 @@ function NewTemplateDialog({
         setOpen(next)
 
         if (!next) {
-          setKey('')
           setName('')
           setDescription('')
         }
@@ -651,25 +664,9 @@ function NewTemplateDialog({
           description={t('library.templates.list.aTemplateHoldsTheSections2')}
         />
         <DialogBody>
-          <Field
-            label={t('library.templates.list.key')}
-            required
-            hint={t(
-              'library.templates.list.lowercaseLettersDigitsAndUnderscore2',
-            )}
-            error={keyError}
-          >
-            <Input
-              autoFocus
-              className="mono"
-              value={key}
-              aria-invalid={keyError ? true : undefined}
-              placeholder="depth_filter"
-              onChange={(e) => setKey(e.target.value)}
-            />
-          </Field>
           <Field label={t('library.templates.list.name')} required>
             <Input
+              autoFocus
               value={name}
               placeholder={t(
                 'library.templates.list.eGDepthFilterClarification',
@@ -694,7 +691,7 @@ function NewTemplateDialog({
           </DialogClose>
           <Button
             variant="primary"
-            disabled={create.isPending || !keyOk || trimmedName.length === 0}
+            disabled={create.isPending || trimmedName.length === 0}
             onClick={() => create.mutate()}
           >
             {create.isPending

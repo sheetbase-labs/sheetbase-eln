@@ -11,6 +11,7 @@ import type { TimelineEventWire } from '#/lib/sign-002'
 import { t } from '#/copy'
 import { AUDIT_DECISION_ICONS, AUDIT_OPERATION_ICONS } from './audit-icons'
 import type { AuditEvent } from './audit-trail'
+import { entityLabel } from '#/lib/audit-history'
 
 /** The stored change payload's per-field labels, when it captured them. */
 const capturedChangesSchema = z.object({
@@ -45,7 +46,7 @@ function actorLabel(
   return nameOf?.(actorUserId) ?? actorUserId.slice(0, 8)
 }
 
-/** The operation in past tense, so a title reads as "Registry entry created". */
+/** The operation in past tense, so a title reads "Created a registry entry". */
 const PAST_TENSE = new Map<string, string>([
   ['create', 'created'],
   ['update', 'updated'],
@@ -76,7 +77,9 @@ function sentence(value: string): string {
 
 /**
  * The timeline names events the way the database stores them ("registry_entry
- * create", "review approve"). Said in plain words: "Registry entry created".
+ * create", "record_link link"). Said as one plain sentence, verb first, the
+ * way every activity list says it: "Created a registry entry", "Linked a
+ * record".
  */
 function friendlyTitle(event: TimelineEventWire): string {
   if (event.type === 'change_event') {
@@ -86,7 +89,19 @@ function friendlyTitle(event: TimelineEventWire): string {
     const operation = wireText(event.operation)
     const done = PAST_TENSE.get(operation) ?? words(operation)
 
-    return sentence(`${words(entity)} ${done}`.trim()) || sentence(event.title)
+    if (entity === 'record_link')
+      return sentence(
+        operation === 'delete' || operation === 'unlink'
+          ? 'unlinked a record'
+          : 'linked a record',
+      )
+
+    const label = entityLabel(entity).toLowerCase()
+    const article = /^[aeiou]/.test(label) ? 'an' : 'a'
+
+    return (
+      sentence(`${done} ${article} ${label}`.trim()) || sentence(event.title)
+    )
   }
 
   return sentence(event.title)

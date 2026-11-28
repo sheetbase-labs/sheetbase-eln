@@ -56,6 +56,12 @@ test('CORE-17 a dataset with no experiment can be linked to one', async ({
   page,
 }) => {
   try {
+    // Another journey in this run may have left it linked.
+    await withAdminDb((db) =>
+      db.query(
+        `delete from api.record_links where target_kind = 'dataset' and target_identifier = 'DS-0320'`,
+      ),
+    )
     await open(page, `/datasets/${UNLINKED_DATASET}`)
     await expect(page.getByText('Not linked to an experiment')).toBeVisible()
     await page.getByRole('button', { name: /link to experiment/i }).click()

@@ -13,21 +13,8 @@ import {
   SignalWordBadge,
 } from '#/components/materials/material-safety'
 import type { MaterialListRow } from '#/components/materials/materials-data'
-import type { RecordFact } from '#/components/record-page/record-page'
 import { RecordStateLine } from '#/components/record-page/record-state-line'
 import { t } from '#/copy'
-
-import { stockOfTotal } from '../-materials-page'
-
-/** Lot, stock, location and supplier: what a person checks before using it. */
-export function lotFacts(row: MaterialListRow): RecordFact[] {
-  return [
-    { label: t('library.materials.lot.lot'), value: row.lot, mono: true },
-    { label: t('library.materials.lot.stock'), value: stockOfTotal(row) },
-    { label: t('library.materials.lot.location'), value: row.location },
-    { label: t('library.materials.lot.supplier'), value: row.supplier },
-  ]
-}
 
 export function LotMarks({
   signalWord,

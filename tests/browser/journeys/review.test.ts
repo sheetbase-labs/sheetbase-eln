@@ -96,8 +96,15 @@ test('REV-13 an author withdraws a submission from its review page', async ({
   await submitFor(page, uniqueName('Withdraw me'))
   await openDetails(page)
   // Exact, so the pane's own buttons named after the title don't match.
-  await page.getByRole('button', { name: 'Withdraw', exact: true }).click()
   const confirm = page.getByRole('alertdialog')
+  // The pane re-renders as it loads, so the button can be replaced under the
+  // click: retry until the confirmation opens.
+  await expect(async () => {
+    await page
+      .getByRole('button', { name: 'Withdraw', exact: true })
+      .click({ timeout: 5_000 })
+    await expect(confirm).toBeVisible({ timeout: 3_000 })
+  }).toPass({ timeout: 60_000 })
   await confirm.getByRole('textbox').fill('Spotted a mistake in the table.')
   await confirm.getByRole('button', { name: 'Withdraw' }).click()
   await expect(page.getByText(/withdrawn/i).first()).toBeVisible()

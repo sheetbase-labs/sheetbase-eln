@@ -14,15 +14,23 @@ import { signInRedirect } from '#/lib/sign-in-redirect'
 import { useHasCapability } from '#/lib/use-capability'
 import { solutionQueryKeys } from '#/lib/solution-prep'
 import { t } from '#/copy'
-import { LotHeader } from './-lot-header'
+import { RecordPage } from '#/components/record-page/record-page'
+import { RecordHistoryTab } from '#/components/record-page/record-side-panel'
+import {
+  LotActions,
+  LotMarks,
+  LotMoreItems,
+  LotStateLine,
+  lotFacts,
+} from './-lot-header'
 import { LotDetailsTab, LotLedgerTab, LotUsedTab } from './-lot-tabs'
-import { LotInspector } from './-lot-inspector'
+import { LotSidePanel } from './-lot-inspector'
 import {
   QuarantineLotDialog,
   ReplacementLotDialog,
   UseLotDialog,
 } from './-lot-dialogs'
-import { isLotUsable, lotLabelSource } from './-lot-page-model'
+import { isLotUsable, lotLabelSource, lotTabSchema } from './-lot-page-model'
 import type { LotTab } from './-lot-page-model'
 import { RecordResults } from '#/components/record/record-results'
 import { useRecordResults } from '#/lib/record-results'
@@ -135,125 +143,184 @@ function LotPage() {
   )
 
   return (
-    <div className="flex min-w-0 flex-1 flex-col">
-      <LotHeader
-        recordId={reagent.id}
-        identifier={reagent.identifier}
-        title={reagent.title}
-        row={row}
-        signalWord={safety.data?.signalWord}
-        pictograms={safety.data?.pictograms ?? []}
-        quarantined={quarantined}
-        usable={usable}
-        holdBusy={hold.isPending}
-        tab={tab}
-        ledgerCount={ledger.data ? ledgerCount : undefined}
-        usedCount={usage.data ? usedCount : undefined}
-        resultCount={results.data?.total}
-        onTabChange={setTab}
-        onRegisterReplacement={() => setReplacementOpen(true)}
-        onUse={() => setUseOpen(true)}
-        onMakeSolution={() => setSolutionOpen(true)}
-        onRestore={() => hold.mutate({ operation: 'restore' })}
-        onQuarantine={() => setQuarantineOpen(true)}
-      />
-      <div className="flex min-h-0 flex-1">
-        <div className="flex min-w-0 flex-1 flex-col gap-6 overflow-auto px-6 py-5">
-          {tab === 'details' ? (
-            <LotDetailsTab
-              lotId={lotId}
-              row={row}
-              title={reagent.title}
-              expiry={reagent.expiry}
-              projectId={reagent.projectId}
-              canEdit={canEdit}
-              madeFrom={madeFrom.data}
-              certificate={certificate.data}
-              certificateNote={row.certificate}
-            />
-          ) : null}
-          {tab === 'ledger' ? (
-            <LotLedgerTab
-              ledger={ledger.data}
-              isLoading={ledger.isLoading}
-              userLabel={userLabel}
-            />
-          ) : null}
-          {tab === 'results' ? <RecordResults recordId={reagent.id} /> : null}
-          {tab === 'used' ? (
-            <LotUsedTab
-              preparedWith={preparedWith.data}
-              usage={usage.data}
-              usageLoading={usage.isLoading}
-            />
-          ) : null}
-        </div>
-        <LotInspector
+    <RecordPage
+      recordId={reagent.id}
+      trail={[
+        {
+          label: t('library.materials.lot.materials'),
+          link: { to: '/materials' },
+        },
+        { label: reagent.identifier, mono: true },
+      ]}
+      title={reagent.title}
+      identifier={reagent.identifier}
+      status={row.status}
+      facts={lotFacts(row)}
+      marks={
+        <LotMarks
+          signalWord={safety.data?.signalWord}
+          pictograms={safety.data?.pictograms ?? []}
+        />
+      }
+      actions={
+        <LotActions
+          recordId={reagent.id}
+          usable={usable}
+          onUse={() => setUseOpen(true)}
+        />
+      }
+      moreLabel={t('library.materials.lot.moreLotActions')}
+      more={
+        <LotMoreItems
+          usable={usable}
+          quarantined={quarantined}
+          holdBusy={hold.isPending}
+          onRegisterReplacement={() => setReplacementOpen(true)}
+          onMakeSolution={() => setSolutionOpen(true)}
+          onPrintLabel={() => window.print()}
+          onRestore={() => hold.mutate({ operation: 'restore' })}
+          onQuarantine={() => setQuarantineOpen(true)}
+        />
+      }
+      stateLine={
+        <LotStateLine
+          row={row}
+          quarantined={quarantined}
+          replacement={replacementLink.data ?? null}
+          holdBusy={hold.isPending}
+          onRestore={() => hold.mutate({ operation: 'restore' })}
+          onRegisterReplacement={() => setReplacementOpen(true)}
+        />
+      }
+      tabs={{
+        mode: 'state',
+        label: t('library.materials.lot.lotSections'),
+        value: tab,
+        onValueChange: (next) => setTab(lotTabSchema.parse(next)),
+        items: [
+          { key: 'details', label: t('library.materials.lot.details') },
+          {
+            key: 'ledger',
+            label: t('library.materials.lot.ledger'),
+            count: ledger.data ? ledgerCount : undefined,
+          },
+          {
+            key: 'used',
+            label: t('library.materials.lot.usedIn'),
+            count: usage.data ? usedCount : undefined,
+          },
+          {
+            key: 'results',
+            label: t('features.recordResults.tab'),
+            count: results.data?.total,
+          },
+          {
+            key: 'history',
+            label: t('notebook.recordPage.history'),
+            end: true,
+          },
+        ],
+      }}
+      sideLabel={t('library.materials.lot.lotContext')}
+      side={
+        <LotSidePanel
+          recordId={reagent.id}
           row={row}
           identifier={reagent.identifier}
           title={reagent.title}
-          certificate={certificate.data}
           labelChoice={labelChoice}
           labelSource={labelSource}
           hazards={safety.data?.pictograms}
           replacement={replacementLink.data ?? null}
-          ledger={ledger.data}
+          onShowHistory={() => setTab('history')}
         />
-      </div>
+      }
+      overlays={
+        <>
+          <SampleLabelPrint
+            record={{ identifier: reagent.identifier, title: reagent.title }}
+            template={labelChoice.chosen}
+            source={labelSource}
+            hazards={safety.data?.pictograms}
+          />
 
-      <SampleLabelPrint
-        record={{ identifier: reagent.identifier, title: reagent.title }}
-        template={labelChoice.chosen}
-        source={labelSource}
-        hazards={safety.data?.pictograms}
-      />
+          <ReplacementLotDialog
+            open={replacementOpen}
+            onOpenChange={setReplacementOpen}
+            identifier={reagent.identifier}
+            title={reagent.title}
+            unit={reagent.unit}
+            busy={replacement.isPending}
+            onSubmit={(input) => replacement.mutate(input)}
+          />
 
-      <ReplacementLotDialog
-        open={replacementOpen}
-        onOpenChange={setReplacementOpen}
-        identifier={reagent.identifier}
-        title={reagent.title}
-        unit={reagent.unit}
-        busy={replacement.isPending}
-        onSubmit={(input) => replacement.mutate(input)}
-      />
+          <MakeSolutionDialog
+            open={solutionOpen}
+            onOpenChange={setSolutionOpen}
+            initialLot={reagent}
+            onMade={() => {
+              refresh()
+              void queryClient.invalidateQueries({
+                queryKey: solutionQueryKeys.preparedWith(lotId),
+              })
+            }}
+          />
 
-      <MakeSolutionDialog
-        open={solutionOpen}
-        onOpenChange={setSolutionOpen}
-        initialLot={reagent}
-        onMade={() => {
-          refresh()
-          void queryClient.invalidateQueries({
-            queryKey: solutionQueryKeys.preparedWith(lotId),
-          })
-        }}
-      />
+          <QuarantineLotDialog
+            open={quarantineOpen}
+            onOpenChange={setQuarantineOpen}
+            identifier={reagent.identifier}
+            title={reagent.title}
+            reason={quarantineReason}
+            onReasonChange={setQuarantineReason}
+            busy={hold.isPending}
+            onConfirm={() =>
+              hold.mutate({ operation: 'quarantine', reason: quarantineReason })
+            }
+          />
 
-      <QuarantineLotDialog
-        open={quarantineOpen}
-        onOpenChange={setQuarantineOpen}
-        identifier={reagent.identifier}
-        title={reagent.title}
-        reason={quarantineReason}
-        onReasonChange={setQuarantineReason}
-        busy={hold.isPending}
-        onConfirm={() =>
-          hold.mutate({ operation: 'quarantine', reason: quarantineReason })
-        }
-      />
-
-      <UseLotDialog
-        open={useOpen}
-        onOpenChange={setUseOpen}
-        identifier={reagent.identifier}
-        title={reagent.title}
-        stock={row.stock}
-        available={reagent.quantity}
-        unit={reagent.unit}
-        busy={useStock.isPending}
-        onSubmit={(input) => useStock.mutate(input)}
-      />
-    </div>
+          <UseLotDialog
+            open={useOpen}
+            onOpenChange={setUseOpen}
+            identifier={reagent.identifier}
+            title={reagent.title}
+            stock={row.stock}
+            available={reagent.quantity}
+            unit={reagent.unit}
+            busy={useStock.isPending}
+            onSubmit={(input) => useStock.mutate(input)}
+          />
+        </>
+      }
+    >
+      {tab === 'details' ? (
+        <LotDetailsTab
+          lotId={lotId}
+          row={row}
+          title={reagent.title}
+          projectId={reagent.projectId}
+          canEdit={canEdit}
+          madeFrom={madeFrom.data}
+          certificate={certificate.data}
+          certificateNote={row.certificate}
+        />
+      ) : null}
+      {tab === 'ledger' ? (
+        <LotLedgerTab
+          ledger={ledger.data}
+          isLoading={ledger.isLoading}
+          userLabel={userLabel}
+        />
+      ) : null}
+      {tab === 'results' ? <RecordResults recordId={reagent.id} /> : null}
+      {tab === 'used' ? (
+        <LotUsedTab
+          preparedWith={preparedWith.data}
+          usage={usage.data}
+          usageLoading={usage.isLoading}
+        />
+      ) : null}
+      {tab === 'history' ? <RecordHistoryTab recordId={reagent.id} /> : null}
+    </RecordPage>
   )
 }

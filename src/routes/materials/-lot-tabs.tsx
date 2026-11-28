@@ -5,7 +5,6 @@
  */
 import { Link } from '@tanstack/react-router'
 
-import { stockOfTotal } from '../-materials-page'
 import { DescriptionList } from '#/components/ui/layout'
 import { TableBox } from '#/components/ui/table'
 import {
@@ -144,7 +143,6 @@ export function LotDetailsTab({
   lotId,
   row,
   title,
-  expiry,
   projectId,
   canEdit,
   madeFrom,
@@ -154,7 +152,6 @@ export function LotDetailsTab({
   lotId: string
   row: MaterialListRow
   title: string
-  expiry: string | null
   projectId: string | null
   canEdit: boolean
   madeFrom: readonly MadeFromIngredient[] | null | undefined
@@ -163,23 +160,18 @@ export function LotDetailsTab({
 }) {
   return (
     <>
-      <section aria-label={t('library.materials.lot.lot')} className="max-w-xl">
+      <section
+        aria-label={t('library.materials.lot.release')}
+        className="max-w-xl"
+      >
         <h2 className="mb-1.5 font-sans text-label font-semibold">
-          {t('library.materials.lot.lot')}
+          {t('library.materials.lot.release')}
         </h2>
         <DescriptionList
           labelWidth={96}
           items={[
-            [
-              'Supplier',
-              row.catalogNo
-                ? `${row.supplier} · cat. ${row.catalogNo}`
-                : row.supplier,
-            ],
-            ['Stock', stockOfTotal(row)],
-            ['Location', row.location],
-            ['Expiry', dayLabel(expiry)],
-            ['Received', dayLabel(row.received)],
+            [t('library.materials.lot.releasedBy'), row.releasedBy ?? '—'],
+            [t('library.materials.lot.releasedOn'), dayLabel(row.releasedAt)],
           ]}
         />
       </section>

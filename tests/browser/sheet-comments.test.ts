@@ -496,11 +496,19 @@ test('review comments use submitted cells after live edits and never rewrite fro
   const frozenFour = page
     .getByRole('button', { name: /^Select Recovery row / })
     .filter({ hasText: /^4$/ })
-  await frozenFour.click()
   await expect(frozenFour).toHaveText('4')
-  // The review lays out again as it loads, so a click can land on a button
-  // that is still moving; try again until the comment box opens.
+  // The review lays out again as it loads, so a click can land on a cell or
+  // button that is still moving, and a late render can drop the selection:
+  // pick the cell again whenever it is lost, until the comment box opens.
+  const commentButton = page.getByRole('button', {
+    name: 'Comment on frozen selection',
+  })
+
   await expect(async () => {
+    // A second click on the chosen cell would clear it, so pick it only while
+    // nothing is chosen.
+    if (await commentButton.isDisabled())
+      await frozenFour.click({ timeout: 5_000 })
     await page
       .getByRole('button', { name: 'Comment on frozen selection' })
       .click({ timeout: 5_000 })

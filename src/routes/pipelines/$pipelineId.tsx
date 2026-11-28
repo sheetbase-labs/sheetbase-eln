@@ -130,9 +130,10 @@ function PipelineLayout() {
   const nextVersion = draft?.version ?? (current ? current.version + 1 : 1)
   const { simple } = editor
 
-  const canPublish = simple
-    ? simple.complete && (simple.dirty || Boolean(draft))
-    : editor.canSave && (editor.dirty || Boolean(draft))
+  // Something new to publish: a saved draft, or edits not saved yet.
+  const changed = Boolean(draft) || (simple ? simple.dirty : editor.dirty)
+
+  const canPublish = changed && (simple ? simple.complete : editor.canSave)
 
   const owner = d.created_by_user_id ? members[d.created_by_user_id] : undefined
 
@@ -214,23 +215,27 @@ function PipelineLayout() {
                 >
                   {editor.tryDraft.isPending
                     ? t('data.pipelineSteps.trying')
-                    : t('data.pipelineHeader.tryDraft')}
+                    : changed
+                      ? t('data.pipelineHeader.tryDraft')
+                      : t('data.pipelineHeader.tryIt')}
                 </Button>
-                <PublishButton
-                  pipelineId={d.id}
-                  version={nextVersion}
-                  draftId={draft?.id}
-                  versions={versionList}
-                  approval={approval}
-                  disabled={!canPublish}
-                  title={
-                    editor.errors.length
-                      ? t('data.pipelinePage.finishDraftStepsTab', {
-                          message: editor.errors[0].message,
-                        })
-                      : undefined
-                  }
-                />
+                {changed ? (
+                  <PublishButton
+                    pipelineId={d.id}
+                    version={nextVersion}
+                    draftId={draft?.id}
+                    versions={versionList}
+                    approval={approval}
+                    disabled={!canPublish}
+                    title={
+                      editor.errors.length
+                        ? t('data.pipelinePage.finishDraftStepsTab', {
+                            message: editor.errors[0].message,
+                          })
+                        : undefined
+                    }
+                  />
+                ) : null}
                 <PipelineMenu
                   canRun={current?.lifecycle === 'published' && !run.pending}
                   onRun={() =>

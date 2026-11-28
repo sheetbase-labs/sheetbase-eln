@@ -1646,6 +1646,7 @@ export const data = {
     modeTitle: 'How much of the editor you see',
     mode: { simple: 'Simple', standard: 'Standard', advanced: 'Advanced' },
     tryDraft: 'Try the draft',
+    tryIt: 'Try it',
     publish: 'Publish v{version}…',
     publishTitle: 'Publish version {version}?',
     publishBodyReplace:
@@ -1789,7 +1790,8 @@ export const data = {
     showRows: 'Show rows',
     draftSection: 'Draft',
     draftSaved: 'Draft saved as version {version}, {when}.',
-    noDraftYet: 'No draft saved yet.',
+    runsUse:
+      'Runs use version {version}. Change a step and the changes are kept as a draft until you publish.',
     runsKeepUsing: 'Runs keep using version {version} until you publish.',
     publishToRun: 'Publish it before it can run.',
     stepName: 'Name',

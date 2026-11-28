@@ -1,6 +1,5 @@
 import type { ReactNode } from 'react'
 
-import { Status } from '#/components/ui/status'
 import {
   AgentStatusLabel,
   AgentStatusLine,
@@ -86,11 +85,13 @@ export function needsParserOf(intakeMethod: string): boolean {
   return intakeMethodNeedsParser(intakeMethod)
 }
 
-/** The intake description list: method, health, last data, booking, parser. */
+/**
+ * The intake description list: method, next booking and parser. Health and
+ * last data are in the facts beside the instrument's name, so they are not
+ * said again here.
+ */
 export function intakeItemsOf({
   intakeMethod,
-  health,
-  lastDataAt,
   nextBooking,
   parserLabel,
   connector,
@@ -104,18 +105,6 @@ export function intakeItemsOf({
 }): Array<[ReactNode, ReactNode]> {
   const items: Array<[ReactNode, ReactNode]> = [
     ['Method', intakeMethodLabel(intakeMethod)],
-    [
-      'Health',
-      <Status key="h" tone={health.tone}>
-        {health.label}
-      </Status>,
-    ],
-    [
-      t('library.instruments.record.lastData'),
-      lastDataAt
-        ? formatDate(lastDataAt, { time: true })
-        : t('library.instruments.record.nothingReceived'),
-    ],
     [t('library.instruments.record.nextBooking'), nextBooking],
     ['Parser', parserLabel],
   ]

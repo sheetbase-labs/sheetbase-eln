@@ -4,10 +4,11 @@ import { InspectorSection, Muted } from '#/components/ui/layout'
 import { Status } from '#/components/ui/status'
 import type { ApprovalTrailEntry } from '#/components/models/model-approval'
 import type { ProtocolVersion } from '#/lib/controlled-protocols'
-import { formatInstant } from '#/lib/display-time-zone'
 import { t } from '#/copy'
 
 import type { TrainingRow, UsedByRow } from './protocol-inspector-data'
+import { formatDay } from '#/lib/format-date'
+import { statusTone, statusWord } from '#/lib/status-words'
 
 /**
  * The three lists the protocol inspector shows below its change summary: who
@@ -19,7 +20,7 @@ import type { TrainingRow, UsedByRow } from './protocol-inspector-data'
 const TECHNICAL = new Set(['scientist', 'steward'])
 
 function shortDate(iso: string): string {
-  return formatInstant(iso, { day: 'numeric', month: 'short' })
+  return formatDay(iso)
 }
 
 /** Who approved this version, in the order they acted. */
@@ -109,7 +110,12 @@ export function ProtocolTraining({
   )
 }
 
-/** The experiments that have started from this version, and any on an older one. */
+/**
+ * The experiments that have started from this version, and any on an older
+ * one. With none it says nothing: the Used by tab already lists every record
+ * that links to the protocol, and a second "none" beside its count reads as a
+ * contradiction.
+ */
 export function ProtocolUsedBy({
   onVersion,
   onOthers,
@@ -119,8 +125,12 @@ export function ProtocolUsedBy({
   onOthers: readonly UsedByRow[]
   otherVersion: ProtocolVersion | undefined
 }) {
+  if (!onVersion.length && !onOthers.length) return null
+
   return (
-    <InspectorSection title={t('library.protocols.protocolInspector.usedBy')}>
+    <InspectorSection
+      title={t('library.protocols.protocolInspector.startedFrom')}
+    >
       {onVersion.length || onOthers.length ? (
         <ul className="m-0 flex list-none flex-col gap-1 p-0 text-label">
           {onVersion.map((r) => (
@@ -132,7 +142,9 @@ export function ProtocolUsedBy({
               >
                 {r.identifier}
               </Link>{' '}
-              <Status tone="none">{r.status.replace(/_/g, ' ')}</Status>
+              <Status tone={statusTone(r.status)}>
+                {statusWord(r.status)}
+              </Status>
             </li>
           ))}
           {onOthers.length ? (
@@ -141,7 +153,7 @@ export function ProtocolUsedBy({
                 ? t('library.protocols.protocolInspector.moreOnVStatus', {
                     count: onOthers.length,
                     version: otherVersion.version,
-                    status: otherVersion.status,
+                    status: statusWord(otherVersion.status).toLowerCase(),
                   })
                 : t('library.protocols.protocolInspector.moreOnV', {
                     count: onOthers.length,

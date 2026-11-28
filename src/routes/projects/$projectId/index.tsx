@@ -8,7 +8,6 @@ import {
   DescriptionList,
   Inspector,
   InspectorSection,
-  Muted,
   Section,
 } from '#/components/ui/layout'
 import { EmptyState } from '#/components/ui/empty-state'
@@ -202,11 +201,6 @@ function ProjectOverview() {
           count={project.experimentCount}
           action={
             <span className="flex items-center gap-3">
-              <span className="text-label text-fg-muted">
-                {t('projects.projectOverview.experiments.inProject', {
-                  count: project.experimentCount,
-                })}
-              </span>
               {project.experimentCount ? (
                 <Button
                   nativeButton={false}
@@ -255,8 +249,6 @@ function ProjectOverview() {
             />
           )}
         </Section>
-
-        <Muted>{t('projects.projectOverview.note')}</Muted>
       </div>
 
       <Inspector
@@ -339,6 +331,10 @@ function OverviewReview({
   const approved = allExperiments.filter(
     (record) => record.status === 'approved',
   )
+
+  // With no experiments the overview already says so; "0 of 0 approved"
+  // would only say it again.
+  if (allExperiments.length === 0) return null
 
   return (
     <InspectorSection title={t('projects.projectOverview.review.title')}>

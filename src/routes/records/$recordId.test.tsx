@@ -6,6 +6,8 @@ import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
 import { SheetProvenanceLine } from '#/components/sheet/canonical-sheet-workspace'
 import { createDataClient, DataClientError } from '#/lib/data-client'
 import { notebookQueryKeys } from '#/lib/notebook-data'
+import { recordModelDetailQueryKeys } from '#/components/models/models-data'
+import type { TimelineEventWire } from '#/lib/sign-002'
 import * as commentsData from '#/lib/comments-data'
 
 import {
@@ -1142,30 +1144,36 @@ describe('NotebookInspector', () => {
     expect(screen.queryByText('Viewer V.')).toBeNull()
   })
 
-  it('shows an activity feed from change events attributed to the current user', () => {
-    renderWithQuery(
-      <NotebookInspector
-        record={record}
-        links={[]}
-        linksLoading={false}
-        currentUserId="u1"
-        activity={[
-          {
-            id: 'e1',
-            operation: 'create',
-            entityType: 'block',
-            actorUserId: 'u1',
-            createdAt: '2026-07-18T12:30:00.000Z',
-            payload: {},
-          },
-        ]}
-        defaultTab="activity"
-      />,
+  it('lists the record timeline in the Activity tab, as the side panel does', () => {
+    const queryClient = new QueryClient({
+      defaultOptions: { queries: { retry: false, staleTime: Infinity } },
+    })
+
+    queryClient.setQueryData(recordModelDetailQueryKeys.timeline(record.id), [
+      {
+        type: 'comment',
+        id: 'e1',
+        seq: null,
+        ts: new Date().toISOString(),
+        title: 'comment',
+        actorUserId: null,
+      },
+    ] satisfies TimelineEventWire[])
+
+    const { container } = render(
+      <QueryClientProvider client={queryClient}>
+        <NotebookInspector
+          record={record}
+          links={[]}
+          linksLoading={false}
+          currentUserId="u1"
+          defaultTab="activity"
+        />
+      </QueryClientProvider>,
     )
-    // The current user's own action is attributed as "You"
-    expect(screen.getByText('You')).toBeTruthy()
-    expect(screen.getByText(/created/)).toBeTruthy()
-    expect(screen.getByText('a block')).toBeTruthy()
+
+    expect(container.querySelector('[data-record-activity]')).toBeTruthy()
+    expect(screen.getByText('Today')).toBeTruthy()
   })
 })
 

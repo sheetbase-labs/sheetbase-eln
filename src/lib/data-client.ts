@@ -313,10 +313,8 @@ export function createDataClient(fetchImpl: typeof fetch = fetch): DataClient {
         method: init.method === 'POST' ? 'POST' : 'GET',
         headers: batchedHeaders(headers),
         // A read's body is the JSON text of a function's arguments, or nothing.
-        body:
-          init.body === undefined || init.body === null
-            ? undefined
-            : String(init.body),
+        // oxlint-disable-next-line anti-slop/no-runtime-typeof -- rpc() always sends a JSON string
+        body: typeof init.body === 'string' ? init.body : undefined,
       },
       sendAlone,
       (url, batchInit) => devFetch(fetchImpl, url, batchInit),

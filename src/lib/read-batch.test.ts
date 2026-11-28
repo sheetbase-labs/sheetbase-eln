@@ -18,14 +18,14 @@ const sentBatch = z.object({
 /** A fake server: single reads answer with their path, a batch answers each read. */
 function fakeServer(options: { batch?: Response | 'missing' } = {}) {
   return vi.fn<typeof fetch>(async (input, init) => {
-    const url = String(input)
+    const url = urlOf(input)
 
     if (url === BATCH_URL) {
       if (options.batch === 'missing')
         return new Response('not found', { status: 404 })
 
       if (options.batch) return options.batch.clone()
-      const { reads } = sentBatch.parse(JSON.parse(String(init?.body)))
+      const { reads } = sentBatch.parse(JSON.parse(bodyText(init)))
 
       return Response.json({
         results: reads.map((read) => ({
@@ -40,6 +40,15 @@ function fakeServer(options: { batch?: Response | 'missing' } = {}) {
   })
 }
 
+function urlOf(input: Parameters<typeof fetch>[0]): string {
+  return input instanceof Request ? input.url : input.toString()
+}
+
+function bodyText(init: RequestInit | undefined): string {
+  // oxlint-disable-next-line anti-slop/no-runtime-typeof -- the fake server is only sent JSON text
+  return typeof init?.body === 'string' ? init.body : ''
+}
+
 afterEach(() => {
   resetReadBatching()
   dropSharedReads()
@@ -52,7 +61,7 @@ describe('read batching', () => {
 
     await Promise.all([client.list('records'), client.list('projects')])
 
-    expect(fetchImpl.mock.calls.map(([url]) => String(url))).toEqual([
+    expect(fetchImpl.mock.calls.map(([url]) => urlOf(url))).toEqual([
       '/api/db/records',
       '/api/db/projects',
     ])
@@ -70,7 +79,7 @@ describe('read batching', () => {
     ])
 
     expect(fetchImpl).toHaveBeenCalledTimes(1)
-    expect(String(fetchImpl.mock.calls[0]?.[0])).toBe(BATCH_URL)
+    expect(urlOf(fetchImpl.mock.calls[0]?.[0] ?? '')).toBe(BATCH_URL)
     expect(records).toEqual([{ path: '/records?id=eq.1', batched: true }])
     expect(links).toEqual([
       { path: '/record_links?source_record_id=eq.1', batched: true },
@@ -85,7 +94,7 @@ describe('read batching', () => {
 
     await client.list('records', '?id=eq.1')
 
-    expect(fetchImpl.mock.calls.map(([url]) => String(url))).toEqual([
+    expect(fetchImpl.mock.calls.map(([url]) => urlOf(url))).toEqual([
       '/api/db/records?id=eq.1',
     ])
   })
@@ -113,7 +122,7 @@ describe('read batching', () => {
     ])
 
     const batchCalls = fetchImpl.mock.calls.filter(
-      ([url]) => String(url) === BATCH_URL,
+      ([url]) => urlOf(url) === BATCH_URL,
     )
 
     expect(batchCalls).toHaveLength(1)
@@ -124,7 +133,7 @@ describe('read batching', () => {
       client.rpc('update_record', { p_id: '1' }),
     ])
 
-    expect(fetchImpl.mock.calls.map(([url]) => String(url)).sort()).toEqual([
+    expect(fetchImpl.mock.calls.map(([url]) => urlOf(url)).sort()).toEqual([
       '/api/db/rpc/create_experiment',
       '/api/db/rpc/update_record',
     ])
@@ -143,8 +152,7 @@ describe('read batching', () => {
     )
 
     const sizes = fetchImpl.mock.calls.map(
-      ([, init]) =>
-        sentBatch.parse(JSON.parse(String(init?.body))).reads.length,
+      ([, init]) => sentBatch.parse(JSON.parse(bodyText(init))).reads.length,
     )
 
     expect(sizes).toEqual([BATCH_MAX_READS, 5])

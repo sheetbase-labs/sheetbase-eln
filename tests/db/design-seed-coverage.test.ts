@@ -53,8 +53,11 @@ it('rejects unrelated identities, title citations and unmatched screen identifie
     )
     // AAV9 access follows the Settings Access matrix: Process Development
     // leads, Upstream and Downstream may edit, so Tom (Upstream, Downstream)
-    // is a member alongside the named team and the QA group.
+    // is a member alongside the named team and the QA group. The seed's
+    // development person (the fixture owner here) joins as the lead's twin,
+    // with the lead's access, so they are a member too.
     expect(members.rows.map((row) => row.user_id)).toEqual([
+      FIXTURE_USER_ID,
       DESIGN_USER_IDS.gareth,
       DESIGN_USER_IDS.priya,
       DESIGN_USER_IDS.mei,

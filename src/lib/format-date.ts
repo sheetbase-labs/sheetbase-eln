@@ -8,7 +8,7 @@ import { formatInstant } from './display-time-zone'
  */
 export function formatDate(
   value: string | Date | null | undefined,
-  options: { time?: boolean; year?: boolean } = {},
+  options: { time?: boolean; year?: boolean; timeZone?: string } = {},
 ): string {
   if (!value) return '—'
 
@@ -23,12 +23,15 @@ export function formatDate(
     iso = value.toISOString()
   }
 
-  const { time = false, year = true } = options
+  const { time = false, year = true, timeZone } = options
 
   const format: Intl.DateTimeFormatOptions = {
     day: 'numeric',
     month: 'short',
   }
+
+  // The server has no display zone of its own, so it names the person's.
+  if (timeZone) format.timeZone = timeZone
 
   if (year) format.year = 'numeric'
 

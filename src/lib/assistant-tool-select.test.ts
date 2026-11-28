@@ -19,4 +19,21 @@ describe('selectTools', () => {
     expect(names).toContain('sheetbase__plan__propose')
     expect(names).not.toContain('sheetbase__sample__move')
   })
+
+  it('offers the blockers read for why questions', () => {
+    const defs = [
+      def('sheetbase__blockers__read'),
+      def('sheetbase__sample__move'),
+    ]
+
+    for (const question of [
+      'What is stopping EXP-0142 from being submitted for review?',
+      'Why is DS-0311 flagged?',
+      'What is holding up my experiments?',
+    ]) {
+      expect(selectTools(defs, question, new Set()).map((d) => d.name)).toEqual(
+        ['sheetbase__blockers__read'],
+      )
+    }
+  })
 })

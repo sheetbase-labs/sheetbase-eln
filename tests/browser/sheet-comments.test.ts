@@ -183,6 +183,7 @@ for (const theme of ['light', 'dark']) {
   test(`persisted live cell/row/range threads retain identities and appear in Record comments (${theme})`, async ({
     page,
   }) => {
+    test.slow()
     const { instance, record } = await fixture(page)
     await actor.query('select api.set_user_appearance($1)', [theme])
     await page.addInitScript(

@@ -6,6 +6,22 @@ import {
   scriptedProfiles,
 } from './tests/api/assistant/mock-model'
 
+/**
+ * `E2E_SERVER=build` serves the production build (`pnpm build` first) instead
+ * of the Vite dev server. CI does this: a dev server compiles each page on its
+ * first visit, which made every journey two to three times slower, and the
+ * build is what ships. The component tests that swap server functions for
+ * fixtures need the dev server, so they run without it.
+ */
+const servesBuild = process.env.E2E_SERVER === 'build'
+
+/** The parity server is only started when the parity project runs. */
+const parityRequested = process.argv.some(
+  (arg, index, all) =>
+    arg === '--project=parity' ||
+    (arg === '--project' && all[index + 1] === 'parity'),
+)
+
 export default defineConfig({
   fullyParallel: false,
   workers: 1,
@@ -61,7 +77,9 @@ export default defineConfig({
   },
   webServer: [
     {
-      command: 'pnpm exec vite dev --port 3100 --host 127.0.0.1',
+      command: servesBuild
+        ? 'node scripts/start-prod.mjs'
+        : 'pnpm exec vite dev --port 3100 --host 127.0.0.1',
       url: 'http://127.0.0.1:3100',
       reuseExistingServer: true,
       timeout: 60_000,
@@ -69,6 +87,7 @@ export default defineConfig({
       // environment's auth-free shortcut must not shadow them the way it does
       // in a `SHEETBASE_DEV_AUTH_FREE=true` local `.env.local`.
       env: {
+        ...(servesBuild ? { HOST: '127.0.0.1', PORT: '3100' } : {}),
         SHEETBASE_DEV_AUTH_FREE: 'false',
         SHEETBASE_NO_ERROR_OVERLAY: 'true',
         // The data proxy allows 600 reads a minute per person, counting each
@@ -92,17 +111,21 @@ export default defineConfig({
         SHEETBASE_RATE_LIMIT_MAX: '100000',
       },
     },
-    {
-      command: 'pnpm exec vite dev --port 3200 --host 127.0.0.1',
-      url: 'http://127.0.0.1:3200',
-      reuseExistingServer: true,
-      timeout: 60_000,
-      env: {
-        SHEETBASE_DEV_AUTH_FREE: 'false',
-        SHEETBASE_NO_ERROR_OVERLAY: 'true',
-        VITE_PARITY: 'true',
-        BETTER_AUTH_URL: 'http://127.0.0.1:3200',
-      },
-    },
+    ...(parityRequested
+      ? [
+          {
+            command: 'pnpm exec vite dev --port 3200 --host 127.0.0.1',
+            url: 'http://127.0.0.1:3200',
+            reuseExistingServer: true,
+            timeout: 60_000,
+            env: {
+              SHEETBASE_DEV_AUTH_FREE: 'false',
+              SHEETBASE_NO_ERROR_OVERLAY: 'true',
+              VITE_PARITY: 'true',
+              BETTER_AUTH_URL: 'http://127.0.0.1:3200',
+            },
+          },
+        ]
+      : []),
   ],
 })

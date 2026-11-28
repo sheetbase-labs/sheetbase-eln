@@ -75,6 +75,10 @@ export default defineConfig({
         // render deterministically instead of drifting as real time passes.
         // See src/lib/clock.ts and DESIGN_CLOCK in src/db/seed/design.ts.
         SHEETBASE_NOW: DESIGN_CLOCK.toISOString(),
+        // Every test signs in as one of a few seeded people, so a long shard
+        // sends a single person's worth of requests; the abuse bound would
+        // answer the busy pages with 429s instead of data.
+        SHEETBASE_RATE_LIMIT_MAX: '100000',
       },
     },
     {

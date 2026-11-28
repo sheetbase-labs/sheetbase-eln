@@ -201,8 +201,10 @@ export const SemanticSearchSection = memo(function SemanticSearchSection({
     form.enabled && blockedByConsent(view, form.profile, cloudAllowed)
 
   return (
-    <Section title={t('settings.semanticSearch.title')}>
-      <Muted>{t('settings.semanticSearch.intro')}</Muted>
+    <Section
+      title={t('settings.semanticSearch.title')}
+      description={t('settings.semanticSearch.intro')}
+    >
       {confirmingReread ? (
         <ConfirmPrompt
           message={t('settings.semanticSearch.rereadConfirm')}

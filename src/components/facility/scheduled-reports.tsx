@@ -725,10 +725,11 @@ export function ScheduledReportsPanel({
       {!emailConfigured ? (
         <Notice tone="warn">{t('spend.schedule.emailOff')}</Notice>
       ) : null}
+      {/* The list's own toolbar, like Storage locations' New site: the button
+          leads the table it adds to rather than floating at the far edge. */}
       <div className="flex flex-wrap items-center gap-2">
-        <span className="flex-1" />
         {canSchedule ? (
-          <Button variant="primary" onClick={() => setCreating(true)}>
+          <Button icon="plus" onClick={() => setCreating(true)}>
             {t('spend.schedule.new')}
           </Button>
         ) : (

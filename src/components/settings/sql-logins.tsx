@@ -149,8 +149,8 @@ export function SqlLogins({ workspaceId }: { workspaceId: string }) {
           </Button>
         ) : null
       }
+      description={t('settings.sqlLogins.readWorkspaceData')}
     >
-      <Muted>{t('settings.sqlLogins.readWorkspaceData')}</Muted>
       <SqlReadiness setUp={setUp} prepared={ready.data === true} />
       {failed ? (
         <Notice tone="bad" title={t('settings.sqlLogins.didnWork')}>

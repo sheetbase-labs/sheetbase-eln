@@ -123,7 +123,10 @@ function ClientsSettings() {
           />
         ) : (
           <>
-            <Field label={t('settings.clients.client')}>
+            <Field
+              label={t('settings.clients.client')}
+              className="w-80 max-w-full"
+            >
               <Select
                 value={selected?.id ?? ''}
                 onChange={(e) => {
@@ -372,10 +375,10 @@ function ClientShares({
         </Button>
       }
     >
-      <div className="flex flex-wrap items-end gap-2">
+      <div className="flex flex-wrap items-end gap-x-2 gap-y-3">
         <Field
           label={t('settings.clients.shareApprovedRecord')}
-          className="min-w-[260px] flex-1"
+          className="w-80 max-md:min-w-0 max-md:flex-1"
         >
           <PickerSelect
             noun="record"

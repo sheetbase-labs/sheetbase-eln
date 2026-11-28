@@ -12,7 +12,7 @@ import { Button } from '#/components/ui/button'
 import { Status } from '#/components/ui/status'
 import type { Tone } from '#/components/ui/status'
 import { EmptyState } from '#/components/ui/empty-state'
-import { Muted } from '#/components/ui/layout'
+import { Muted, Section } from '#/components/ui/layout'
 import { RegistryGrid } from '#/components/inventory/registry-grid'
 import type { RegistryColumn } from '#/components/inventory/registry-grid'
 import {
@@ -137,18 +137,23 @@ function IntegrationsList() {
           onRegister={canManage ? () => setRegisterOpen(true) : undefined}
         />
       </div>
-      {canManage ? <OfficeEditorSection /> : null}
-      {canOpenSettings(context.workspace, 'integrations') ? (
-        <PipelineConnections workspaceId={workspaceId} canManage={canManage} />
-      ) : null}
-      {canOpenSettings(context.workspace, 'integrations') ? (
-        <WorkspaceWebhooks
-          workspaceId={workspaceId}
-          canManage={canManage}
-          dataAccess={Boolean(context.dataAccess)}
-          onAddWebhook={() => setWebhookOpen(true)}
-        />
-      ) : null}
+      <SettingsBody className="border-t border-border-subtle">
+        {canManage ? <OfficeEditorSection /> : null}
+        {canOpenSettings(context.workspace, 'integrations') ? (
+          <>
+            <PipelineConnections
+              workspaceId={workspaceId}
+              canManage={canManage}
+            />
+            <WorkspaceWebhooks
+              workspaceId={workspaceId}
+              canManage={canManage}
+              dataAccess={Boolean(context.dataAccess)}
+              onAddWebhook={() => setWebhookOpen(true)}
+            />
+          </>
+        ) : null}
+      </SettingsBody>
       {webhookOpen ? (
         <CreateWebhookDialog
           workspaceId={workspaceId}
@@ -236,25 +241,21 @@ function WorkspaceWebhooks({
 }) {
   return (
     <>
-      <SettingsBody className="gap-3 border-t border-border-subtle pb-0">
-        <div className="flex items-center justify-between gap-3">
-          <h2 className="text-section">
-            {t('settings.integrations.outgoingWebhooks')}
-          </h2>
-          {canManage ? (
-            <Button icon="plus" onClick={onAddWebhook}>
+      <Section
+        title={t('settings.integrations.outgoingWebhooks')}
+        action={
+          canManage ? (
+            <Button icon="plus" size="sm" onClick={onAddWebhook}>
               {t('settings.integrations.addWebhook')}
             </Button>
-          ) : null}
-        </div>
-      </SettingsBody>
-      <OutgoingWebhooks workspaceId={workspaceId} />
-      <SettingsBody className="gap-3 border-t border-border-subtle pb-0">
-        <h2 className="text-section">
-          {t('settings.integrations.incomingWebhooks')}
-        </h2>
-      </SettingsBody>
-      <IncomingWebhooks workspaceId={workspaceId} />
+          ) : undefined
+        }
+      >
+        <OutgoingWebhooks workspaceId={workspaceId} />
+      </Section>
+      <Section title={t('settings.integrations.incomingWebhooks')}>
+        <IncomingWebhooks workspaceId={workspaceId} />
+      </Section>
       <LineageSection
         workspaceId={workspaceId}
         canManage={canManage}
@@ -308,14 +309,11 @@ function OfficeEditorSection() {
     description = t('settings.integrations.officeEditor.checking')
 
   return (
-    <SettingsBody className="gap-2 border-t border-border-subtle pb-4">
-      <div className="flex items-center justify-between gap-3">
-        <h2 className="text-section">
-          {t('settings.integrations.officeEditor.title')}
-        </h2>
+    <Section title={t('settings.integrations.officeEditor.title')}>
+      <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
         {data ? <Status tone={tone}>{label}</Status> : null}
+        <Muted>{description}</Muted>
       </div>
-      <Muted>{description}</Muted>
-    </SettingsBody>
+    </Section>
   )
 }

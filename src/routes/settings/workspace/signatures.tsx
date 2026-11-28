@@ -234,7 +234,10 @@ function PolicySection({
   })
 
   return (
-    <Section title={t('settings.signatures.workspacePolicy')}>
+    <Section
+      title={t('settings.signatures.workspacePolicy')}
+      description={`${t('settings.signatures.passwordReEntry2')} ${t('settings.signatures.signatureAlwaysRecords')}`}
+    >
       <div className="flex flex-col gap-2.5">
         {(['Authored', 'Witnessed', 'Reviewed', 'Approved'] as const).map(
           (m) => (
@@ -257,12 +260,6 @@ function PolicySection({
           ),
         )}
       </div>
-      <Muted className="mt-3">
-        {t('settings.signatures.passwordReEntry2')}
-      </Muted>
-      <Muted className="mt-2">
-        {t('settings.signatures.signatureAlwaysRecords')}
-      </Muted>
     </Section>
   )
 }

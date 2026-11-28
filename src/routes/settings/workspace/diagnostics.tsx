@@ -10,7 +10,7 @@ import { CopyButton } from '#/components/ui/copy-button'
 import { Status } from '#/components/ui/status'
 import type { Tone } from '#/components/ui/status'
 import { EmptyState } from '#/components/ui/empty-state'
-import { DescriptionList, Muted, Section } from '#/components/ui/layout'
+import { DescriptionList, Section } from '#/components/ui/layout'
 import { Skeleton } from '#/components/ui/skeleton'
 import { RegistryGrid } from '#/components/inventory/registry-grid'
 import type { RegistryColumn } from '#/components/inventory/registry-grid'
@@ -234,28 +234,24 @@ function Diagnostics() {
         </span>
       </SettingsHeader>
 
-      <Section
-        title={t('settings.diagnostics.systemChecks')}
-        className="px-4 pt-5 md:px-6"
-      >
-        <div
-          aria-busy={running || undefined}
-          className="rounded-md border border-border"
-        >
-          <ul className="m-0 list-none p-0">
-            {checks.map((c, i) => (
-              <CheckRow
-                key={c.key}
-                c={c}
-                running={running}
-                last={i === checks.length - 1}
-              />
-            ))}
-          </ul>
-        </div>
-      </Section>
-
-      <SettingsBody className="gap-6">
+      <SettingsBody>
+        <Section title={t('settings.diagnostics.systemChecks')} wide>
+          <div
+            aria-busy={running || undefined}
+            className="rounded-md border border-border"
+          >
+            <ul className="m-0 list-none p-0">
+              {checks.map((c, i) => (
+                <CheckRow
+                  key={c.key}
+                  c={c}
+                  running={running}
+                  last={i === checks.length - 1}
+                />
+              ))}
+            </ul>
+          </div>
+        </Section>
         <RecentFailures runs={runHealth.data?.failed ?? []} state={state} />
         <DeploymentDetails diagnostics={d} />
       </SettingsBody>
@@ -329,6 +325,12 @@ function RecentFailures({
     <Section
       title={t('settings.diagnostics.recentFailures')}
       count={failures.length}
+      wide
+      description={
+        failures.length
+          ? t('settings.diagnostics.failuresRecentPipeline')
+          : undefined
+      }
       action={
         <Link to="/settings/workspace/audit" className="text-label">
           {t('settings.diagnostics.auditLog')}
@@ -369,7 +371,6 @@ function RecentFailures({
               selectable={false}
             />
           </div>
-          <Muted>{t('settings.diagnostics.failuresRecentPipeline')}</Muted>
         </>
       ) : (
         <EmptyState
@@ -391,7 +392,14 @@ function DeploymentDetails({
   const help = useHelp()
 
   return (
-    <Section title={t('settings.diagnostics.release')}>
+    <Section
+      title={t('settings.diagnostics.release')}
+      description={
+        help?.release.validation.tone === 'ok'
+          ? t('settings.diagnostics.releasesUnderChangeControl')
+          : t('settings.diagnostics.releasesValidatedBefore')
+      }
+    >
       <div className="grid grid-cols-1 gap-x-8 gap-y-4 rounded-md border border-border p-4 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
         <DescriptionList
           labelWidth={130}
@@ -467,11 +475,6 @@ function DeploymentDetails({
           ]}
         />
       </div>
-      <Muted>
-        {help?.release.validation.tone === 'ok'
-          ? t('settings.diagnostics.releasesUnderChangeControl')
-          : t('settings.diagnostics.releasesValidatedBefore')}
-      </Muted>
     </Section>
   )
 }

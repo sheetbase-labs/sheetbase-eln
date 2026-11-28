@@ -178,9 +178,6 @@ function WorkflowList({
 
   return (
     <SettingsBody>
-      <p className="m-0 max-w-prose text-body text-fg-muted">
-        {t('settings.sampleWorkflows.intro')}
-      </p>
       {canManage ? (
         <div>
           <Button icon="plus" onClick={() => onOpen('new')}>

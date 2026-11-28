@@ -6,8 +6,9 @@ import { Button } from '#/components/ui/button'
 import { ConfirmPrompt } from '#/components/ui/confirm-prompt'
 import { Notice } from '#/components/ui/alert'
 import { Checkbox } from '#/components/ui/checkbox'
-import { Field, Input } from '#/components/ui/input'
-import { Muted } from '#/components/ui/layout'
+import { Field, FieldRow, Input } from '#/components/ui/input'
+import { Muted, Section } from '#/components/ui/layout'
+import { TableBox } from '#/components/ui/table'
 import { Status } from '#/components/ui/status'
 import {
   Dialog,
@@ -19,7 +20,6 @@ import {
 } from '#/components/ui/dialog'
 import { RegistryGrid } from '#/components/inventory/registry-grid'
 import type { RegistryColumn } from '#/components/inventory/registry-grid'
-import { SettingsBody } from '#/components/settings/settings-page'
 import { formatDate } from '#/lib/format-date'
 import { describeAdminError } from '#/lib/workspace-admin'
 import {
@@ -177,26 +177,27 @@ export function LineageSection({
 
   return (
     <>
-      <SettingsBody className="gap-1 border-t border-border-subtle pb-0">
-        <div className="flex items-center justify-between gap-3">
-          <h2 className="text-section">{t('settings.lineage.title')}</h2>
-          {canManage ? (
-            <Button icon="plus" onClick={() => setEditing('new')}>
+      <Section
+        title={t('settings.lineage.title')}
+        description={t('settings.lineage.description')}
+        action={
+          canManage ? (
+            <Button icon="plus" size="sm" onClick={() => setEditing('new')}>
               {t('settings.lineage.add')}
             </Button>
-          ) : null}
-        </div>
-        <Muted>{t('settings.lineage.description')}</Muted>
+          ) : undefined
+        }
+      >
         {notice ? (
           <Notice tone={notice.ok ? 'info' : 'bad'}>{notice.text}</Notice>
         ) : null}
-      </SettingsBody>
-      <LineageTargets
-        targets={targets}
-        columns={columns}
-        failed={settings.isError}
-        loading={settings.isLoading}
-      />
+        <LineageTargets
+          targets={targets}
+          columns={columns}
+          failed={settings.isError}
+          loading={settings.isLoading}
+        />
+      </Section>
       {settings.data ? (
         <RetentionField
           workspaceId={workspaceId}
@@ -246,17 +247,14 @@ function LineageTargets({
 }) {
   if (failed)
     return (
-      <p role="alert" className="px-4 py-3 text-label text-danger-text md:px-6">
+      <p role="alert" className="m-0 text-label text-danger-text">
         {t('settings.lineage.loadFailed')}
       </p>
     )
 
   if (targets.length)
     return (
-      <section
-        aria-label={t('settings.lineage.tableLabel')}
-        className="flex flex-col"
-      >
+      <TableBox role="region" aria-label={t('settings.lineage.tableLabel')}>
         <RegistryGrid
           label={t('settings.lineage.tableLabel')}
           rows={targets}
@@ -264,21 +262,14 @@ function LineageTargets({
           getRowId={(target) => target.id}
           selectable={false}
         />
-      </section>
+      </TableBox>
     )
 
   if (loading) {
-    return (
-      <LoadingBlock
-        label={t('settings.lineage.loading')}
-        className="px-4 py-3 md:px-6"
-      />
-    )
+    return <LoadingBlock label={t('settings.lineage.loading')} />
   }
 
-  return (
-    <Muted className="px-4 py-3 md:px-6">{t('settings.lineage.empty')}</Muted>
-  )
+  return <Muted>{t('settings.lineage.empty')}</Muted>
 }
 
 function LineageDeliveryStatus({ target }: { target: LineageTargetWire }) {
@@ -346,16 +337,17 @@ function RetentionField({
     Number(value) <= 3650
 
   return (
-    <SettingsBody className="gap-2 border-t border-border-subtle pb-4">
-      <h2 className="text-section">{t('settings.lineage.streamTitle')}</h2>
-      <Muted>{t('settings.lineage.streamDescription')}</Muted>
+    <Section
+      title={t('settings.lineage.streamTitle')}
+      description={t('settings.lineage.streamDescription')}
+    >
       {dataAccess ? (
         <Muted>
           {t('settings.lineage.streamAddress', { path: '/api/events/stream' })}
         </Muted>
       ) : null}
-      <div className="flex items-end gap-2">
-        <Field label={t('settings.lineage.streamDays')}>
+      <FieldRow>
+        <Field label={t('settings.lineage.streamDays')} className="w-28">
           <Input
             type="number"
             min={1}
@@ -373,11 +365,11 @@ function RetentionField({
             {t('settings.lineage.streamSave')}
           </Button>
         ) : null}
-      </div>
+      </FieldRow>
       {save.isError ? (
         <Notice tone="bad">{describeAdminError(save.error)}</Notice>
       ) : null}
-    </SettingsBody>
+    </Section>
   )
 }
 

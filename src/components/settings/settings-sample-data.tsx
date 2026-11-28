@@ -87,10 +87,10 @@ export function SettingsSampleData({ workspaceId }: { workspaceId: string }) {
   if (!status.data) return null
 
   return (
-    <Section title={t('settings.sampleData.title')}>
-      <p className="m-0 max-w-2xl text-body text-fg-muted">
-        {t('settings.sampleData.description')}
-      </p>
+    <Section
+      title={t('settings.sampleData.title')}
+      description={t('settings.sampleData.description')}
+    >
       {add.isError ? (
         <Notice tone="bad">{sampleDataErrorMessage(add.error)}</Notice>
       ) : null}
@@ -123,10 +123,10 @@ export function SettingsSampleData({ workspaceId }: { workspaceId: string }) {
  */
 export function SettingsLabSetup() {
   return (
-    <Section title={t('settings.labSetup.sectionTitle')}>
-      <p className="m-0 max-w-2xl text-body text-fg-muted">
-        {t('settings.labSetup.sectionHint')}
-      </p>
+    <Section
+      title={t('settings.labSetup.sectionTitle')}
+      description={t('settings.labSetup.sectionHint')}
+    >
       <div>
         <a
           href="/?setup=1"

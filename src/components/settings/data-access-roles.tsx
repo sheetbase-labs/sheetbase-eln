@@ -68,8 +68,10 @@ export function DataAccessRoles({
   }
 
   return (
-    <Section title={t('settings.dataAccessRoles.dataAccess')}>
-      <Muted>{t('settings.dataAccessRoles.membersRolesSee')}</Muted>
+    <Section
+      title={t('settings.dataAccessRoles.dataAccess')}
+      description={t('settings.dataAccessRoles.membersRolesSee')}
+    >
       <fieldset
         className="m-0 grid gap-x-6 gap-y-2 border-0 p-0 sm:grid-cols-2 lg:grid-cols-4"
         disabled={!canManage || query.isPending || save.isPending}

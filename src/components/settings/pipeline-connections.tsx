@@ -25,12 +25,12 @@ import {
 import { Notice } from '#/components/ui/alert'
 import { Field, Input } from '#/components/ui/input'
 import { Select } from '#/components/ui/select'
-import { Muted } from '#/components/ui/layout'
+import { Muted, Section } from '#/components/ui/layout'
+import { TableBox } from '#/components/ui/table'
 import { Status } from '#/components/ui/status'
 import { Icon } from '#/components/icons'
 import { RegistryGrid } from '#/components/inventory/registry-grid'
 import type { RegistryColumn } from '#/components/inventory/registry-grid'
-import { SettingsBody } from '#/components/settings/settings-page'
 import { createDataClient } from '#/lib/data-client'
 import {
   deletePipelineConnectionSecretFn,
@@ -180,41 +180,36 @@ export function PipelineConnections({
 
   return (
     <>
-      <SettingsBody className="gap-3 border-t border-border-subtle pb-0">
-        <div className="flex items-center justify-between gap-3">
-          <h2 className="text-section">
-            {t('features.pipelineConnections.settings.title')}
-          </h2>
-          {canManage ? (
-            <Button icon="plus" onClick={() => setEditing('new')}>
+      <Section
+        title={t('features.pipelineConnections.settings.title')}
+        description={t('features.pipelineConnections.settings.hint')}
+        action={
+          canManage ? (
+            <Button icon="plus" size="sm" onClick={() => setEditing('new')}>
               {t('features.pipelineConnections.settings.add')}
             </Button>
-          ) : null}
-        </div>
-        <Muted>{t('features.pipelineConnections.settings.hint')}</Muted>
-      </SettingsBody>
-      {rows.length ? (
-        <div className="min-h-0 shrink-0">
-          <RegistryGrid
-            label={t('features.pipelineConnections.settings.title')}
-            rows={rows}
-            columns={columns}
-            getRowId={(row) => row.id}
-            selectable={false}
-          />
-        </div>
-      ) : (
-        <SettingsBody className="pt-0 pb-4">
-          {query.isLoading ? (
-            <LoadingBlock
-              label={t('features.pipelineConnections.settings.loading')}
-              rows={2}
+          ) : undefined
+        }
+      >
+        {rows.length ? (
+          <TableBox>
+            <RegistryGrid
+              label={t('features.pipelineConnections.settings.title')}
+              rows={rows}
+              columns={columns}
+              getRowId={(row) => row.id}
+              selectable={false}
             />
-          ) : (
-            <Muted>{t('features.pipelineConnections.settings.none')}</Muted>
-          )}
-        </SettingsBody>
-      )}
+          </TableBox>
+        ) : query.isLoading ? (
+          <LoadingBlock
+            label={t('features.pipelineConnections.settings.loading')}
+            rows={2}
+          />
+        ) : (
+          <Muted>{t('features.pipelineConnections.settings.none')}</Muted>
+        )}
+      </Section>
       {live ? (
         <ConnectionDialog
           key={live === 'new' ? 'new' : live.id}

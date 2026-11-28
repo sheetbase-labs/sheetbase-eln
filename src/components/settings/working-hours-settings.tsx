@@ -98,10 +98,10 @@ export function WorkingHoursSettings({
   })
 
   return (
-    <Section title={t('automation.schedule.hours.title')}>
-      <p className="m-0 text-label text-fg-muted">
-        {t('automation.schedule.hours.hint')}
-      </p>
+    <Section
+      title={t('automation.schedule.hours.title')}
+      description={t('automation.schedule.hours.hint')}
+    >
       <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_120px_120px]">
         <Field label={t('automation.schedule.hours.timezone')}>
           <Input

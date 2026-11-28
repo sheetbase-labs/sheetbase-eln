@@ -201,8 +201,11 @@ function Away() {
         {t('people.away.intro')}
       </SettingsHeader>
       <SettingsBody>
-        <Section title={t('people.away.save')}>
-          <div className="flex flex-wrap items-end gap-3">
+        <Section
+          title={t('people.away.save')}
+          description={t('people.away.datesHint')}
+        >
+          <div className="grid gap-3 sm:grid-cols-[repeat(3,minmax(0,1fr))]">
             <Field label={t('people.away.from')}>
               <Input
                 type="date"
@@ -233,10 +236,7 @@ function Away() {
                 ))}
               </SearchableSelect>
             </Field>
-            <Field
-              label={t('people.away.note')}
-              className="min-w-[240px] flex-1"
-            >
+            <Field label={t('people.away.note')} className="sm:col-span-3">
               <Input
                 value={note}
                 maxLength={500}
@@ -244,6 +244,8 @@ function Away() {
                 onChange={(e) => setNote(e.target.value)}
               />
             </Field>
+          </div>
+          <div>
             <Button
               variant="primary"
               disabled={!ready || save.isPending}
@@ -254,9 +256,7 @@ function Away() {
           </div>
           {save.isError ? (
             <Notice tone="bad">{describeAdminError(save.error)}</Notice>
-          ) : (
-            <Muted>{t('people.away.datesHint')}</Muted>
-          )}
+          ) : null}
         </Section>
 
         <Section title={t('people.away.tableLabel')}>
@@ -295,13 +295,13 @@ function Away() {
 
         <Section
           title={t('people.away.handOverTitle')}
-          action={
+          description={t('people.away.handOverBody')}
+        >
+          <div>
             <Button onClick={() => setHandingOver(true)}>
               {t('people.away.handOverAction')}
             </Button>
-          }
-        >
-          <Muted>{t('people.away.handOverBody')}</Muted>
+          </div>
         </Section>
       </SettingsBody>
       {handingOver ? (

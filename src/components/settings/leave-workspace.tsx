@@ -55,10 +55,12 @@ export function LeaveWorkspace({
   const blocked = otherWorkspaces === 0
 
   return (
-    <Section title={t('account.leave.title')}>
-      <p className="m-0 max-w-2xl text-body text-fg-muted">
-        {t('account.leave.description', { workspace: workspaceName })}
-      </p>
+    <Section
+      title={t('account.leave.title')}
+      description={t('account.leave.description', {
+        workspace: workspaceName,
+      })}
+    >
       {blocked ? (
         <Notice tone="info">{t('account.leave.onlyWorkspace')}</Notice>
       ) : null}

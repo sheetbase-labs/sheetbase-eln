@@ -22,7 +22,7 @@ import {
   DialogHeader,
 } from '#/components/ui/dialog'
 import { Field, Input } from '#/components/ui/input'
-import { Muted } from '#/components/ui/layout'
+import { Muted, Section } from '#/components/ui/layout'
 import { Status } from '#/components/ui/status'
 import { toast } from '#/components/ui/sonner'
 import { TableBox } from '#/components/ui/table'
@@ -237,15 +237,11 @@ export function RetentionPanel({
     <SettingsBody>
       {!canManage ? <Notice>{t('quality.retention.viewOnly')}</Notice> : null}
 
-      <section className="flex flex-col gap-3">
-        <div className="flex flex-col gap-1">
-          <h2 className="m-0 text-body font-semibold">
-            {t('quality.retention.rules.title')}
-          </h2>
-          <p className="m-0 max-w-prose text-label text-fg-muted">
-            {t('quality.retention.rules.intro')}
-          </p>
-        </div>
+      <Section
+        title={t('quality.retention.rules.title')}
+        description={t('quality.retention.rules.intro')}
+        wide
+      >
         <RetentionRulesTable
           models={models}
           rules={ruleOf}
@@ -253,15 +249,15 @@ export function RetentionPanel({
           canManage={canManage}
           onEdit={setEditing}
         />
-      </section>
+      </Section>
 
-      <section className="flex flex-col gap-3">
-        <div className="flex flex-wrap items-center justify-between gap-2">
-          <h2 className="m-0 text-body font-semibold">
-            {t('quality.retention.due.title')}
-          </h2>
-          {canManage && dueRows.length > 0 ? (
+      <Section
+        title={t('quality.retention.due.title')}
+        wide
+        action={
+          canManage && dueRows.length > 0 ? (
             <Button
+              size="sm"
               disabled={archive.isPending}
               onClick={() => setConfirmingArchive(true)}
             >
@@ -269,8 +265,9 @@ export function RetentionPanel({
                 ? t('quality.retention.due.archiving')
                 : t('quality.retention.due.archive', { count: dueRows.length })}
             </Button>
-          ) : null}
-        </div>
+          ) : undefined
+        }
+      >
         {dueRows.length === 0 ? (
           <Muted>{t('quality.retention.due.empty')}</Muted>
         ) : (
@@ -284,24 +281,20 @@ export function RetentionPanel({
             />
           </TableBox>
         )}
-      </section>
+      </Section>
 
-      <section className="flex flex-col gap-3">
-        <div className="flex flex-wrap items-end justify-between gap-2">
-          <div className="flex flex-col gap-1">
-            <h2 className="m-0 text-body font-semibold">
-              {t('quality.retention.holds.title')}
-            </h2>
-            <p className="m-0 max-w-prose text-label text-fg-muted">
-              {t('quality.retention.holds.intro')}
-            </p>
-          </div>
-          {canManage ? (
-            <Button icon="plus" onClick={() => setPlacing(true)}>
+      <Section
+        title={t('quality.retention.holds.title')}
+        description={t('quality.retention.holds.intro')}
+        wide
+        action={
+          canManage ? (
+            <Button icon="plus" size="sm" onClick={() => setPlacing(true)}>
               {t('quality.retention.holds.add')}
             </Button>
-          ) : null}
-        </div>
+          ) : undefined
+        }
+      >
         <LegalHoldsTable
           holds={holds}
           counts={counts}
@@ -310,7 +303,7 @@ export function RetentionPanel({
           modelName={modelName}
           projectName={projectName}
         />
-      </section>
+      </Section>
 
       {editing ? (
         <RuleDialog

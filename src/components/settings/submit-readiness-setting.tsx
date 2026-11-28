@@ -81,10 +81,10 @@ export function SubmitReadinessSetting({
   })
 
   return (
-    <Section title={t('features.submitReadiness.setting.title')}>
-      <p className="m-0 max-w-2xl text-body text-fg-muted">
-        {t('features.submitReadiness.setting.body')}
-      </p>
+    <Section
+      title={t('features.submitReadiness.setting.title')}
+      description={t('features.submitReadiness.setting.body')}
+    >
       <GateModeField
         label={t('features.submitReadiness.setting.label')}
         options={OPTIONS}

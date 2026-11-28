@@ -77,10 +77,10 @@ export function LabLogoSettings({ canEdit = true }: { canEdit?: boolean }) {
   }
 
   return (
-    <Section title={t('account.logo.title')}>
-      <p className="m-0 max-w-2xl text-body text-fg-muted">
-        {t('account.logo.description')}
-      </p>
+    <Section
+      title={t('account.logo.title')}
+      description={t('account.logo.description')}
+    >
       {error ? <Notice tone="bad">{error}</Notice> : null}
       <div className="flex flex-wrap items-center gap-4">
         <div className="flex h-16 min-w-32 items-center justify-center rounded-md border border-border bg-surface-muted px-3">

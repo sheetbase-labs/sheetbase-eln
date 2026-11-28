@@ -432,22 +432,24 @@ function ParserCatalogue({
           ? t('settings.parserSettings.parsers', { name: shownInstrument.name })
           : t('settings.parserSettings.parsersAll')
       }
-      count={
-        <span className="inline-flex items-center gap-2">
-          {shownInstrument ? (
-            <Button size="sm" variant="quiet" onClick={onClear}>
-              {t('settings.parserSettings.showParsers')}
-            </Button>
-          ) : null}
-          {canEdit ? (
-            <Button size="sm" onClick={onAdd}>
-              {t('settings.webhookParserDialog.addParser')}
-            </Button>
-          ) : null}
-        </span>
+      description={t('settings.parserSettings.eachParserTested')}
+      action={
+        shownInstrument || canEdit ? (
+          <>
+            {canEdit ? (
+              <Button size="sm" onClick={onAdd}>
+                {t('settings.webhookParserDialog.addParser')}
+              </Button>
+            ) : null}
+            {shownInstrument ? (
+              <Button size="sm" variant="quiet" onClick={onClear}>
+                {t('settings.parserSettings.showParsers')}
+              </Button>
+            ) : null}
+          </>
+        ) : undefined
       }
     >
-      <Muted>{t('settings.parserSettings.eachParserTested')}</Muted>
       {loading ? (
         <Muted>{t('settings.parserSettings.loadingParsers')}</Muted>
       ) : (
@@ -757,8 +759,10 @@ function ParserDraftEditor({
   onCreate: () => void
 }) {
   return (
-    <Section title={t('settings.parserSettings.createDraft')}>
-      <Muted>{t('settings.parserSettings.newNameMakes')}</Muted>
+    <Section
+      title={t('settings.parserSettings.createDraft')}
+      description={t('settings.parserSettings.newNameMakes')}
+    >
       <form
         className="grid gap-3 md:grid-cols-2"
         onSubmit={(e) => {

@@ -313,26 +313,23 @@ export function SettingsGeneral({
               </Select>
             </Field>
           </div>
-
-          <div className="mt-4 flex flex-col gap-6 border-t border-border-subtle pt-6">
-            <RecordIdPrefixes
-              prefixes={form.idPrefixes}
-              counters={counters.data}
-              onChange={(kind, prefix) =>
-                setForm((current) => ({
-                  ...current,
-                  idPrefixes: { ...current.idPrefixes, [kind]: prefix },
-                }))
-              }
-            />
-
-            <WorkspacePolicies
-              form={form}
-              setForm={setForm}
-              disabled={controlsDisabled}
-            />
-          </div>
         </Section>
+        <RecordIdPrefixes
+          prefixes={form.idPrefixes}
+          counters={counters.data}
+          onChange={(kind, prefix) =>
+            setForm((current) => ({
+              ...current,
+              idPrefixes: { ...current.idPrefixes, [kind]: prefix },
+            }))
+          }
+        />
+
+        <WorkspacePolicies
+          form={form}
+          setForm={setForm}
+          disabled={controlsDisabled}
+        />
         <LabLogoSettings />
         <WorkingHoursSettings workspaceId={workspaceId} />
         <SettingsLabSetup />
@@ -417,13 +414,10 @@ function RecordIdPrefixes({
   )
 
   return (
-    <div className="flex flex-col gap-2">
-      <div>
-        <h2 className="text-section">{t('settings.general.recordIds')}</h2>
-        <p className="m-0 text-label text-fg-muted">
-          {t('settings.general.prefixEachRecord')}
-        </p>
-      </div>
+    <Section
+      title={t('settings.general.recordIds')}
+      description={t('settings.general.prefixEachRecord')}
+    >
       <TableBox>
         <RegistryGrid
           label={t('settings.general.recordIds')}
@@ -434,7 +428,7 @@ function RecordIdPrefixes({
           sortable={false}
         />
       </TableBox>
-    </div>
+    </Section>
   )
 }
 
@@ -449,10 +443,7 @@ function WorkspacePolicies({
 }) {
   return (
     <>
-      <div className="flex flex-col gap-2">
-        <h2 className="text-section">
-          {t('settings.general.publicationApproval')}
-        </h2>
+      <Section title={t('settings.general.publicationApproval')}>
         <CheckRow
           title={t('settings.general.requireApprovalBefore')}
           body={t('settings.general.whenEnabledCurrent2')}
@@ -465,10 +456,9 @@ function WorkspacePolicies({
             }))
           }
         />
-      </div>
+      </Section>
 
-      <div className="flex flex-col gap-2">
-        <h2 className="text-section">{t('settings.general.regulatedLab')}</h2>
+      <Section title={t('settings.general.regulatedLab')}>
         <CheckRow
           title={t('settings.general.regulatedLabTitle')}
           body={t('settings.general.regulatedLabHint')}
@@ -478,10 +468,9 @@ function WorkspacePolicies({
             setForm((current) => ({ ...current, regulatedLab: checked }))
           }
         />
-      </div>
+      </Section>
 
-      <div className="flex flex-col gap-2">
-        <h2 className="text-section">{t('quality.general.title')}</h2>
+      <Section title={t('quality.general.title')}>
         <CheckRow
           title={t('quality.general.limitsTitle')}
           body={t('quality.general.limitsHint')}
@@ -506,10 +495,9 @@ function WorkspacePolicies({
             }))
           }
         />
-      </div>
+      </Section>
 
-      <div className="flex flex-col gap-2">
-        <h2 className="text-section">{t('settings.general.editingRules')}</h2>
+      <Section title={t('settings.general.editingRules')}>
         <CheckRow
           title={t('settings.general.everySignedRecord')}
           body={t('settings.general.everySignedRecordHint')}
@@ -543,7 +531,7 @@ function WorkspacePolicies({
             }))
           }
         />
-      </div>
+      </Section>
     </>
   )
 }

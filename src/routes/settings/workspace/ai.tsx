@@ -242,7 +242,9 @@ function WorkspaceAiSettingsForm({ workspaceId }: { workspaceId: string }) {
 
   return (
     <>
-      <SettingsHeader title={t('settings.ai.ai')} />
+      <SettingsHeader title={t('settings.ai.ai')}>
+        {settings ? <AiSettingsChanged settings={settings} /> : null}
+      </SettingsHeader>
 
       <SettingsBody data-testid="ai-settings">
         {query.isPending ? (
@@ -290,8 +292,10 @@ function WorkspaceAiSettingsForm({ workspaceId }: { workspaceId: string }) {
               onChange={(patch) => void commit(patch)}
             />
 
-            <Section title={t('settings.ai.agentAccess')}>
-              <Muted>{t('settings.ai.connectedCodingAgents')}</Muted>
+            <Section
+              title={t('settings.ai.agentAccess')}
+              description={t('settings.ai.connectedCodingAgents')}
+            >
               <Muted>
                 {t('settings.ai.createScopedToken2')}{' '}
                 <Link
@@ -319,8 +323,6 @@ function WorkspaceAiSettingsForm({ workspaceId }: { workspaceId: string }) {
               canManage={canManage}
               aiOn={settings.enabled}
             />
-
-            <AiSettingsChanged settings={settings} />
           </>
         ) : null}
       </SettingsBody>
@@ -437,13 +439,13 @@ function AiSettingsChanged({
   settings: WorkspaceAiSettings | undefined
 }) {
   return (
-    <Muted>
-      {t('settings.ai.lastChanged')}
+    <>
+      {t('settings.ai.lastChanged')}{' '}
       {settings?.updatedAt
         ? formatDate(settings.updatedAt, { time: true })
         : 'at workspace creation'}
       {settings?.updatedByUserId ? ' by a workspace owner' : ''}.
-    </Muted>
+    </>
   )
 }
 

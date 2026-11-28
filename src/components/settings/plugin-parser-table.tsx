@@ -1,4 +1,4 @@
-import { Muted, Section } from '#/components/ui/layout'
+import { Section } from '#/components/ui/layout'
 import { TableBox } from '#/components/ui/table'
 import { RegistryGrid } from '#/components/inventory/registry-grid'
 import type { RegistryColumn } from '#/components/inventory/registry-grid'
@@ -71,8 +71,10 @@ export function PluginParserList({ parsers }: { parsers: PluginParser[] }) {
   ]
 
   return (
-    <Section title={t('plugins.parsers.title')}>
-      <Muted>{t('plugins.parsers.hint')}</Muted>
+    <Section
+      title={t('plugins.parsers.title')}
+      description={t('plugins.parsers.hint')}
+    >
       <TableBox>
         <RegistryGrid
           label={t('plugins.parsers.title')}

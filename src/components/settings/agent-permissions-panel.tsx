@@ -159,6 +159,7 @@ function ActionsTable({
           return (
             <Select
               size="sm"
+              className="w-40"
               aria-label={`${entry.label}: ${t('agents.permissions.level')}`}
               value={level}
               disabled={!canManage}
@@ -422,8 +423,10 @@ export const AgentPermissionsPanel = memo(function AgentPermissionsPanel({
   ]
 
   return (
-    <Section title={t('agents.permissions.title')}>
-      <Muted>{t('agents.permissions.intro')}</Muted>
+    <Section
+      title={t('agents.permissions.title')}
+      description={t('agents.permissions.intro')}
+    >
       {!canManage ? <Notice>{t('agents.permissions.viewOnly')}</Notice> : null}
       {policies.error ? (
         <Notice tone="bad">{t('agents.permissions.loadError')}</Notice>
@@ -437,38 +440,36 @@ export const AgentPermissionsPanel = memo(function AgentPermissionsPanel({
             onChange={(actionKey, level) => save.mutate({ actionKey, level })}
           />
 
-          <div className="flex flex-wrap items-end justify-between gap-2">
-            <div className="flex flex-col gap-1">
-              <h3 className="m-0 text-body font-semibold">
-                {t('agents.permissions.exceptionsTitle')}
-              </h3>
-              <Muted>{t('agents.permissions.exceptionsIntro')}</Muted>
-            </div>
-            {canManage ? (
-              <Button icon="plus" onClick={() => setAdding(true)}>
-                {t('agents.permissions.exceptionAdd')}
-              </Button>
-            ) : null}
-          </div>
-          {exceptions.length === 0 ? (
-            <Muted>{t('agents.permissions.exceptionNone')}</Muted>
-          ) : (
-            <TableBox>
-              <RegistryGrid
-                label={t('agents.permissions.exceptionsTitle')}
-                rows={exceptions}
-                columns={exceptionColumns}
-                getRowId={(row) => row.id}
-                selectable={false}
-              />
-            </TableBox>
-          )}
+          <Section
+            title={t('agents.permissions.exceptionsTitle')}
+            description={t('agents.permissions.exceptionsIntro')}
+            action={
+              canManage ? (
+                <Button icon="plus" size="sm" onClick={() => setAdding(true)}>
+                  {t('agents.permissions.exceptionAdd')}
+                </Button>
+              ) : undefined
+            }
+          >
+            {exceptions.length === 0 ? (
+              <Muted>{t('agents.permissions.exceptionNone')}</Muted>
+            ) : (
+              <TableBox>
+                <RegistryGrid
+                  label={t('agents.permissions.exceptionsTitle')}
+                  rows={exceptions}
+                  columns={exceptionColumns}
+                  getRowId={(row) => row.id}
+                  selectable={false}
+                />
+              </TableBox>
+            )}
+          </Section>
 
-          <div className="flex flex-col gap-1">
-            <h3 className="m-0 text-body font-semibold">
-              {t('agents.permissions.alwaysOffTitle')}
-            </h3>
-            <Muted>{t('agents.permissions.alwaysOffIntro')}</Muted>
+          <Section
+            title={t('agents.permissions.alwaysOffTitle')}
+            description={t('agents.permissions.alwaysOffIntro')}
+          >
             <ul className="m-0 flex list-none flex-col gap-1 p-0 text-body">
               {AGENT_ACTIONS_ALWAYS_OFF.map((item) => (
                 <li key={item.label}>
@@ -477,7 +478,7 @@ export const AgentPermissionsPanel = memo(function AgentPermissionsPanel({
                 </li>
               ))}
             </ul>
-          </div>
+          </Section>
         </>
       )}
 

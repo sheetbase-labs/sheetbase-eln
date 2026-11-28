@@ -33,6 +33,18 @@ vi.mock('#/components/protocols/protocol-training-roster', () => ({
   ProtocolTrainingRoster: () => null,
 }))
 
+// oxlint-disable-next-line anti-slop/no-module-mocking -- The side panel's version sections read approvals and training through their own suite's reads; the protocol header is this suite's subject.
+vi.mock('#/components/protocols/protocol-inspector', () => ({
+  ProtocolVersionSections: () => null,
+}))
+
+// oxlint-disable-next-line anti-slop/no-module-mocking -- Links and recent activity read the related-work and timeline RPCs, which have suites of their own.
+vi.mock('#/components/record-page/record-side-panel', () => ({
+  RecordLinks: () => null,
+  RecordActivity: () => null,
+  RecordHistoryTab: () => null,
+}))
+
 // oxlint-disable-next-line anti-slop/no-module-mocking -- The document panel renders the protocol body from its own reads; the protocol header is this suite's subject.
 vi.mock('#/components/protocols/protocol-document', () => ({
   ProtocolDocument: () => null,
@@ -134,6 +146,14 @@ describe('protocol header', () => {
   it('offers a new experiment from the effective version', async () => {
     renderScreen()
     expect(await screen.findByText('New experiment from this')).toBeTruthy()
+  })
+
+  it('says the effective version once and ends the tabs on History', async () => {
+    renderScreen()
+    expect(await screen.findByText('Effective v3')).toBeTruthy()
+    expect(screen.getAllByText('Effective v3')).toHaveLength(1)
+    const links = screen.getByRole('navigation', { name: 'Protocol sections' })
+    expect([...links.querySelectorAll('a')].at(-1)?.textContent).toBe('History')
   })
 })
 

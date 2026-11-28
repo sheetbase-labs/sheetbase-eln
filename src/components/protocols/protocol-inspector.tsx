@@ -18,7 +18,26 @@ import {
  * protocol version; the reading lives in `protocol-inspector-data.ts` and the
  * three lists in `protocol-inspector-sections.tsx`.
  */
-export function ProtocolInspector({
+export function ProtocolInspector(props: {
+  protocolId: string
+  version: ProtocolVersion | undefined
+  versions: ProtocolVersion[]
+}) {
+  return (
+    <Inspector
+      label={t('library.protocols.protocolInspector.protocolVersion')}
+      width={290}
+    >
+      <ProtocolVersionSections {...props} />
+    </Inspector>
+  )
+}
+
+/**
+ * The panel's sections without its frame, for the shared record page's side
+ * panel: approvals, what changed, the added fields, training and use.
+ */
+export function ProtocolVersionSections({
   protocolId,
   version,
   versions,
@@ -40,10 +59,7 @@ export function ProtocolInspector({
   } = useProtocolInspectorData({ protocolId, version, versions })
 
   return (
-    <Inspector
-      label={t('library.protocols.protocolInspector.protocolVersion')}
-      width={290}
-    >
+    <>
       <ProtocolApprovalTrail
         trail={trail}
         version={version}
@@ -79,6 +95,6 @@ export function ProtocolInspector({
         onOthers={onOthers}
         otherVersion={otherVersion}
       />
-    </Inspector>
+    </>
   )
 }

@@ -5,7 +5,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 
 import { ProtocolDocument } from '#/components/protocols/protocol-document'
 import { ProtocolHazards } from '#/components/protocols/protocol-hazards'
-import { ProtocolInspector } from '#/components/protocols/protocol-inspector'
+import { ProtocolVersionSections } from '#/components/protocols/protocol-inspector'
 import {
   ProtocolVersionsPanel,
   protocolVersionsKey,
@@ -13,12 +13,22 @@ import {
 import { ProtocolTrainingRoster } from '#/components/protocols/protocol-training-roster'
 import { ProtocolVersionTraining } from '#/components/protocols/protocol-version-training'
 import { ObjectLink } from '#/components/ui/object-link'
-import { Tabs } from '#/components/ui/tabs'
+import type { TabsProps } from '#/components/ui/tabs'
+import {
+  DropdownMenuItem,
+  DropdownMenuLinkItem,
+} from '#/components/ui/dropdown-menu'
+import { RecordPage } from '#/components/record-page/record-page'
+import type { RecordFact } from '#/components/record-page/record-page'
+import { RecordStateLine } from '#/components/record-page/record-state-line'
+import {
+  RecordActivity,
+  RecordHistoryTab,
+  RecordLinks,
+} from '#/components/record-page/record-side-panel'
 import { PageHeader, Muted, Section } from '#/components/ui/layout'
-import { Status } from '#/components/ui/status'
 import { EmptyState } from '#/components/ui/empty-state'
 import { FavouriteToggle } from '#/components/favourites/favourite-toggle'
-import { FollowToggle } from '#/components/follow/follow-toggle'
 import { Button } from '#/components/ui/button'
 import { useRecentViewTracking } from '#/lib/recents'
 import { Select } from '#/components/ui/select'
@@ -52,7 +62,14 @@ import { signInRedirect } from '#/lib/sign-in-redirect'
 import { t } from '#/copy'
 import { formatDate } from '#/lib/format-date'
 
-const tabs = ['document', 'template', 'usedby', 'versions', 'training'] as const
+const tabs = [
+  'document',
+  'template',
+  'usedby',
+  'versions',
+  'training',
+  'history',
+] as const
 
 type ProtocolTab = (typeof tabs)[number]
 
@@ -97,145 +114,215 @@ type ProtocolSnapshotBlock = NonNullable<
 >['block_snapshot'][number]
 
 /** The protocol's sections, with how many things each one holds. */
-function ProtocolSectionTabs({
-  tab,
-  counts,
-}: {
-  tab: ProtocolTab
-  counts: { blocks: number; links: number; versions: number }
-}): React.ReactElement {
+function protocolTabs(
+  tab: ProtocolTab,
+  counts: { blocks: number; links: number; versions: number },
+): TabsProps {
   const items: [ProtocolTab, string, number | undefined][] = [
     ['document', t('library.protocols.detail.document'), undefined],
     ['template', t('library.protocols.detail.template'), counts.blocks],
     ['usedby', t('library.protocols.detail.usedBy'), counts.links],
     ['versions', t('library.protocols.detail.versions'), counts.versions],
     ['training', t('library.protocols.detail.training'), undefined],
+    ['history', t('notebook.recordPage.history'), undefined],
   ]
 
+  return {
+    mode: 'url',
+    label: t('library.protocols.detail.protocolSections'),
+    value: tab,
+    items: items.map(([key, label, count]) => ({
+      key,
+      label,
+      count,
+      end: key === 'history',
+      link: {
+        search: { section: key === 'document' ? undefined : key },
+      },
+    })),
+  }
+}
+
+/** Since, review due, owner and last change: what a reader checks first. */
+function protocolFacts(
+  protocol: ProtocolRecord,
+  effectiveVersion: ProtocolVersion | undefined,
+  ownerLabel: string,
+): RecordFact[] {
+  return [
+    ...(effectiveVersion?.effective_at
+      ? [
+          {
+            label: t('library.protocols.detail.since'),
+            value: formatDate(effectiveVersion.effective_at),
+          },
+        ]
+      : []),
+    ...(effectiveVersion?.review_due_at
+      ? [
+          {
+            label: t('library.protocols.detail.reviewDueFact'),
+            value: formatDate(effectiveVersion.review_due_at),
+          },
+        ]
+      : []),
+    { label: t('library.protocols.detail.ownerFact'), value: ownerLabel },
+    {
+      label: t('library.protocols.detail.updatedFact'),
+      value: formatDate(protocol.updatedAt),
+    },
+  ]
+}
+
+/**
+ * The protocol's one state line: a review that is overdue, a version waiting
+ * in review, or no effective version to start an experiment from.
+ */
+function ProtocolStateLine({
+  protocolId,
+  versions,
+  effectiveVersion,
+}: {
+  protocolId: string
+  versions: ProtocolVersion[]
+  effectiveVersion: ProtocolVersion | undefined
+}): React.ReactElement | null {
+  const inReview = versions.find((v) => v.status === 'in_review')
+
+  const versionsLink = (
+    <Link
+      to="/protocols/$protocolId"
+      params={{ protocolId }}
+      search={{ section: 'versions' }}
+      className="text-link"
+    >
+      {t('library.protocols.detail.openVersions')}
+    </Link>
+  )
+
+  if (
+    effectiveVersion?.review_due_at &&
+    Date.parse(effectiveVersion.review_due_at) < Date.now()
+  ) {
+    return (
+      <RecordStateLine tone="warn" action={versionsLink}>
+        {t('library.protocols.detail.reviewOverdue', {
+          version: effectiveVersion.version,
+          reviewDueAt: formatDate(effectiveVersion.review_due_at),
+        })}
+      </RecordStateLine>
+    )
+  }
+
+  if (inReview) {
+    return (
+      <RecordStateLine tone="review" action={versionsLink}>
+        {t('library.protocols.detail.versionInReview', {
+          version: inReview.version,
+        })}
+      </RecordStateLine>
+    )
+  }
+
+  if (!effectiveVersion) {
+    return (
+      <RecordStateLine tone="info" action={versionsLink}>
+        {t('library.protocols.detail.noEffectiveLine')}
+      </RecordStateLine>
+    )
+  }
+
+  return null
+}
+
+/** New experiment when a version is effective; otherwise the working draft. */
+function ProtocolActions({
+  protocol,
+  effectiveVersion,
+}: {
+  protocol: ProtocolRecord
+  effectiveVersion: ProtocolVersion | undefined
+}): React.ReactElement {
   return (
-    <Tabs
-      mode="url"
-      label={t('library.protocols.detail.protocolSections')}
-      value={tab}
-      items={items.map(([key, label, count]) => ({
-        key,
-        label,
-        count,
-        link: {
-          search: { section: key === 'document' ? undefined : key },
-        },
-      }))}
-    />
+    <>
+      <FavouriteToggle kind="record" objectId={protocol.id} />
+      {effectiveVersion ? (
+        <Button
+          variant="primary"
+          nativeButton={false}
+          render={
+            <Link
+              to="/experiments/new"
+              search={{
+                protocol: protocol.id,
+                returnTo: `/protocols/${encodeURIComponent(protocol.id)}`,
+              }}
+            />
+          }
+        >
+          {t('library.protocols.detail.newExperimentFromThis')}
+        </Button>
+      ) : (
+        <Button
+          variant="primary"
+          nativeButton={false}
+          render={
+            <Link
+              to="/records/$recordId/notebook"
+              params={{ recordId: protocol.id }}
+            />
+          }
+        >
+          {t('library.protocols.detail.openWorkingDocument')}
+        </Button>
+      )}
+    </>
   )
 }
 
-/** What this protocol is, how it stands, and what can be done with it. */
-function ProtocolHeader({
+function ProtocolMoreItems({
   protocol,
-  status,
   effectiveVersion,
-  ownerLabel,
-  tab,
-  counts,
 }: {
   protocol: ProtocolRecord
-  status: ProtocolStatus
   effectiveVersion: ProtocolVersion | undefined
-  ownerLabel: string
-  tab: ProtocolTab
-  counts: { blocks: number; links: number; versions: number }
 }): React.ReactElement {
   return (
-    <PageHeader
-      trail={[
-        {
-          label: t('library.protocols.detail.protocols'),
-          link: { to: '/protocols' },
-        },
-        { label: protocol.identifier, mono: true },
-      ]}
-      title={protocol.title}
-      actions={
-        <>
-          <FavouriteToggle kind="record" objectId={protocol.id} />
-          <FollowToggle kind="record" objectId={protocol.id} />
-          <Button onClick={() => window.print()}>
-            {t('library.protocols.detail.exportPdf')}
-          </Button>
-          <Button
-            nativeButton={false}
-            render={
-              <Link
-                to="/records/$recordId/notebook"
-                params={{ recordId: protocol.id }}
-              />
-            }
-          >
-            {t('library.protocols.detail.openWorkingDocument')}
-          </Button>
-          {effectiveVersion ? (
-            <Button
-              variant="primary"
-              nativeButton={false}
-              render={
-                <Link
-                  to="/experiments/new"
-                  search={{
-                    protocol: protocol.id,
-                    returnTo: `/protocols/${encodeURIComponent(protocol.id)}`,
-                  }}
-                />
-              }
-            >
-              {t('library.protocols.detail.newExperimentFromThis')}
-            </Button>
-          ) : null}
-        </>
-      }
-      meta={
-        <>
-          <span className="text-fg">
-            <Status tone={status.tone}>{status.label}</Status>
-          </span>
-          <span>
-            {effectiveVersion
-              ? t('library.protocols.detail.effectiveV', {
-                  version: effectiveVersion.version,
-                })
-              : t('library.protocols.detail.noEffectiveVersion')}
-          </span>
-          {effectiveVersion?.effective_at ? (
-            <span className="max-lg:hidden">
-              {t('library.protocols.detail.effectiveSince', {
-                effectiveAt: formatDate(effectiveVersion.effective_at),
-              })}
-            </span>
-          ) : null}
-          {effectiveVersion?.review_due_at ? (
-            <span className="max-lg:hidden">
-              {t('library.protocols.detail.reviewDue', {
-                reviewDueAt: formatDate(effectiveVersion.review_due_at),
-              })}
-            </span>
-          ) : null}
-          <span>
-            {t('library.protocols.detail.owner', { names: ownerLabel })}
-          </span>
-          <span className="max-lg:hidden">
-            {t('library.protocols.detail.updated', {
-              updatedAt: formatDate(protocol.updatedAt),
-            })}
-          </span>
-        </>
-      }
-      tabs={<ProtocolSectionTabs tab={tab} counts={counts} />}
-    />
+    <>
+      {effectiveVersion ? (
+        <DropdownMenuLinkItem
+          icon="edit"
+          render={
+            <Link
+              to="/records/$recordId/notebook"
+              params={{ recordId: protocol.id }}
+            />
+          }
+        >
+          {t('library.protocols.detail.openWorkingDocument')}
+        </DropdownMenuLinkItem>
+      ) : null}
+      <DropdownMenuItem icon="download" onClick={() => window.print()}>
+        {t('library.protocols.detail.exportPdf')}
+      </DropdownMenuItem>
+      <DropdownMenuLinkItem
+        icon="user"
+        render={
+          <Link
+            to="/protocols/$protocolId"
+            params={{ protocolId: protocol.id }}
+            search={{ section: 'training' }}
+          />
+        }
+      >
+        {t('library.protocols.detail.assignTraining')}
+      </DropdownMenuLinkItem>
+    </>
   )
 }
 
 /** The controlled document: the chosen frozen version, else the working text. */
 function ProtocolDocumentTab({
-  protocolId,
   hazards,
   blocks,
   blocksPending,
@@ -246,7 +333,6 @@ function ProtocolDocumentTab({
   snapshotPending,
   onPickVersion,
 }: {
-  protocolId: string
   hazards: ProtocolLink[]
   blocks: ProtocolBlock[] | undefined
   blocksPending: boolean
@@ -259,7 +345,7 @@ function ProtocolDocumentTab({
 }): React.ReactElement {
   return (
     <div className="flex min-h-full">
-      <div className="mx-auto flex min-w-0 w-full max-w-[760px] flex-1 flex-col gap-4 px-4 py-4 md:px-6">
+      <div className="mx-auto flex w-full min-w-0 max-w-[760px] flex-1 flex-col gap-4 px-4 py-4 md:px-6">
         <ProtocolHazards links={hazards} />
         {versionRows.length > 1 ? (
           <label className="flex items-center gap-2 text-label text-fg-muted">
@@ -287,13 +373,6 @@ function ProtocolDocumentTab({
           blocks={blocks}
           blocksPending={blocksPending}
           blocksError={blocksError}
-        />
-      </div>
-      <div className="max-lg:hidden">
-        <ProtocolInspector
-          protocolId={protocolId}
-          version={shownVersion}
-          versions={versionRows}
         />
       </div>
     </div>
@@ -488,7 +567,6 @@ function ProtocolTabBody({
   if (tab === 'document')
     return (
       <ProtocolDocumentTab
-        protocolId={protocolId}
         hazards={links ?? []}
         blocks={blocks}
         blocksPending={blocksPending}
@@ -511,6 +589,13 @@ function ProtocolTabBody({
   if (tab === 'template') return <ProtocolTemplateTab blocks={blocks} />
 
   if (tab === 'usedby') return <ProtocolUsedByTab links={links} />
+
+  if (tab === 'history')
+    return (
+      <div className="px-4 py-5 md:px-6">
+        <RecordHistoryTab recordId={protocolId} />
+      </div>
+    )
 
   return (
     <div className="px-4 py-4 md:px-6">
@@ -639,20 +724,70 @@ function ProtocolPage() {
   const status = protocolRecordStatus(p, versions.data ?? [], effectiveVersion)
 
   return (
-    <div className="flex min-w-0 flex-1 flex-col">
-      <ProtocolHeader
-        protocol={p}
-        status={status}
-        effectiveVersion={effectiveVersion}
-        ownerLabel={names.userLabel(p.createdByUserId)}
-        tab={tab}
-        counts={{
-          blocks: blocks.data?.length ?? 0,
-          links: links.data?.length ?? 0,
-          versions: versions.data?.length ?? 0,
-        }}
-      />
-      <div className="min-h-0 flex-1 overflow-auto max-md:pb-20">
+    <RecordPage
+      recordId={p.id}
+      trail={[
+        {
+          label: t('library.protocols.detail.protocols'),
+          link: { to: '/protocols' },
+        },
+        { label: p.identifier, mono: true },
+      ]}
+      title={p.title}
+      identifier={p.identifier}
+      status={{
+        tone: status.tone,
+        label: effectiveVersion
+          ? t('library.protocols.detail.effectiveV', {
+              version: effectiveVersion.version,
+            })
+          : status.label,
+      }}
+      facts={protocolFacts(
+        p,
+        effectiveVersion,
+        names.userLabel(p.createdByUserId),
+      )}
+      actions={
+        <ProtocolActions protocol={p} effectiveVersion={effectiveVersion} />
+      }
+      more={
+        <ProtocolMoreItems protocol={p} effectiveVersion={effectiveVersion} />
+      }
+      stateLine={
+        <ProtocolStateLine
+          protocolId={protocolId}
+          versions={versionRows}
+          effectiveVersion={effectiveVersion}
+        />
+      }
+      tabs={protocolTabs(tab, {
+        blocks: blocks.data?.length ?? 0,
+        links: links.data?.length ?? 0,
+        versions: versions.data?.length ?? 0,
+      })}
+      sideLabel={t('library.protocols.protocolInspector.protocolVersion')}
+      side={
+        <>
+          <ProtocolVersionSections
+            protocolId={protocolId}
+            version={shownVersion}
+            versions={versionRows}
+          />
+          <RecordLinks id={p.id} />
+          <RecordActivity
+            recordId={p.id}
+            historyLink={{
+              to: '/protocols/$protocolId',
+              params: { protocolId },
+              search: { section: 'history' },
+            }}
+          />
+        </>
+      }
+      flush
+    >
+      <div className="max-md:pb-20">
         <ProtocolTabBody
           tab={tab}
           protocolId={protocolId}
@@ -668,7 +803,7 @@ function ProtocolPage() {
           onPickVersion={setPickedVersionId}
         />
       </div>
-    </div>
+    </RecordPage>
   )
 }
 

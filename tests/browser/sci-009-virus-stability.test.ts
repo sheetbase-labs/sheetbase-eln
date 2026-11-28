@@ -733,6 +733,9 @@ test.describe('SCI-009 Virus Stability browser acceptance', () => {
 
   test('overview composes from the notebook blocks', async ({ page }) => {
     await injectAuth(page)
+    // The inspector (Properties, Linked experiments, Signatures) sits beside
+    // the overview at this width and wider.
+    await page.setViewportSize({ width: 1800, height: 1000 })
     await page.goto(`/experiments/${RECORD}/summary`)
     // The title is an editable field in the notebook header, so it has a value, not text.
     await expect(
@@ -810,7 +813,7 @@ test.describe('SCI-009 Virus Stability browser acceptance', () => {
     // what runs the search. The Filters pane and the below-lg header row render
     // the same form, and only the pane's is on screen at this width.
     const searchInput = page
-      .getByRole('complementary', { name: 'Filters' })
+      .getByRole('search')
       .getByRole('searchbox', { name: 'Search Sheetbase' })
     await searchInput.click()
     // Typed, not `fill()`ed: `fill()` set the input's value without the page's
@@ -818,16 +821,21 @@ test.describe('SCI-009 Virus Stability browser acceptance', () => {
     // `/search`).
     await searchInput.pressSequentially('virus stability')
     await searchInput.press('Enter')
-    await expect(page.getByText('Virus Stability at 4°C').first()).toBeVisible({
-      timeout: 15_000,
-    })
+    // The results list is a table here and a card list on a phone, so match
+    // the copy that is on screen.
+    await expect(
+      page.getByText('Virus Stability at 4°C').locator('visible=true').first(),
+    ).toBeVisible({ timeout: 15_000 })
 
     // Search for the linked sample.
     await searchInput.fill('')
     await searchInput.pressSequentially('LVV-CAR-T drug substance')
     await searchInput.press('Enter')
     await expect(
-      page.getByText('LVV-CAR-T drug substance').first(),
+      page
+        .getByText('LVV-CAR-T drug substance')
+        .locator('visible=true')
+        .first(),
     ).toBeVisible({ timeout: 15_000 })
 
     await page.screenshot({

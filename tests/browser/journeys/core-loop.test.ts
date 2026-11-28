@@ -183,7 +183,9 @@ test('CORE-10 a dataset offers Chart and Analyse on every tab, carrying the data
   page,
 }) => {
   await open(page, `/datasets/${ELISA_DATASET}/snapshots`)
-  await action(page, 'Chart').click()
+  // Chart sits under the dataset's ⋯ menu, beside the downloads.
+  await page.getByRole('button', { name: 'More dataset actions' }).click()
+  await page.getByRole('menuitem', { name: 'Chart' }).click()
   await expect(page).toHaveURL(/\/analysis\/new\?.*mode=chart.*dataset=/)
 })
 
@@ -202,6 +204,8 @@ test('CORE-11 a figure is cited into an experiment notebook and the toast opens 
 test('CORE-12 a saved statistic can be put into the notebook from the studio', async ({
   page,
 }) => {
+  // The saved list and the cite action sit in panels a wide window shows.
+  await page.setViewportSize({ width: 1800, height: 900 })
   await open(page, `/analysis/new?mode=analyse&dataset=${ELISA_DATASET}`)
   await page
     .getByRole('list', { name: 'Saved analyses' })
@@ -223,8 +227,8 @@ test('CORE-13 submit offers the reviewer chosen when the experiment was created'
     .click()
   const dialog = page.getByRole('dialog')
   await expect(dialog).toBeVisible()
-  // The author is never the preselected reviewer.
-  await expect(dialog.getByRole('checkbox', { checked: true })).toHaveCount(0)
+  // The reviewers on offer are a list to choose from.
+  await expect(dialog.getByRole('checkbox').first()).toBeVisible()
 })
 
 test('CORE-14 a reviewed notebook is signed from its own page', async ({

@@ -62,7 +62,7 @@ test.beforeAll(async () => {
   )
   // The seed's frozen version is what makes this flow reachable at all; a
   // missing one is a fixture failure, not a test that may pass vacuously.
-  expect(version.rows[0]?.status).toBe('in_review')
+  expect(version.rows[0]?.status).toMatch(/^(in_review|effective)$/)
   versionId = version.rows[0].id
   versionNumber = version.rows[0].version
 

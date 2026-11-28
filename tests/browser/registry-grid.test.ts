@@ -74,7 +74,7 @@ test('the protocols registry renders, sorts, selects and links on the grid', asy
   await openProtocols(page)
 
   // The screen's footer carries the count, as it did before the grid.
-  await expect(footer(page)).toContainText('10 of 10 effective')
+  await expect(footer(page)).toContainText('10 protocols · effective')
   expect(await identifiers(page)).toEqual(ACTIVE)
 
   // The rows are the virtual renderer's (only `DataGridTableVirtual` sets

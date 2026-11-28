@@ -41,7 +41,10 @@ for (const list of ['/experiments', '/samples']) {
     const left = await scrollTopOfList(page)
     await page.waitForTimeout(500)
 
-    await page.locator(`.mx-pane a[href^="${list}/"]:visible`).nth(8).click()
+    // Open a row that is on screen now, as a person would. The ninth link in
+    // the page can be one the wheel has just moved out of view, and clicking
+    // it would make Playwright scroll the list back up to reach it.
+    await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2)
     await page.waitForURL((url) => url.pathname !== list)
     await page.goBack()
 

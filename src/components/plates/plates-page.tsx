@@ -6,6 +6,7 @@ import { useColumnFilter } from '#/components/inventory/column-filter'
 import { useMemo, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 
+import { useListArrange } from '#/components/inventory/list-arrange'
 import { ListHeader, ListToolbar } from '#/components/inventory/list'
 import { Button } from '#/components/ui/button'
 import { Tabs } from '#/components/ui/tabs'
@@ -16,7 +17,9 @@ import {
   fetchPlateWorklists,
   plateRunKeys,
 } from '#/lib/plate-runs'
-import type { PlateWorklistRow } from '#/lib/plate-runs'
+import type { PlateRunRow, PlateWorklistRow } from '#/lib/plate-runs'
+import type { ListArrange } from '#/components/inventory/list-arrange'
+import type { ListFilter } from '#/components/inventory/list-filter'
 
 import { takePlateFile } from '#/lib/plate-file-handoff'
 
@@ -88,6 +91,12 @@ export function PlatesPage({
   )
 
   const worklistColumns = usePlateWorklistColumns()
+  const runArrange = useListArrange({ rows: visibleRuns, columns: runColumns })
+
+  const worklistArrange = useListArrange({
+    rows: visibleWorklists,
+    columns: worklistColumns,
+  })
 
   if (runId) {
     return (
@@ -116,7 +125,20 @@ export function PlatesPage({
     <div className="flex min-w-0 flex-1 flex-col">
       <ListHeader
         title={t('plates.title')}
-        subtitle={t('plates.subtitle')}
+        total={
+          tab === 'worklists'
+            ? worklists.isPending
+              ? undefined
+              : visibleWorklists.length
+            : runs.isPending
+              ? undefined
+              : visibleRuns.length
+        }
+        countNoun={
+          tab === 'worklists'
+            ? t('plates.countWorklists', { count: visibleWorklists.length })
+            : t('plates.countRuns', { count: visibleRuns.length })
+        }
         actions={newButton}
         tabs={
           <Tabs
@@ -144,15 +166,14 @@ export function PlatesPage({
           />
         }
       />
-      {tab === 'runs' || tab === 'worklists' ? (
-        <ListToolbar
-          q={q}
-          onSearch={setQ}
-          placeholder={t('plates.searchPlaceholder')}
-          label={t('plates.searchPlaceholder')}
-          filter={tab === 'runs' ? filter : undefined}
-        />
-      ) : null}
+      <PlatesToolbar
+        tab={tab}
+        q={q}
+        onSearch={setQ}
+        filter={filter}
+        runArrange={runArrange}
+        worklistArrange={worklistArrange}
+      />
       <PlatesBody
         tab={tab}
         runs={runs}
@@ -162,6 +183,8 @@ export function PlatesPage({
         visibleWorklists={visibleWorklists}
         runColumns={runColumns}
         worklistColumns={worklistColumns}
+        runGrid={runArrange.grid}
+        worklistGrid={worklistArrange.grid}
         needle={needle}
         canWrite={canWrite}
         workspaceId={workspaceId}
@@ -182,4 +205,36 @@ export function PlatesPage({
       />
     </div>
   )
+}
+
+/** The runs and worklists tabs search, filter, sort and group; the others do not. */
+function PlatesToolbar({
+  tab,
+  q,
+  onSearch,
+  filter,
+  runArrange,
+  worklistArrange,
+}: {
+  tab: PlatesTab
+  q: string
+  onSearch: (q: string) => void
+  filter: ListFilter
+  runArrange: ListArrange<PlateRunRow>
+  worklistArrange: ListArrange<PlateWorklistRow>
+}) {
+  const shared = {
+    q,
+    onSearch,
+    placeholder: t('plates.searchPlaceholder'),
+    label: t('plates.searchPlaceholder'),
+  }
+
+  if (tab === 'runs')
+    return <ListToolbar {...shared} filter={filter} arrange={runArrange} />
+
+  if (tab === 'worklists')
+    return <ListToolbar {...shared} arrange={worklistArrange} />
+
+  return null
 }

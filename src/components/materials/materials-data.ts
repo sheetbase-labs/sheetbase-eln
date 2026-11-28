@@ -30,6 +30,9 @@ export interface MaterialListRow {
   metadataVersion: number
   /** The project the lot lives in. */
   projectId: string | null
+  /** Who registered the lot, and when it last changed. */
+  ownerId: string
+  updatedAt: string
   /** Lot block detail, shown in the inspector. */
   catalogNo: string | null
   received: string | null
@@ -193,6 +196,8 @@ export function toMaterialListRow(reagent: Reagent): MaterialListRow {
     uuid: reagent.id,
     id: reagent.identifier,
     name: reagent.title,
+    ownerId: reagent.record.createdByUserId,
+    updatedAt: reagent.updatedAt,
     supplier: reagent.supplier ?? '—',
     lot: reagent.lot ?? '—',
     stock:

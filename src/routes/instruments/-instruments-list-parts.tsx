@@ -123,7 +123,7 @@ export function InstrumentsHeader({
 
 /** Search, and the three registry filters, in the list toolbar. */
 export function InstrumentsFilters({ list }: { list: InstrumentsListModel }) {
-  const { search, types, setParam, navigate, filter } = list
+  const { search, types, setParam, navigate, filter, arrange } = list
 
   return (
     <ListToolbar
@@ -131,6 +131,7 @@ export function InstrumentsFilters({ list }: { list: InstrumentsListModel }) {
       label={t('library.instruments.list.searchInstruments')}
       placeholder={t('library.instruments.list.searchIdNameModelSerial')}
       filter={filter}
+      arrange={arrange}
       onSearch={(next) =>
         void navigate({
           to: '/instruments',
@@ -206,7 +207,7 @@ export function InstrumentsTable({ list }: { list: InstrumentsListModel }) {
     query,
     visible,
     columns,
-    view,
+    arrange,
     rowSelection,
     onRowSelectionChange,
     openInstrument,
@@ -284,8 +285,7 @@ export function InstrumentsTable({ list }: { list: InstrumentsListModel }) {
           <RegistryGrid
             className="max-md:hidden"
             label={t('library.instruments.list.instruments')}
-            view={view}
-            rows={visible}
+            {...arrange.grid}
             columns={columns}
             getRowId={(i) => i.id}
             rowSelection={rowSelection}

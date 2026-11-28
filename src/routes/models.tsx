@@ -50,6 +50,8 @@ import { returnLabel } from '#/lib/return-to'
 import { countOf } from '#/lib/plural'
 import { signInRedirect } from '#/lib/sign-in-redirect'
 import { useListView } from '#/lib/list-views'
+import { useListArrange } from '#/components/inventory/list-arrange'
+import type { ListArrange } from '#/components/inventory/list-arrange'
 import { z } from 'zod'
 import type { ExternalToast } from 'sonner'
 
@@ -222,6 +224,8 @@ function useModelColumns(
         id: 'name',
         header: t('library.models.list.name'),
         accessorFn: (m) => m.name,
+        size: 200,
+        meta: { grow: true },
         cell: ({ row }) => (
           <Link
             to="/models/$modelId"
@@ -349,7 +353,7 @@ function ModelsListBody({
   isPending,
   visible,
   columns,
-  view,
+  grid,
   rowSelection,
   onRowSelectionChange,
   openModel,
@@ -361,7 +365,7 @@ function ModelsListBody({
   isPending: boolean
   visible: ModelRow[]
   columns: RegistryColumn<ModelRow>[]
-  view: ReturnType<typeof useListView>
+  grid: ListArrange<ModelRow>['grid']
   rowSelection: React.ComponentProps<
     typeof RegistryGrid<ModelRow>
   >['rowSelection']
@@ -380,8 +384,7 @@ function ModelsListBody({
         <RegistryGrid
           className="max-md:hidden"
           label={t('library.models.list.models')}
-          view={view}
-          rows={visible}
+          {...grid}
           columns={columns}
           getRowId={(m) => m.id}
           rowSelection={rowSelection}
@@ -578,6 +581,7 @@ function ModelsList() {
   )
 
   const sel = visible.find((m) => m.id === (selected ?? search.selected))
+  const arrange = useListArrange({ rows: visible, columns, view })
 
   const { rowSelection, onRowSelectionChange } = useRowFocus(
     sel?.id ?? null,
@@ -633,12 +637,13 @@ function ModelsList() {
             })
           }
           filter={filter}
+          arrange={arrange}
         />
         <ModelsListBody
           isPending={query.isPending}
           visible={visible}
           columns={columns}
-          view={view}
+          grid={arrange.grid}
           rowSelection={rowSelection}
           onRowSelectionChange={onRowSelectionChange}
           openModel={openModel}

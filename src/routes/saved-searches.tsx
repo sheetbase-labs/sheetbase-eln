@@ -2,6 +2,8 @@ import { useMemo, useState } from 'react'
 import { createFileRoute, redirect, useNavigate } from '@tanstack/react-router'
 
 import { ListHeader, ListToolbar } from '#/components/inventory/list'
+import { useListArrange } from '#/components/inventory/list-arrange'
+import { ownerColumn } from '#/components/inventory/list-columns'
 import { RegistryGrid } from '#/components/inventory/registry-grid'
 import type { RegistryColumn } from '#/components/inventory/registry-grid'
 import { useSavedSearches } from '#/components/search/use-saved-searches'
@@ -86,11 +88,19 @@ function SavedSearchesPage() {
     void navigate({ to: '/search', search: savedQueryToSearch(s) })
   }
 
+  const owners = useMemo(
+    () => new Map(Object.entries(memberNames)),
+    [memberNames],
+  )
+
   const columns = useMemo<RegistryColumn<SavedQuery>[]>(
     () => [
       {
         id: 'name',
         header: t('projects.savedSearches.columns.name'),
+        size: 240,
+        accessorFn: (r) => r.name,
+        meta: { grow: true },
         cell: ({ row }) => (
           <span className="truncate font-medium text-fg">
             {row.original.name}
@@ -100,6 +110,8 @@ function SavedSearchesPage() {
       {
         id: 'search',
         header: t('projects.savedSearches.columns.search'),
+        size: 220,
+        accessorFn: (r) => r.facets?.text ?? r.query,
         meta: {
           headerClassName: 'max-md:hidden',
           cellClassName: 'max-md:hidden',
@@ -113,6 +125,11 @@ function SavedSearchesPage() {
       {
         id: 'visibility',
         header: t('projects.savedSearches.columns.visibility'),
+        size: 120,
+        accessorFn: (r) =>
+          r.visibility === 'workspace'
+            ? t('projects.savedSearches.visibilityShared')
+            : t('projects.savedSearches.visibilityPrivate'),
         cell: ({ row }) => (
           <span className="text-fg-muted">
             {row.original.visibility === 'workspace'
@@ -121,22 +138,17 @@ function SavedSearchesPage() {
           </span>
         ),
       },
-      {
-        id: 'savedBy',
-        header: t('projects.savedSearches.columns.savedBy'),
-        meta: {
-          headerClassName: 'max-lg:hidden',
-          cellClassName: 'max-lg:hidden',
-        },
-        cell: ({ row }) => (
-          <span className="truncate text-fg-muted">
-            {(row.original.savedBy && memberNames[row.original.savedBy]) || '—'}
-          </span>
-        ),
-      },
+      ownerColumn(
+        (r) => r.savedBy,
+        owners,
+        t('projects.savedSearches.columns.savedBy'),
+      ),
       {
         id: 'lastUsed',
         header: t('projects.savedSearches.columns.lastUsed'),
+        size: 120,
+        accessorFn: (r) =>
+          r.lastUsed ? new Date(r.lastUsed).toISOString() : '',
         meta: {
           headerClassName: 'max-md:hidden text-right',
           cellClassName: 'max-md:hidden text-right',
@@ -155,6 +167,8 @@ function SavedSearchesPage() {
       {
         id: 'updated',
         header: t('projects.savedSearches.columns.saved'),
+        size: 120,
+        accessorFn: (r) => new Date(r.ts).toISOString(),
         meta: { headerClassName: 'text-right', cellClassName: 'text-right' },
         cell: ({ row }) => (
           <span className="text-fg-muted">
@@ -165,6 +179,7 @@ function SavedSearchesPage() {
       {
         id: 'actions',
         header: '',
+        size: 48,
         meta: { headerClassName: 'w-10', cellClassName: 'w-10 text-right' },
         cell: ({ row }) => {
           const s = row.original
@@ -194,8 +209,10 @@ function SavedSearchesPage() {
         },
       },
     ],
-    [memberNames, canChange, canShare, setVisibility],
+    [owners, canChange, canShare, setVisibility],
   )
+
+  const arrange = useListArrange({ rows, columns })
 
   return (
     <div className="flex min-w-0 flex-1 flex-col">
@@ -208,6 +225,7 @@ function SavedSearchesPage() {
         onSearch={setQ}
         placeholder={t('projects.savedSearches.filterPlaceholder')}
         label={t('projects.savedSearches.filterLabel')}
+        arrange={arrange}
       >
         <Select
           aria-label={t('projects.savedSearches.whoLabel')}
@@ -248,7 +266,7 @@ function SavedSearchesPage() {
         ) : (
           <RegistryGrid
             label={t('projects.savedSearches.title')}
-            rows={rows}
+            {...arrange.grid}
             columns={columns}
             getRowId={(s) => s.id}
             selectable={false}

@@ -34,10 +34,12 @@ import {
 import {
   ProtocolsRegistryGrid,
   protocolStatus,
+  useProtocolColumns,
 } from '#/components/protocols/protocols-registry-grid'
 import { useRowFocus } from '#/components/inventory/registry-grid'
 import { useBulkSelection } from '#/components/inventory/bulk-selection'
 import { RecordBulkBar } from '#/components/inventory/record-bulk-bar'
+import { useListArrange } from '#/components/inventory/list-arrange'
 import { useRowFilter } from '#/components/inventory/row-filter'
 import type { RowFilterOptions } from '#/components/inventory/row-filter'
 import { Tabs } from '#/components/ui/tabs'
@@ -284,6 +286,14 @@ function ProtocolsList() {
     visible.find((r) => r.id === search.selected) ??
     visible.at(0)
 
+  const columns = useProtocolColumns({
+    ownerLabel: names.userLabel,
+    onOpen: openProtocol,
+    addedColumns,
+  })
+
+  const arrange = useListArrange({ rows: visible, columns, view })
+
   return (
     <div className="flex min-w-0 flex-1">
       <div className="flex min-w-0 flex-1 flex-col">
@@ -337,6 +347,7 @@ function ProtocolsList() {
             })
           }
           filter={filter}
+          arrange={arrange}
         />
         <RecordBulkBar
           selection={bulk}
@@ -354,6 +365,8 @@ function ProtocolsList() {
             <ProtocolsRegistryGrid
               bulk={bulk}
               addedColumns={addedColumns}
+              columns={columns}
+              arranged={arrange.grid}
               rows={visible}
               ownerLabel={names.userLabel}
               isLoading={query.isPending}

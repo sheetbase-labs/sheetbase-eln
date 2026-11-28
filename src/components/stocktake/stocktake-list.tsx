@@ -6,7 +6,9 @@ import { useMemo, useState } from 'react'
 import { useNavigate } from '@tanstack/react-router'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 
-import { ListHeader, Textarea } from '#/components/inventory/list'
+import { ListHeader, ListToolbar, Textarea } from '#/components/inventory/list'
+import { useListArrange } from '#/components/inventory/list-arrange'
+import { ownerColumn } from '#/components/inventory/list-columns'
 import { RegistryGrid } from '#/components/inventory/registry-grid'
 import type { RegistryColumn } from '#/components/inventory/registry-grid'
 import { useWorkspaceMemberNames } from '#/components/projects/project-data'
@@ -325,8 +327,19 @@ export function StocktakeList({ canWrite }: { canWrite: boolean }) {
 
   const names = useWorkspaceMemberNames()
 
+  const [q, setQ] = useState('')
   const all = counts.data ?? []
-  const visible = all.filter((c) => filter === 'all' || c.status === filter)
+  const needle = q.trim().toLowerCase()
+
+  const visible = all.filter(
+    (c) =>
+      (filter === 'all' || c.status === filter) &&
+      (needle === '' ||
+        [c.reference, c.scopeName, c.scopePath]
+          .join(' ')
+          .toLowerCase()
+          .includes(needle)),
+  )
 
   const columns = useMemo<RegistryColumn<Stocktake>[]>(
     () => [
@@ -334,6 +347,7 @@ export function StocktakeList({ canWrite }: { canWrite: boolean }) {
         id: 'count',
         header: t('library.stocktake.columns.count'),
         size: 110,
+        accessorFn: (c) => c.reference,
         cell: ({ row }) => (
           <span className="mono text-fg-muted">{row.original.reference}</span>
         ),
@@ -341,6 +355,8 @@ export function StocktakeList({ canWrite }: { canWrite: boolean }) {
       {
         id: 'place',
         header: t('library.stocktake.columns.place'),
+        size: 260,
+        accessorFn: (c) => c.scopeName,
         cell: ({ row }) => (
           <span className="flex min-w-0 flex-col">
             <span className="truncate font-medium">
@@ -356,6 +372,7 @@ export function StocktakeList({ canWrite }: { canWrite: boolean }) {
         id: 'status',
         header: t('library.stocktake.columns.status'),
         size: 130,
+        accessorFn: (c) => statusLabel(c.status),
         cell: ({ row }) => (
           <Status tone={STATUS_TONE[row.original.status]}>
             {statusLabel(row.original.status)}
@@ -365,15 +382,11 @@ export function StocktakeList({ canWrite }: { canWrite: boolean }) {
       {
         id: 'started',
         header: t('library.stocktake.columns.started'),
-        size: 200,
+        size: 130,
+        accessorFn: (c) => c.startedAt,
         cell: ({ row }) => (
-          <span className="flex min-w-0 flex-col">
-            <span>{formatDate(row.original.startedAt)}</span>
-            <span className="truncate text-label text-fg-muted">
-              {(row.original.startedBy &&
-                names.data?.get(row.original.startedBy)) ||
-                ''}
-            </span>
+          <span className="text-fg-muted">
+            {formatDate(row.original.startedAt)}
           </span>
         ),
       },
@@ -381,6 +394,7 @@ export function StocktakeList({ canWrite }: { canWrite: boolean }) {
         id: 'result',
         header: t('library.stocktake.columns.result'),
         size: 220,
+        accessorFn: (c) => resultOf(c, summaries.data?.get(c.id)).label,
         cell: ({ row }) => {
           const result = resultOf(
             row.original,
@@ -394,9 +408,12 @@ export function StocktakeList({ canWrite }: { canWrite: boolean }) {
           )
         },
       },
+      ownerColumn((c) => c.startedBy, names.data),
     ],
     [names.data, summaries.data],
   )
+
+  const arrange = useListArrange({ rows: visible, columns })
 
   const open = (id: string) =>
     void navigate({
@@ -408,8 +425,25 @@ export function StocktakeList({ canWrite }: { canWrite: boolean }) {
     <div className="flex min-w-0 flex-1 flex-col">
       <ListHeader
         title={t('library.stocktake.title')}
-        subtitle={t('library.stocktake.subtitle')}
         total={counts.data ? all.length : undefined}
+        tabs={
+          <Tabs
+            mode="state"
+            variant="strip"
+            label={t('library.stocktake.filterLabel')}
+            value={filter}
+            onValueChange={(value) => {
+              if (isFilter(value)) setFilter(value)
+            }}
+            items={FILTERS.map((key) => ({
+              key,
+              label: t(`library.stocktake.filters.${key}`),
+              count: counts.isPending
+                ? undefined
+                : all.filter((c) => key === 'all' || c.status === key).length,
+            }))}
+          />
+        }
         actions={
           canWrite ? (
             <Button
@@ -422,24 +456,13 @@ export function StocktakeList({ canWrite }: { canWrite: boolean }) {
           ) : null
         }
       />
-      <div className="flex items-center gap-2 border-b border-border px-6 py-2 max-md:px-4">
-        <Tabs
-          mode="state"
-          variant="segment"
-          label={t('library.stocktake.filterLabel')}
-          value={filter}
-          onValueChange={(value) => {
-            if (isFilter(value)) setFilter(value)
-          }}
-          items={FILTERS.map((key) => ({
-            key,
-            label: t(`library.stocktake.filters.${key}`),
-            count: counts.isPending
-              ? undefined
-              : all.filter((c) => key === 'all' || c.status === key).length,
-          }))}
-        />
-      </div>
+      <ListToolbar
+        q={q}
+        onSearch={setQ}
+        placeholder={t('library.stocktake.searchPlaceholder')}
+        label={t('library.stocktake.searchPlaceholder')}
+        arrange={arrange}
+      />
       <div className="min-h-0 flex-1 overflow-auto max-md:pb-20">
         {counts.isError ? (
           <div className="p-6">
@@ -450,7 +473,7 @@ export function StocktakeList({ canWrite }: { canWrite: boolean }) {
         ) : counts.isPending || visible.length > 0 ? (
           <RegistryGrid
             label={t('library.stocktake.tableLabel')}
-            rows={visible}
+            {...arrange.grid}
             columns={columns}
             getRowId={(count) => count.id}
             selectable

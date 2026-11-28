@@ -5,6 +5,7 @@
 import { Link } from '@tanstack/react-router'
 
 import { Button } from '#/components/ui/button'
+import { Person } from '#/components/ui/person'
 import { Status } from '#/components/ui/status'
 import { rightAligned } from '#/components/inventory/registry-grid'
 import type { RegistryColumn } from '#/components/inventory/registry-grid'
@@ -28,6 +29,7 @@ export interface HomeReviewRow {
   title: string
   projectTitle: string | null
   submittedByName: string | null
+  submittedByUserId?: string | null
   dueAt: string | null
 }
 
@@ -85,7 +87,15 @@ export function homeReviewColumns(
       id: 'submittedBy',
       header: t('projects.home.columns.submittedBy'),
       meta: PHONE_HIDDEN,
-      cell: ({ row }) => row.original.submittedByName ?? '—',
+      cell: ({ row }) =>
+        row.original.submittedByName ? (
+          <Person
+            name={row.original.submittedByName}
+            userId={row.original.submittedByUserId}
+          />
+        ) : (
+          '—'
+        ),
     },
     {
       id: 'due',

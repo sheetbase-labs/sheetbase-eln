@@ -2,8 +2,6 @@
 export const registry = {
   title: 'Registry',
   countNoun: { one: '{count} entry', other: '{count} entries' },
-  subtitle:
-    'Constructs, cell lines, antibodies and anything else your lab registers once',
   navLabel: 'Registry',
   paneLabel: 'Registry',
   register: 'Register',

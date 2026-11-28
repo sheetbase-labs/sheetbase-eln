@@ -14,6 +14,13 @@ import {
   ReadOnlyNote,
 } from '#/components/inventory/list'
 import { useListView } from '#/lib/list-views'
+import { useListArrange } from '#/components/inventory/list-arrange'
+import type { ListArrange } from '#/components/inventory/list-arrange'
+import {
+  ownerColumn,
+  updatedColumn,
+  useOwnerNames,
+} from '#/components/inventory/list-columns'
 import { useClientFilter } from '#/components/inventory/use-list-filter'
 import { customValueRecord } from '#/components/inventory/list-filter-fields'
 import { useRegistryFilterFields } from './registry-filter-fields'
@@ -150,8 +157,8 @@ function RegistryListTable({
   isEmpty,
   isPending,
   visible,
+  grid,
   columns,
-  view,
   bulk,
   open,
   canEditModels,
@@ -168,8 +175,8 @@ function RegistryListTable({
   isEmpty: boolean
   isPending: boolean
   visible: RegistryEntry[]
+  grid: ListArrange<RegistryEntry>['grid']
   columns: RegistryColumn<RegistryEntry>[]
-  view: ReturnType<typeof useListView>
   bulk: ReturnType<typeof useBulkSelection>
   open: (entry: RegistryEntry) => void
   canEditModels: boolean
@@ -197,8 +204,7 @@ function RegistryListTable({
       ) : isPending || visible.length > 0 ? (
         <RegistryGrid
           label={t('registry.tableLabel')}
-          view={view}
-          rows={visible}
+          {...grid}
           columns={columns}
           getRowId={(entry) => entry.id}
           bulk={bulk}
@@ -373,6 +379,7 @@ function useRegistryStarters() {
 function registryColumns(
   parentsOf: Map<string, string[]>,
   modelByKey: Map<string, RegistryModel>,
+  owners: ReadonlyMap<string, string> | undefined,
 ): RegistryColumn<RegistryEntry>[] {
   return [
     {
@@ -415,6 +422,7 @@ function registryColumns(
     {
       id: 'summary',
       header: t('registry.columns.summary'),
+      size: 220,
       accessorFn: (e) => entrySummary(e, modelByKey.get(e.kind)),
       cell: ({ row }) => (
         <span className="truncate text-fg-muted">
@@ -459,6 +467,8 @@ function registryColumns(
         </span>
       ),
     },
+    ownerColumn((e) => e.created_by_user_id, owners),
+    updatedColumn((e) => e.updated_at),
   ]
 }
 
@@ -574,12 +584,18 @@ export function RegistryList({
 
   const { setUp, setUpCompounds } = useRegistryStarters()
 
+  const owners = useOwnerNames()
+
   const columns = useMemo(
-    () => registryColumns(parentsOf, modelByKey),
-    [parentsOf, modelByKey],
+    () => registryColumns(parentsOf, modelByKey, owners),
+    [parentsOf, modelByKey, owners],
   )
 
-  const view = useListView('registry')
+  const arrange = useListArrange({
+    rows: visible,
+    columns,
+    view: useListView('registry'),
+  })
 
   const { open, register } = useRegistryNavigation(
     kind,
@@ -593,7 +609,6 @@ export function RegistryList({
     <div className="flex min-w-0 flex-1 flex-col">
       <ListHeader
         title={t('registry.title')}
-        subtitle={t('registry.subtitle')}
         total={entries.data ? inStatus.length : undefined}
         countNoun={t('registry.countNoun', { count: inStatus.length })}
         actions={
@@ -641,6 +656,7 @@ export function RegistryList({
             placeholder={t('registry.searchPlaceholder')}
             label={t('registry.searchPlaceholder')}
             filter={filter}
+            arrange={arrange}
             right={
               <Select
                 size="sm"
@@ -680,8 +696,8 @@ export function RegistryList({
           isEmpty={all.length === 0}
           isPending={models.isPending || entries.isPending}
           visible={visible}
+          grid={arrange.grid}
           columns={columns}
-          view={view}
           bulk={bulk}
           open={open}
           canEditModels={canEditModels}

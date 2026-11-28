@@ -2,6 +2,7 @@ import { useMemo } from 'react'
 import { Person } from '#/components/ui/person'
 import { Link } from '@tanstack/react-router'
 import type { ListView } from '#/lib/list-views'
+import type { ListArrange } from '#/components/inventory/list-arrange'
 import type {
   ColumnDef,
   OnChangeFn,
@@ -60,21 +61,21 @@ export interface ProtocolsRegistryGridProps {
   addedColumns?: ColumnDef<DataGridFeatures, NotebookRecord>[]
   /** Tick boxes for bulk actions. */
   bulk?: BulkSelection
+  /** The columns, when the route built them (`useProtocolColumns`). */
+  columns?: ColumnDef<DataGridFeatures, NotebookRecord>[]
+  /** The toolbar's Sort and Group choice (`useListArrange`). */
+  arranged?: ListArrange<NotebookRecord>['grid']
 }
 
-export function ProtocolsRegistryGrid({
-  rows,
+/** The protocols list's columns: its own, then the workspace's added fields before Updated. */
+export function useProtocolColumns({
   ownerLabel,
-  isLoading = false,
-  sorting,
-  onSortingChange,
-  view,
-  rowSelection,
-  onRowSelectionChange,
   onOpen,
   addedColumns,
-  bulk,
-}: ProtocolsRegistryGridProps) {
+}: Pick<
+  ProtocolsRegistryGridProps,
+  'ownerLabel' | 'onOpen' | 'addedColumns'
+>): ColumnDef<DataGridFeatures, NotebookRecord>[] {
   const baseColumns = useMemo<ColumnDef<DataGridFeatures, NotebookRecord>[]>(
     () => [
       {
@@ -95,7 +96,7 @@ export function ProtocolsRegistryGrid({
         id: 'title',
         accessorFn: (p) => p.title,
         header: t('library.protocols.protocolsRegistryGrid.protocol'),
-        meta: { cellClassName: 'min-w-[220px]' },
+        size: 240,
         sortFn: (rowA, rowB) =>
           compareRegistryText(rowA.original.title, rowB.original.title),
         cell: ({ row }) => (
@@ -168,11 +169,34 @@ export function ProtocolsRegistryGrid({
     [baseColumns, addedColumns],
   )
 
+  return columns
+}
+
+export function ProtocolsRegistryGrid({
+  rows,
+  ownerLabel,
+  isLoading = false,
+  sorting,
+  onSortingChange,
+  view,
+  rowSelection,
+  onRowSelectionChange,
+  onOpen,
+  addedColumns,
+  bulk,
+  columns: given,
+  arranged,
+}: ProtocolsRegistryGridProps) {
+  const own = useProtocolColumns({ ownerLabel, onOpen, addedColumns })
+  const columns = given ?? own
+
   return (
     <RegistryGrid
       className="max-md:hidden"
       label={t('library.protocols.protocolsRegistryGrid.protocols')}
-      rows={rows}
+      rows={arranged?.rows ?? rows}
+      stableWidths={arranged?.stableWidths}
+      keepColumns={arranged?.keepColumns}
       columns={columns}
       getRowId={(p) => p.id}
       bulk={bulk}

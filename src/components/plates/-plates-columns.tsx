@@ -10,6 +10,7 @@ import { z } from 'zod'
 import { useRobotInstruments } from '#/components/instruments/robot-section'
 import type { RegistryColumn } from '#/components/inventory/registry-grid'
 import { Status } from '#/components/ui/status'
+import { ownerColumn, useOwnerNames } from '#/components/inventory/list-columns'
 import { t } from '#/copy'
 import { formatDate } from '#/lib/format-date'
 import { notebookDataClient } from '#/lib/notebook-data'
@@ -54,12 +55,15 @@ function WorklistRobot({ worklistId }: { worklistId: string }) {
 }
 
 export function usePlateRunColumns(): RegistryColumn<PlateRunRow>[] {
+  const owners = useOwnerNames()
+
   return useMemo<RegistryColumn<PlateRunRow>[]>(
     () => [
       {
         id: 'number',
         header: t('plates.columns.number'),
         size: 110,
+        accessorFn: (r) => plateRunReference(r.number),
         cell: ({ row }) => (
           <span className="mono text-fg-muted">
             {plateRunReference(row.original.number)}
@@ -69,6 +73,8 @@ export function usePlateRunColumns(): RegistryColumn<PlateRunRow>[] {
       {
         id: 'name',
         header: t('plates.columns.name'),
+        size: 240,
+        accessorFn: (r) => r.name,
         cell: ({ row }) => (
           <span className="truncate font-medium text-fg">
             {row.original.name}
@@ -79,6 +85,7 @@ export function usePlateRunColumns(): RegistryColumn<PlateRunRow>[] {
         id: 'format',
         header: t('plates.columns.format'),
         size: 110,
+        accessorFn: (r) => t(`plates.formats.${r.format}`),
         cell: ({ row }) => (
           <span>{t(`plates.formats.${row.original.format}`)}</span>
         ),
@@ -87,6 +94,7 @@ export function usePlateRunColumns(): RegistryColumn<PlateRunRow>[] {
         id: 'zprime',
         header: t('plates.columns.zPrime'),
         size: 90,
+        accessorFn: (r) => r.results?.qc.zPrime ?? undefined,
         cell: ({ row }) => (
           <span className="num text-fg-muted">
             {row.original.results?.qc.zPrime?.toFixed(2) ?? ''}
@@ -116,6 +124,7 @@ export function usePlateRunColumns(): RegistryColumn<PlateRunRow>[] {
         id: 'quality',
         header: t('plates.columns.quality'),
         size: 140,
+        accessorFn: qualityLabel,
         cell: ({ row }) => (
           <Status
             tone={qcTone(
@@ -130,6 +139,7 @@ export function usePlateRunColumns(): RegistryColumn<PlateRunRow>[] {
         id: 'analysed',
         header: t('plates.columns.analysed'),
         size: 130,
+        accessorFn: (r) => r.analysed_at ?? '',
         cell: ({ row }) => (
           <span className="text-fg-muted">
             {row.original.analysed_at
@@ -138,8 +148,9 @@ export function usePlateRunColumns(): RegistryColumn<PlateRunRow>[] {
           </span>
         ),
       },
+      ownerColumn((r) => r.created_by, owners),
     ],
-    [],
+    [owners],
   )
 }
 
@@ -150,6 +161,7 @@ export function usePlateWorklistColumns(): RegistryColumn<PlateWorklistRow>[] {
         id: 'number',
         header: t('plates.worklists.columns.number'),
         size: 110,
+        accessorFn: (w) => worklistReference(w.number),
         cell: ({ row }) => (
           <span className="mono text-fg-muted">
             {worklistReference(row.original.number)}
@@ -159,6 +171,8 @@ export function usePlateWorklistColumns(): RegistryColumn<PlateWorklistRow>[] {
       {
         id: 'name',
         header: t('plates.worklists.columns.name'),
+        size: 240,
+        accessorFn: (w) => w.name,
         cell: ({ row }) => (
           <span className="truncate font-medium text-fg">
             {row.original.name}
@@ -181,6 +195,7 @@ export function usePlateWorklistColumns(): RegistryColumn<PlateWorklistRow>[] {
         id: 'format',
         header: t('plates.worklists.columns.format'),
         size: 200,
+        accessorFn: (w) => t(`plates.worklist.formats.${w.format}`),
         cell: ({ row }) => (
           <span>{t(`plates.worklist.formats.${row.original.format}`)}</span>
         ),
@@ -197,6 +212,7 @@ export function usePlateWorklistColumns(): RegistryColumn<PlateWorklistRow>[] {
         id: 'status',
         header: t('plates.worklists.columns.status'),
         size: 120,
+        accessorFn: (w) => t(`plates.worklists.statuses.${w.status}`),
         cell: ({ row }) => (
           <Status
             tone={
@@ -221,6 +237,7 @@ export function usePlateWorklistColumns(): RegistryColumn<PlateWorklistRow>[] {
         id: 'created',
         header: t('plates.worklists.columns.created'),
         size: 130,
+        accessorFn: (w) => w.created_at,
         cell: ({ row }) => (
           <span className="text-fg-muted">
             {formatDate(row.original.created_at)}

@@ -1,7 +1,8 @@
 /** Plates: plate reads analysed against their own controls, potency and worklists. */
 export const plates = {
   title: 'Plates',
-  subtitle: 'Plate reads checked against their own controls',
+  countRuns: { one: '{count} run', other: '{count} runs' },
+  countWorklists: { one: '{count} worklist', other: '{count} worklists' },
   paneLabel: 'Plates',
   newRun: 'New plate run',
   tableLabel: 'Plate runs',

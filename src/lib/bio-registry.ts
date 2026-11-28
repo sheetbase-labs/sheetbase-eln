@@ -68,6 +68,8 @@ export interface RegistryEntry {
   kind: string
   custom_fields: CustomFieldValues | null
   created_at: string
+  updated_at?: string | null
+  created_by_user_id?: string | null
   archived_at: string | null
   metadata_version: number
 }
@@ -99,7 +101,7 @@ export async function fetchRegistryEntries(
 
   return client.list<RegistryEntry>(
     'records',
-    `?kind=in.(${list})&deleted_at=is.null&order=created_at.desc&limit=5000&select=id,identifier,title,kind,custom_fields,created_at,archived_at,metadata_version`,
+    `?kind=in.(${list})&deleted_at=is.null&order=created_at.desc&limit=5000&select=id,identifier,title,kind,custom_fields,created_at,updated_at,created_by_user_id,archived_at,metadata_version`,
   )
 }
 

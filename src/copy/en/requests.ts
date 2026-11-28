@@ -2,7 +2,6 @@
 export const requests = {
   title: 'Requests',
   paneLabel: 'Requests',
-  subtitle: 'Ask the lab for work and follow what happens to it',
   newRequest: 'New request',
   tableLabel: 'Requests',
   searchPlaceholder: 'Search by number, title or details…',

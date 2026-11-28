@@ -31,6 +31,7 @@ import type {
   ReagentUsageLink,
   ReplacementLotLink,
 } from '#/lib/reagent-data'
+import { useListArrange } from '#/components/inventory/list-arrange'
 import { RegistryGrid } from '#/components/inventory/registry-grid'
 import type {
   RegistryColumn,
@@ -313,6 +314,7 @@ export function MaterialsBody({
   onOpenMaterial: (row: MaterialListRow, event?: React.MouseEvent) => void
 }): React.ReactElement | null {
   const { filter, rows: visible } = useRowFilter(allVisible)
+  const arrange = useListArrange({ rows: visible, columns, view })
 
   if (panelTab) return null
 
@@ -326,6 +328,7 @@ export function MaterialsBody({
         placeholder={t('library.materials.page.searchByIdMaterialSupplier')}
         onSearch={onSearch}
         filter={filter}
+        arrange={arrange}
       />
       <RecordBulkBar
         selection={bulk}
@@ -339,10 +342,9 @@ export function MaterialsBody({
           <RegistryGrid
             className="max-md:hidden"
             label={t('library.materials.page.materialLots')}
-            view={view}
+            {...arrange.grid}
             bulk={bulk}
             rowLabel={(m) => m.id}
-            rows={visible}
             columns={columns}
             getRowId={(m) => m.uuid}
             rowSelection={rowFocus.rowSelection}

@@ -76,6 +76,9 @@ import { useOpenRow } from '#/components/workspace/workspace-navigation'
 import { useRunLauncher } from '#/components/pipelines/use-run-launcher'
 import { signInRedirect } from '#/lib/sign-in-redirect'
 import { useListView } from '#/lib/list-views'
+import { useListArrange } from '#/components/inventory/list-arrange'
+import type { ListArrange } from '#/components/inventory/list-arrange'
+import { ownerColumn, updatedColumn } from '#/components/inventory/list-columns'
 import { undoToast } from '#/lib/undo-toast'
 
 const tabs = [
@@ -310,6 +313,10 @@ function pipelineColumns(
     {
       id: 'lastRun',
       header: t('data.pipelinesList.lastRun'),
+      accessorFn: (p) =>
+        p.lastRun
+          ? runStatus(p.lastRun.status).label
+          : t('data.pipelinesList.neverRun'),
       cell: ({ row }) => {
         const last = row.original.lastRun
         const lastStatus = last ? runStatus(last.status) : null
@@ -333,12 +340,11 @@ function pipelineColumns(
       enableSorting: false,
       cell: ({ row }) => keepsText(row.original),
     },
-    {
-      id: 'owner',
-      header: t('data.pipelinesList.owner'),
-      accessorFn: (p) =>
-        p.created_by_user_id ? (list.owners[p.created_by_user_id] ?? '') : '',
-    },
+    ownerColumn(
+      (p) => p.created_by_user_id,
+      new Map(Object.entries(list.owners)),
+    ),
+    updatedColumn((p) => p.updated_at),
   ]
 }
 
@@ -569,7 +575,9 @@ function PipelinesHeader({
   searchQ,
   onSearch,
   filter,
+  arrange,
 }: {
+  arrange: ListArrange<PipelineListRow>
   canManage: boolean
   workspaceId: string
   autoOpen: boolean
@@ -651,6 +659,7 @@ function PipelinesHeader({
         placeholder={t('data.pipelinesList.searchPipelines')}
         onSearch={onSearch}
         filter={filter}
+        arrange={arrange}
       />
     </>
   )
@@ -780,6 +789,8 @@ function PipelinesList() {
     [openPipeline, starts, owners.data, datasetNames],
   )
 
+  const arrange = useListArrange({ rows: visible, columns, view })
+
   const { rowSelection, onRowSelectionChange } = useRowFocus(
     sel?.id ?? null,
     (id) =>
@@ -854,6 +865,7 @@ function PipelinesList() {
           activeCount={rows.filter((p) => p.lifecycle !== 'retired').length}
           searchQ={search.q}
           filter={filter}
+          arrange={arrange}
           onSearch={(next) =>
             void navigate({
               to: '/pipelines',
@@ -876,15 +888,14 @@ function PipelinesList() {
             <RegistryGrid
               className="max-md:hidden"
               label={t('data.pipelinesList.pipelines')}
-              view={view}
-              rows={visible}
+              {...arrange.grid}
               columns={columns}
               getRowId={(p) => p.id}
               rowSelection={rowSelection}
               onRowSelectionChange={onRowSelectionChange}
               onRowClick={openPipeline}
               isLoading={query.isPending}
-              keepColumns={KEEP_COLUMNS}
+              keepColumns={[...arrange.grid.keepColumns, ...KEEP_COLUMNS]}
             />
           ) : null}
           <MobileList

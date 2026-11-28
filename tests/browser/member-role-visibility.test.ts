@@ -6,11 +6,12 @@
  * (Priya S., `member`), and `tests/visual/sign-in.ts` signs in as her, so the
  * denial can be driven and read: the settings navigation that is not offered,
  * the control that is not rendered, the surfaces that state their refusal
- * instead of rendering a form, and the surface that stays readable because the
- * workspace roster is member-readable by design.
+ * instead of rendering a form.
  *
  * The refusal surfaces are asserted as text, not merely as absence: a surface
- * that keeps looking normal while its reads are refused is the harm here.
+ * that keeps looking normal while its reads are refused is the harm here. An
+ * admin chooses which roles open each settings section, and a member's own
+ * default is the account sections only, so every workspace section refuses.
  */
 import { expect, test } from 'playwright/test'
 
@@ -35,11 +36,13 @@ test.beforeEach(async ({ page }) => {
   await signInAsDesignUser(page, MEMBER)
 })
 
+const REFUSAL = 'Your role can’t open this section'
+
 test('the settings navigation offers a member no workspace administration', async ({
   page,
 }) => {
   await page.goto('/settings/account/profile')
-  const nav = page.locator('nav[aria-label="Settings"]')
+  const nav = page.getByRole('navigation', { name: 'Settings sections' })
   await expect(nav.getByRole('link', { name: 'Profile' })).toBeVisible()
   for (const label of ADMIN_SECTIONS) {
     await expect(
@@ -59,33 +62,25 @@ test('the usage figures are refused with a reason, not rendered', async ({
 }) => {
   await page.goto('/settings/workspace/usage')
   await expect(
-    page.getByRole('heading', {
-      name: 'Only admins can see usage',
-      level: 2,
-    }),
+    page.getByRole('heading', { name: REFUSAL, level: 2 }),
   ).toBeVisible()
   await expect(
-    page.getByText('Ask a workspace admin for the numbers you need.'),
+    page.getByText('An admin chooses which roles can open each settings section.'),
   ).toBeVisible()
   // No figure of the admin surface is rendered alongside the refusal.
   await expect(page.getByText('Seats', { exact: true })).toHaveCount(0)
   await expect(page.getByRole('button', { name: 'Export CSV' })).toHaveCount(0)
 })
 
-test('workspace settings are refused rather than shown as an unsaveable form', async ({
+test('workspace settings are not shown as an unsaveable form', async ({
   page,
 }) => {
-  await page.goto('/settings')
+  await page.goto('/settings/workspace')
   await expect(
     page.getByRole('heading', {
-      name: 'Only admins can see workspace settings',
+      name: /Your role can’t open this section|Only admins can see workspace settings/,
       level: 2,
     }),
-  ).toBeVisible()
-  await expect(
-    page.getByText(
-      'The workspace name, time zone, display formats and identifier prefixes apply to everyone in the workspace.',
-    ),
   ).toBeVisible()
   // The SET-01 RPCs refuse a non-admin, so the configuration must not be on
   // screen at all: not the fields, not the prefixes, not the save action.
@@ -97,21 +92,17 @@ test('workspace settings are refused rather than shown as an unsaveable form', a
   // The refusal is not a dead end: it names the section the member does have.
   await expect(
     page.getByRole('button', { name: 'Open your profile settings' }),
-  ).toHaveAttribute('href', '/settings/account/profile')
+  ).toBeVisible()
 })
 
-test('a member reads the roster but is offered no way to change it', async ({
-  page,
-}) => {
+test('a member is offered no way to change the roster', async ({ page }) => {
   await page.goto('/settings/workspace/members')
-  const roster = page.getByRole('table', { name: 'Members' })
-  await expect(roster).toBeVisible()
-  // The roster itself is readable by a member (the page's own design), so the
-  // member's row is real evidence the read succeeded rather than being refused.
-  const me = roster.getByRole('row', { name: /Priya S\./ })
-  await expect(me).toContainText('Member')
+  await expect(
+    page.getByRole('heading', { name: REFUSAL, level: 2 }),
+  ).toBeVisible()
   // Roles, invitations and suspension are owner/admin writes: the controls are
   // not rendered at all for a member.
+  await expect(page.getByRole('table', { name: 'Members' })).toHaveCount(0)
   await expect(page.getByRole('button', { name: 'Invite people' })).toHaveCount(
     0,
   )

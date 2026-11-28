@@ -26,6 +26,28 @@ export const MODEL_CHANGE_SCOPES: readonly ModelChangeScope[] = [
   'also-migrate-open-experiments',
 ]
 
+const optionFields = {
+  id: z.uuid(),
+  key: z.string(),
+  label: z.string(),
+  lifecycle: z.enum(['active', 'retired']),
+}
+
+const optionSchema = modelMetadataSchema({
+  ...optionFields,
+  displayOrder: z.number().int(),
+})
+
+// A version snapshotted from the stored options (the incident log's set-up)
+// writes `display_order`; read it as `displayOrder` so that version opens.
+const storedOptionSchema = modelMetadataSchema({
+  ...optionFields,
+  display_order: z.number().int(),
+}).transform(({ display_order: displayOrder, ...rest }) => ({
+  ...rest,
+  displayOrder,
+}))
+
 // IDs name canonical fields, not per-version copies. Unknown semantic metadata
 // is retained so editing a label cannot discard units, rules or relationships.
 const fieldSchema = modelMetadataSchema({
@@ -61,17 +83,7 @@ const fieldSchema = modelMetadataSchema({
   })
     .nullable()
     .optional(),
-  options: z
-    .array(
-      modelMetadataSchema({
-        id: z.uuid(),
-        key: z.string(),
-        label: z.string(),
-        displayOrder: z.number().int(),
-        lifecycle: z.enum(['active', 'retired']),
-      }),
-    )
-    .optional(),
+  options: z.array(z.union([optionSchema, storedOptionSchema])).optional(),
 })
 
 export const recordModelVersionSchema = modelMetadataSchema({

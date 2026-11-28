@@ -1,8 +1,10 @@
-import { useEffect, useRef, useState } from 'react'
+import { use, useEffect, useRef, useState } from 'react'
 import { Icon } from '#/components/icons'
 import { Breadcrumb } from './breadcrumb'
 import type { Crumb } from './breadcrumb'
 import { Button } from './button'
+import { SectionLayoutContext } from './section-layout'
+import type { SectionLayoutMode } from './section-layout'
 import { Sheet, SheetContent } from './sheet'
 import { cn } from '#/lib/utils'
 
@@ -438,19 +440,83 @@ export function InspectorSection({
   )
 }
 
+export function SectionLayout({
+  mode,
+  children,
+}: {
+  mode: SectionLayoutMode
+  children: React.ReactNode
+}) {
+  return <SectionLayoutContext value={mode}>{children}</SectionLayoutContext>
+}
+
 export function Section({
   title,
   count,
+  description,
   action,
+  wide = false,
   children,
   className,
 }: {
   title: React.ReactNode
   count?: React.ReactNode
+  /** One or two muted lines on what the section is for, under the heading. */
+  description?: React.ReactNode
   action?: React.ReactNode
+  /**
+   * Settings only: a section whose content is a wide table (many columns or
+   * long text) keeps its heading above the table instead of beside it, so
+   * the table gets the pane's whole width.
+   */
+  wide?: boolean
   children: React.ReactNode
   className?: string
 }) {
+  const mode = use(SectionLayoutContext)
+
+  if (mode === 'settings') {
+    return (
+      <SettingsSection
+        title={title}
+        count={count}
+        description={description}
+        action={action}
+        wide={wide}
+        className={className}
+      >
+        {children}
+      </SettingsSection>
+    )
+  }
+
+  if (mode === 'nested') {
+    return (
+      <section className={cn('flex flex-col gap-2.5', className)}>
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5">
+          <h3 data-section-heading className="text-body font-medium text-fg">
+            {title}
+          </h3>
+          {count != null ? (
+            <span className="num -ml-1.5 text-label text-fg-muted">
+              {count}
+            </span>
+          ) : null}
+          <span className="flex-1" />
+          {action ? (
+            <div className="flex flex-wrap items-center gap-2">{action}</div>
+          ) : null}
+        </div>
+        {description ? (
+          <p className="-mt-1.5 text-label text-fg-muted text-pretty">
+            {description}
+          </p>
+        ) : null}
+        {children}
+      </section>
+    )
+  }
+
   return (
     <section className={cn('flex flex-col gap-2.5', className)}>
       {/* The heading leads a hairline that runs to the section's actions, so
@@ -475,7 +541,91 @@ export function Section({
           </div>
         ) : null}
       </div>
+      {description ? (
+        <p className="-mt-1 max-w-[72ch] text-label text-fg-muted text-pretty">
+          {description}
+        </p>
+      ) : null}
       {children}
+    </section>
+  )
+}
+
+/**
+ * A settings section: heading, description and actions in a fixed column on
+ * the left, the controls on the right. Forms in the right column keep to a
+ * readable measure; a table there takes the full width. Under 48rem of pane
+ * the two columns stack. Sections are divided by a hairline (styles.css).
+ */
+function SettingsSection({
+  title,
+  count,
+  description,
+  action,
+  wide,
+  children,
+  className,
+}: {
+  title: React.ReactNode
+  count?: React.ReactNode
+  description?: React.ReactNode
+  action?: React.ReactNode
+  wide: boolean
+  children: React.ReactNode
+  className?: string
+}) {
+  return (
+    <section
+      data-settings-section
+      data-wide={wide || undefined}
+      className={cn(
+        'grid gap-x-10 gap-y-3',
+        !wide && '@3xl/settings:grid-cols-[minmax(11rem,15rem)_minmax(0,1fr)]',
+        className,
+      )}
+    >
+      <div
+        className={cn(
+          'flex min-w-0 flex-col gap-1.5',
+          wide &&
+            '@3xl/settings:grid @3xl/settings:grid-cols-[minmax(0,1fr)_auto] @3xl/settings:items-start @3xl/settings:gap-x-6',
+        )}
+      >
+        <h2 data-section-heading className="text-section text-pretty">
+          {title}
+          {count != null ? (
+            <span className="num ml-2 font-sans text-label font-normal text-fg-muted">
+              {count}
+            </span>
+          ) : null}
+        </h2>
+        {description ? (
+          <p
+            className={cn(
+              'text-label leading-[18px] text-fg-muted text-pretty',
+              wide && 'max-w-[72ch]',
+            )}
+          >
+            {description}
+          </p>
+        ) : null}
+        {action ? (
+          <div
+            className={cn(
+              'mt-1.5 flex flex-wrap items-center gap-2',
+              wide &&
+                '@3xl/settings:col-start-2 @3xl/settings:row-span-2 @3xl/settings:row-start-1 @3xl/settings:mt-0',
+            )}
+          >
+            {action}
+          </div>
+        ) : null}
+      </div>
+      <SectionLayoutContext value="nested">
+        <div data-settings-controls className="flex min-w-0 flex-col gap-4">
+          {children}
+        </div>
+      </SectionLayoutContext>
     </section>
   )
 }

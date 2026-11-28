@@ -63,6 +63,25 @@ test.use({
     : {},
 })
 
+
+/**
+ * Regulated-lab rules decide how a signer is verified: a regulated lab needs a
+ * different admin to verify them, an unregulated one lets them confirm it is
+ * them. The journeys below are the regulated path, so the workspace is
+ * regulated except for the one check that names the difference.
+ */
+async function setRegulatedLab(regulated: boolean) {
+  const updated = await admin.query(
+    'update api.workspace_settings set regulated_lab = $2 where workspace_id = $1',
+    [workspace, regulated],
+  )
+  if (updated.rowCount === 0)
+    await admin.query(
+      'insert into api.workspace_settings(workspace_id, created_by_user_id, regulated_lab) values($1,$2,$3)',
+      [workspace, signer, regulated],
+    )
+}
+
 test.beforeAll(async () => {
   const url = z.string().url().parse(process.env.MIGRATION_DATABASE_URL)
   if (!['localhost', '127.0.0.1'].includes(new URL(url).hostname))
@@ -124,6 +143,7 @@ test.beforeAll(async () => {
     `insert into api.records(id,workspace_id,project_id,kind,identifier,title,status,created_by_user_id) values($1,$2,$3,'experiment','EXP-REV03-NOPASS','Missing-password refusal','draft',$4)`,
     [noPasswordRecord, workspace, project, author],
   )
+  await setRegulatedLab(true)
   const secret = z.string().min(32).parse(process.env.BETTER_AUTH_SECRET)
   const { createAuth } = await import('#/lib/auth')
   for (const user of [signer, author, verifier, witness]) {
@@ -631,10 +651,7 @@ test('independent certification, practice, password focus and exact-digest signi
     },
   })
   // 4. A reviewer signing their own submission, in a regulated lab.
-  await admin.query(
-    'update api.workspace_settings set regulated_lab = true where workspace_id = $1',
-    [workspace],
-  )
+  await setRegulatedLab(true)
 
   const selfReview = await post(page, '/api/db/rpc/sign_revision', {
     p_submission_id: selfReviewSubmission.id,
@@ -651,10 +668,7 @@ test('independent certification, practice, password focus and exact-digest signi
   })
   // Outside a regulated lab the same author passes the nonauthor rule and is
   // only held up by the missing fresh password token.
-  await admin.query(
-    'update api.workspace_settings set regulated_lab = false where workspace_id = $1',
-    [workspace],
-  )
+  await setRegulatedLab(false)
 
   const selfReviewUnregulated = await post(page, '/api/db/rpc/sign_revision', {
     p_submission_id: selfReviewSubmission.id,
@@ -665,6 +679,7 @@ test('independent certification, practice, password focus and exact-digest signi
   expect(selfReviewUnregulated.body).toMatchObject({
     error: { message: 'fresh password token required' },
   })
+  await setRegulatedLab(true)
   // No refusal may have written a signature row.
   expect(
     (

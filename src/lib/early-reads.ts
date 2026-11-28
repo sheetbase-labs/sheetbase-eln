@@ -15,12 +15,16 @@
  * is, and its ids) in plain browser JavaScript; `early-reads.test.ts` checks
  * that both send the same reads. Reads still go through the batch route as the
  * signed-in person, so row-level security applies exactly as for the page.
+ *
+ * A page that keeps its reads unbatched (`UNBATCHED_FLAG`, set by browser specs
+ * that answer reads by their own URL) sends nothing early either: the page asks
+ * for each read itself, where the spec can answer it.
  */
 import { z } from 'zod'
 
 import { primeReadWith } from './data-client'
 import type { ReadAnswer, ReadSpec } from './data-client'
-import { BATCH_MAX_READS, BATCH_URL } from './read-batch'
+import { BATCH_MAX_READS, BATCH_URL, UNBATCHED_FLAG } from './read-batch'
 import { IDENTIFIER, STORAGE_KEY, UUID } from './route-warm-start'
 
 /** Where the inline script leaves the batches it sent. */
@@ -39,6 +43,7 @@ declare global {
  * itself.
  */
 export const earlyReadsScript = `(function(){try{
+if(${JSON.stringify(UNBATCHED_FLAG)} in window)return;
 var s=JSON.parse(localStorage.getItem(${JSON.stringify(STORAGE_KEY)})||'null');
 if(!s||!s.templates)return;
 var U=new RegExp(${JSON.stringify(UUID.source)},'i'),I=new RegExp(${JSON.stringify(IDENTIFIER.source)});

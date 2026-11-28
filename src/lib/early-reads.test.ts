@@ -5,6 +5,7 @@ import { z } from 'zod'
 
 import type { ReadAnswer, ReadSpec } from './data-client'
 import { adoptEarlyReads, earlyReadsScript } from './early-reads'
+import { UNBATCHED_FLAG } from './read-batch'
 import {
   createWarmStart,
   REST_MS,
@@ -81,6 +82,7 @@ function runScript(pathname: string, reply: (reads: ReadSpec[]) => BatchReply) {
 afterEach(() => {
   window.localStorage.clear()
   window.__sheetbaseEarlyReads = undefined
+  Reflect.deleteProperty(globalThis, UNBATCHED_FLAG)
 })
 
 describe('early reads', () => {
@@ -113,6 +115,15 @@ describe('early reads', () => {
     learn('/', [get('/my_profile')])
 
     expect(runScript('/samples', () => ({ results: [] }))).toEqual([])
+    expect(window.__sheetbaseEarlyReads).toBeUndefined()
+  })
+
+  it('leaves every read to the page when reads are kept unbatched', () => {
+    learn('/', [get('/my_profile')])
+    // A browser spec that answers reads by their own URL sets this first.
+    Reflect.set(globalThis, UNBATCHED_FLAG, true)
+
+    expect(runScript('/', () => ({ results: [answer('[]')] }))).toEqual([])
     expect(window.__sheetbaseEarlyReads).toBeUndefined()
   })
 

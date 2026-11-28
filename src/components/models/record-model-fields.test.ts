@@ -147,6 +147,23 @@ describe('record model field helpers', () => {
     ])
   })
 
+  it('says when a field moves into or out of the header', () => {
+    const changes = diffModelVersions(
+      definition([field({})]),
+      definition([field({ show_in_header: true })]),
+    )
+
+    expect(changes).toEqual([
+      expect.objectContaining({
+        kind: 'Changed',
+        subject: 'Vials',
+        detail: 'In header',
+        from: 'No',
+        to: 'Yes',
+      }),
+    ])
+  })
+
   it('diffs added and retired fields', () => {
     const before = definition([field({ id: 'a', label: 'Old' })])
 

@@ -103,6 +103,8 @@ export interface ModelFieldDefinition {
   section?: string | null
   /** Lists offer the field as a column. */
   showInList?: boolean
+  /** The record page's header says the field beside the ID and status. */
+  showInHeader?: boolean
   /** The create form asks for the field. */
   askOnCreate?: boolean
   logicalType: ModelFieldLogicalType
@@ -144,6 +146,7 @@ interface DefinitionWire {
   display_order: number
   section?: string | null
   show_in_list?: boolean
+  show_in_header?: boolean
   ask_on_create?: boolean
   logical_type: ModelFieldLogicalType
   nullable: boolean
@@ -222,6 +225,7 @@ export async function fetchModelFields(
           description: field.description ?? null,
           displayOrder: field.display_order,
           section: field.section ?? null,
+          showInHeader: field.show_in_header ?? false,
           logicalType: field.logical_type,
           nullable: field.nullable,
           defaultValue: pipelineJsonValueSchema

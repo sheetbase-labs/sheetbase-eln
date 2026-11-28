@@ -70,6 +70,8 @@ const fieldSchema = modelMetadataSchema({
     .nullable()
     .optional(),
   section: z.string().nullable().optional(),
+  /** The record page's header says this field beside the ID and status. */
+  show_in_header: z.boolean().optional(),
   source: z.string().nullable().optional(),
   required_for: z.enum(['release']).nullable().optional(),
   decimal_places: z.number().int().nonnegative().optional(),

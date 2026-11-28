@@ -202,6 +202,16 @@ export function diffModelVersions(
         from: fieldRequiredLabel(old),
         to: fieldRequiredLabel(field),
       })
+
+    if (Boolean(old.show_in_header) !== Boolean(field.show_in_header))
+      changes.push({
+        id: `field:${field.id}:header`,
+        kind: 'Changed',
+        subject: field.label,
+        detail: 'In header',
+        from: old.show_in_header ? 'Yes' : 'No',
+        to: field.show_in_header ? 'Yes' : 'No',
+      })
     const oldOptions = new Map((old.options ?? []).map((o) => [o.id, o]))
     const newOptions = new Map((field.options ?? []).map((o) => [o.id, o]))
 

@@ -2,7 +2,6 @@
  * The projects list's side panel: the selected project's details, its latest
  * experiments and what changed lately, without leaving the list. Reads only.
  */
-import { LoadingBlock } from '#/components/ui/page-skeleton'
 import { useQuery } from '@tanstack/react-query'
 import { Link } from '@tanstack/react-router'
 
@@ -12,14 +11,16 @@ import { DescriptionList } from '#/components/ui/layout'
 import { ObjectLink } from '#/components/ui/object-link'
 import { experimentStatus } from '#/components/experiments/experiments-data'
 import { t } from '#/copy'
-import { describeAuditEvent } from '#/lib/audit-history'
-import { formatDate, formatRelativeTime } from '#/lib/notebook-data'
+import { ActivityList } from '#/components/record-page/record-side-panel'
+import { groupActivityByDay } from '#/lib/record-activity'
+import { formatDate } from '#/lib/notebook-data'
 
 import {
   fetchProjectActivity,
   fetchProjectMembers,
   useProjectMilestones,
 } from './project-data'
+import { projectActivityEntry } from './project-activity'
 import { useProjectExperimentsPage } from './project-lists'
 import type { ProjectRow } from './types'
 
@@ -183,45 +184,13 @@ function PeekActivity({ project }: { project: ProjectRow }) {
   return (
     <section className="flex flex-col gap-2">
       <Heading>{t('projects.projectOverview.activity.title')}</Heading>
-      <div className="flex flex-col gap-2 text-label">
-        {(activity.data ?? []).map((event) => {
-          const description = describeAuditEvent(event)
-
-          return (
-            <div key={event.id} className="flex gap-2 break-words">
-              <time
-                className="shrink-0 text-fg-muted"
-                dateTime={event.createdAt}
-                title={formatDate(event.createdAt)}
-              >
-                {formatRelativeTime(event.createdAt)}
-              </time>
-              <span>
-                {t('projects.projectOverview.activity.line', {
-                  actor:
-                    event.currentActorName ??
-                    t('projects.projectOverview.activity.system'),
-                  action: description.action,
-                  subject: event.currentRecord
-                    ? `${event.currentRecord.identifier} · ${event.currentRecord.title}`
-                    : description.subject,
-                })}
-              </span>
-            </div>
-          )
-        })}
-        {!activity.data?.length ? (
-          activity.isPending ? (
-            <LoadingBlock
-              label={t('projects.projectOverview.activity.loading')}
-            />
-          ) : (
-            <span className="text-fg-muted">
-              {t('projects.projectOverview.activity.empty')}
-            </span>
-          )
-        ) : null}
-      </div>
+      <ActivityList
+        groups={groupActivityByDay(
+          (activity.data ?? []).map(projectActivityEntry),
+          activity.data?.length,
+        )}
+        loading={activity.isPending}
+      />
     </section>
   )
 }

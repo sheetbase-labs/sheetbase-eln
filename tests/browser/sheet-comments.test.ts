@@ -498,9 +498,16 @@ test('review comments use submitted cells after live edits and never rewrite fro
     .filter({ hasText: /^4$/ })
   await frozenFour.click()
   await expect(frozenFour).toHaveText('4')
-  await page
-    .getByRole('button', { name: 'Comment on frozen selection' })
-    .click()
+  // The review lays out again as it loads, so a click can land on a button
+  // that is still moving; try again until the comment box opens.
+  await expect(async () => {
+    await page
+      .getByRole('button', { name: 'Comment on frozen selection' })
+      .click({ timeout: 5_000 })
+    await expect(
+      page.getByRole('textbox', { name: 'New comment body' }),
+    ).toBeVisible({ timeout: 3_000 })
+  }).toPass({ timeout: 40_000 })
   const body = 'SHEET-03 frozen recovery-four, not live seventy-seven'
   await addComment(page, body, true)
   expect(

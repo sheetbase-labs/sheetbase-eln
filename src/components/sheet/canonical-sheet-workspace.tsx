@@ -3413,7 +3413,7 @@ function CanonicalWorkspaceGridArea() {
   // One tree whether or not changes are shown, so switching them on keeps
   // the grid (and its selection) mounted.
   return (
-    <div className="flex min-h-0 flex-initial max-md:flex-col max-md:overflow-y-auto">
+    <div className="flex min-h-0 shrink-0 flex-initial max-md:flex-col max-md:overflow-y-auto">
       <div className="flex min-h-0 min-w-0 flex-1 flex-col max-md:flex-none">
         <CanonicalWorkspaceGrid />
         {details && !showChanges ? (

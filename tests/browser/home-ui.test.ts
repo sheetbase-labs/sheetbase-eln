@@ -348,7 +348,16 @@ for (const theme of ['light', 'dark'] as const) {
     if (!appearanceClient)
       throw new Error('Home appearance fixture unavailable')
     await appearanceClient.query('select api.set_user_appearance($1)', [theme])
-    await page.addInitScript((value) => {
+    // Each label is read on a page of its own: the spec answers these reads by
+    // URL, and a second visit on the same page can send them as one batch the
+    // answers never see. Scripts and answers are set on the context, so every
+    // page gets them.
+    const context = page.context()
+
+    await context.addInitScript(() =>
+      Reflect.set(globalThis, '__sheetbaseUnbatchedReads', true),
+    )
+    await context.addInitScript((value) => {
       document.cookie = `sb-theme=${value}; path=/`
     }, theme)
     for (const resource of [
@@ -356,7 +365,7 @@ for (const theme of ['light', 'dark'] as const) {
       'change_events?**',
       'rpc/my_onboarding_state',
     ]) {
-      await page.route(`**/api/db/${resource}`, (route) =>
+      await context.route(`**/api/db/${resource}`, (route) =>
         route.fulfill({
           status: 200,
           contentType: 'application/json',
@@ -365,7 +374,7 @@ for (const theme of ['light', 'dark'] as const) {
         }),
       )
     }
-    await page.route('**/api/db/rpc/project_members', (route) =>
+    await context.route('**/api/db/rpc/project_members', (route) =>
       route.fulfill({
         status: 200,
         contentType: 'application/json',
@@ -390,7 +399,7 @@ for (const theme of ['light', 'dark'] as const) {
       }),
     )
     let canEdit = true
-    await page.route('**/api/db/rpc/my_project_permissions', (route) =>
+    await context.route('**/api/db/rpc/my_project_permissions', (route) =>
       route.fulfill({
         status: 200,
         contentType: 'application/json',
@@ -409,25 +418,27 @@ for (const theme of ['light', 'dark'] as const) {
     )
     for (const label of ['Reviewer', 'Review only']) {
       canEdit = label === 'Reviewer'
-      await page.goto('/')
-      const projects = page.locator('section').filter({
-        has: page.getByRole('heading', { name: 'Your projects', exact: true }),
+      const view = label === 'Reviewer' ? page : await context.newPage()
+
+      await view.goto('/')
+      const projects = view.locator('section').filter({
+        has: view.getByRole('heading', { name: 'Your projects', exact: true }),
       })
       await expect(projects.getByText(label, { exact: true })).toBeVisible({
         timeout: 20000,
       })
       await expect(projects.getByText('Editor', { exact: true })).toHaveCount(0)
       await expect(
-        page.getByText('Workspace reviewer', { exact: true }),
+        view.getByText('Workspace reviewer', { exact: true }),
       ).toBeVisible()
       await expect(
-        page.getByText('Workspace member', { exact: true }),
+        view.getByText('Workspace member', { exact: true }),
       ).toBeVisible()
-      await page.waitForFunction(() => document.fonts.status === 'loaded')
+      await view.waitForFunction(() => document.fonts.status === 'loaded')
       if (theme === 'dark')
-        await expect(page.locator('html')).toHaveClass(/\bdark\b/)
-      else await expect(page.locator('html')).not.toHaveClass(/\bdark\b/)
-      await page.screenshot({
+        await expect(view.locator('html')).toHaveClass(/\bdark\b/)
+      else await expect(view.locator('html')).not.toHaveClass(/\bdark\b/)
+      await view.screenshot({
         path: testInfo.outputPath(
           `home-access-${theme}-${canEdit ? 'combined' : 'review-only'}.png`,
         ),

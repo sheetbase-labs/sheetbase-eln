@@ -13,7 +13,9 @@ import { z } from 'zod'
 
 import { markSessionExpired } from './session-expiry'
 import { CLIENT_ID_HEADER, getOrCreateClientId } from './client-identity'
+import { isBatchableRead } from './batchable-reads'
 import { devFetch } from './dev-network'
+import { queueRead } from './read-batch'
 import { announcePluginWarnings } from './plugin-warnings'
 import {
   CHANGE_REASON_REQUIRED_CODE,
@@ -202,6 +204,9 @@ const READ_ONLY_RPC =
 function changesRows(path: string, method: string | undefined): boolean {
   if (method === undefined || method === 'GET') return false
 
+  // A STABLE database function reads and never writes, so it changes no rows.
+  if (isBatchableRead(method, path)) return false
+
   return !READ_ONLY_RPC.test(path)
 }
 
@@ -217,6 +222,17 @@ function announcesChange(path: string, method: string | undefined): boolean {
   if (!changesRows(path, method)) return false
 
   return !path.startsWith('/rpc/') || WRITING_RPC.test(path)
+}
+
+/** The request headers a batched read keeps; the rest belong to the batch request. */
+function batchedHeaders(headers: Headers) {
+  return Object.fromEntries(
+    ['accept', 'prefer', 'range', 'content-type'].flatMap((name) => {
+      const value = headers.get(name)
+
+      return value ? [[name, value]] : []
+    }),
+  )
 }
 
 export function createDataClient(fetchImpl: typeof fetch = fetch): DataClient {
@@ -286,10 +302,30 @@ export function createDataClient(fetchImpl: typeof fetch = fetch): DataClient {
       if (known) headers.set(CHANGE_REASON_HEADER, known)
     }
 
-    let response = await devFetch(fetchImpl, `${API_BASE}${path}`, {
-      ...init,
-      headers,
-    })
+    const sendAlone = () =>
+      devFetch(fetchImpl, `${API_BASE}${path}`, { ...init, headers })
+
+    // Reads that start together travel together (see read-batch.ts); writes,
+    // and anything else, go on their own as they always did.
+    const queued = queueRead(
+      {
+        path,
+        method: init.method === 'POST' ? 'POST' : 'GET',
+        headers: batchedHeaders(headers),
+        // A read's body is the JSON text of a function's arguments, or nothing.
+        body:
+          init.body === undefined || init.body === null
+            ? undefined
+            : String(init.body),
+      },
+      sendAlone,
+      (url, batchInit) => devFetch(fetchImpl, url, batchInit),
+      (batchHeaders) => {
+        if (clientId) batchHeaders.set(CLIENT_ID_HEADER, clientId)
+      },
+    )
+
+    let response = await (queued ?? sendAlone())
 
     if (!response.ok && writes && !headers.has(CHANGE_REASON_HEADER)) {
       // The workspace asks for a reason when a saved value changes: ask once,

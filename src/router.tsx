@@ -11,8 +11,14 @@ import { NotFound } from '#/components/shell/not-found'
 import { PaneRouteError } from '#/components/workspace/pane-error-boundary'
 import { noCapabilities } from './lib/capabilities'
 import { ROOT_CONTEXT_QUERY_KEY } from './lib/root-context-cache'
+import { enableReadBatching } from './lib/read-batch'
 
 export function getRouter() {
+  // The browser sends reads that start together as one request (read-batch.ts).
+  // Unit tests keep every read as its own request unless they turn it on.
+  if (typeof window !== 'undefined' && import.meta.env.MODE !== 'test')
+    enableReadBatching()
+
   const context = {
     ...createRouterContext(),
     auth: null,

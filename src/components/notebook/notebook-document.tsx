@@ -814,7 +814,13 @@ function useNotebookDocument({
         ...definition,
         when: (event: KeyboardEvent) =>
           definition.id === 'notebook-comment-selection'
-            ? Boolean(commentButton())
+            ? // From a sheet's grid the sheet comments on its selected cell; the
+              // block's own comments take the key everywhere else.
+              Boolean(commentButton()) &&
+              !(
+                event.target instanceof HTMLElement &&
+                event.target.closest('[role="grid"]')
+              )
             : !(
                 event.target instanceof HTMLElement &&
                 event.target.closest('[role="grid"]')

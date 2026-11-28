@@ -30,7 +30,9 @@ import { useCellWriteMarks } from './sheet-write-marks'
 import { gridStoredText } from './grid-client-values'
 import { SheetbaseTableGrid } from '#/components/sheet/sheetbase-grid'
 import { usePluginGridCellDisplays } from '#/components/extensions/table-hooks'
+import { useRegisterShortcuts } from '#/components/shortcuts/shortcut-provider'
 import { SheetKeyboardShortcuts } from '#/components/shortcuts/sheet-keyboard-shortcuts'
+import { notebookShortcuts } from '#/lib/shortcut-scopes'
 import { CommentPanel } from '#/components/comments/comment-panel'
 import type {
   SheetbaseCellState,
@@ -2190,6 +2192,24 @@ function useCanonicalWorkspaceSession({
         expectedRevision: instance.revision,
       })
   }
+
+  // Comment on selection (Ctrl+Alt+M) works from the grid itself, not only
+  // through the sheet's menu.
+  const commentShortcutReady = Boolean(canComment && commentSelection?.rowId)
+
+  const commentShortcuts = useMemo(
+    () =>
+      notebookShortcuts({ commentSelection: () => openSelectionComment() }).map(
+        (definition) => ({
+          ...definition,
+          when: () => commentShortcutReady,
+        }),
+      ),
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- openSelectionComment reads the current selection, which commentShortcutReady and the selection already track.
+    [commentShortcutReady, commentSelection],
+  )
+
+  useRegisterShortcuts(commentShortcuts)
 
   const commentAnnotations = useMemo(() => {
     const notes = new Map<

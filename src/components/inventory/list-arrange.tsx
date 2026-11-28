@@ -39,6 +39,17 @@ export interface ArrangeOption {
 /** The most groups a column may make and still read as groups, not a list. */
 const MAX_GROUPS = 12
 
+/**
+ * A toolbar menu button that is its words on a desktop and only its icon on a
+ * phone, so search and the view controls share one row there. The words stay
+ * as its accessible name.
+ */
+const PHONE_ICON_TRIGGER = {
+  variant: 'quiet',
+  size: 'sm',
+  className: 'max-md:size-10 max-md:px-0',
+} as const
+
 /** A label longer than this on average is prose (a summary), not a category. */
 const MAX_GROUP_LABEL = 32
 
@@ -355,11 +366,14 @@ export function SortMenu({
 
   return (
     <DropdownMenu>
-      <DropdownMenuTrigger render={<Button variant="quiet" size="sm" />}>
-        {current
-          ? t('common.list.sortBy', { by: current.label })
-          : t('common.list.sort')}
-        <Icon name="chevronDown" size={10} />
+      <DropdownMenuTrigger render={<Button {...PHONE_ICON_TRIGGER} />}>
+        <Icon name="arrowUpDown" size={14} className="md:hidden" />
+        <span className="max-md:sr-only">
+          {current
+            ? t('common.list.sortBy', { by: current.label })
+            : t('common.list.sort')}
+        </span>
+        <Icon name="chevronDown" size={10} className="max-md:hidden" />
       </DropdownMenuTrigger>
       <DropdownMenuContent className="max-h-[360px] w-[200px] overflow-auto">
         {listOrder ? (
@@ -409,11 +423,14 @@ export function GroupMenu({
 
   return (
     <DropdownMenu>
-      <DropdownMenuTrigger render={<Button variant="quiet" size="sm" />}>
-        {current
-          ? t('common.list.groupBy', { by: current.label })
-          : t('common.list.group')}
-        <Icon name="chevronDown" size={10} />
+      <DropdownMenuTrigger render={<Button {...PHONE_ICON_TRIGGER} />}>
+        <Icon name="layers" size={14} className="md:hidden" />
+        <span className="max-md:sr-only">
+          {current
+            ? t('common.list.groupBy', { by: current.label })
+            : t('common.list.group')}
+        </span>
+        <Icon name="chevronDown" size={10} className="max-md:hidden" />
       </DropdownMenuTrigger>
       <DropdownMenuContent className="max-h-[360px] w-[200px] overflow-auto">
         <MenuItem on={!current} onClick={() => onChange(undefined)}>

@@ -41,6 +41,8 @@ async function setup(page: Page, blockers = false) {
     'record_model_versions',
     'user_favourites',
     'projects',
+    // The record page's Links read.
+    'sheet_instances',
   ])
 
   await page.route('**/api/db/**', async (route) => {
@@ -50,6 +52,20 @@ async function setup(page: Page, blockers = false) {
     if (
       route.request().method() === 'POST' &&
       resource === 'rpc/my_project_permissions'
+    ) {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: '[]',
+      })
+
+      return
+    }
+
+    // The record page's Activity reads the record's timeline.
+    if (
+      route.request().method() === 'POST' &&
+      resource === 'rpc/record_timeline'
     ) {
       await route.fulfill({
         status: 200,

@@ -64,6 +64,7 @@ import { useListView } from '#/lib/list-views'
 import { useListArrange } from '#/components/inventory/list-arrange'
 import { updatedColumn } from '#/components/inventory/list-columns'
 import { formatDate } from '#/lib/format-date'
+import { templateKeyFromName } from '#/lib/experiment-to-template'
 import { t } from '#/copy'
 
 const tabs = ['all', 'active', 'retired'] as const
@@ -74,24 +75,6 @@ const tabLabel: Record<TemplateTab, string> = {
   all: t('library.templates.list.all'),
   active: t('library.templates.list.active'),
   retired: t('library.templates.list.retired'),
-}
-
-/**
- * The catalogue's internal key, made from the name so nobody has to type one:
- * lowercase words joined by underscores, as the create RPC accepts
- * (`^[a-z][a-z0-9_]{0,59}$`), with a short suffix so two templates of the same
- * name never clash. People see the template's number, never its key.
- */
-export function templateKeyFromName(name: string, suffix: string): string {
-  const words = name
-    .toLowerCase()
-    .normalize('NFKD')
-    .replace(/[^a-z0-9]+/g, '_')
-    .replace(/^_+|_+$/g, '')
-
-  const base = /^[a-z]/.test(words) ? words : `t_${words}`
-
-  return `${base.slice(0, 50).replace(/_+$/, '')}_${suffix}`
 }
 
 /** The board's address bar: which tab, search text and row it names. Anything
@@ -608,13 +591,12 @@ function NewTemplateDialog({
     mutationFn: () =>
       createNotebookTemplate({
         workspaceId,
-        key: templateKeyFromName(
-          name,
-          Math.random()
-            .toString(36)
-            .slice(2, 6)
-            .replace(/[^a-z0-9]/g, 'x'),
-        ),
+        // The key is internal: made from the name, with a short suffix so two
+        // templates of the same name never clash. People see the number.
+        key: `${templateKeyFromName(name).slice(0, 54)}_${Math.random()
+          .toString(36)
+          .slice(2, 6)
+          .replace(/[^a-z0-9]/g, 'x')}`,
         name: name.trim(),
         description: description.trim() || null,
         configuration: { formatVersion: 1, parameters: [], placements: [] },

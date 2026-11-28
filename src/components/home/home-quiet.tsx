@@ -27,6 +27,7 @@ import type { RecentItem } from '#/lib/recents'
 import { cn } from '#/lib/utils'
 import { rich, t } from '#/copy'
 import { formatTime } from '#/lib/format-date'
+import { TodayBookingsList } from './today-bookings-list'
 
 const COMING_UP_ICON: Record<
   ComingUpKind,
@@ -411,26 +412,7 @@ function TodayInspector({
           }
         >
           {todayBookings.length ? (
-            <ul className="m-0 flex list-none flex-col p-0">
-              {todayBookings.map((booking) => (
-                <li
-                  key={booking.id}
-                  className="flex gap-3 border-b border-border-subtle py-2 last:border-0"
-                >
-                  <span className="num w-10 shrink-0 font-medium text-link">
-                    {formatTime(booking.startsAt, { timeZone })}
-                  </span>
-                  <div className="min-w-0">
-                    <div className="font-medium">{booking.title}</div>
-                    {booking.location ? (
-                      <div className="text-label text-fg-muted">
-                        {booking.location}
-                      </div>
-                    ) : null}
-                  </div>
-                </li>
-              ))}
-            </ul>
+            <TodayBookingsList bookings={todayBookings} timeZone={timeZone} />
           ) : (
             <p className="m-0 text-fg-muted">
               {t('projects.homeQuiet.today.empty')}

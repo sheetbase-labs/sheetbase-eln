@@ -268,19 +268,6 @@ export const designSteps: Array<SeedStep> = [
     },
   },
   {
-    // The design workspace is a lab already in use, so its first-run setup is
-    // done. Without this the owner's Home opens over the "Set up your lab"
-    // dialog, which hid the page from every browser test that opens it.
-    name: 'design setup done',
-    run: async (db) => {
-      await db.execute(sql`
-        update api.workspace_settings
-           set setup_completed_at = now()
-         where workspace_id = ${PROCESS}
-           and setup_completed_at is null`)
-    },
-  },
-  {
     // Reseeding builds a fresh database, which empties the workspace's AI
     // choice. When the deployment names a provider profile, select the first
     // one again so the assistant works straight after a reseed.

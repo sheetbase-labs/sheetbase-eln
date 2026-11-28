@@ -41,6 +41,11 @@ for (const path of [
       page.getByRole('heading', { name: 'Client portal', level: 1 }),
     ).toBeVisible()
     await expect(page.getByRole('navigation', { name: 'Portal' })).toBeVisible()
+    // The portal's own content has loaded, so the checks below look at the
+    // finished page rather than passing on one still loading.
+    await expect(
+      page.getByRole('heading', { name: 'Your access' }),
+    ).toBeVisible()
     // None of the CDMO's configuration or roster is on the page.
     await expect(
       page.getByRole('navigation', { name: 'Settings sections' }),
@@ -50,7 +55,10 @@ for (const path of [
     ).toHaveCount(0)
     await expect(page.getByLabel('Time zone')).toHaveCount(0)
     await expect(page.getByRole('table', { name: 'Members' })).toHaveCount(0)
-    await expect(page.getByText('Gareth P.')).toHaveCount(0)
+    // The portal names its CDMO lead (Gareth P.) on purpose; the roster's
+    // other members are what must stay hidden.
+    await expect(page.getByText('Priya S.')).toHaveCount(0)
+    await expect(page.getByText('Mei L.')).toHaveCount(0)
     await expect(page.getByText('Seats', { exact: true })).toHaveCount(0)
   })
 }

@@ -19,7 +19,10 @@ import {
   DropdownMenuLinkItem,
 } from '#/components/ui/dropdown-menu'
 import { RecordPage } from '#/components/record-page/record-page'
-import type { RecordFact } from '#/components/record-page/record-page'
+import type {
+  RecordFact,
+  RecordPageProps,
+} from '#/components/record-page/record-page'
 import { RecordStateLine } from '#/components/record-page/record-state-line'
 import {
   RecordActivity,
@@ -630,6 +633,36 @@ function protocolRecordStatus(
     : protocolStatus('draft')
 }
 
+/**
+ * The version the document reads: the one picked, else the effective one,
+ * else the newest frozen one.
+ */
+function shownProtocolVersion(
+  versions: ProtocolVersion[],
+  pickedId: string | null,
+): ProtocolVersion | undefined {
+  return (
+    versions.find((v) => v.id === pickedId) ??
+    versions.find((v) => v.status === 'effective') ??
+    [...versions].sort((a, b) => b.version - a.version).at(0)
+  )
+}
+
+/** The header names the effective version rather than a bare "Active". */
+function protocolHeaderStatus(
+  status: ProtocolStatus,
+  effectiveVersion: ProtocolVersion | undefined,
+): NonNullable<RecordPageProps['status']> {
+  return {
+    tone: status.tone,
+    label: effectiveVersion
+      ? t('library.protocols.detail.effectiveV', {
+          version: effectiveVersion.version,
+        })
+      : status.label,
+  }
+}
+
 /** The protocol is gone, or still loading: either way there is no frame yet. */
 function ProtocolUnavailable({
   loading,
@@ -700,10 +733,7 @@ function ProtocolPage() {
 
   // The document reads the version picked, else the effective one, else the
   // newest frozen one; with no frozen version it falls back to the working text.
-  const shownVersion =
-    versionRows.find((v) => v.id === pickedVersionId) ??
-    versionRows.find((v) => v.status === 'effective') ??
-    [...versionRows].sort((a, b) => b.version - a.version).at(0)
+  const shownVersion = shownProtocolVersion(versionRows, pickedVersionId)
 
   const snapshot = useQuery({
     queryKey: ['ui-port', 'protocol-revision', shownVersion?.id ?? ''],
@@ -719,9 +749,9 @@ function ProtocolPage() {
   if (!p || p.kind !== 'protocol_template')
     return <ProtocolUnavailable loading={record.isLoading} />
 
-  const effectiveVersion = versions.data?.find((v) => v.status === 'effective')
+  const effectiveVersion = versionRows.find((v) => v.status === 'effective')
 
-  const status = protocolRecordStatus(p, versions.data ?? [], effectiveVersion)
+  const status = protocolRecordStatus(p, versionRows, effectiveVersion)
 
   return (
     <RecordPage
@@ -735,14 +765,7 @@ function ProtocolPage() {
       ]}
       title={p.title}
       identifier={p.identifier}
-      status={{
-        tone: status.tone,
-        label: effectiveVersion
-          ? t('library.protocols.detail.effectiveV', {
-              version: effectiveVersion.version,
-            })
-          : status.label,
-      }}
+      status={protocolHeaderStatus(status, effectiveVersion)}
       facts={protocolFacts(
         p,
         effectiveVersion,
@@ -764,7 +787,7 @@ function ProtocolPage() {
       tabs={protocolTabs(tab, {
         blocks: blocks.data?.length ?? 0,
         links: links.data?.length ?? 0,
-        versions: versions.data?.length ?? 0,
+        versions: versionRows.length,
       })}
       sideLabel={t('library.protocols.protocolInspector.protocolVersion')}
       side={

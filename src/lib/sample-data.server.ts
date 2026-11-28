@@ -8,7 +8,7 @@
  * The seed's workspaces and people have fixed ids, so it can be loaded once
  * per install: a second person is told it is loaded elsewhere.
  */
-import { and, eq, sql } from 'drizzle-orm'
+import { and, eq } from 'drizzle-orm'
 
 import { db as appDb } from '#/db/client.server'
 import {
@@ -17,11 +17,8 @@ import {
   workspaceSettings,
   workspaces,
 } from '#/db/schema'
-import {
-  DESIGN_USER_IDS,
-  DESIGN_WORKSPACE_IDS,
-  designSteps,
-} from '#/db/seed/design'
+import { DESIGN_WORKSPACE_IDS, designSteps } from '#/db/seed/design'
+import { joinDesignAsLead } from '#/db/seed/design-lead'
 import { FIXTURE_USER_EMAIL, FIXTURE_USER_ID } from '#/db/seed/identities'
 import { seedUrl } from '#/db/seed/url'
 import { logger } from '#/lib/logger'
@@ -48,55 +45,6 @@ export const DEMO_WORKSPACE_ID = DESIGN_WORKSPACE_IDS.processDevelopment
  * and before anyone is certified to sign, so they are certified with the rest.
  */
 const JOIN_BEFORE_STEP = 'design demo file bytes'
-
-/**
- * Makes the person the demo's lead scientist. The seed's own person (Gareth P.)
- * owns the workspace and its projects; the requester gets the same standing:
- * owner of the workspace, the same project access, groups, favourites and
- * followed items. Without the project access, Projects, Experiments and every
- * list built on them would be empty for them.
- */
-async function joinDemoAsLead(db: Db, userId: string): Promise<void> {
-  const workspaceId = DEMO_WORKSPACE_ID
-  const lead = DESIGN_USER_IDS.gareth
-
-  await db
-    .insert(workspaceMemberships)
-    .values({ workspaceId, userId, role: 'owner' })
-    .onConflictDoUpdate({
-      target: [workspaceMemberships.workspaceId, workspaceMemberships.userId],
-      set: { role: 'owner' },
-    })
-
-  if (userId === lead) return
-
-  await db.execute(sql`
-    INSERT INTO api.project_access
-      (workspace_id, project_id, user_id, access_level, granted_by_user_id,
-       can_view, can_edit, can_review, client_portal, can_manage, project_role)
-    SELECT workspace_id, project_id, ${userId}, access_level, granted_by_user_id,
-           can_view, can_edit, can_review, client_portal, can_manage, project_role
-      FROM api.project_access
-     WHERE workspace_id = ${workspaceId} AND user_id = ${lead}`)
-  await db.execute(sql`
-    INSERT INTO api.workspace_group_memberships (workspace_id, group_id, user_id)
-    SELECT workspace_id, group_id, ${userId}
-      FROM api.workspace_group_memberships
-     WHERE workspace_id = ${workspaceId} AND user_id = ${lead}
-    ON CONFLICT DO NOTHING`)
-  await db.execute(sql`
-    INSERT INTO api.user_favourites (workspace_id, user_id, object_kind, object_id)
-    SELECT workspace_id, ${userId}, object_kind, object_id
-      FROM api.user_favourites
-     WHERE workspace_id = ${workspaceId} AND user_id = ${lead}
-    ON CONFLICT DO NOTHING`)
-  await db.execute(sql`
-    INSERT INTO api.work_item_follows (workspace_id, user_id, record_id)
-    SELECT workspace_id, ${userId}, record_id
-      FROM api.work_item_follows
-     WHERE workspace_id = ${workspaceId} AND user_id = ${lead}
-    ON CONFLICT DO NOTHING`)
-}
 
 /**
  * The load ends by marking the workspace set up, so a workspace without that
@@ -241,7 +189,8 @@ async function loadSample(db: Db, userId: string): Promise<void> {
     .onConflictDoNothing()
 
   for (const step of designSteps) {
-    if (step.name === JOIN_BEFORE_STEP) await joinDemoAsLead(db, userId)
+    // react-doctor-disable-next-line react-doctor/async-await-in-loop -- The person joins once, at a fixed point in the ordered steps.
+    if (step.name === JOIN_BEFORE_STEP) await joinDesignAsLead(db, userId)
 
     // react-doctor-disable-next-line react-doctor/async-await-in-loop -- The steps build on each other (workspaces, then projects, then their records and data), so each one is written before the next reads it.
     await step.run(db)

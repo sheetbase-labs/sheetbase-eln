@@ -693,8 +693,12 @@ function ScheduleToolbar({
   return (
     <div className="flex flex-wrap items-end gap-2">
       <div className="flex-1 max-md:basis-full">
-        <h1 className="text-title">{t('projects.schedulePage.title')}</h1>
-        <div className="mt-0.5 text-body text-fg-muted">{subtitle}</div>
+        {/* The pane header already names the page on a desktop pane, as on
+            every list; the dates are what this row adds. */}
+        <h1 className="text-title max-md:text-[18px] max-md:leading-6 md:sr-only">
+          {t('projects.schedulePage.title')}
+        </h1>
+        <div className="text-body text-fg-muted max-md:mt-0.5">{subtitle}</div>
       </div>
       <Button
         size="sm"

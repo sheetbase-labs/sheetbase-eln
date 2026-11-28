@@ -2,13 +2,17 @@ import { Link } from '@tanstack/react-router'
 import { functionalUpdate } from '@tanstack/react-table'
 
 import { ObjectLink } from '#/components/ui/object-link'
-import { Status } from '#/components/ui/status'
 import { RegistryGrid, bandRow } from '#/components/inventory/registry-grid'
 import type {
   RegistryColumn,
   RegistryRow,
 } from '#/components/inventory/registry-grid'
 import type { BulkSelection } from '#/components/inventory/bulk-selection'
+import {
+  ownerColumn,
+  statusColumn,
+  updatedColumn,
+} from '#/components/inventory/list-columns'
 import { t } from '#/copy'
 
 import { MobileList } from './mobile-list'
@@ -20,6 +24,21 @@ import type {
 } from './projects-page-model'
 import { ProjectsNoResults } from './projects-page-states'
 import type { ProjectRow } from './types'
+
+/** How wide each optional column starts; the project's name takes the rest. */
+const COLUMN_SIZE: Record<ProjectColumnKey, number> = {
+  client: 100,
+  modality: 110,
+  stage: 170,
+  lead: 140,
+  experiments: 110,
+}
+
+/** The columns every list keeps while narrower ones give way. */
+const KEEP_COLUMNS = ['status', 'owner', 'updated']
+
+/** Who leads a project: the person when the server names one, else the name. */
+const leadKey = (p: ProjectRow) => p.leadUserId ?? p.lead
 
 /**
  * The projects list: a phone list below the medium breakpoint and the shared
@@ -84,6 +103,7 @@ export function ProjectsTable({
     {
       id: 'id',
       header: t('projects.projectsPage.columns.id'),
+      size: 110,
       cell: ({ row }) => (
         <ObjectLink
           kind="project"
@@ -99,6 +119,7 @@ export function ProjectsTable({
     {
       id: 'project',
       header: t('projects.projectsPage.columns.project'),
+      size: 220,
       cell: ({ row }) => {
         const p = row.original
 
@@ -119,37 +140,44 @@ export function ProjectsTable({
         )
       },
     },
-    ...columns.map((c): RegistryColumn<ProjectRow> => ({
-      id: c.key,
-      header: c.label,
-      cell: ({ row }) =>
-        c.key === 'experiments'
-          ? row.original.experiments
-          : String(row.original[c.key]),
-      meta: {
-        headerClassName: [
-          c.key === 'experiments' && 'text-right',
-          c.key === 'modality' && 'lg:hidden',
+    ...columns
+      .filter((c) => c.key !== 'lead')
+      .map((c): RegistryColumn<ProjectRow> => ({
+        id: c.key,
+        header: c.label,
+        size: COLUMN_SIZE[c.key],
+        cell: ({ row }) =>
+          c.key === 'experiments'
+            ? row.original.experiments
+            : String(row.original[c.key]),
+        meta: {
+          headerClassName: [
+            c.key === 'experiments' && 'text-right',
+            c.key === 'modality' && 'lg:hidden',
+          ]
+            .filter(Boolean)
+            .join(' '),
+          cellClassName: [
+            c.key === 'experiments' && 'num text-right',
+            c.key === 'modality' && 'lg:hidden',
+          ]
+            .filter(Boolean)
+            .join(' '),
+        },
+      })),
+    statusColumn((p) => p.status),
+    ...(columns.some((c) => c.key === 'lead')
+      ? [
+          ownerColumn(
+            leadKey,
+            new Map(rows.map((p) => [leadKey(p), p.lead])),
+            t('projects.projectsPage.columns.lead'),
+          ),
         ]
-          .filter(Boolean)
-          .join(' '),
-        cellClassName: [
-          c.key === 'experiments' && 'num text-right',
-          c.key === 'modality' && 'lg:hidden',
-        ]
-          .filter(Boolean)
-          .join(' '),
-      },
-    })),
-    {
-      id: 'status',
-      header: t('projects.projectsPage.columns.status'),
-      cell: ({ row }) => (
-        <Status tone={row.original.status.tone}>
-          {row.original.status.label}
-        </Status>
-      ),
-    },
+      : []),
+    updatedColumn((p) =>
+      p.updated ? new Date(p.updated).toISOString() : null,
+    ),
   ]
 
   return (
@@ -178,6 +206,8 @@ export function ProjectsTable({
           className="max-md:hidden"
           label={t('projects.projectsPage.title')}
           sortable={false}
+          stableWidths
+          keepColumns={KEEP_COLUMNS}
           rows={gridRows}
           columns={gridColumns}
           getRowId={(p) => p.id}

@@ -658,9 +658,15 @@ describe('sample aliquot and reading actions', () => {
   })
 
   it('offers Record reading, which returns to this sample', async () => {
+    const user = userEvent.setup()
     renderRoute()
     await screen.findByText('pAAV9-RC, lot P-117')
-    const link = screen.getByText('Record reading').closest('a')
+    // Withdraw is the main action for a sample in stock; Record reading is
+    // under ⋯.
+    await user.click(
+      screen.getByRole('button', { name: 'More sample actions' }),
+    )
+    const link = (await screen.findByText('Record reading')).closest('a')
     expect(link?.getAttribute('href')).toBe('/readings/new')
   })
 
@@ -801,7 +807,10 @@ describe('sample hold, edit, receive and archive controls', () => {
     renderRoute()
 
     await user.click(
-      await screen.findByRole('button', { name: 'Receive stock…' }),
+      await screen.findByRole('button', { name: 'More sample actions' }),
+    )
+    await user.click(
+      await screen.findByRole('menuitem', { name: 'Receive stock…' }),
     )
     const dialog = await screen.findByRole('dialog')
     await user.type(within(dialog).getByLabelText(/Quantity received/), '5')
@@ -820,7 +829,10 @@ describe('sample hold, edit, receive and archive controls', () => {
     const user = userEvent.setup()
     renderRoute()
 
-    await user.click(await screen.findByRole('button', { name: 'Archive…' }))
+    await user.click(
+      await screen.findByRole('button', { name: 'More sample actions' }),
+    )
+    await user.click(await screen.findByRole('menuitem', { name: 'Archive…' }))
     const dialog = await screen.findByRole('dialog')
     await user.click(within(dialog).getByRole('button', { name: 'Confirm' }))
     await waitFor(() => expect(samples.archiveSample).toHaveBeenCalled())

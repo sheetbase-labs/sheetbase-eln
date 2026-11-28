@@ -12,12 +12,15 @@ import { PaneRouteError } from '#/components/workspace/pane-error-boundary'
 import { noCapabilities } from './lib/capabilities'
 import { ROOT_CONTEXT_QUERY_KEY } from './lib/root-context-cache'
 import { enableReadBatching } from './lib/read-batch'
+import { installWarmStart, warmStart } from './lib/route-warm-start'
 
 export function getRouter() {
   // The browser sends reads that start together as one request (read-batch.ts).
   // Unit tests keep every read as its own request unless they turn it on.
-  if (typeof window !== 'undefined' && import.meta.env.MODE !== 'test')
-    enableReadBatching()
+  const inBrowser =
+    typeof window !== 'undefined' && import.meta.env.MODE !== 'test'
+
+  if (inBrowser) enableReadBatching()
 
   const context = {
     ...createRouterContext(),
@@ -49,6 +52,10 @@ export function getRouter() {
 
   setupRouterSsrQueryIntegration({ router, queryClient: context.queryClient })
 
+  // A record page starts the reads it made last time as soon as a person goes
+  // to it (route-warm-start.ts).
+  if (inBrowser) installWarmStart(router, window.location.pathname)
+
   // The root context is cached between navigations (src/lib/root-context-cache).
   // Every caller of router.invalidate() wants a fresh shell, so drop the cached
   // context first and the root's beforeLoad reads it again.
@@ -64,6 +71,10 @@ export function getRouter() {
 
 /** Client-only page router. Providers and query ownership stay with the app. */
 export function getPaneRouter(context: RouterContext, href: string) {
+  // A page opened beside another starts its known reads before it renders.
+  if (typeof window !== 'undefined' && import.meta.env.MODE !== 'test')
+    warmStart(new URL(href, window.location.origin).pathname)
+
   const history = createMemoryHistory({ initialEntries: [href] })
   history.replace(href, { __hashScrollIntoViewOptions: false })
 

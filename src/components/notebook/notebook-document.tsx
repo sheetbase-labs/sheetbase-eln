@@ -2014,8 +2014,21 @@ function notebookBlockRowAttributes(
   }
 }
 
+/** A block the page draws itself, else the notebook's own view of it. */
+function NotebookDocumentBlockBody(props: {
+  block: NotebookBlockData
+  notebook: ReturnType<typeof useNotebookDocument>
+  options: NotebookDocumentProps
+}) {
+  return (
+    props.options.renderBlock?.(props.block) ?? (
+      <NotebookBuiltInBlockBody {...props} />
+    )
+  )
+}
+
 /** Choose the read view without unmounting an editor that still owns unsaved work. */
-function NotebookDocumentBlockBody({
+function NotebookBuiltInBlockBody({
   block,
   notebook,
   options,
@@ -2037,12 +2050,7 @@ function NotebookDocumentBlockBody({
     onCellSelectionChange,
     frozenSheetEvidence,
     actionBlockContext,
-    renderBlock,
   } = options
-
-  const custom = renderBlock?.(block)
-
-  if (custom) return custom
 
   if (block.type === 'sheet') {
     return (

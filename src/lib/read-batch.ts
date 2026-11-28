@@ -58,7 +58,7 @@ let timer: ReturnType<typeof setTimeout> | null = null
 export function enableReadBatching(): void {
   // Browser specs that answer a read by its own URL set this before the page
   // loads, so each read stays a request of its own for them to answer.
-  if (Reflect.get(globalThis, UNBATCHED_FLAG) === true) return
+  if (UNBATCHED_FLAG in globalThis) return
 
   enabled = true
 }

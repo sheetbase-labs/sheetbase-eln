@@ -105,6 +105,12 @@ export interface TemplateDraft {
   setParameterFeeds: (id: string, target: TemplateSettingTarget | null) => void
   setParts: (next: TemplatePart[]) => void
   setSignOff: (on: boolean) => void
+  /** Change the draft, opening one from the version shown when none is open. */
+  edit: (
+    change: (
+      config: NotebookTemplateConfiguration,
+    ) => NotebookTemplateConfiguration,
+  ) => void
 }
 
 export function useTemplateDraft(
@@ -376,6 +382,12 @@ export function useTemplateDraft(
     if (draft) setDraft({ ...draft, signOffParts: on })
   }
 
+  const edit: TemplateDraft['edit'] = (change) => {
+    if (!config) return
+    setSaveError(null)
+    setDraft((current) => change(current ?? structuredClone(config)))
+  }
+
   return {
     draft,
     saveError,
@@ -397,5 +409,6 @@ export function useTemplateDraft(
     setParameterFeeds,
     setParts,
     setSignOff,
+    edit,
   }
 }

@@ -8,7 +8,10 @@ import {
   projectSheetsKey,
 } from '#/components/projects/project-sheets'
 import { BulkUpgradePanel } from '#/components/templates/bulk-upgrade-panel'
-import { TemplateSectionsBoard } from '#/components/templates/template-sections-board'
+import {
+  TemplateSectionBlock,
+  TemplateVersionInspector,
+} from '#/components/templates/template-sections-board'
 import { templateDataQueryKeys } from '#/components/templates/templates-data'
 import { UseTemplateDialog } from '#/components/templates/use-template-dialog'
 import { parseNotebookTemplateConfiguration } from '#/lib/notebook-template'
@@ -21,8 +24,8 @@ import type { ReadSeed } from './screen-stories'
 /**
  * Template screens' parts (`src/components/templates/`) and the project's
  * Sheets tab (`src/components/projects/project-sheets`): taking a new
- * template version into notebooks already made, the sections board of a
- * template version, starting a notebook from a template, and the working
+ * template version into notebooks already made, the version inspector of a
+ * template, starting a notebook from a template, and the working
  * sheets of a project.
  */
 const TEMPLATE_ID = '0198d970-e266-4000-8000-000000000f01'
@@ -208,16 +211,14 @@ const adaName: ReadSeed = {
   value: { 'u-1': 'Ada Okafor' },
 }
 
-export const SectionsBoardDraft: Story = {
+export const VersionInspectorDraft: Story = {
   render: () => (
-    <TemplateSectionsBoard
-      templateId={TEMPLATE_ID}
-      templateKey="harvest_run"
-      displayId="TPL-0003"
-      version={v2}
-      versions={[v1, v2]}
-      onEditSections={() => {}}
-    />
+    <div className="flex">
+      <div className="flex-1 p-4">
+        <TemplateSectionBlock label="Pressure and ΔP" />
+      </div>
+      <TemplateVersionInspector version={v2} versions={[v1, v2]} />
+    </div>
   ),
   decorators: [
     withApiReads('error'),
@@ -225,17 +226,8 @@ export const SectionsBoardDraft: Story = {
   ],
 }
 
-export const SectionsBoardPublished: Story = {
-  render: () => (
-    <TemplateSectionsBoard
-      templateId={TEMPLATE_ID}
-      templateKey="harvest_run"
-      displayId="TPL-0003"
-      version={v3}
-      versions={[v1, v3]}
-      onEditSections={() => {}}
-    />
-  ),
+export const VersionInspectorPublished: Story = {
+  render: () => <TemplateVersionInspector version={v3} versions={[v1, v3]} />,
   decorators: [
     withApiReads('error'),
     inside(seeded([boardUsers([v1, v3]), adaName]), 1100),

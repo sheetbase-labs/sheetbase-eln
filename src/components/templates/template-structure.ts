@@ -3,6 +3,9 @@ import type { NotebookTemplatePlacement } from '#/lib/notebook-template'
 import type { SheetDefinitionVersion } from '#/lib/sheet-definition-data'
 import { z } from 'zod'
 
+import { isRichTextPayload, richTextToPlainText } from '#/lib/blocks'
+import { blockTypeLabel } from '#/components/notebook/block-labels'
+
 /** Sheet definition versions a template's placements pin, by version id. */
 export type SheetVersionLookup = ReadonlyMap<string, SheetDefinitionVersion>
 
@@ -144,12 +147,38 @@ function payloadText(
   return text.success && text.data ? text.data : null
 }
 
+/** The first words of a block's text, for naming it in a list. */
+function leadingText(
+  payload: Extract<NotebookTemplatePlacement, { kind: 'narrative' }>['payload'],
+): string | null {
+  const text = isRichTextPayload(payload)
+    ? richTextToPlainText(payload)
+    : (payloadText(payload, 'instruction') ??
+      payloadText(payload, 'text') ??
+      payloadText(payload, 'body') ??
+      payloadText(payload, 'label'))
+
+  const line = text
+    ?.split('\n')
+    .find((part) => part.trim())
+    ?.trim()
+
+  if (!line) return null
+
+  return line.length > 60 ? `${line.slice(0, 59)}…` : line
+}
+
+/** A section's name as a person reads it: its title, its first words, or what kind of block it is. */
 export function placementName(placement: NotebookTemplatePlacement): string {
   if (placement.kind === 'section_placeholder') return placement.label
 
   if (placement.kind === 'sheet') return placement.title ?? 'Sheet'
 
-  return payloadText(placement.payload, 'title') ?? placement.blockType
+  return (
+    payloadText(placement.payload, 'title') ??
+    leadingText(placement.payload) ??
+    blockTypeLabel(placement.blockType)
+  )
 }
 
 export function describeSections(
@@ -219,7 +248,11 @@ export function describeSections(
         }
 
         default:
-          return { placement, name, subtitle: placement.blockType }
+          return {
+            placement,
+            name,
+            subtitle: blockTypeLabel(placement.blockType),
+          }
       }
     })
 }

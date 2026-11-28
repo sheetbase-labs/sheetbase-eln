@@ -1,64 +1,45 @@
-import { useMemo, useState } from 'react'
-import { Link } from '@tanstack/react-router'
+import { useMemo } from 'react'
+import type * as React from 'react'
 
 import { Icon } from '#/components/icons'
 import { FieldChangeList } from '#/components/models/field-changes'
-import { Button } from '#/components/ui/button'
-import { IconButton } from '#/components/ui/icon-button'
 import {
   DescriptionList,
   Inspector,
   InspectorSection,
   Muted,
 } from '#/components/ui/layout'
+import { LinkedText } from '#/components/ui/linked-text'
 import { TableBox } from '#/components/ui/table'
 import { AddSheetColumnButton } from './add-sheet-column'
 import { RegistryGrid } from '#/components/inventory/registry-grid'
 import type { RegistryColumn } from '#/components/inventory/registry-grid'
-import { cn } from '#/lib/utils'
 import { formatDate } from '#/lib/notebook-data'
 import { formatInstant } from '#/lib/display-time-zone'
 import type { NotebookTemplateVersion } from '#/lib/notebook-template-data'
-import { countTemplateUse } from '#/lib/notebook-template-usage'
+import type { NotebookTemplatePlacement } from '#/lib/notebook-template'
 import { useUserNames } from '#/lib/user-names'
 import {
   useSheetDefinitions,
   useTemplateUsers,
 } from '#/components/templates/templates-data'
 import {
-  describeSections,
   diffTemplatePlacements,
   modelLabel,
   placementName,
   sheetColumnRows,
 } from './template-structure'
-import type { SectionEntry } from './template-structure'
 import { t } from '#/copy'
 
 /**
- * The TemplateEditor board: the template's sections down the left, the
- * selected section in the middle (a sheet shows its columns, source, type,
- * unit, required and rule), and the version's state on the right: what
- * changed since the version before, what publishing does to notebooks already
- * made, and what the template is built on. Columns belong to the pinned sheet
- * definition version, so they are read here; the sections themselves are
- * edited through "Add section" and a new version.
+ * What the template inspector reads about a version: the version before it,
+ * what changed since, which older versions experiments still use, and what
+ * the template is built on.
  */
-export function TemplateSectionsBoard({
-  templateId,
-  templateKey,
-  displayId,
-  version,
-  versions,
-  onEditSections,
-}: {
-  templateId: string
-  templateKey: string
-  displayId: string | null
-  version: NotebookTemplateVersion
-  versions: NotebookTemplateVersion[]
-  onEditSections: () => void
-}) {
+export function useTemplateVersionFacts(
+  version: NotebookTemplateVersion,
+  versions: NotebookTemplateVersion[],
+) {
   const sheets = useSheetDefinitions(versions)
   const users = useTemplateUsers(versions.map((v) => v.id))
 
@@ -77,12 +58,6 @@ export function TemplateSectionsBoard({
     [versions, version.version],
   )
 
-  const entries = useMemo(
-    () =>
-      describeSections(version.configuration.placements, sheets.versionsById),
-    [version.configuration.placements, sheets.versionsById],
-  )
-
   const changes = useMemo(
     () =>
       diffTemplatePlacements(
@@ -92,30 +67,6 @@ export function TemplateSectionsBoard({
       ),
     [previous, version.configuration.placements, sheets.versionsById],
   )
-
-  const [pickedId, setPickedId] = useState<string | null>(null)
-
-  const selected: SectionEntry | undefined =
-    entries.find((e) => e.placement.id === pickedId) ??
-    entries.find((e) => e.placement.kind === 'sheet') ??
-    entries.at(0)
-
-  const previousColumnIds = useMemo(() => {
-    if (!selected || selected.placement.kind !== 'sheet')
-      return new Set<string>()
-    const sheetPlacement = selected.placement
-
-    const earlier = previous?.configuration.placements.find(
-      (p) => p.id === sheetPlacement.id,
-    )
-
-    if (!earlier || earlier.kind !== 'sheet') return new Set<string>()
-    const old = sheets.versionsById.get(earlier.definitionVersionId)
-
-    if (!old) return new Set<string>()
-
-    return new Set(old.configuration.columns.map((c) => c.id))
-  }, [selected, previous, sheets.versionsById])
 
   const recordCounts = useMemo(() => {
     const counts = new Map<string, number>()
@@ -165,9 +116,6 @@ export function TemplateSectionsBoard({
     return [...labels]
   }, [version.configuration.placements, sheets.versionsById])
 
-  const isDraft = version.lifecycle === 'draft'
-  const params = { templateId }
-
   const editedBy = version.updatedByUserId
     ? names.userLabel(version.updatedByUserId)
     : null
@@ -180,101 +128,52 @@ export function TemplateSectionsBoard({
       })
     : null
 
+  return {
+    sheets,
+    users,
+    previous,
+    changes,
+    recordCounts,
+    olderInUse,
+    protocolLabel,
+    referencedModels,
+    editedBy,
+    editedAt,
+  }
+}
+
+/**
+ * The version's side of the template page: which version is shown, what
+ * changed since the one before, what publishing does to notebooks already
+ * made, and what the template is built on. The page adds its own sections
+ * underneath.
+ */
+export function TemplateVersionInspector({
+  version,
+  versions,
+  children,
+}: {
+  version: NotebookTemplateVersion
+  versions: NotebookTemplateVersion[]
+  children?: React.ReactNode
+}) {
+  const facts = useTemplateVersionFacts(version, versions)
+
   return (
-    <div className="flex min-h-0 min-w-0 flex-1 max-md:flex-col">
-      <nav
-        aria-label={t('library.templates.templateSectionsBoard.sections')}
-        className="w-[236px] shrink-0 overflow-auto border-r border-border px-3 py-4 max-md:w-full max-md:border-b max-md:border-r-0"
-      >
-        <div className="mb-2 flex items-center justify-between px-2">
-          <span className="text-label text-fg-muted">
-            {t('library.templates.templateSectionsBoard.sections')}
-          </span>
-          <IconButton
-            icon="edit"
-            label={t('common.actions.edit')}
-            onClick={onEditSections}
-          />
-        </div>
-        <ul className="m-0 flex list-none flex-col gap-0.5 p-0">
-          {entries.map((entry) => {
-            const active = entry.placement.id === selected?.placement.id
-
-            return (
-              <li key={entry.placement.id}>
-                <button
-                  type="button"
-                  aria-current={active ? 'true' : undefined}
-                  onClick={() => setPickedId(entry.placement.id)}
-                  className={cn(
-                    'flex w-full cursor-pointer items-start gap-2 rounded-md border-0 bg-transparent px-2 py-1.5 text-left',
-                    active ? 'bg-selected' : 'hover:bg-hover',
-                  )}
-                >
-                  <Icon
-                    name={
-                      entry.placement.kind === 'sheet' ? 'table' : 'protocol'
-                    }
-                    size={14}
-                    className="mt-[3px] text-fg-muted"
-                  />
-                  <span className="flex min-w-0 flex-col">
-                    <span className="text-body">{entry.name}</span>
-                    <span className="truncate text-label text-fg-muted">
-                      {entry.subtitle}
-                    </span>
-                  </span>
-                </button>
-              </li>
-            )
-          })}
-        </ul>
-        <button
-          type="button"
-          onClick={onEditSections}
-          className="mt-2 flex w-full cursor-pointer items-center gap-2 rounded-md border-0 bg-transparent px-2 py-1.5 text-left text-body text-fg-muted hover:bg-hover"
-        >
-          <Icon name="plus" size={14} />{' '}
-          {t('library.templates.templateSectionsBoard.addSection')}
-        </button>
-      </nav>
-
-      <div className="min-w-0 flex-1 overflow-auto px-6 py-5 max-md:px-4">
-        {selected ? (
-          <SectionDetail
-            entry={selected}
-            sheets={sheets}
-            previousColumnIds={previousColumnIds}
-            versionNumber={version.version}
-            showVersionBadge={Boolean(previous)}
-            draftVersion={isDraft ? version : null}
-          />
-        ) : (
-          <Muted>
-            {t(
-              'library.templates.templateSectionsBoard.noSectionsInThisVersion',
-            )}
-          </Muted>
-        )}
-      </div>
-
-      <VersionInspector
-        version={version}
-        previous={previous}
-        changes={changes}
-        isDraft={isDraft}
-        params={params}
-        displayId={displayId}
-        templateKey={templateKey}
-        editedBy={editedBy}
-        editedAt={editedAt}
-        olderInUse={olderInUse}
-        recordCounts={recordCounts}
-        referencedModels={referencedModels}
-        protocolLabel={protocolLabel}
-        users={users}
-      />
-    </div>
+    <VersionInspector
+      version={version}
+      previous={facts.previous}
+      changes={facts.changes}
+      isDraft={version.lifecycle === 'draft'}
+      editedBy={facts.editedBy}
+      editedAt={facts.editedAt}
+      olderInUse={facts.olderInUse}
+      recordCounts={facts.recordCounts}
+      referencedModels={facts.referencedModels}
+      protocolLabel={facts.protocolLabel}
+    >
+      {children}
+    </VersionInspector>
   )
 }
 
@@ -282,24 +181,17 @@ function VersionHeading({
   version,
   previous,
   isDraft,
-  displayId,
-  templateKey,
   editedBy,
   editedAt,
 }: {
   version: NotebookTemplateVersion
   previous: NotebookTemplateVersion | null
   isDraft: boolean
-  displayId: string | null
-  templateKey: string
   editedBy: string | null
   editedAt: string | null
 }) {
   return (
     <div className="flex flex-col gap-0.5">
-      <span className="mono text-label text-fg-muted">
-        {displayId ?? templateKey}
-      </span>
       <div className="font-heading text-doc font-semibold">
         {isDraft
           ? t('library.templates.templateSectionsBoard.draft')
@@ -338,66 +230,39 @@ function VersionInspector({
   previous,
   changes,
   isDraft,
-  params,
-  displayId,
-  templateKey,
   editedBy,
   editedAt,
   olderInUse,
   recordCounts,
   referencedModels,
   protocolLabel,
-  users,
+  children,
 }: {
   version: NotebookTemplateVersion
   previous: NotebookTemplateVersion | null
   changes: ReturnType<typeof diffTemplatePlacements>
   isDraft: boolean
-  params: { templateId: string }
-  displayId: string | null
-  templateKey: string
   editedBy: string | null
   editedAt: string | null
   olderInUse: NotebookTemplateVersion[]
   recordCounts: Map<string, number>
   referencedModels: string[]
   protocolLabel: string | null
-  users: ReturnType<typeof useTemplateUsers>
+  children?: React.ReactNode
 }) {
   return (
     <Inspector
       label={t('library.templates.templateSectionsBoard.version')}
-      width={300}
+      width={320}
     >
       <VersionHeading
         version={version}
         previous={previous}
         isDraft={isDraft}
-        displayId={displayId}
-        templateKey={templateKey}
         editedBy={editedBy}
         editedAt={editedAt}
       />
-      {isDraft ? (
-        <div className="flex gap-2">
-          <Button
-            variant="primary"
-            nativeButton={false}
-            render={
-              <Link
-                to="/templates/$templateId/versions"
-                params={params}
-                search={{ v: version.id }}
-              />
-            }
-          >
-            {t('library.templates.templateSectionsBoard.publishV', {
-              version: version.version,
-            })}
-          </Button>
-        </div>
-      ) : null}
-
+      {children}
       <InspectorSection
         title={
           previous
@@ -407,11 +272,11 @@ function VersionInspector({
             : t('library.templates.templateSectionsBoard.firstVersion')
         }
       >
-        {changes.length ? (
+        {changes.length && previous ? (
           <FieldChangeList
             changes={changes}
             label={t('library.templates.templateSectionsBoard.changesSinceV', {
-              version: previous?.version ?? 0,
+              version: previous.version,
             })}
           />
         ) : (
@@ -450,7 +315,7 @@ function VersionInspector({
                     version: version.version,
                   },
                 )
-              : ''}
+              : ''}{' '}
             {t(
               'library.templates.templateSectionsBoard.newNotebooksStartFromV',
               { version: version.version },
@@ -459,31 +324,33 @@ function VersionInspector({
         </InspectorSection>
       ) : null}
 
-      <InspectorSection
-        title={t('library.templates.templateSectionsBoard.builtOn')}
-      >
-        <DescriptionList
-          labelWidth={72}
-          items={[
-            [
-              t('library.templates.templateSectionsBoard.protocol'),
-              protocolLabel ?? '—',
-            ],
-            [
-              t('library.templates.templateSectionsBoard.models'),
-              referencedModels.length
-                ? referencedModels.map(modelLabel).join(', ')
-                : '—',
-            ],
-            [
-              t('library.templates.templateSectionsBoard.review'),
-              isDraft
-                ? t('library.templates.templateSectionsBoard.needs1Approver')
-                : `${countTemplateUse((users.data ?? []).filter((r) => r.source_notebook_template_version_id === version.id)).total} records`,
-            ],
-          ]}
-        />
-      </InspectorSection>
+      {protocolLabel || referencedModels.length ? (
+        <InspectorSection
+          title={t('library.templates.templateSectionsBoard.builtOn')}
+        >
+          <DescriptionList
+            labelWidth={72}
+            items={[
+              ...(protocolLabel
+                ? [
+                    [
+                      t('library.templates.templateSectionsBoard.protocol'),
+                      <LinkedText key="protocol" text={protocolLabel} />,
+                    ] satisfies [React.ReactNode, React.ReactNode],
+                  ]
+                : []),
+              ...(referencedModels.length
+                ? [
+                    [
+                      t('library.templates.templateSectionsBoard.models'),
+                      referencedModels.map(modelLabel).join(', '),
+                    ] satisfies [React.ReactNode, React.ReactNode],
+                  ]
+                : []),
+            ]}
+          />
+        </InspectorSection>
+      ) : null}
     </Inspector>
   )
 }
@@ -579,7 +446,7 @@ function SheetColumnsTable({
         meta: { cellClassName: 'min-w-[200px]! whitespace-normal!' },
         cell: ({ row }) =>
           row.original.calculated ? (
-            <span className="mono text-label">= {row.original.rule}</span>
+            <span className="text-label">= {row.original.rule}</span>
           ) : (
             (row.original.rule ?? '—')
           ),
@@ -601,111 +468,87 @@ function SheetColumnsTable({
   )
 }
 
-function SectionDetail({
-  entry,
+/**
+ * A sheet the template places, drawn where it sits in the notebook: its
+ * title, the columns each experiment fills in, and the note it starts with.
+ * A draft version can take another column.
+ */
+export function TemplateSheetBlock({
+  placement,
   sheets,
-  previousColumnIds,
-  versionNumber,
-  showVersionBadge,
   draftVersion,
 }: {
-  entry: SectionEntry
+  placement: Extract<NotebookTemplatePlacement, { kind: 'sheet' }>
   sheets: ReturnType<typeof useSheetDefinitions>
-  previousColumnIds: Set<string>
-  versionNumber: number
-  showVersionBadge: boolean
-  /** The template version being shown when it is a draft, which a column can be added to. */
+  /** The template version shown when it is a saved draft, which a column can be added to. */
   draftVersion: NotebookTemplateVersion | null
 }) {
-  const { placement } = entry
+  const sheet = sheets.versionsById.get(placement.definitionVersionId)
 
-  if (placement.kind === 'sheet') {
-    const sheet = sheets.versionsById.get(placement.definitionVersionId)
+  const definition = sheet
+    ? sheets.definitionsById.get(sheet.definitionId)
+    : undefined
 
-    const definition = sheet
-      ? sheets.definitionsById.get(sheet.definitionId)
-      : undefined
-
-    const rows = sheet ? sheetColumnRows(sheet.configuration) : []
-
-    return (
-      <div className="flex flex-col gap-4">
-        <div className="flex items-baseline gap-2">
-          <h2 className="m-0 font-heading text-doc font-semibold">
-            {entry.name}
-          </h2>
-          <span className="text-label text-fg-muted">
-            {t(
-              'library.templates.templateSectionsBoard.sheetSectionRowsFilledIn',
-            )}
-          </span>
-        </div>
-        <SheetColumnsTable
-          name={entry.name}
-          rows={rows}
-          previousColumnIds={previousColumnIds}
-          versionNumber={versionNumber}
-          showVersionBadge={showVersionBadge}
-        />
-        {draftVersion && sheet && definition ? (
-          <div>
-            <AddSheetColumnButton
-              templateVersion={draftVersion}
-              placementId={placement.id}
-              sectionName={entry.name}
-              sheet={sheet}
-              definition={definition}
-            />
-          </div>
-        ) : null}
-        {definition?.description ? (
-          <div className="flex flex-col gap-1.5">
-            <h3 className="m-0 font-heading text-doc font-semibold">
-              {t('library.templates.templateSectionsBoard.placeholderText')}
-            </h3>
-            <div className="rounded-md border border-dashed border-border-strong px-3 py-3 text-fg-muted">
-              {definition.description}
-            </div>
-          </div>
-        ) : null}
-      </div>
-    )
-  }
-
-  const payload = placement.kind === 'narrative' ? placement.payload : {}
-
-  const fields = Array.isArray(payload.fields) ? payload.fields : null
+  const rows = sheet ? sheetColumnRows(sheet.configuration) : []
+  const name = placementName(placement)
 
   return (
-    <div className="flex flex-col gap-3">
-      <div className="flex items-baseline gap-2">
-        <h2 className="m-0 font-heading text-doc font-semibold">
-          {placementName(placement)}
-        </h2>
-        <span className="text-label text-fg-muted">{entry.subtitle}</span>
+    <div className="flex flex-col gap-3 rounded-lg border border-border bg-surface px-4 py-3">
+      <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
+        <Icon
+          name="table"
+          size={14}
+          aria-hidden="true"
+          className="self-center text-fg-muted"
+        />
+        <span className="font-semibold">{name}</span>
+        <span className="text-label text-fg-muted">
+          {t('library.templates.notebook.sheetColumns', {
+            count: rows.length,
+          })}
+        </span>
       </div>
-      {fields ? (
-        <ul className="m-0 flex list-none flex-col gap-1 p-0">
-          {fields.map((field) => (
-            <li
-              key={field}
-              className="rounded-md border border-border px-3 py-1.5"
-            >
-              {field}
-            </li>
-          ))}
-        </ul>
+      {definition?.description ? (
+        <p className="m-0 text-label text-fg-muted">
+          <LinkedText text={definition.description} />
+        </p>
+      ) : null}
+      {rows.length ? (
+        <SheetColumnsTable
+          name={name}
+          rows={rows}
+          previousColumnIds={new Set()}
+          versionNumber={draftVersion?.version ?? 0}
+          showVersionBadge={false}
+        />
       ) : (
-        <Muted>
-          {placement.kind === 'section_placeholder'
-            ? t(
-                'library.templates.templateSectionsBoard.anEmptySectionEachNotebook',
-              )
-            : t(
-                'library.templates.templateSectionsBoard.theContentANewNotebook',
-              )}
-        </Muted>
+        <Muted>{t('library.templates.notebook.sheetLoading')}</Muted>
       )}
+      {draftVersion && sheet && definition ? (
+        <div>
+          <AddSheetColumnButton
+            templateVersion={draftVersion}
+            placementId={placement.id}
+            sectionName={name}
+            sheet={sheet}
+            definition={definition}
+          />
+        </div>
+      ) : null}
+    </div>
+  )
+}
+
+/** An empty section each experiment fills in, drawn as its heading and a dashed space. */
+export function TemplateSectionBlock({ label }: { label: string }) {
+  return (
+    <div className="flex flex-col gap-1.5">
+      <h2 className="m-0 font-heading text-doc font-semibold">{label}</h2>
+      <div className="rounded-md border border-dashed border-border-strong px-3 py-3 text-label text-fg-muted">
+        {t(
+          'library.templates.templateSectionsBoard.anEmptySectionEachNotebook',
+        )}
+      </div>
     </div>
   )
 }

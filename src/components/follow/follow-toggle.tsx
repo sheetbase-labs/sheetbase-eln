@@ -1,5 +1,6 @@
 'use client'
 
+import { Icon } from '#/components/icons'
 import { Button } from '#/components/ui/button'
 import { toast } from '#/components/ui/sonner'
 import { useFollowState } from '#/lib/follows'
@@ -16,11 +17,17 @@ export function FollowToggle({
   kind,
   objectId,
   client,
+  appearance = 'button',
 }: {
   kind: FollowKind
   /** Null while the page has no object yet; renders nothing. */
   objectId: string | null | undefined
   client?: DataClient
+  /**
+   * `pane` is the bell alone, drawn like the pane header's own buttons, for a
+   * record page that lends it to the header of the pane it sits in.
+   */
+  appearance?: 'button' | 'pane'
 }) {
   const { following, ready, pending, setFollowing } = useFollowState(
     kind,
@@ -30,6 +37,42 @@ export function FollowToggle({
 
   if (!objectId) return null
 
+  const label = following
+    ? t('account.follow.following')
+    : t('account.follow.follow')
+
+  const hint =
+    kind === 'record'
+      ? t('account.follow.followRecordHint')
+      : t('account.follow.followProjectHint')
+
+  function toggle() {
+    const next = !following
+    setFollowing(next)
+    toast(
+      next
+        ? t('account.follow.followedToast')
+        : t('account.follow.unfollowedToast'),
+    )
+  }
+
+  if (appearance === 'pane') {
+    return (
+      <button
+        type="button"
+        className="mx-act"
+        data-follow-toggle
+        aria-pressed={following}
+        aria-label={t('account.follow.follow')}
+        title={hint}
+        disabled={pending || !ready}
+        onClick={toggle}
+      >
+        <Icon name="bell" size={14} aria-hidden="true" />
+      </button>
+    )
+  }
+
   return (
     <Button
       type="button"
@@ -38,24 +81,10 @@ export function FollowToggle({
       icon="bell"
       aria-pressed={following}
       disabled={pending || !ready}
-      title={
-        kind === 'record'
-          ? t('account.follow.followRecordHint')
-          : t('account.follow.followProjectHint')
-      }
-      onClick={() => {
-        const next = !following
-        setFollowing(next)
-        toast(
-          next
-            ? t('account.follow.followedToast')
-            : t('account.follow.unfollowedToast'),
-        )
-      }}
+      title={hint}
+      onClick={toggle}
     >
-      <span className="max-md:sr-only">
-        {following ? t('account.follow.following') : t('account.follow.follow')}
-      </span>
+      <span className="max-md:sr-only">{label}</span>
     </Button>
   )
 }

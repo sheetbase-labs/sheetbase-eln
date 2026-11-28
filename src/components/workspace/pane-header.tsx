@@ -221,6 +221,9 @@ function PaneActions({
 
   return (
     <span className="mx-acts">
+      {/* Filled by the page in this pane (a record's Follow bell); see
+          `PaneHeaderSlot`. Empty, it takes no room. */}
+      <span className="mx-page-acts" data-pane-page-actions />
       {props.dataAccess ? <PaneDataAccess href={pane.href} /> : null}
       <button
         type="button"

@@ -611,6 +611,13 @@
   align-items: center;
   flex-shrink: 0;
 }
+.mx-page-acts {
+  display: inline-flex;
+  align-items: center;
+}
+.mx-page-acts:empty {
+  display: none;
+}
 .mx-act {
   width: 24px;
   height: 24px;

@@ -26,6 +26,25 @@ interface SettingsRow {
   ai_max_cost_microusd_per_call: number
 }
 
+/** Held while a spec owns the workspace's AI settings (see assistant-conversations.test.ts). */
+const AI_SETTINGS_LOCK = 735700100
+
+let lock: Client | undefined
+
+// assistant-conversations.test.ts sets the same workspace's AI up for its
+// scripted model and may run in another worker at the same time: wait until it
+// is done, and keep the settings to this file until its tests end.
+test.beforeAll(async () => {
+  test.setTimeout(600_000)
+  lock = new Client({ connectionString: process.env.MIGRATION_DATABASE_URL })
+  await lock.connect()
+  await lock.query('select pg_advisory_lock($1)', [AI_SETTINGS_LOCK])
+})
+
+test.afterAll(async () => {
+  await lock?.end()
+})
+
 let admin: Client | undefined
 let original: SettingsRow | undefined
 

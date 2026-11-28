@@ -24,6 +24,9 @@ test.setTimeout(180_000)
 const USER_ID = '00000000-0000-4000-8000-000000000310'
 const WORKSPACE_ID = '00000000-0000-4000-8000-000000000300'
 
+/** Held while a spec owns the workspace's AI settings (see ai-assistant.test.ts). */
+const AI_SETTINGS_LOCK = 735700100
+
 /** Keeps names unique so a test can be run again against the same database. */
 const RUN = Date.now().toString(36)
 
@@ -32,9 +35,14 @@ let model: MockModel
 let original: Record<string, unknown> | undefined
 
 test.beforeAll(async () => {
+  test.setTimeout(600_000)
   model = await startMockModel(BROWSER_MODEL_PORT)
   admin = new Client({ connectionString: process.env.MIGRATION_DATABASE_URL })
   await admin.connect()
+  // ai-assistant.test.ts turns the same workspace's AI off and on, and may run
+  // in another worker at the same time: whoever holds the lock has the
+  // settings to itself until its connection closes.
+  await admin.query('select pg_advisory_lock($1)', [AI_SETTINGS_LOCK])
   original = (
     await admin.query(
       `select ai_enabled, ai_provider_profile, ai_cloud_egress_enabled, ai_model,

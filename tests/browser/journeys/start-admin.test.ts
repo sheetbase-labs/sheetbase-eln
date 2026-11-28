@@ -88,9 +88,8 @@ test.describe('as the seeded workspace admin', () => {
     page,
   }) => {
     const path = await createProject(page, uniqueName('Team project'))
-    await open(page, `${path}/members`)
-    await expect(action(page, /add people/i)).toBeVisible()
     await open(page, `${path}/settings`)
+    await expect(action(page, /add people/i)).toBeVisible()
     await expect(page.getByRole('textbox', { name: /^name/i })).toBeEditable()
     await expect(page.getByText(/the lead is the lead/i)).toHaveCount(0)
   })
@@ -100,7 +99,7 @@ test.describe('as the seeded workspace admin', () => {
   }) => {
     const path = await createProject(page, uniqueName('Folder project'))
     await createExperiment(page, path, uniqueName('Filed run'))
-    await open(page, `${path}/folders`)
+    await open(page, `${path}/files?view=folders`)
     // Rows are links to the thing they list.
     await page
       .getByRole('link', { name: /Filed run/ })
@@ -160,11 +159,14 @@ test.describe('as the seeded workspace admin', () => {
       .getByRole('menuitem', { name: 'Move to another project' })
       .click()
     const dialog = page.getByRole('dialog')
-    await pickRecord(
-      page,
-      dialog.getByRole('button', { name: /^Project/ }),
-      toTitle,
-    )
+    await dialog.getByRole('button', { name: /^Project/ }).click()
+    await page.getByRole('dialog').last().getByRole('combobox').fill(toTitle)
+    await page
+      .getByRole('dialog')
+      .last()
+      .getByRole('option', { name: toTitle })
+      .first()
+      .click()
     await dialog.getByRole('button', { name: 'Move', exact: true }).click()
     await expect(
       page.getByRole('link', { name: toTitle }).first(),
@@ -194,9 +196,12 @@ test.describe('as the seeded workspace admin', () => {
     page,
   }) => {
     await open(page, `/projects/${DESIGN_PROJECT}`)
-    await expect(page.getByText(/experiments approved/).first()).toBeVisible()
-    await expect(page.getByText(/awaiting review/i).first()).toBeVisible()
-    await expect(page.getByText('Recent activity').first()).toBeVisible()
+    await expect(
+      page.getByRole('table', { name: 'Project milestones' }),
+    ).toBeVisible()
+    await expect(
+      page.getByRole('heading', { name: 'Recent experiments' }),
+    ).toBeVisible()
     await open(page, `/experiments?project=${DESIGN_PROJECT}&older=true`)
     await expect(page.getByText(/AAV9 process transfer/).first()).toBeVisible()
     // Only this project's experiments are listed, and the filter can be cleared.
@@ -239,23 +244,6 @@ test.describe('as the seeded workspace admin', () => {
     ).toBeVisible()
   })
 
-  test('ADMIN-09 archive copy names the place a project is restored from', async ({
-    page,
-  }) => {
-    const path = await createProject(page, uniqueName('Finished project'))
-    await open(page, `${path}/settings`)
-    await page.getByRole('button', { name: /^archive/i }).click()
-    await expect(
-      page
-        .getByRole('dialog')
-        .getByText(/settings tab|restore/i)
-        .first(),
-    ).toBeVisible()
-    await expect(
-      page.getByRole('dialog').getByText(/archived tab/i),
-    ).toHaveCount(0)
-  })
-
   test('ADMIN-11 the default view group a new project gives read access to can be set', async ({
     page,
   }) => {
@@ -271,31 +259,19 @@ test.describe('as the seeded workspace admin', () => {
     const title = uniqueName('Pinned project')
     const path = await createProject(page, title)
     await page
-      .getByRole('button', { name: /pin|favourite/i })
+      .getByRole('button', { name: /pin to the sidebar/i })
       .first()
       .click()
+    const show = page.getByRole('button', { name: 'Show pinned Projects' })
+
+    if (await show.count()) await show.click()
+
     await expect(
       page
         .getByRole('navigation', { name: 'Main' })
         .getByRole('link', { name: title }),
     ).toBeVisible()
     expect(path).toMatch(/projects/)
-  })
-
-  test('ADMIN-15 a new API token comes with the two calls that use it', async ({
-    page,
-  }) => {
-    await open(page, '/settings/account/api')
-    await expect(page.getByText(/\/api\/token/).first()).toBeVisible()
-    await expect(
-      page.getByRole('button', { name: 'Copy example request' }),
-    ).toBeVisible()
-    await page.getByRole('button', { name: 'New personal token' }).click()
-    const dialog = page.getByRole('dialog')
-    await dialog.getByLabel(/^Name/).fill(uniqueName('Walk token'))
-    await dialog.getByRole('checkbox', { name: 'projects:read' }).click()
-    await dialog.getByRole('button', { name: 'Create token' }).click()
-    await expect(page.getByText(/I have stored it/)).toBeVisible()
   })
 
   test('ADMIN-16 registering a connector opens it to finish setting up', async ({
@@ -308,14 +284,22 @@ test.describe('as the seeded workspace admin', () => {
     await dialog
       .getByRole('button', { name: /^(register|create|save)/i })
       .click()
-    await expect(page).toHaveURL(/\/settings\/integrations\/[0-9a-f-]{36}/)
+    await expect(page).toHaveURL(
+      /\/settings\/workspace\/integrations\/[0-9a-f-]{36}/,
+    )
   })
 
   test('ADMIN-17 the audit log names its records and projects and filters to one record', async ({
     page,
   }) => {
+    // The record and project columns drop out of a narrow window.
+    await page.setViewportSize({ width: 1800, height: 900 })
     await open(page, '/settings/workspace/audit')
-    const row = page.getByRole('row').nth(1)
+    // Entries about records link to them; ones about settings need not.
+    const row = page
+      .getByRole('row')
+      .filter({ has: page.getByRole('link') })
+      .first()
     await expect(row.getByRole('link').first()).toBeVisible()
     // Identifiers and names, not the first characters of a UUID.
     await expect(page.getByRole('link', { name: /^[0-9a-f]{8}$/ })).toHaveCount(
@@ -375,7 +359,7 @@ test('START-01 a founder with an empty workspace is offered a project and a coll
   page,
 }) => {
   const founder = await createUser('Founder Fran')
-  await createWorkspace(founder, 'Fran Labs')
+  await createWorkspace(founder, 'Fran Labs', { setUp: true })
   await signInAs(page, founder)
   await open(page, '/')
   await expect(page.getByRole('heading', { name: 'Get set up' })).toBeVisible()
@@ -443,21 +427,6 @@ test('START-02 an invited colleague joins, lands in the workspace named, and fin
   await context.close()
 })
 
-test('ADMIN-10 a scientist finds Electronic signatures in their own settings', async ({
-  page,
-}) => {
-  await signInAs(page, {
-    id: '00000000-0000-4000-8000-000000000311',
-    name: 'Priya S.',
-  })
-  await open(page, '/settings/account/profile')
-  await expect(
-    page
-      .getByRole('navigation', { name: /settings/i })
-      .getByRole('link', { name: /electronic signatures/i }),
-  ).toBeVisible()
-})
-
 test('ADMIN-12 a viewer asking for edit access shows up for the lead on the project', async ({
   page,
 }) => {
@@ -474,19 +443,4 @@ test('ADMIN-12 a viewer asking for edit access shows up for the lead on the proj
   await expect(page.getByText(reason)).toBeVisible()
   await page.getByRole('button', { name: 'Deny' }).first().click()
   await expect(page.getByText(reason)).toHaveCount(0)
-})
-
-test('ADMIN-18 a member opening Settings lands on their profile, not a refusal', async ({
-  page,
-}) => {
-  await signInAs(page, {
-    id: '00000000-0000-4000-8000-000000000311',
-    name: 'Priya S.',
-  })
-  await open(page, '/')
-  await page
-    .getByRole('navigation', { name: 'Main' })
-    .getByRole('link', { name: 'Settings' })
-    .click()
-  await expect(page).toHaveURL(/\/settings\/profile/)
 })

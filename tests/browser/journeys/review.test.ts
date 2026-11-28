@@ -8,7 +8,6 @@
 import { expect, test } from 'playwright/test'
 
 import {
-  action,
   createExperiment,
   open,
   signIn,

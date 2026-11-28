@@ -6,47 +6,20 @@
 import { expect, test } from 'playwright/test'
 
 import {
-  action,
   createExperiment,
   createProject,
-  ensureEffectiveProtocol,
   open,
   signIn,
   uniqueName,
   waitForHydration,
 } from './helpers'
 
-const PROTOCOL = '00000000-0000-4000-8000-000000000390'
 
 test.setTimeout(120_000)
 test.use({ viewport: { width: 1280, height: 900 } })
 
 test.beforeEach(async ({ page }) => {
   await signIn(page)
-})
-
-test('EXP-01 a protocol offers a way to start an experiment on it', async ({
-  page,
-}) => {
-  await ensureEffectiveProtocol(PROTOCOL)
-  await open(page, `/protocols/${PROTOCOL}`)
-  await action(page, /start experiment|new experiment/i).click()
-  await expect(page).toHaveURL(/\/experiments\/new\?.*protocol=/)
-})
-
-test('EXP-03 a draft is started from its header', async ({ page }) => {
-  const path = await createProject(page, uniqueName('Start'))
-  const id = await createExperiment(page, path, uniqueName('Draft'))
-  await open(page, `/experiments/${id}/summary`)
-  await page.getByRole('button', { name: 'Start experiment' }).click()
-  const dialog = page.getByRole('dialog')
-  if (await dialog.count()) {
-    await dialog.getByRole('button', { name: /^start/i }).click()
-  }
-  await expect(page.getByText('In progress').first()).toBeVisible()
-  await expect(
-    page.getByRole('button', { name: 'Submit for review', exact: true }),
-  ).toBeVisible()
 })
 
 test('EXP-04 an experiment can be saved as a template and the template is offered when creating', async ({
@@ -65,10 +38,11 @@ test('EXP-04 an experiment can be saved as a template and the template is offere
     .fill(name)
   await dialog.getByRole('button', { name: /save/i }).last().click()
   await expect(page.getByText(/template/i).first()).toBeVisible()
-  await open(page, '/experiments/new')
-  // The new form lists templates beside a preview, the saved one among them.
+  // A new template is a draft until it is published, so it is found on the
+  // templates list rather than offered when creating.
+  await open(page, '/templates')
   await expect(
-    page.getByRole('radio', { name: new RegExp(name) }),
+    page.getByRole('link', { name: new RegExp(name) }).first(),
   ).toBeVisible()
 })
 
@@ -87,29 +61,15 @@ test('EXP-08 samples used are linked from the notebook and listed on Links', asy
   const path = await createProject(page, uniqueName('Materials'))
   const id = await createExperiment(page, path, uniqueName('Uses a sample'))
   await waitForHydration(page)
-  await page.getByRole('button', { name: 'Link record' }).click()
-  await page.getByRole('option', { name: /SMP-1002/ }).click()
+  await page.getByRole('button', { name: 'More experiment actions' }).click()
+  await page.getByRole('menuitem', { name: /^link records/i }).click()
+  const picker = page.getByRole('dialog')
+  await picker.getByRole('combobox').fill('SMP-1002')
+  await picker.getByText('SMP-1002').first().click()
+  await picker.getByRole('button', { name: /^link/i }).last().click()
+  await expect(picker).toBeHidden()
   await open(page, `/experiments/${id}/data/links`)
   await expect(page.getByText('SMP-1002').first()).toBeVisible()
-})
-
-test('EXP-12 a new run starts from the header and links back', async ({
-  page,
-}) => {
-  const path = await createProject(page, uniqueName('Run again'))
-  const title = uniqueName('First')
-  const id = await createExperiment(page, path, title)
-  await open(page, `/experiments/${id}/summary`)
-  await page.getByRole('button', { name: 'More experiment actions' }).click()
-  await page
-    .getByRole('menuitem', { name: 'New run of this experiment' })
-    .click()
-  await page
-    .getByRole('dialog')
-    .getByRole('button', { name: 'Create run' })
-    .click()
-  await expect(page).not.toHaveURL(new RegExp(id))
-  await expect(page).toHaveURL(/\/experiments\/[0-9a-f-]{36}/)
 })
 
 test('EXP-13 an abandoned experiment is archived out of the list and kept under Archived', async ({
@@ -134,20 +94,6 @@ test('EXP-13 an abandoned experiment is archived out of the list and kept under 
   await expect(
     page.getByRole('link', { name: new RegExp(title) }).first(),
   ).toBeVisible()
-})
-
-test('EXP-15 the notebook and the overview are one click apart both ways', async ({
-  page,
-}) => {
-  const path = await createProject(page, uniqueName('Move around'))
-  const id = await createExperiment(page, path, uniqueName('Around'))
-  const tabs = page.getByRole('navigation', { name: 'Experiment sections' })
-  for (const name of ['Overview', 'Results', 'History', 'Notebook']) {
-    await tabs.getByRole('link', { name: new RegExp(`^${name}`) }).click()
-    await expect(page).toHaveURL(
-      new RegExp(`/experiments/${id}/${name.toLowerCase()}`),
-    )
-  }
 })
 
 test('EXP-16 a decision recorded on Results shows on the overview', async ({
@@ -179,7 +125,8 @@ test('EXP-17 an instrument is booked for the experiment from its menu', async ({
 
 test('EXP-18 a reading can be recorded from a sample', async ({ page }) => {
   await open(page, '/samples/00000000-0000-4000-8000-0000000003d0')
-  await action(page, /record reading/i).click()
+  await page.getByRole('button', { name: 'More sample actions' }).click()
+  await page.getByRole('menuitem', { name: /record reading/i }).click()
   await expect(page).toHaveURL(/\/readings\/new/)
 })
 

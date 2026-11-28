@@ -4,7 +4,14 @@
  */
 import { expect, test } from 'playwright/test'
 
-import { open, signIn, uniqueName, waitForHydration, openTab } from './helpers'
+import {
+  open,
+  openTab,
+  pickRecord,
+  signIn,
+  uniqueName,
+  waitForHydration,
+} from './helpers'
 
 const ELISA_DATASET = '00000000-0000-4000-8000-000000000381'
 
@@ -18,10 +25,13 @@ test.beforeEach(async ({ page }) => {
 test('ANA-03 a chart is exported as an image at a chosen size and theme', async ({
   page,
 }) => {
+  // The export settings sit in the inspector, which needs a wide window.
+  await page.setViewportSize({ width: 1800, height: 900 })
   await open(page, `/analysis/new?mode=chart&dataset=${ELISA_DATASET}`)
   await waitForHydration(page)
   await pickRecord(page, page.getByLabel('Y axis field'), 'Capsid titre')
   await openTab(page, 'Export')
+  await page.getByLabel('Export format').selectOption('png')
   await page.getByLabel('Export width').fill('1200')
   await page.getByLabel('Export height').fill('800')
   const download = page.waitForEvent('download')

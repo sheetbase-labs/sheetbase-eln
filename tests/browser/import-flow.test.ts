@@ -1,6 +1,5 @@
 /**
- * DSET-05 browser acceptance: prove the three-step import { pickRecord } from './journeys/helpers'
-import flow end to end in
+ * DSET-05 browser acceptance: prove the three-step import flow end to end in
  * a real browser against the seeded design Dataset DS-0320 (Bench ELISA,
  * planned plate PR-01) and a fixture plate-reader CSV.
  *
@@ -48,6 +47,7 @@ import { expect, test } from 'playwright/test'
 import type { Page } from 'playwright/test'
 
 import { signInAsDesignUser } from '../visual/sign-in'
+import { pickRecord } from './journeys/helpers'
 
 config({ path: ['.env.local', '.env'] })
 
@@ -593,7 +593,10 @@ test.describe('DSET-05 import flow', () => {
     ).rows[0].id
     try {
       await page.goto('/settings/lab/instruments')
-      await page.getByText('Advanced', { exact: true }).click()
+      await expect(page.getByText('Create a draft version')).toBeVisible({
+        timeout: 30_000,
+      })
+      await page.getByText('Advanced', { exact: true }).last().click()
       await page.getByLabel('Parser key', { exact: true }).fill(key)
       await page
         .getByLabel('Parser name', { exact: true })

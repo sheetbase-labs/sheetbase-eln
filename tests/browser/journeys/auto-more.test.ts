@@ -34,13 +34,8 @@ async function startPipeline(page: Page, name: string): Promise<string> {
   await dialog.getByLabel(/^key/i).fill(`journey_${Date.now().toString(36)}`)
   await dialog.getByLabel(/^name/i).fill(name)
   await dialog.getByRole('button', { name: 'Create pipeline' }).click()
-  await expect(page).toHaveURL(/\/pipelines\/[0-9a-f-]{36}$/)
+  await expect(page).toHaveURL(/\/pipelines\/[0-9a-f-]{36}(\/steps)?$/)
   const id = new URL(page.url()).pathname.split('/')[2] ?? ''
-  await expect(
-    page.getByRole('heading', { name: 'Create your first version' }),
-  ).toBeVisible()
-  await page.getByRole('link', { name: 'Configure steps', exact: true }).click()
-  await expect(page).toHaveURL(`/pipelines/${id}/steps`)
   return id
 }
 

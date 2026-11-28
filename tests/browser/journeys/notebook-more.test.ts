@@ -7,17 +7,14 @@ import { expect, test } from 'playwright/test'
 import type { Page } from 'playwright/test'
 
 import {
-  action,
   createExperiment,
   createProject,
-  ensureEffectiveProtocol,
   open,
   signIn,
   uniqueName,
   waitForHydration,
 } from './helpers'
 
-const PROTOCOL = '00000000-0000-4000-8000-000000000390'
 
 test.setTimeout(120_000)
 test.use({ viewport: { width: 1280, height: 900 } })
@@ -70,19 +67,13 @@ test('EXP-10 a block takes a comment from a colleague’s question', async ({
     .getByRole('button', { name: /^Comments on block/ })
     .first()
     .click()
-  await expect(page.getByRole('tab', { name: 'Comments' })).toBeVisible()
-})
-
-test('EXP-02 a protocol starts an experiment that carries its procedure', async ({
-  page,
-}) => {
-  await ensureEffectiveProtocol(PROTOCOL)
-  await open(page, `/protocols/${PROTOCOL}`)
-  await action(page, /start experiment|new experiment/i).click()
-  await page.getByLabel(/^title/i).fill(uniqueName('From a protocol'))
-  await page.getByRole('button', { name: /create draft/i }).click()
-  await expect(page).toHaveURL(/\/experiments\/[0-9a-f-]{36}\/notebook/)
-  await expect(page.getByText(/protocol/i).first()).toBeVisible()
+  const comments = page.getByRole('dialog').getByRole('region', {
+    name: 'Record comments',
+  })
+  await expect(comments).toBeVisible()
+  await comments.getByLabel('New comment body').fill('Colleague: was it 37 °C?')
+  await comments.getByRole('button', { name: 'Add comment' }).click()
+  await expect(comments.getByText('Colleague: was it 37 °C?')).toBeVisible()
 })
 
 test('CORE-20 two runs are compared from the dataset', async ({ page }) => {

@@ -56,6 +56,13 @@ test.beforeAll(async () => {
        values($1,$2,$3,'experiment',$4,'SHELL-03 keyboard fixture','draft',$5)`,
       [id, workspace, sheet.projectId, `EXP-SHELL03-${id}`, user],
     )
+  // Submitting a revision needs a valid session behind the claims below.
+  await admin.query(
+    `insert into internal.session(id,token,"userId","expiresAt")
+     values($1,$1,$2,now()+interval '12 hours')
+     on conflict (id) do update set "expiresAt" = excluded."expiresAt"`,
+    [`parity-${user}`, user],
+  )
   const actor = new Client({ connectionString: actorConnectionString() })
   await actor.connect()
   try {

@@ -12,7 +12,7 @@
  */
 // @requirement VAL-SIG-01, VAL-SIG-02
 import { createHmac, randomUUID } from 'node:crypto'
-import { mkdir, writeFile } from 'node:fs/promises'
+import { mkdir } from 'node:fs/promises'
 import { config } from 'dotenv'
 import { drizzle } from 'drizzle-orm/node-postgres'
 import { Client } from 'pg'

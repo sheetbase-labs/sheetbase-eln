@@ -15,6 +15,18 @@ import {
  */
 const servesBuild = process.env.E2E_SERVER === 'build'
 
+/**
+ * Tests that need the dev server: component fixtures it serves and the
+ * dev-only /foundations page. CI runs them in their own job, so a folder such
+ * as workspace/ can be named whole for the built app.
+ */
+const DEV_SERVER_ONLY = [
+  '**/settings/**',
+  '**/workspace/pane-page.test.ts',
+  '**/shell-01-one-shell.test.ts',
+  '**/grid-keyboard-selection.test.ts',
+]
+
 /** The parity server is only started when the parity project runs. */
 const parityRequested = process.argv.some(
   (arg, index, all) =>
@@ -41,7 +53,10 @@ export default defineConfig({
     {
       name: 'browser',
       testDir: 'tests/browser',
-      testIgnore: 'rev-03-signing.test.ts',
+      testIgnore: [
+        '**/rev-03-signing.test.ts',
+        ...(servesBuild ? DEV_SERVER_ONLY : []),
+      ],
     },
     {
       // Visual parity against the DSYS-01 renders, which are the expected

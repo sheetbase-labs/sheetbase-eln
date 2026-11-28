@@ -342,6 +342,64 @@ test.describe('phone sweep', () => {
     })
   }
 
+  // The first screen of a list is its records: one line of header with the
+  // main action, one row of views, one row of search and view controls.
+  for (const path of [
+    '/experiments',
+    '/datasets',
+    '/materials',
+    '/pipelines',
+  ]) {
+    test(`${path} opens on its records`, async ({ page }) => {
+      await openPage(page, path)
+      const header = await page.evaluate(() => {
+        const main = document.querySelector('main')
+        const search = main?.querySelector<HTMLElement>('form[role="search"]')
+        const actions = main?.querySelector<HTMLElement>('[data-list-actions]')
+        const words = [
+          ...(actions?.querySelectorAll<HTMLElement>('[data-slot="button"]') ??
+            []),
+        ].filter(
+          (el) =>
+            el.getBoundingClientRect().width > 0 &&
+            !el.matches('[data-size^="icon"]'),
+        )
+        return {
+          searchBottom: search?.getBoundingClientRect().bottom ?? Infinity,
+          textButtons: words.length,
+        }
+      })
+      expect(
+        header.textButtons,
+        `${path}: text buttons beside the title`,
+      ).toBeLessThanOrEqual(1)
+      // Status bar, top bar, install note, title row, tabs, search: below
+      // this the records start.
+      expect(
+        header.searchBottom,
+        `${path}: where the records start`,
+      ).toBeLessThan(300)
+    })
+  }
+
+  test("a list's other actions sit under More and still work", async ({
+    page,
+  }) => {
+    await openPage(page, '/pipelines')
+    const more = page.locator('main [data-list-more]')
+    await more.click()
+    const menu = page.locator('[data-slot="popover-content"]').filter({
+      visible: true,
+    })
+    await expect(menu).toBeVisible()
+    await menu.getByRole('button', { name: 'Start from a template' }).click()
+    // The menu shuts and the action's dialog stays open.
+    await expect(menu).toHaveCount(0)
+    await expect(
+      page.getByRole('dialog').filter({ hasText: 'Start from a template' }),
+    ).toBeVisible()
+  })
+
   test('record pages fit a phone', async ({ page }) => {
     const problems: string[] = []
     for (const path of await detailPages()) {

@@ -1,8 +1,7 @@
 import { useMemo } from 'react'
 import { Link, useNavigate } from '@tanstack/react-router'
 
-import { DescriptionList, Muted, Section } from '#/components/ui/layout'
-import { Status } from '#/components/ui/status'
+import { Muted, Section } from '#/components/ui/layout'
 import { TableBox } from '#/components/ui/table'
 import { RegistryGrid } from '#/components/inventory/registry-grid'
 import type { RegistryColumn } from '#/components/inventory/registry-grid'
@@ -10,64 +9,12 @@ import { ObjectLink } from '#/components/ui/object-link'
 import { useOpenRow } from '#/components/workspace/workspace-navigation'
 import { datasetPath } from '#/lib/navigation'
 import { Tooltip } from '#/components/ui/tooltip'
-import { AddedFields } from '#/components/models/added-fields'
-import {
-  calibrationStatus,
-  formatInstrumentDay,
-} from '#/components/instruments/instruments-data'
+import { formatInstrumentDay } from '#/components/instruments/instruments-data'
 import type {
-  InstrumentCalibrationRow,
   InstrumentChange,
-  InstrumentRow,
   InstrumentUsedBy,
 } from '#/components/instruments/instruments-data'
 import { t } from '#/copy'
-
-/** The instrument's stored fields, with the calibration countdown. */
-export function FieldsSection({
-  instrument,
-  userLabel,
-  latest,
-}: {
-  instrument: InstrumentRow
-  userLabel: (userId: string) => string
-  latest: InstrumentCalibrationRow | null
-}) {
-  const i = instrument
-  const status = calibrationStatus(latest?.dueAt ?? null)
-
-  return (
-    <Section
-      className="border-t border-border pt-4"
-      title={t('library.instruments.record.fields')}
-    >
-      <DescriptionList
-        labelWidth={130}
-        items={[
-          ['Manufacturer', i.vendor ?? '—'],
-          ['Model', i.model ?? '—'],
-          ['Serial', <span className="mono">{i.serialNumber ?? '—'}</span>],
-          ['Location', i.location ?? '—'],
-          ['Owner', i.ownerId ? userLabel(i.ownerId) : '—'],
-          [
-            t('library.instruments.record.qualifiedFor'),
-            i.qualifiedFor ?? t('library.instruments.record.notSet'),
-          ],
-          [
-            t('library.instruments.record.calibrationDue'),
-            latest ? (
-              <Status tone={status.tone}>
-                {formatInstrumentDay(latest.dueAt)}
-              </Status>
-            ) : (
-              t('library.instruments.record.notRecorded')
-            ),
-          ],
-        ]}
-      />
-    </Section>
-  )
-}
 
 function UsedByGrid({ rows }: { rows: InstrumentUsedBy[] }) {
   const navigate = useNavigate()
@@ -209,11 +156,7 @@ function HistoryGrid({
 /** The datasets imported from this instrument. */
 export function UsedBySection({ rows }: { rows: InstrumentUsedBy[] }) {
   return (
-    <Section
-      className="border-t border-border pt-4"
-      title={t('library.instruments.record.usedBy')}
-      count={rows.length}
-    >
+    <Section title={t('library.instruments.record.usedBy')} count={rows.length}>
       {rows.length ? (
         <TableBox>
           <UsedByGrid rows={rows} />
@@ -235,11 +178,8 @@ export function HistorySection({
   entries: InstrumentChange[]
   userLabel: (userId: string) => string
 }) {
-  if (!entries.length) return null
-
   return (
     <Section
-      className="border-t border-border pt-4"
       title={
         <Tooltip content="Renaming this instrument or moving it to another room updates every record that mentions it. Anything already signed keeps what it showed at the time.">
           <span tabIndex={0}>
@@ -248,25 +188,13 @@ export function HistorySection({
         </Tooltip>
       }
     >
-      <TableBox>
-        <HistoryGrid entries={entries} userLabel={userLabel} />
-      </TableBox>
+      {entries.length ? (
+        <TableBox>
+          <HistoryGrid entries={entries} userLabel={userLabel} />
+        </TableBox>
+      ) : (
+        <Muted>{t('library.instruments.record.noChangesYet')}</Muted>
+      )}
     </Section>
-  )
-}
-
-/** The model's added fields, rendered as their own section. */
-export function InstrumentAddedFields({
-  instrumentId,
-}: {
-  instrumentId: string
-}) {
-  return (
-    <AddedFields
-      modelKey="instrument"
-      objectId={instrumentId}
-      variant="section"
-      labelWidth={130}
-    />
   )
 }

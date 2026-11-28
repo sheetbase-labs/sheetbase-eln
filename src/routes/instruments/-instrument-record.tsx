@@ -7,6 +7,13 @@ import { ConvertedDataSection } from '#/components/instruments/converted-data'
 import { InstrumentTimeline } from '#/components/scheduler/instrument-timeline'
 import { RobotSection } from '#/components/instruments/robot-section'
 import { RunQcPanel } from '#/components/quality/run-qc-panel'
+import { LiveReadingsSection } from '#/components/instruments/live-readings'
+import {
+  intakeDeliveryProblem,
+  isOutOfService,
+} from '#/components/instruments/instruments-data'
+import { RecordPage } from '#/components/record-page/record-page'
+import { t } from '#/copy'
 import type {
   InstrumentCalibrationRow,
   InstrumentRow,
@@ -18,26 +25,33 @@ import type { ConnectorWire } from '#/lib/connectors/types'
 
 import type { QualificationRow } from './-instrument-columns'
 import { InstrumentDialogs } from './-instrument-dialogs'
+import { HistorySection, UsedBySection } from './-instrument-fields'
+import { instrumentFacts } from './-instrument-facts'
 import {
-  FieldsSection,
-  HistorySection,
-  InstrumentAddedFields,
-  UsedBySection,
-} from './-instrument-fields'
+  InstrumentActions,
+  InstrumentMoreItems,
+  InstrumentStateLine,
+} from './-instrument-header'
 import type { useInstrumentMutations } from './-instrument-mutations'
-import type { useInstrumentPageState } from './-instrument-page-state'
 import { QualificationSection } from './-instrument-qualification'
 import {
-  InstrumentHeader,
-  InstrumentInspector,
-  InstrumentSummary,
+  CalibrationSection,
+  IntakeSection,
   RunsSection,
 } from './-instrument-sections'
+import { InstrumentSidePanel } from './-instrument-side'
+import type { InstrumentWeekBooking } from './-instrument-side'
+import { instrumentTabOf } from './-instrument-page-state'
+import type {
+  InstrumentTab,
+  useInstrumentPageState,
+} from './-instrument-page-state'
 import type { instrumentIntake } from './-instrument-summary-data'
 
 /**
- * The instrument record once its reads have answered: the header, the record
- * itself, its qualifications, runs and dialogs.
+ * The instrument record once its reads have answered, on the shared record
+ * page: Details (how data gets in, who may run it), Bookings, Calibration,
+ * Service, Data and History, with its other fields in the side panel.
  */
 export function InstrumentRecord({
   instrument,
@@ -95,7 +109,7 @@ export function InstrumentRecord({
   rows: InstrumentRunRow[]
   usedByRows: Parameters<typeof UsedBySection>[0]['rows']
   historyEntries: Parameters<typeof HistorySection>[0]['entries']
-  weekRows: Parameters<typeof InstrumentInspector>[0]['week']
+  weekRows: readonly InstrumentWeekBooking[]
   connector: ConnectorWire | null
   qualificationsStatus: 'pending' | 'error' | 'success'
   qualifierError: unknown
@@ -113,85 +127,198 @@ export function InstrumentRecord({
   const i = instrument
   const { setSetupStep } = page
 
-  return (
-    <div className="flex min-w-0 flex-1 flex-col">
-      <InstrumentHeader
-        instrument={i}
-        health={intake.health}
-        canRecord={canRecord}
-        canCalibrate={canCalibrate}
-        onServiceState={(out) =>
-          out ? page.setUpOpen(true) : page.setDownOpen(true)
-        }
-        onRecordCalibration={() => page.setRecordOpen(true)}
-      />
-      <div className="flex min-h-0 flex-1 max-lg:flex-col max-lg:overflow-auto">
-        <InstrumentSummary
+  const tabBody: Record<InstrumentTab, React.ReactNode> = {
+    details: (
+      <>
+        <LiveReadingsSection
           instrument={i}
-          health={intake.health}
-          lastDataAt={intake.lastDataAt}
+          canSetUp={canSetUpIntake}
+          canSetLimits={canCalibrate}
+        />
+        <IntakeSection
+          instrument={i}
           intakeItems={intake.intakeItems}
-          userLabel={names.userLabel}
           connector={connector}
           followUp={intake.followUp}
+          deliveryProblem={intakeDeliveryProblem(intake.health.label)}
           canSetUpIntake={canSetUpIntake}
           canRecord={canRecord}
           canEditSchemas={canEditSchemas}
-          canCalibrate={canCalibrate}
-          latest={latest}
-          calibrationRows={calibrationRows}
-          calibrationColumns={calibrationColumns}
-          gateMode={gateMode}
           onSetUp={(step) => setSetupStep(step)}
+        />
+        <IntakeProblems
+          workspaceId={workspaceId}
+          instrumentId={i.id}
+          canManage={canEditSchemas}
+        />
+        <QualificationSection
+          instrumentId={i.id}
+          instrumentName={i.name}
+          qualificationsStatus={qualificationsStatus}
+          qualifierError={qualifierError}
+          rows={qualificationRows}
+          columns={qualificationColumns}
+          scope={scope}
+          canQualify={canQualify}
+          canRecord={canRecord}
+          iAmQualified={iAmQualified}
+          iHaveAsked={iHaveAsked}
+          requestRows={requestRows}
+          userLabel={names.userLabel}
+          dismissPending={mutations.dismissRequest.isPending}
+          onDismiss={(id) => mutations.dismissRequest.mutate(id)}
+          onQualify={(userId) => {
+            page.setGrantUser(userId)
+            page.setGrantScope(scope ?? '')
+            page.setGrantOpen(true)
+          }}
+          onGrant={() => {
+            page.setGrantScope(scope ?? '')
+            page.setGrantOpen(true)
+          }}
+          onRequested={onRequested}
+        />
+        <RobotSection
+          instrument={i}
+          canManage={canManageInstruments}
+          canRun={canRecord}
+        />
+      </>
+    ),
+    bookings: (
+      <>
+        <InstrumentTimeline instrumentId={i.id} />
+        <BookingRulesSection instrument={i} canManage={canManageInstruments} />
+        <InstrumentRateSection
+          instrument={i}
+          canManage={canManageInstruments}
+        />
+      </>
+    ),
+    calibration: (
+      <CalibrationSection
+        latest={latest}
+        calibrationRows={calibrationRows}
+        calibrationColumns={calibrationColumns}
+        canCalibrate={canCalibrate}
+        onRecordCalibration={() => page.setRecordOpen(true)}
+      />
+    ),
+    service: (
+      <ServiceLogSection instrument={i} canLog={canCalibrate} names={names} />
+    ),
+    data: (
+      <>
+        <RunsSection rows={rows} runColumns={runColumns} />
+        <ConvertedDataSection instrumentId={i.id} />
+        <RunQcPanel
+          scope={{ instrumentId: i.id }}
+          workspaceId={workspaceId}
+          canWrite={canRecord}
+        />
+        <UsedBySection rows={usedByRows} />
+      </>
+    ),
+    history: (
+      <HistorySection entries={historyEntries} userLabel={names.userLabel} />
+    ),
+  }
+
+  return (
+    <RecordPage
+      recordId={null}
+      trail={[
+        {
+          label: t('library.instruments.record.instruments'),
+          link: { to: '/instruments' },
+        },
+        { label: i.displayId ?? i.id.slice(0, 8), mono: true },
+      ]}
+      title={i.name}
+      identifier={i.displayId ?? i.id.slice(0, 8)}
+      status={
+        isOutOfService(i)
+          ? {
+              tone: 'warn',
+              label: t('library.instruments.outOfService.status'),
+            }
+          : intake.health
+      }
+      facts={instrumentFacts({
+        instrument: i,
+        latest,
+        lastDataAt: intake.lastDataAt,
+        userLabel: names.userLabel,
+      })}
+      actions={<InstrumentActions instrument={i} />}
+      moreLabel={t('library.instruments.record.moreActions')}
+      more={
+        canRecord || canCalibrate ? (
+          <InstrumentMoreItems
+            instrument={i}
+            canRecord={canRecord}
+            canCalibrate={canCalibrate}
+            onRecordCalibration={() => page.setRecordOpen(true)}
+            onServiceState={(out) =>
+              out ? page.setUpOpen(true) : page.setDownOpen(true)
+            }
+          />
+        ) : null
+      }
+      stateLine={
+        <InstrumentStateLine
+          instrument={i}
+          latest={latest}
+          gateMode={gateMode}
+          canCalibrate={canCalibrate}
+          userLabel={names.userLabel}
+          onBackInService={() => page.setUpOpen(true)}
           onRecordCalibration={() => page.setRecordOpen(true)}
-        >
-          <ServiceLogSection
-            instrument={i}
-            canLog={canCalibrate}
-            names={names}
-          />
-
-          <RunQcPanel
-            scope={{ instrumentId: i.id }}
-            workspaceId={workspaceId}
-            canWrite={canRecord}
-          />
-
-          <ConvertedDataSection instrumentId={i.id} />
-
-          <RobotSection
-            instrument={i}
-            canManage={canManageInstruments}
-            canRun={canRecord}
-          />
-
-          <InstrumentTimeline instrumentId={i.id} />
-
-          <BookingRulesSection
-            instrument={i}
-            canManage={canManageInstruments}
-          />
-
-          <InstrumentRateSection
-            instrument={i}
-            canManage={canManageInstruments}
-          />
-
-          <FieldsSection
-            instrument={i}
-            userLabel={names.userLabel}
-            latest={latest}
-          />
-
-          <UsedBySection rows={usedByRows} />
-
-          <InstrumentAddedFields instrumentId={i.id} />
-
-          <HistorySection
-            entries={historyEntries}
-            userLabel={names.userLabel}
-          />
-
+        />
+      }
+      tabs={{
+        mode: 'state',
+        label: t('library.instruments.record.sections'),
+        value: page.tab,
+        onValueChange: (next) => page.setTab(instrumentTabOf(next)),
+        items: [
+          {
+            key: 'details',
+            label: t('library.instruments.record.detailsTab'),
+          },
+          {
+            key: 'bookings',
+            label: t('library.instruments.record.bookingsTab'),
+            count: weekRows.length,
+          },
+          {
+            key: 'calibration',
+            label: t('library.instruments.record.calibration'),
+            count: calibrationRows.length,
+          },
+          { key: 'service', label: t('library.instruments.record.serviceTab') },
+          {
+            key: 'data',
+            label: t('library.instruments.record.dataTab'),
+            count: rows.length,
+          },
+          {
+            key: 'history',
+            label: t('notebook.recordPage.history'),
+            end: true,
+          },
+        ],
+      }}
+      sideLabel={t('library.instruments.record.instrumentDetails')}
+      side={
+        <InstrumentSidePanel
+          instrument={i}
+          userLabel={names.userLabel}
+          week={weekRows}
+        />
+      }
+      overlays={
+        <>
           {page.setupStep !== null ? (
             <IntakeSetupDialog
               workspaceId={workspaceId}
@@ -207,62 +334,20 @@ export function InstrumentRecord({
               onClose={() => setSetupStep(null)}
             />
           ) : null}
-
-          <IntakeProblems
-            workspaceId={workspaceId}
-            instrumentId={i.id}
-            canManage={canEditSchemas}
-          />
-
-          <QualificationSection
-            instrumentId={i.id}
-            instrumentName={i.name}
-            qualificationsStatus={qualificationsStatus}
-            qualifierError={qualifierError}
-            rows={qualificationRows}
-            columns={qualificationColumns}
-            scope={scope}
-            canQualify={canQualify}
-            canRecord={canRecord}
-            iAmQualified={iAmQualified}
-            iHaveAsked={iHaveAsked}
-            requestRows={requestRows}
+          <InstrumentDialogs
+            instrument={i}
+            page={page}
+            mutations={mutations}
+            projectOptions={projectOptions}
+            members={members}
+            membersError={membersError}
             userLabel={names.userLabel}
-            dismissPending={mutations.dismissRequest.isPending}
-            onDismiss={(id) => mutations.dismissRequest.mutate(id)}
-            onQualify={(userId) => {
-              page.setGrantUser(userId)
-              page.setGrantScope(scope ?? '')
-              page.setGrantOpen(true)
-            }}
-            onGrant={() => {
-              page.setGrantScope(scope ?? '')
-              page.setGrantOpen(true)
-            }}
-            onRequested={onRequested}
+            scope={scope}
           />
-
-          <RunsSection rows={rows} runColumns={runColumns} />
-        </InstrumentSummary>
-
-        <InstrumentInspector
-          latest={latest}
-          instrument={i}
-          userLabel={names.userLabel}
-          week={weekRows}
-        />
-      </div>
-
-      <InstrumentDialogs
-        instrument={i}
-        page={page}
-        mutations={mutations}
-        projectOptions={projectOptions}
-        members={members}
-        membersError={membersError}
-        userLabel={names.userLabel}
-        scope={scope}
-      />
-    </div>
+        </>
+      }
+    >
+      {tabBody[page.tab]}
+    </RecordPage>
   )
 }

@@ -11,6 +11,10 @@ import { open, signIn, withAdminDb } from './journeys/helpers'
  */
 test.setTimeout(90_000)
 
+// Each test signs in afresh and only opens a page, so they spread across
+// workers (and CI shards) instead of queueing behind each other in one.
+test.describe.configure({ mode: 'parallel' })
+
 const STATIC_ROUTES = [
   '/search',
   '/saved-searches',

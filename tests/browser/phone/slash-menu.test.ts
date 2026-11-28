@@ -32,6 +32,10 @@ const DESIGN_WORKSPACE = '00000000-0000-4000-8000-000000000300'
 test.use({ ...PHONE })
 test.setTimeout(120_000)
 
+// Each test makes its own project and notebook, so they spread across
+// workers (and CI shards) instead of queueing behind each other in one.
+test.describe.configure({ mode: 'parallel' })
+
 let projectPath = ''
 const LINES = 30
 

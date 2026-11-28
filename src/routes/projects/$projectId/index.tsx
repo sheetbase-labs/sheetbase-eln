@@ -1,15 +1,9 @@
 import { useMemo } from 'react'
 import { Person } from '#/components/ui/person'
-import { LoadingBlock } from '#/components/ui/page-skeleton'
 import { Link, createFileRoute } from '@tanstack/react-router'
 import { useQuery } from '@tanstack/react-query'
 
-import {
-  DescriptionList,
-  Inspector,
-  InspectorSection,
-  Section,
-} from '#/components/ui/layout'
+import { Section } from '#/components/ui/layout'
 import { EmptyState } from '#/components/ui/empty-state'
 import { Button } from '#/components/ui/button'
 import { Status } from '#/components/ui/status'
@@ -20,28 +14,22 @@ import {
 } from '#/components/inventory/registry-grid'
 import type { RegistryColumn } from '#/components/inventory/registry-grid'
 import {
-  fetchProjectActivity,
-  fetchProjectMembers,
   useProjectMilestones,
   useProjectSummary,
 } from '#/components/projects/project-data'
-import type { ProjectSummary } from '#/components/projects/project-data'
 import { experimentStatus } from '#/components/experiments/experiments-data'
 import {
   fetchRecordsForProject,
   formatDate,
-  formatRelativeTime,
   notebookDataClient,
   notebookQueryKeys,
 } from '#/lib/notebook-data'
 import { ObjectLink } from '#/components/ui/object-link'
 import { useUserNames } from '#/lib/user-names'
-import { AddedFields } from '#/components/models/added-fields'
-import { describeAuditEvent } from '#/lib/audit-history'
 import { now } from '#/lib/clock'
 import { daysUntilDate } from '#/lib/calendar-days'
 import { formatListDate } from '#/lib/list-date'
-import { rich, t } from '#/copy'
+import { t } from '#/copy'
 import { useHasCapability } from '#/lib/use-capability'
 
 export const Route = createFileRoute('/projects/$projectId/')({
@@ -118,18 +106,6 @@ function ProjectOverview() {
 
   const { userLabel } = useUserNames(ownerIds)
 
-  const membersQuery = useQuery({
-    queryKey: ['project-members', projectId],
-    queryFn: () => fetchProjectMembers(projectId),
-    staleTime: 60_000,
-  })
-
-  const activityQuery = useQuery({
-    queryKey: ['project-activity', projectId],
-    queryFn: () => fetchProjectActivity(projectId),
-    staleTime: 30_000,
-  })
-
   if (!project) return null
 
   const experimentColumns: RegistryColumn<(typeof experiments)[number]>[] = [
@@ -188,238 +164,67 @@ function ProjectOverview() {
   ]
 
   return (
-    <>
-      <div className="flex min-w-0 flex-1 flex-col gap-[26px] overflow-auto px-4 py-[22px] md:px-8">
-        <OverviewMilestones
-          projectId={projectId}
-          milestones={milestones}
-          canWrite={canWrite}
-        />
+    <div className="flex min-w-0 flex-1 flex-col gap-[26px] overflow-auto px-4 py-[22px] md:px-8">
+      <OverviewMilestones
+        projectId={projectId}
+        milestones={milestones}
+        canWrite={canWrite}
+      />
 
-        <Section
-          title={t('projects.projectOverview.experiments.title')}
-          count={project.experimentCount}
-          action={
-            <span className="flex items-center gap-3">
-              {project.experimentCount ? (
+      <Section
+        title={t('projects.projectOverview.experiments.title')}
+        count={project.experimentCount}
+        action={
+          <span className="flex items-center gap-3">
+            {project.experimentCount ? (
+              <Button
+                nativeButton={false}
+                render={
+                  // react-doctor-disable-next-line react-doctor/anchor-has-content -- Button forwards its export-label children to this anchor through Base UI's render prop.
+                  <a href={`/api/export/project/${projectId}/eln`} />
+                }
+              >
+                {t('projects.projectOverview.experiments.export')}
+              </Button>
+            ) : null}
+          </span>
+        }
+      >
+        {experiments.length ? (
+          <TableBox>
+            <RegistryGrid
+              label={t('projects.projectOverview.experiments.title')}
+              rows={experiments}
+              columns={experimentColumns}
+              getRowId={(e) => e.id}
+              selectable={false}
+            />
+          </TableBox>
+        ) : (
+          <EmptyState
+            className="py-2"
+            icon="flask"
+            title={t('projects.projectOverview.experiments.empty.title')}
+            description={t('projects.projectOverview.experiments.empty.body')}
+            action={
+              canWrite ? (
                 <Button
                   nativeButton={false}
                   render={
-                    // react-doctor-disable-next-line react-doctor/anchor-has-content -- Button forwards its export-label children to this anchor through Base UI's render prop.
-                    <a href={`/api/export/project/${projectId}/eln`} />
+                    <Link
+                      to="/experiments/new"
+                      search={{ project: projectId }}
+                    />
                   }
                 >
-                  {t('projects.projectOverview.experiments.export')}
+                  {t('projects.projectOverview.experiments.create')}
                 </Button>
-              ) : null}
-            </span>
-          }
-        >
-          {experiments.length ? (
-            <TableBox>
-              <RegistryGrid
-                label={t('projects.projectOverview.experiments.title')}
-                rows={experiments}
-                columns={experimentColumns}
-                getRowId={(e) => e.id}
-                selectable={false}
-              />
-            </TableBox>
-          ) : (
-            <EmptyState
-              className="py-2"
-              icon="flask"
-              title={t('projects.projectOverview.experiments.empty.title')}
-              description={t('projects.projectOverview.experiments.empty.body')}
-              action={
-                canWrite ? (
-                  <Button
-                    nativeButton={false}
-                    render={
-                      <Link
-                        to="/experiments/new"
-                        search={{ project: projectId }}
-                      />
-                    }
-                  >
-                    {t('projects.projectOverview.experiments.create')}
-                  </Button>
-                ) : undefined
-              }
-            />
-          )}
-        </Section>
-      </div>
-
-      <Inspector
-        aria-label={t('projects.projectOverview.inspector')}
-        className="w-[320px]"
-      >
-        <OverviewDetails project={project} members={membersQuery.data ?? []} />
-        <AddedFields
-          modelKey="project"
-          objectId={project.id}
-          labelWidth={112}
-        />
-        <OverviewReview records={records} />
-        <OverviewActivity
-          activity={activityQuery.data ?? []}
-          loading={activityQuery.isLoading}
-        />
-      </Inspector>
-    </>
-  )
-}
-
-function OverviewDetails({
-  project,
-  members,
-}: {
-  project: ProjectSummary
-  members: Awaited<ReturnType<typeof fetchProjectMembers>>
-}) {
-  const memberSummary = members.length
-    ? `${members
-        .slice(0, 3)
-        .map((member) => member.name)
-        .join(', ')}${members.length > 3 ? ` +${members.length - 3}` : ''}`
-    : '—'
-
-  const details: [string, React.ReactNode][] = [
-    [
-      t('projects.projectOverview.details.id'),
-      <span className="mono">{project.displayId ?? project.key}</span>,
-    ],
-    [
-      t('projects.projectOverview.details.client'),
-      project.clientCode ?? t('projects.projectOverview.details.internal'),
-    ],
-    [t('projects.projectOverview.details.modality'), project.modality ?? '—'],
-    [t('projects.projectOverview.details.stage'), project.stage ?? '—'],
-    [t('projects.projectOverview.details.lead'), project.leadName ?? '—'],
-    [t('projects.projectOverview.details.members'), memberSummary],
-    [t('projects.projectOverview.details.started'), project.startedOn ?? '—'],
-  ]
-
-  if (project.agreementReference) {
-    details.push([
-      t('projects.projectOverview.details.agreement'),
-      <span className="mono">{project.agreementReference}</span>,
-    ])
-  }
-
-  return (
-    <InspectorSection title={t('projects.projectOverview.detailsTitle')}>
-      <DescriptionList labelWidth={112} items={details} />
-    </InspectorSection>
-  )
-}
-
-function OverviewReview({
-  records,
-}: {
-  records: Awaited<ReturnType<typeof fetchRecordsForProject>>
-}) {
-  const allExperiments = records.filter(
-    (record) => record.kind === 'experiment' && !record.archivedAt,
-  )
-
-  const inReview = allExperiments.filter(
-    (record) => record.status === 'in_review',
-  )
-
-  const approved = allExperiments.filter(
-    (record) => record.status === 'approved',
-  )
-
-  // With no experiments the overview already says so; "0 of 0 approved"
-  // would only say it again.
-  if (allExperiments.length === 0) return null
-
-  return (
-    <InspectorSection title={t('projects.projectOverview.review.title')}>
-      <div className="flex flex-col gap-1 text-label">
-        <span>
-          {t('projects.projectOverview.review.approved', {
-            approved: approved.length,
-            count: allExperiments.length,
-          })}
-        </span>
-        {inReview.length ? (
-          <span>
-            {rich('projects.projectOverview.review.awaiting', {
-              waiting: inReview.length,
-              links: inReview.slice(0, 3).map((record, index) => (
-                <span key={record.id}>
-                  {index ? ', ' : ''}
-                  <ObjectLink
-                    kind="experiment"
-                    id={record.id}
-                    identifier={record.identifier}
-                  />
-                </span>
-              )),
-            })}
-          </span>
-        ) : (
-          <span className="text-fg-muted">
-            {t('projects.projectOverview.review.nothing')}
-          </span>
+              ) : undefined
+            }
+          />
         )}
-      </div>
-    </InspectorSection>
-  )
-}
-
-function OverviewActivity({
-  activity,
-  loading,
-}: {
-  activity: Awaited<ReturnType<typeof fetchProjectActivity>>
-  loading: boolean
-}) {
-  return (
-    <InspectorSection title={t('projects.projectOverview.activity.title')}>
-      <div className="flex flex-col gap-2 text-label">
-        {activity.map((event) => {
-          const description = describeAuditEvent(event)
-
-          return (
-            <div key={event.id} className="flex gap-2 break-words">
-              <time
-                className="shrink-0 text-fg-muted"
-                dateTime={event.createdAt}
-                title={formatDate(event.createdAt)}
-              >
-                {formatRelativeTime(event.createdAt)}
-              </time>
-              <span>
-                {t('projects.projectOverview.activity.line', {
-                  actor:
-                    event.currentActorName ??
-                    t('projects.projectOverview.activity.system'),
-                  action: description.action,
-                  subject: event.currentRecord
-                    ? `${event.currentRecord.identifier} · ${event.currentRecord.title}`
-                    : description.subject,
-                })}
-              </span>
-            </div>
-          )
-        })}
-        {!activity.length ? (
-          loading ? (
-            <LoadingBlock
-              label={t('projects.projectOverview.activity.loading')}
-            />
-          ) : (
-            <span className="text-fg-muted">
-              {t('projects.projectOverview.activity.empty')}
-            </span>
-          )
-        ) : null}
-      </div>
-    </InspectorSection>
+      </Section>
+    </div>
   )
 }
 

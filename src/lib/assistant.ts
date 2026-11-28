@@ -33,7 +33,10 @@ import {
   attachmentsBlock,
   chatAttachmentSchema,
 } from './assistant-attachments'
-import { fromWireToolName } from './agent-tool-catalogue'
+import {
+  ASSISTANT_READ_TOOL_NAMES,
+  fromWireToolName,
+} from './agent-tool-catalogue'
 import { AnswerCleaner, EMPTY_ANSWER_MESSAGE } from './assistant-output'
 import { aiReadiness, aiReadinessMessage } from './ai-settings'
 import type { AiReadiness, WorkspaceAiSettings } from './ai-settings'
@@ -678,6 +681,25 @@ export async function streamAssistant(
         toolCalls: calls,
       })
 
+      // Lookups that only read start together, so a step that asks for five
+      // things takes as long as the slowest one. Results are still handed
+      // back, and shown, in the order the model asked for them. Anything that
+      // builds a card runs in turn.
+      const started = new Map<string, Promise<ToolRunResult>>()
+
+      for (const [position, call] of calls.entries()) {
+        if (
+          position < ASSISTANT_MAX_CALLS_PER_STEP &&
+          ASSISTANT_READ_TOOL_NAMES.includes(fromWireToolName(call.name))
+        ) {
+          const job = toolkit.run(call.name, call.arguments)
+
+          // A failure is reported where its result is read, below.
+          job.catch(() => undefined)
+          started.set(call.id, job)
+        }
+      }
+
       for (const [position, call] of calls.entries()) {
         const name = fromWireToolName(call.name)
         const parsed = parseJson(call.arguments)
@@ -693,7 +715,8 @@ export async function streamAssistant(
         } else {
           try {
             // react-doctor-disable-next-line react-doctor/async-await-in-loop -- Each lookup's start and end events are yielded in the order the model asked for them, and its result is appended to the conversation in that order.
-            result = await toolkit.run(call.name, call.arguments)
+            result = await (started.get(call.id) ??
+              toolkit.run(call.name, call.arguments))
           } catch {
             result = {
               text: 'Something went wrong while running it.',

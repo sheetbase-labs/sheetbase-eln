@@ -27,13 +27,21 @@ export const RECORD_READ_TOOL_NAMES = [
   ASSISTANT_CREATED_TOOL,
 ] as const
 
+const recordName = z.string().min(1).max(200)
+
 export const recordReadSchema = z.strictObject({
-  record: z
-    .string()
-    .min(1)
-    .max(200)
+  record: recordName
+    .optional()
     .describe(
       'What to open: its ID as the app shows it (EXP-4302, PRJ-0008, TPL-0004, SMP-0012), or words from its name.',
+    ),
+  records: z
+    .array(recordName)
+    .min(1)
+    .max(5)
+    .optional()
+    .describe(
+      'Several things to open at once, up to five, each by ID or name. Use this instead of one call per record.',
     ),
 })
 
@@ -45,7 +53,7 @@ export function recordReadDefs(): ProviderToolDef[] {
   return [
     toolDef(
       RECORD_READ_TOOL,
-      'Open one experiment, project, template, sample, material or other record and read it in full: what it is linked to and what links to it (linksTo, linkedFrom), where a material is used (usedIn), its notebook text, its parts (milestones) with their days, status and steps, its plate layout and worklists, the samples set aside for it, and its links. Use it whenever the person asks what is in something, "what did you make", "are the milestones filled in", or means the page they have open. Name it by ID or words from its name. Never say you cannot see a record before trying this.',
+      'Open one experiment, project, template, sample, material or other record and read it in full: what it is linked to and what links to it (linksTo, linkedFrom), where a material is used (usedIn), its notebook text, its parts (milestones) with their days, status and steps, its plate layout and worklists, the samples set aside for it, and its links. Use it whenever the person asks what is in something, "what did you make", "are the milestones filled in", or means the page they have open. Name it by ID or words from its name; to look at several, pass them together in `records` rather than one call each. Never say you cannot see a record before trying this.',
       recordReadSchema,
     ),
     toolDef(
@@ -282,8 +290,45 @@ export async function readRecord(
   const parsed = recordReadSchema.safeParse(args)
 
   if (!parsed.success) return { text: invalid(parsed.error), isError: true }
+
+  const names = [
+    ...new Set([
+      ...(parsed.data.record ? [parsed.data.record] : []),
+      ...(parsed.data.records ?? []),
+    ]),
+  ]
+
+  const [only = '', ...rest] = names
+
+  if (names.length === 0) {
+    return { text: 'Name the record to open.', isError: true }
+  }
+
+  if (rest.length === 0) return readOneRecord(only, context)
+
+  // Several at once: each is read the way a single one is, side by side.
+  const results = await Promise.all(
+    names.map((name) => readOneRecord(name, context)),
+  )
+
+  // Each result is already JSON text, so it is joined as it is.
+  const items = results.map((result, index) =>
+    result.isError
+      ? JSON.stringify({ asked: names[index], problem: result.text })
+      : `{"asked":${JSON.stringify(names[index])},"record":${result.text}}`,
+  )
+
+  return {
+    isError: results.every((result) => result.isError),
+    text: `{"records":[${items.join(',')}]}`,
+  }
+}
+
+async function readOneRecord(
+  text: string,
+  context: LabToolContext,
+): Promise<Result> {
   const { client } = context
-  const text = parsed.data.record
 
   if (/^TPL-/i.test(text.trim()) || /template/i.test(text)) {
     const template = await readTemplate(context, text)

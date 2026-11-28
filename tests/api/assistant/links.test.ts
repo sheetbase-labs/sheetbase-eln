@@ -125,3 +125,66 @@ describe('links the record pages show', () => {
     expect(turn.text).toContain(material.identifier)
   })
 })
+
+describe('fewer lookups', () => {
+  it('opens several records in one call', async () => {
+    world.newChat()
+    const project = await world.createProject('Batch reading')
+    const first = await world.createExperiment(project.id, 'Batch one')
+    const second = await world.createExperiment(project.id, 'Batch two')
+
+    world.script((request) =>
+      request.step === 0
+        ? {
+            calls: [
+              {
+                name: 'sheetbase.record.read',
+                arguments: {
+                  records: [first.identifier, second.identifier],
+                },
+              },
+            ],
+          }
+        : { text: request.toolResults[0]?.text ?? '' },
+    )
+
+    const turn = await world.ask('Compare my two batch experiments')
+
+    expect(turn.steps).toHaveLength(1)
+    expect(turn.text).toContain(first.identifier)
+    expect(turn.text).toContain(second.identifier)
+  })
+
+  it('runs several read lookups of one step and answers from all of them', async () => {
+    world.newChat()
+    const project = await world.createProject('Parallel reading')
+    const one = await world.createExperiment(project.id, 'Parallel one')
+    const two = await world.createExperiment(project.id, 'Parallel two')
+
+    world.script((request) =>
+      request.step === 0
+        ? {
+            calls: [
+              {
+                name: 'sheetbase.record.read',
+                arguments: { record: one.identifier },
+              },
+              {
+                name: 'sheetbase.record.read',
+                arguments: { record: two.identifier },
+              },
+            ],
+          }
+        : {
+            text: request.toolResults.map((result) => result.text).join('\n'),
+          },
+    )
+
+    const turn = await world.ask('Look at both')
+
+    expect(turn.steps.map((step) => step.ok)).toEqual([true, true])
+    expect(turn.text.indexOf(one.identifier)).toBeLessThan(
+      turn.text.indexOf(two.identifier),
+    )
+  })
+})

@@ -18,12 +18,14 @@ import type { RegistryColumn } from '#/components/inventory/registry-grid'
 import { Select } from '#/components/ui/select'
 import type { TemplatePart } from '#/components/templates/template-parts'
 import { placementName } from '#/components/templates/template-structure'
-import type { useSheetDefinitions } from '#/components/templates/templates-data'
 import { blockTypeLabel } from '#/components/notebook/block-labels'
 import { PARAMETER_VALUE_TYPES } from '#/lib/parameter'
 import type { ParameterValueType, Parameter } from '#/lib/parameter'
 import type { NotebookTemplatePlacement } from '#/lib/notebook-template'
 import { defaultAsText } from '../-template-draft'
+import { valueTypeLabel } from './-template-setting-values'
+import type { SettingTarget } from './-template-setting-values'
+import { keyFromLabel } from '#/lib/assistant-datasets'
 import type { TemplateDraft, TemplateSettingTarget } from '../-template-draft'
 import { t } from '#/copy'
 
@@ -39,53 +41,10 @@ function sectionKind(placement: NotebookTemplatePlacement): string {
   return blockTypeLabel(placement.blockType)
 }
 
-const VALUE_TYPE_COPY = {
-  text: 'library.templates.notebook.valueText',
-  integer: 'library.templates.notebook.valueWholeNumber',
-  decimal: 'library.templates.notebook.valueNumber',
-  boolean: 'library.templates.notebook.valueYesNo',
-  date: 'library.templates.notebook.valueDate',
-  timestamp: 'library.templates.notebook.valueDateTime',
-  category: 'library.templates.notebook.valueChoice',
-  reference: 'library.templates.notebook.valueRecord',
-} as const satisfies Record<ParameterValueType, string>
-
-/** A setting's kind of value, in words. */
-export function valueTypeLabel(valueType: ParameterValueType): string {
-  return t(VALUE_TYPE_COPY[valueType])
-}
-
 function parameterTypeName(parameter: Parameter): string {
   return parameter.type.kind === 'scalar'
     ? valueTypeLabel(parameter.type.valueType)
     : t('library.templates.notebook.valueList')
-}
-
-/**
- * A key for something a person named: lower case words joined by
- * underscores, made unique among the keys already taken.
- */
-export function keyFromLabel(label: string, taken: Iterable<string>): string {
-  const used = new Set(taken)
-
-  const base =
-    label
-      .toLowerCase()
-      .normalize('NFKD')
-      .replace(/[^a-z0-9]+/g, '_')
-      .replace(/^_+|_+$/g, '')
-      .replace(/^(?=[0-9])/, 'n_')
-      .slice(0, 52) || 'item'
-
-  let key = base
-  let n = 2
-
-  while (used.has(key)) {
-    key = `${base}_${n}`
-    n += 1
-  }
-
-  return key
 }
 
 /** The Sections table's columns; the editing variant adds the reorder and
@@ -205,13 +164,6 @@ function sectionColumns(
   }
 
   return columns
-}
-
-/** A scalar setting of a sheet a placement pins, which a template setting can feed. */
-export interface SettingTarget {
-  placementId: string
-  sheetTitle: string
-  parameter: Parameter
 }
 
 function targetKey(target: TemplateSettingTarget | null): string {
@@ -485,27 +437,6 @@ export function SectionsSection({
 /** What the add form hands over for a new setting. */
 export type AddedParameter = Parameters<TemplateDraft['addParameter']>[0]
 
-/** The scalar settings of every sheet the template places, for a template
- * setting to feed. */
-export function sheetSettingTargets(
-  placements: NotebookTemplatePlacement[],
-  versionsById: ReturnType<typeof useSheetDefinitions>['versionsById'],
-): SettingTarget[] {
-  return placements.flatMap((placement) => {
-    if (placement.kind !== 'sheet') return []
-
-    const definition = versionsById.get(placement.definitionVersionId)
-
-    return (definition?.configuration.parameters ?? [])
-      .filter((parameter) => parameter.type.kind === 'scalar')
-      .map((parameter) => ({
-        placementId: placement.id,
-        sheetTitle: placement.title ?? t('library.templates.overview.sheet'),
-        parameter,
-      }))
-  })
-}
-
 /** The declared parameters table, with the add form while editing. */
 export function ParametersSection({
   draft,
@@ -618,7 +549,7 @@ function AddSectionForm({
         icon="plus"
         disabled={disabled || trimmedLabel.length === 0}
         onClick={() => {
-          onAdd(keyFromLabel(trimmedLabel, takenKeys), trimmedLabel)
+          onAdd(keyFromLabel(trimmedLabel, new Set(takenKeys)), trimmedLabel)
           setLabel('')
         }}
       >
@@ -750,7 +681,7 @@ function AddParameterForm({
           )
 
           onAdd({
-            key: keyFromLabel(trimmedLabel, takenKeys),
+            key: keyFromLabel(trimmedLabel, new Set(takenKeys)),
             label: trimmedLabel,
             required,
             valueType,

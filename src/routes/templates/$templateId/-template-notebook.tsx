@@ -28,7 +28,10 @@ import type {
   NotebookTemplate,
   NotebookTemplateVersion,
 } from '#/lib/notebook-template-data'
-import type { NotebookTemplateConfiguration } from '#/lib/notebook-template'
+import type {
+  NotebookTemplateConfiguration,
+  NotebookTemplatePlacement,
+} from '#/lib/notebook-template'
 import {
   TEMPLATE_SECTION_BLOCK,
   TEMPLATE_SHEET_BLOCK,
@@ -42,12 +45,8 @@ import {
 } from '#/lib/template-blocks'
 import type { BlockDestination } from '#/lib/template-blocks'
 import { useTemplateDraft } from '../-template-draft'
-import {
-  ParametersSection,
-  SectionsSection,
-  sheetSettingTargets,
-  valueTypeLabel,
-} from './-template-settings'
+import { ParametersSection, SectionsSection } from './-template-settings'
+import { sheetSettingTargets, valueTypeLabel } from './-template-setting-values'
 import { t } from '#/copy'
 
 type Draft = ReturnType<typeof useTemplateDraft>
@@ -117,6 +116,75 @@ function templateRecord(template: NotebookTemplate): NotebookRecord {
   }
 }
 
+/** The parts of a template and the one being shown, with its blocks. */
+interface PartView {
+  parts: Part[]
+  shownPart: Part | undefined
+  shownBlocks: NotebookBlock[]
+  partList: PartProgress[]
+  shownProgress: PartProgress | undefined
+}
+
+function partView(
+  config: NotebookTemplateConfiguration,
+  pickedPartId: string | null,
+  blocks: NotebookBlock[],
+  templateId: string,
+): PartView {
+  const parts = config.parts ?? []
+
+  const shownPart =
+    parts.find((part) => part.id === pickedPartId) ?? parts.at(0)
+
+  // A block with no part of its own is on the first day.
+  const partOf = (block: NotebookBlock) => block.partId ?? parts.at(0)?.id
+
+  const shownBlocks = shownPart
+    ? blocks.filter((block) => partOf(block) === shownPart.id)
+    : blocks
+
+  const partList = parts.map((part, index) =>
+    plannedPart(part, index, templateId, blocks),
+  )
+
+  return {
+    parts,
+    shownPart,
+    shownBlocks,
+    partList,
+    shownProgress: partList.find((part) => part.id === shownPart?.id),
+  }
+}
+
+/** A sheet or an empty section, which the template page draws itself. */
+function templateOnlyBlock(
+  block: NotebookBlock,
+  placements: NotebookTemplatePlacement[],
+  sheets: ReturnType<typeof useSheetDefinitions>,
+  draftVersion: NotebookTemplateVersion | null,
+): React.ReactNode | null {
+  const placement = placements.find((item) => item.id === block.id)
+
+  if (block.type === TEMPLATE_SHEET_BLOCK && placement?.kind === 'sheet') {
+    return (
+      <TemplateSheetBlock
+        placement={placement}
+        sheets={sheets}
+        draftVersion={draftVersion}
+      />
+    )
+  }
+
+  if (
+    block.type === TEMPLATE_SECTION_BLOCK &&
+    placement?.kind === 'section_placeholder'
+  ) {
+    return <TemplateSectionBlock label={placement.label} />
+  }
+
+  return null
+}
+
 /**
  * A template shown as the notebook it makes: its days as parts along the
  * top, and the blocks themselves, steps, checklists, notes, plate maps and
@@ -150,23 +218,13 @@ export function TemplateNotebook({
     [templateId, config.placements, edits],
   )
 
-  const parts = config.parts ?? []
-
-  const shownPart =
-    parts.find((part) => part.id === pickedPartId) ?? parts.at(0)
-
-  // A block with no part of its own is on the first day.
-  const partOf = (block: NotebookBlock) => block.partId ?? parts.at(0)?.id
-
-  const shownBlocks = shownPart
-    ? blocks.filter((block) => partOf(block) === shownPart.id)
-    : blocks
-
-  const partList = parts.map((part, index) =>
-    plannedPart(part, index, templateId, blocks),
+  const { parts, shownPart, shownBlocks, partList, shownProgress } = partView(
+    config,
+    pickedPartId,
+    blocks,
+    templateId,
   )
 
-  const shownProgress = partList.find((part) => part.id === shownPart?.id)
   const dirty = draft.draft !== null
   const readOnly = !canEdit || draft.saving || template.lifecycle !== 'active'
 
@@ -191,62 +249,11 @@ export function TemplateNotebook({
     }
   }
 
-  const insert = async (
-    type: string,
-    afterBlockId?: string,
-    options?: { payload?: NotebookBlock['payload'] },
-  ): Promise<string | undefined> => {
-    if (!isTemplateBlockType(type)) {
-      toast.error(t('library.templates.notebook.blockNotInTemplates'))
+  const sheetDraftVersion =
+    version.lifecycle === 'draft' && !dirty && canEdit ? version : null
 
-      return undefined
-    }
-
-    const id = crypto.randomUUID()
-
-    change(null, (current) =>
-      insertTemplateBlock(current, {
-        id,
-        type,
-        payload: options?.payload,
-        afterBlockId: afterBlockId ?? null,
-        partId: shownPart?.id ?? null,
-      }),
-    )
-
-    return id
-  }
-
-  const move = (id: string, destination: BlockDestination) =>
-    change(null, (current) => moveTemplateBlock(current, id, destination))
-
-  const renderBlock = (block: NotebookBlock): React.ReactNode | null => {
-    if (block.type === TEMPLATE_SHEET_BLOCK) {
-      const placement = config.placements.find((p) => p.id === block.id)
-
-      if (placement?.kind !== 'sheet') return null
-
-      return (
-        <TemplateSheetBlock
-          placement={placement}
-          sheets={sheets}
-          draftVersion={
-            version.lifecycle === 'draft' && !dirty && canEdit ? version : null
-          }
-        />
-      )
-    }
-
-    if (block.type === TEMPLATE_SECTION_BLOCK) {
-      const placement = config.placements.find((p) => p.id === block.id)
-
-      if (placement?.kind !== 'section_placeholder') return null
-
-      return <TemplateSectionBlock label={placement.label} />
-    }
-
-    return null
-  }
+  const renderBlock = (block: NotebookBlock) =>
+    templateOnlyBlock(block, config.placements, sheets, sheetDraftVersion)
 
   const openDialog = (which: 'parts' | 'settings') => {
     if (!draft.draft) draft.startEditing()
@@ -297,60 +304,14 @@ export function TemplateNotebook({
           />
         ) : null}
         <div className="mx-auto w-full max-w-[920px]">
-          <NotebookDocument
+          <TemplateBlocks
             key={shownPart?.id ?? 'all'}
             record={record}
             blocks={shownBlocks}
             readOnly={readOnly}
-            // Nobody asks to edit a template from here, so a reader sees it plainly.
-            partLocked={readOnly}
+            partId={shownPart?.id ?? null}
             renderBlock={renderBlock}
-            onSaveBlock={async (block, payload) => {
-              change(block.id, (current) =>
-                setPlacementBlock(current, block.id, {
-                  type: block.type,
-                  payload,
-                }),
-              )
-
-              return { ok: true }
-            }}
-            onInsertBlock={insert}
-            onDuplicateBlock={async (block) => {
-              if (!isTemplateBlockType(block.type)) return undefined
-
-              const id = crypto.randomUUID()
-              change(null, (current) =>
-                duplicateTemplateBlock(current, block.id, id),
-              )
-
-              return id
-            }}
-            onDeleteBlock={async (block) =>
-              change(null, (current) => removeTemplateBlock(current, block.id))
-            }
-            onUndoDelete={async (type, payload, destination) => {
-              const id = await insert(type, undefined, { payload })
-
-              if (!id) return undefined
-              move(id, destination)
-
-              return { id }
-            }}
-            onMoveBlock={async (block, destination) =>
-              move(block.id, destination)
-            }
-            onReplaceBlock={async (block, type, options) => {
-              const id = await insert(type, block.id, options)
-
-              if (id) {
-                change(null, (current) =>
-                  removeTemplateBlock(current, block.id),
-                )
-              }
-
-              return id
-            }}
+            change={change}
           />
         </div>
       </div>
@@ -366,27 +327,156 @@ export function TemplateNotebook({
           onEdit={() => openDialog('settings')}
         />
       </TemplateVersionInspector>
-      <Dialog
-        open={dialog !== null}
-        onOpenChange={(open) => {
-          if (!open) setDialog(null)
-        }}
-      >
-        <DialogContent className="w-[min(960px,calc(100vw-32px))]">
-          {dialog === 'parts' ? (
-            <PartsDialogBody draft={draft} regulated={regulated} />
-          ) : null}
-          {dialog === 'settings' ? (
-            <SettingsDialogBody draft={draft} version={version} />
-          ) : null}
-          <DialogFooter>
-            <Button variant="primary" onClick={() => setDialog(null)}>
-              {t('library.templates.notebook.done')}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <TemplateDialog
+        dialog={dialog}
+        draft={draft}
+        version={version}
+        regulated={regulated}
+        onClose={() => setDialog(null)}
+      />
     </div>
+  )
+}
+
+type ConfigChange = (
+  id: string | null,
+  edit: (
+    current: NotebookTemplateConfiguration,
+  ) => NotebookTemplateConfiguration,
+) => void
+
+/** The blocks of one part, drawn and edited with the experiment notebook. */
+function TemplateBlocks({
+  record,
+  blocks,
+  readOnly,
+  partId,
+  renderBlock,
+  change,
+}: {
+  record: NotebookRecord
+  blocks: NotebookBlock[]
+  readOnly: boolean
+  partId: string | null
+  renderBlock: (block: NotebookBlock) => React.ReactNode | null
+  change: ConfigChange
+}) {
+  const insert = async (
+    type: string,
+    afterBlockId?: string,
+    options?: { payload?: NotebookBlock['payload'] },
+  ): Promise<string | undefined> => {
+    if (!isTemplateBlockType(type)) {
+      toast.error(t('library.templates.notebook.blockNotInTemplates'))
+
+      return undefined
+    }
+
+    const id = crypto.randomUUID()
+
+    change(null, (current) =>
+      insertTemplateBlock(current, {
+        id,
+        type,
+        payload: options?.payload,
+        afterBlockId: afterBlockId ?? null,
+        partId,
+      }),
+    )
+
+    return id
+  }
+
+  const move = (id: string, destination: BlockDestination) =>
+    change(null, (current) => moveTemplateBlock(current, id, destination))
+
+  return (
+    <NotebookDocument
+      record={record}
+      blocks={blocks}
+      readOnly={readOnly}
+      // Nobody asks to edit a template from here, so a reader sees it plainly.
+      partLocked={readOnly}
+      renderBlock={renderBlock}
+      onSaveBlock={async (block, payload) => {
+        change(block.id, (current) =>
+          setPlacementBlock(current, block.id, {
+            type: block.type,
+            payload,
+          }),
+        )
+
+        return { ok: true }
+      }}
+      onInsertBlock={insert}
+      onDuplicateBlock={async (block) => {
+        if (!isTemplateBlockType(block.type)) return undefined
+
+        const id = crypto.randomUUID()
+        change(null, (current) => duplicateTemplateBlock(current, block.id, id))
+
+        return id
+      }}
+      onDeleteBlock={async (block) =>
+        change(null, (current) => removeTemplateBlock(current, block.id))
+      }
+      onUndoDelete={async (type, payload, destination) => {
+        const id = await insert(type, undefined, { payload })
+
+        if (!id) return undefined
+        move(id, destination)
+
+        return { id }
+      }}
+      onMoveBlock={async (block, destination) => move(block.id, destination)}
+      onReplaceBlock={async (block, type, options) => {
+        const id = await insert(type, block.id, options)
+
+        if (id) {
+          change(null, (current) => removeTemplateBlock(current, block.id))
+        }
+
+        return id
+      }}
+    />
+  )
+}
+
+/** The parts or settings of a template, edited in a dialog. */
+function TemplateDialog({
+  dialog,
+  draft,
+  version,
+  regulated,
+  onClose,
+}: {
+  dialog: 'parts' | 'settings' | null
+  draft: Draft
+  version: NotebookTemplateVersion
+  regulated: boolean
+  onClose: () => void
+}) {
+  return (
+    <Dialog
+      open={dialog !== null}
+      onOpenChange={(open) => {
+        if (!open) onClose()
+      }}
+    >
+      <DialogContent className="w-[min(960px,calc(100vw-32px))]">
+        {dialog === 'parts' ? (
+          <PartsDialogBody draft={draft} regulated={regulated} />
+        ) : null}
+        {dialog === 'settings' ? (
+          <SettingsDialogBody draft={draft} version={version} />
+        ) : null}
+        <DialogFooter>
+          <Button variant="primary" onClick={() => onClose()}>
+            {t('library.templates.notebook.done')}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   )
 }
 

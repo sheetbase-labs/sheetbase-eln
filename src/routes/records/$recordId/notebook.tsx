@@ -8,7 +8,7 @@ import { signInRedirect } from '#/lib/sign-in-redirect'
 
 /**
  * ELN-004: the deep-linkable canonical record route. The page itself lives in
- * `-notebook-page` and is loaded on demand, so the editor stack stays out of
+ * `-record-shell` and is loaded on demand, so the editor stack stays out of
  * the first load.
  */
 export const Route = createFileRoute('/records/$recordId/notebook')({
@@ -20,7 +20,7 @@ export const Route = createFileRoute('/records/$recordId/notebook')({
     return { context }
   },
   component: lazyRouteComponent(
-    () => import('./-notebook-page'),
+    () => import('./-record-shell'),
     'RecordNotebookRoute',
   ),
 })

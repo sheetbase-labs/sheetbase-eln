@@ -238,6 +238,21 @@ export function RecordModelRecord(props: {
   )
 }
 
+/**
+ * The record's fields, checks, lineage and the records that use it, for the
+ * Details tab of the shared record page. The page header there already says
+ * the record's ID, name, status and dates, and History has a tab of its own.
+ */
+export function RecordModelDetails(props: {
+  modelKey: string
+  recordId: string
+  role?: string | null
+}) {
+  const page = useRecordPage(props)
+
+  return <RecordBody page={page} inShell />
+}
+
 function RecordHeader({ page }: { page: RecordPage }) {
   const { modelKey, model, record, status } = page
 
@@ -339,7 +354,13 @@ function OpenNotebookButton({ recordId }: { recordId: string }) {
   )
 }
 
-function RecordBody({ page }: { page: RecordPage }) {
+function RecordBody({
+  page,
+  inShell = false,
+}: {
+  page: RecordPage
+  inShell?: boolean
+}) {
   const {
     modelKey,
     record,
@@ -397,7 +418,7 @@ function RecordBody({ page }: { page: RecordPage }) {
         </div>
       ) : null}
 
-      <RecordDetails page={page} />
+      <RecordDetails page={page} inShell={inShell} />
 
       {record && editing ? (
         <RecordModelEditDialog
@@ -411,16 +432,38 @@ function RecordBody({ page }: { page: RecordPage }) {
       ) : null}
 
       <RecordPanels page={page} />
-      <RecordRelated page={page} />
+      <RecordRelated page={page} inShell={inShell} />
     </div>
   )
 }
 
-function RecordDetails({ page }: { page: RecordPage }) {
-  const { record, fieldsQuery } = page
+function RecordDetails({
+  page,
+  inShell,
+}: {
+  page: RecordPage
+  inShell: boolean
+}) {
+  const { record, fieldsQuery, canWrite, setEditing } = page
+
+  const canEdit =
+    inShell &&
+    canWrite &&
+    Boolean(record?.model_version_id) &&
+    !fieldsQuery.isError &&
+    !fieldsQuery.isLoading
 
   return (
-    <Section title={t('library.models.recordModelRecord.details')}>
+    <Section
+      title={t('library.models.recordModelRecord.details')}
+      action={
+        canEdit ? (
+          <Button size="sm" onClick={() => setEditing(true)}>
+            {t('library.models.recordModelRecord.editDetails')}
+          </Button>
+        ) : null
+      }
+    >
       {record && !record.model_version_id ? (
         <p role="status" className="text-label text-fg-muted">
           {t('library.models.recordModelRecord.thisLegacyRecordHasNo')}
@@ -431,7 +474,7 @@ function RecordDetails({ page }: { page: RecordPage }) {
           {t('library.models.recordModelRecord.theRecordsModelVersionIs')}
         </p>
       ) : record && !fieldsQuery.isLoading ? (
-        <RecordDetailValues page={page} record={record} />
+        <RecordDetailValues page={page} record={record} inShell={inShell} />
       ) : (
         <p className="text-label text-fg-muted">
           {t('library.models.recordModelRecord.loadingFields')}
@@ -444,9 +487,12 @@ function RecordDetails({ page }: { page: RecordPage }) {
 function RecordDetailValues({
   page,
   record,
+  inShell,
 }: {
   page: RecordPage
   record: NonNullable<RecordPage['record']>
+  /** The page header already says the ID, name, status and created date. */
+  inShell: boolean
 }) {
   const {
     subtype,
@@ -461,25 +507,19 @@ function RecordDetailValues({
     fields.some((field) => field.logicalType === 'person'),
   )
 
-  return (
-    <div className="grid items-start gap-x-10 gap-y-5 md:grid-cols-2">
-      <DescriptionList
-        items={[
-          [
-            'ID',
-            <span key="identifier" className="mono">
-              {record.identifier}
-            </span>,
+  const meta: [React.ReactNode, React.ReactNode][] = [
+    ...identityRows(record, inShell),
+    ...(subtype
+      ? [
+          [t('library.models.recordModelRecord.type'), subtype.name] satisfies [
+            React.ReactNode,
+            React.ReactNode,
           ],
-          [t('library.models.recordModelRecord.name'), record.title],
-          ...(subtype
-            ? [
-                [
-                  t('library.models.recordModelRecord.type'),
-                  subtype.name,
-                ] satisfies [React.ReactNode, React.ReactNode],
-              ]
-            : []),
+        ]
+      : []),
+    ...(inShell
+      ? []
+      : ([
           [
             t('library.models.recordModelRecord.status'),
             status ? status.label : record.status,
@@ -488,16 +528,20 @@ function RecordDetailValues({
             t('library.models.recordModelRecord.created'),
             formatDate(record.created_at),
           ],
-          ...(!record.model_version_id
-            ? Object.entries(record.custom_fields ?? {}).map<
-                [React.ReactNode, React.ReactNode]
-              >(([key, value]) => [
-                key,
-                value == null ? '—' : modelFieldValueText(value),
-              ])
-            : []),
-        ]}
-      />
+        ] satisfies [React.ReactNode, React.ReactNode][])),
+    ...(!record.model_version_id
+      ? Object.entries(record.custom_fields ?? {}).map<
+          [React.ReactNode, React.ReactNode]
+        >(([key, value]) => [
+          key,
+          value == null ? '—' : modelFieldValueText(value),
+        ])
+      : []),
+  ]
+
+  return (
+    <div className="grid items-start gap-x-10 gap-y-5 md:grid-cols-2">
+      {meta.length ? <DescriptionList items={meta} /> : null}
       {fieldSections(fields.filter((f) => !shownByPanel.has(f.fieldName))).map(
         (group) => (
           <div key={group.name} className="min-w-0">
@@ -556,6 +600,24 @@ function RecordDetailValues({
   )
 }
 
+/** The ID and name rows, which the shared record page's header already says. */
+function identityRows(
+  record: NonNullable<RecordPage['record']>,
+  inShell: boolean,
+): [React.ReactNode, React.ReactNode][] {
+  if (inShell) return []
+
+  return [
+    [
+      'ID',
+      <span key="identifier" className="mono">
+        {record.identifier}
+      </span>,
+    ],
+    [t('library.models.recordModelRecord.name'), record.title],
+  ]
+}
+
 function RecordPanels({ page }: { page: RecordPage }) {
   const { record, pluginPoints, modelKey, isRegistry, canWrite } = page
 
@@ -595,45 +657,20 @@ function RecordPanels({ page }: { page: RecordPage }) {
   )
 }
 
-function RecordRelated({ page }: { page: RecordPage }) {
+function RecordRelated({
+  page,
+  inShell,
+}: {
+  page: RecordPage
+  inShell: boolean
+}) {
   const { usedBy, timeline, timelineQuery, modelKey, model } = page
+
+  if (inShell) return <RecordUsedBy usedBy={usedBy} />
 
   return (
     <>
-      <Section
-        title={t('library.models.recordModelRecord.usedBy')}
-        count={usedBy.length}
-      >
-        {usedBy.length ? (
-          <ul className="m-0 flex list-none flex-col gap-1.5 p-0 text-label">
-            {usedBy.map((link) => (
-              <li key={`${link.source?.id ?? 'unknown'}-${link.createdAt}`}>
-                {link.source ? (
-                  <Link
-                    to="/records/$recordId"
-                    params={{ recordId: link.source.id }}
-                    className="text-link"
-                  >
-                    {link.source.identifier} · {link.source.title}
-                  </Link>
-                ) : (
-                  <span className="text-fg-muted">
-                    {t('library.models.recordModelRecord.aRecordNotVisibleIn')}
-                  </span>
-                )}
-                <span className="text-fg-muted">
-                  {' '}
-                  · {link.linkType} · {formatDate(link.createdAt)}
-                </span>
-              </li>
-            ))}
-          </ul>
-        ) : (
-          <p className="m-0 text-label text-fg-muted">
-            {t('library.models.recordModelRecord.noRecordsLinkToThis')}
-          </p>
-        )}
-      </Section>
+      <RecordUsedBy usedBy={usedBy} />
 
       <Section title={t('library.models.recordModelRecord.history')}>
         <RecordHistoryTimeline
@@ -683,5 +720,45 @@ function RecordRelated({ page }: { page: RecordPage }) {
         </Button>
       </div>
     </>
+  )
+}
+
+/** The records that link to this one. */
+function RecordUsedBy({ usedBy }: { usedBy: RecordPage['usedBy'] }) {
+  return (
+    <Section
+      title={t('library.models.recordModelRecord.usedBy')}
+      count={usedBy.length}
+    >
+      {usedBy.length ? (
+        <ul className="m-0 flex list-none flex-col gap-1.5 p-0 text-label">
+          {usedBy.map((link) => (
+            <li key={`${link.source?.id ?? 'unknown'}-${link.createdAt}`}>
+              {link.source ? (
+                <Link
+                  to="/records/$recordId"
+                  params={{ recordId: link.source.id }}
+                  className="text-link"
+                >
+                  {link.source.identifier} · {link.source.title}
+                </Link>
+              ) : (
+                <span className="text-fg-muted">
+                  {t('library.models.recordModelRecord.aRecordNotVisibleIn')}
+                </span>
+              )}
+              <span className="text-fg-muted">
+                {' '}
+                · {link.linkType} · {formatDate(link.createdAt)}
+              </span>
+            </li>
+          ))}
+        </ul>
+      ) : (
+        <p className="m-0 text-label text-fg-muted">
+          {t('library.models.recordModelRecord.noRecordsLinkToThis')}
+        </p>
+      )}
+    </Section>
   )
 }

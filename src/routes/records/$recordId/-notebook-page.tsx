@@ -99,9 +99,10 @@ import { requestBackgroundSync } from '#/lib/offline/service-worker'
 import { UnsyncedChangesSection } from '#/components/offline/offline-status'
 import { NotebookOfflineSurfaces } from '#/components/offline/notebook-offline-surfaces'
 import { ConnectionRequired } from '#/components/offline/connection-required'
+import { ActivityList } from '#/components/record-page/record-side-panel'
+import { useRecordActivity } from '#/components/record-page/use-record-activity'
 import { CONNECTION_REQUIRED_REASONS } from '#/components/offline/connection-reasons'
 import {
-  ActivityFeed,
   ContributorAvatars,
   FileList,
   Inspector,
@@ -155,7 +156,6 @@ import {
   fetchRevisionSheetEvidence,
   formatDate,
   formatNotebookDateTime,
-  formatRelativeTime,
   notebookDataClient,
   notebookQueryKeys,
   recordKindLabel,
@@ -328,41 +328,6 @@ function RoutedNotebookDocument(props: NotebookDocumentProps) {
       }}
     />
   )
-}
-
-/**
- * Experiments have one page: `/experiments/$expId` (its Notebook tab is this
- * same surface). A link to the record notebook of an experiment, old or new,
- * lands there, with the revision search and block anchor kept. Every other
- * record kind (a protocol, a template) keeps this route.
- */
-export function RecordNotebookRoute() {
-  const { context } = Route.useRouteContext()
-  const { recordId } = Route.useParams()
-  const navigate = useNavigate()
-
-  const kind = useQuery({
-    queryKey: notebookQueryKeys.record(recordId),
-    queryFn: () => fetchRecord(notebookDataClient, recordId),
-  })
-
-  const search = useRouterState({ select: (state) => state.location.search })
-  const hash = useRouterState({ select: (state) => state.location.hash })
-  const isExperiment = kind.data?.kind === 'experiment'
-  useEffect(() => {
-    if (!isExperiment) return
-    void navigate({
-      to: '/experiments/$expId/notebook',
-      params: { expId: recordId },
-      search: true,
-      hash: hash || undefined,
-      replace: true,
-    })
-  }, [isExperiment, navigate, recordId, search, hash])
-
-  if (isExperiment) return <NotebookSkeleton />
-
-  return <RecordNotebookPage context={context} recordId={recordId} />
 }
 
 // eslint-disable-next-line anti-slop/no-unknown-parameters -- Search accepts the existing raw query-string or native object form; inspect only revision without copying or validating unrelated values.
@@ -741,7 +706,6 @@ function notebookReadyPage(
     linksQuery,
     signaturesQuery,
     requiredSectionLabels,
-    activityQuery,
     historicalRevisionQuery,
     reviewQuery,
     workspaceRole,
@@ -930,7 +894,8 @@ function notebookReadyPage(
           pinnedVersionId={record.sourceNotebookTemplateVersionId}
         />
       ) : null}
-      {!historicalRevisionId && record.lockedAt ? (
+      {/* A hosting page says the lock once, in its state line. */}
+      {!historicalRevisionId && record.lockedAt && !embedded ? (
         <LockedBanner
           record={record}
           onAmended={() => {
@@ -1048,7 +1013,6 @@ function notebookReadyPage(
               }}
               requiredSectionLabels={requiredSectionLabels}
               activity={activity}
-              activityLoading={activityQuery.isLoading}
               revisionEvidence={historicalEvidence}
               commentsRevisionId={historicalRevisionQuery.data?.id}
               canEditMetadata={
@@ -1062,6 +1026,7 @@ function notebookReadyPage(
               cell={selectedCell}
               /* EXP-05.2: the edits waiting to sync, from the device store. */
               unsynced={<UnsyncedChangesSection />}
+              headerSays={embedded}
             />
           }
         >
@@ -2116,7 +2081,7 @@ function notebookHeaderDialogs({
   )
 }
 
-type NotebookTab =
+export type NotebookTab =
   'notebook' | 'links' | 'sequences' | 'revisions' | 'signatures'
 
 const NOTEBOOK_TABS: { id: NotebookTab; label: string }[] = [
@@ -2180,7 +2145,7 @@ function RecordNotebookTabs({
   )
 }
 
-function RecordNotebookPanel({
+export function RecordNotebookPanel({
   tab,
   links,
   revisions,
@@ -2294,6 +2259,31 @@ function RecordNotebookPanel({
   }
 
   return <RevisionsTable revisions={revisions} names={names} />
+}
+
+/**
+ * What the Links, Revisions and Signatures tabs read, for a page that shows
+ * them beside the notebook. The same reads the notebook makes, so one request.
+ */
+export function useRecordPanelData(recordId: string) {
+  const links = useQuery({
+    queryKey: notebookQueryKeys.links(recordId),
+    queryFn: () => fetchLinksForRecord(notebookDataClient, recordId),
+  })
+
+  const revisions = useQuery({
+    queryKey: notebookQueryKeys.revisions(recordId),
+    queryFn: () => fetchRevisionsForRecord(notebookDataClient, recordId),
+  })
+
+  const signatures = useQuery({
+    queryKey: signatureQueryKeys.forRecord(recordId),
+    queryFn: () => fetchSignaturesForRecord(notebookDataClient, recordId),
+  })
+
+  const sequences = useLinkedSequences(recordId)
+
+  return { links, revisions, signatures, sequences }
 }
 
 /** The record's evidence revisions: shared by the record notebook's tab and the
@@ -3809,29 +3799,6 @@ export function PermissionRestrictedState() {
 // Inspector tabs: Properties, History, and (live only) Activity.
 // ---------------------------------------------------------------------------
 
-// eslint-disable-next-line anti-slop/no-known-value-widening -- Preserve the legacy dynamic lookup, including inherited keys; this annotation does not validate inherited values.
-const OPERATION_LABELS: Record<string, string> = {
-  create: 'created',
-  update: 'updated',
-  move: 'moved',
-  delete: 'deleted',
-  archive: 'archived',
-  restore: 'restored',
-  link: 'linked',
-  unlink: 'unlinked',
-  quarantine: 'quarantined',
-}
-
-// eslint-disable-next-line anti-slop/no-known-value-widening -- Preserve the legacy dynamic lookup, including inherited keys; this annotation does not validate inherited values.
-const ENTITY_LABELS: Record<string, string> = {
-  block: t('notebook.notebookPage.aBlock'),
-  record: t('notebook.notebookPage.theRecord'),
-  record_link: t('notebook.notebookPage.aLink'),
-  file: t('notebook.notebookPage.aFile'),
-  project: t('notebook.notebookPage.theProject'),
-  folder: t('notebook.notebookPage.aFolder'),
-}
-
 /** Build file-list items from file block payloads (no extra fetch needed). */
 function fileItemsFromBlocks(
   blocks: NotebookBlockDomain[],
@@ -3874,36 +3841,6 @@ function fileItemsFromBlocks(
         includeDownloadHref && fileRecordId
           ? `/api/files/${fileRecordId}/download`
           : undefined,
-    }
-  })
-}
-
-function activityItemsFromEvents(
-  activity: RecordActivityItem[],
-  currentUserId?: string | null,
-): {
-  id: string
-  actor: { name: string; initials?: string; userId?: string | null }
-  action: string
-  target?: string
-  at: string
-}[] {
-  return activity.map((event) => {
-    const isSelf = currentUserId && event.actorUserId === currentUserId
-
-    const actor = isSelf
-      ? { name: 'You', initials: 'Y', userId: event.actorUserId }
-      : { name: 'A collaborator', initials: '••', userId: event.actorUserId }
-
-    const action = OPERATION_LABELS[event.operation] ?? event.operation
-    const target = ENTITY_LABELS[event.entityType] ?? event.entityType
-
-    return {
-      id: event.id,
-      actor,
-      action,
-      target,
-      at: formatRelativeTime(event.createdAt),
     }
   })
 }
@@ -4173,7 +4110,6 @@ function useNotebookInspectorModel({
   actionContext,
   requiredSectionLabels = [],
   activity,
-  activityLoading,
   defaultTab,
   canEditMetadata = false,
   reviewActivity = 'none',
@@ -4191,7 +4127,13 @@ function useNotebookInspectorModel({
    * the route resolved an installed extension it can render.
    */
   extensionPanels = [],
+  headerSays = false,
 }: {
+  /**
+   * The page header above says the record's kind, status, ID and owner, so
+   * Properties leaves them out rather than saying them twice.
+   */
+  headerSays?: boolean
   record: NotebookRecord
   projectName?: string | null
   currentUserId?: string | null
@@ -4210,7 +4152,6 @@ function useNotebookInspectorModel({
   /** R5-NOTE-02: the record type's named sections, from its notebook template. */
   requiredSectionLabels?: string[]
   activity?: RecordActivityItem[]
-  activityLoading?: boolean
   /** Initial active tab id. Defaults to the first tab (Properties). */
   defaultTab?: string
   canEditMetadata?: boolean
@@ -4262,8 +4203,6 @@ function useNotebookInspectorModel({
   const fileItems = fileItemsFromBlocks(fileBlocks, {
     includeDownloadHref: !isHistorical,
   })
-
-  const activityItems = activityItemsFromEvents(evidenceActivity, currentUserId)
 
   // The author comes from the record itself, never from whoever is looking.
   const peopleIds = useMemo(
@@ -4326,6 +4265,7 @@ function useNotebookInspectorModel({
   )
 
   return {
+    headerSays,
     record,
     projectName,
     currentUserId,
@@ -4333,7 +4273,6 @@ function useNotebookInspectorModel({
     workspaceId,
     linksLoading,
     actionContext,
-    activityLoading,
     defaultTab,
     canEditMetadata,
     isHistorical,
@@ -4348,7 +4287,6 @@ function useNotebookInspectorModel({
     evidenceBlocks,
     evidenceLinks,
     fileItems,
-    activityItems,
     ownerName,
     contributors,
     linkCounts,
@@ -4360,6 +4298,7 @@ function useNotebookInspectorModel({
 }
 
 function notebookProperties({
+  headerSays,
   record,
   projectName,
   currentUserId,
@@ -4388,24 +4327,28 @@ function notebookProperties({
       {/* Core metadata — Type & Status as semantic badges, then
                   dense key-value rows matching the mockup's layout. */}
       <PropertyList>
-        <Property label={t('notebook.notebookPage.typeLabel')}>
-          <Badge variant="kind" className="text-xs">
-            <ObjectTypeName
-              modelKey={record.kind}
-              objectId={record.id}
-              fallback={recordKindLabel(record.kind)}
-            />
-          </Badge>
-        </Property>
-        <Property label={t('notebook.notebookPage.label')}>
-          <StatusBadge
-            domain={statusDomainForKind(record.kind)}
-            status={record.status}
-          />
-        </Property>
-        <Property label={t('notebook.notebookPage.idLabel')} mono>
-          {record.identifier}
-        </Property>
+        {headerSays ? null : (
+          <>
+            <Property label={t('notebook.notebookPage.typeLabel')}>
+              <Badge variant="kind" className="text-xs">
+                <ObjectTypeName
+                  modelKey={record.kind}
+                  objectId={record.id}
+                  fallback={recordKindLabel(record.kind)}
+                />
+              </Badge>
+            </Property>
+            <Property label={t('notebook.notebookPage.label')}>
+              <StatusBadge
+                domain={statusDomainForKind(record.kind)}
+                status={record.status}
+              />
+            </Property>
+            <Property label={t('notebook.notebookPage.idLabel')} mono>
+              {record.identifier}
+            </Property>
+          </>
+        )}
         {projectName ? (
           <Property label={t('notebook.notebookPage.projectLabel')}>
             <ObjectLink kind="project" id={record.projectId} mono={false}>
@@ -4419,7 +4362,7 @@ function notebookProperties({
         <Property label={t('notebook.notebookPage.updatedLabel')}>
           {fmtDateTime(record.updatedAt)}
         </Property>
-        {ownerName ? (
+        {ownerName && !headerSays ? (
           <Property label={t('notebook.notebookPage.createdByLabel')}>
             <Person name={ownerName} userId={record.createdByUserId} />
           </Property>
@@ -4609,19 +4552,17 @@ function InspectorComments({
   )
 }
 
-/** What has happened on this record, once it has loaded. */
-function InspectorActivity({
-  loading,
-  items,
-}: {
-  loading: ReturnType<typeof useNotebookInspectorModel>['activityLoading']
-  items: ReturnType<typeof useNotebookInspectorModel>['activityItems']
-}) {
-  if (loading)
-    return <EmptyHint>{t('notebook.notebookPage.loadingActivity')}</EmptyHint>
+/** What has happened on this record: the same list the record page's side panel shows, longer. */
+function InspectorActivity({ recordId }: { recordId: string }) {
+  const { groups, loading } = useRecordActivity(
+    recordId,
+    INSPECTOR_ACTIVITY_LIMIT,
+  )
 
-  return <ActivityFeed items={items} />
+  return <ActivityList groups={groups} loading={loading} />
 }
+
+const INSPECTOR_ACTIVITY_LIMIT = 30
 
 export function NotebookInspector(
   props: Parameters<typeof useNotebookInspectorModel>[0],
@@ -4635,7 +4576,6 @@ export function NotebookInspector(
     currentUserName,
     workspaceId,
     actionContext,
-    activityLoading,
     defaultTab,
     canEditMetadata,
     isHistorical,
@@ -4646,7 +4586,6 @@ export function NotebookInspector(
     partsAction,
     extensionPanels,
     evidenceBlocks,
-    activityItems,
     outlineEntries,
     requiredSections,
   } = model
@@ -4720,12 +4659,7 @@ export function NotebookInspector(
           {
             id: 'activity',
             label: t('notebook.notebookPage.activityLabel'),
-            content: (
-              <InspectorActivity
-                loading={activityLoading}
-                items={activityItems}
-              />
-            ),
+            content: <InspectorActivity recordId={record.id} />,
           },
         ]),
     // EXT-02: contributed panels render as ordinary inspector tabs after

@@ -1,4 +1,5 @@
 import { expect, test } from 'playwright/test'
+import type { Page } from 'playwright/test'
 
 import { signInAsDesignUser } from '../visual/sign-in'
 
@@ -55,9 +56,9 @@ test('inbox lists work items, filters by type and fits the phone width', async (
   await page.setViewportSize({ width: 390, height: 844 })
   expect(await page.evaluate(() => document.body.scrollWidth)).toBe(390)
   await expect(page.getByText('Stability assay')).toBeVisible()
-  // The header's two actions must stay on screen, not just off its right edge:
-  // on a single row they measured 408px wide at 390 (Mark all seen sat at
-  // left=296 right=408), so the header row wraps below `md`.
+  // On a phone the header's two actions fold into its More menu, and both
+  // must open on screen, not off its right edge.
+  await openHeaderMore(page)
   await expect(
     page.getByRole('button', { name: 'Notification settings' }),
   ).toBeInViewport()
@@ -65,12 +66,14 @@ test('inbox lists work items, filters by type and fits the phone width', async (
     page.getByRole('button', { name: 'Mark all seen' }),
   ).toBeInViewport()
   await page.screenshot({ path: '/tmp/inbox-mobile.png' })
+  await page.keyboard.press('Escape')
 
   // 320 is the narrowest phone the shell supports (see TopBar's WCAG 1.4.10
   // note); the header has to reflow into view there too, not clip.
   await page.setViewportSize({ width: 320, height: 844 })
   expect(await page.evaluate(() => document.body.scrollWidth)).toBe(320)
   await expect(page.getByText('Stability assay')).toBeVisible()
+  await openHeaderMore(page)
   await expect(
     page.getByRole('button', { name: 'Notification settings' }),
   ).toBeInViewport()
@@ -79,3 +82,8 @@ test('inbox lists work items, filters by type and fits the phone width', async (
   ).toBeInViewport()
   await page.screenshot({ path: '/tmp/inbox-phone-320.png' })
 })
+
+/** Opens the list header's More menu, where a phone keeps the other actions. */
+async function openHeaderMore(page: Page) {
+  await page.locator('[data-list-more]').click()
+}

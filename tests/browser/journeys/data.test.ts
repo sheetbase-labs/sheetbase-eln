@@ -102,19 +102,21 @@ test('DATA-18 a dataset names the experiments that use it', async ({
 test('DATA-22 a dataset made by mistake can be archived', async ({ page }) => {
   await open(page, `/datasets/${UNLINKED_DATASET}`)
   await waitForHydration(page)
-  await page.getByRole('button', { name: 'Archive dataset…' }).click()
+  await page.getByRole('button', { name: 'More dataset actions' }).click()
+  await page.getByRole('menuitem', { name: 'Archive dataset' }).click()
   await page
     .getByRole('dialog')
     .getByRole('button', { name: 'Archive', exact: true })
     .click()
   await expect(page).toHaveURL(/\/datasets$/)
   await open(page, `/datasets/${UNLINKED_DATASET}`)
-  await page.getByRole('button', { name: 'Restore dataset…' }).click()
+  // An archived dataset says so above its tabs, with the way back.
+  await page.getByRole('button', { name: 'Restore dataset' }).click()
   await page
     .getByRole('dialog')
     .getByRole('button', { name: 'Restore', exact: true })
     .click()
   await expect(
-    page.getByRole('button', { name: 'Archive dataset…' }),
-  ).toBeVisible()
+    page.getByRole('button', { name: 'Restore dataset' }),
+  ).toHaveCount(0)
 })

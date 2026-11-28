@@ -9,6 +9,7 @@ import viteReact from '@vitejs/plugin-react'
 import tailwindcss from '@tailwindcss/vite'
 
 import { createCollabHost } from './scripts/lib/collab-host.mjs'
+import { copySplit } from './scripts/lib/copy-split.mjs'
 import { generateFeatures } from './scripts/generate-features.mjs'
 
 // The feature indexes are not committed (src/features/*.gen.ts): write them
@@ -94,6 +95,7 @@ const config = defineConfig({
     devtools({ consolePiping: { enabled: false } }),
     tailwindcss(),
     clientRequestStub,
+    copySplit(),
     collabDevServer,
     tanstackStart(),
     nitro(),

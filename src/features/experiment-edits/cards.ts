@@ -611,5 +611,11 @@ export const proposeModelFieldEditSchema = z.strictObject({
     .boolean()
     .optional()
     .describe('true makes the field required, false makes it optional.'),
+  header: z
+    .boolean()
+    .optional()
+    .describe(
+      'true shows the field in the header of each record of the type (at most four fields), false takes it out.',
+    ),
   reason: reason.describe('Why the draft version changes.'),
 })

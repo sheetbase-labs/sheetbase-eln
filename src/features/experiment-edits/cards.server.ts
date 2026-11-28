@@ -1,4 +1,5 @@
 import type { z } from 'zod'
+import { HEADER_FIELD_LIMIT } from '#/lib/model-header-fields'
 
 import type { ProviderToolDef } from '#/lib/ai-providers/types'
 import {
@@ -162,7 +163,7 @@ const DESCRIPTIONS: Record<ExperimentEditsProposeToolName, string> = {
   [MODEL_MIGRATE_TOOL]:
     'Propose moving every open experiment of a type to its latest published version.',
   [MODEL_FIELD_EDIT_TOOL]:
-    'Propose changing a field of a record type in its draft version: its label, help text, or whether it is required. The type needs a draft version (start one first); publishing is a separate step.',
+    'Propose changing a field of a record type in its draft version: its label, help text, whether it is required, or whether each record’s header shows it. The type needs a draft version (start one first); publishing is a separate step.',
   [PROTOCOL_IMPORT_TOOL]:
     'Propose adding a protocol written elsewhere (such as on protocols.io) as a draft protocol, with its steps, reagents and source.',
 }
@@ -393,6 +394,7 @@ type FieldRow = Record<string, EditJson> & {
   label: string
   field_name: string
   nullable: boolean
+  show_in_header?: boolean
 }
 
 interface VersionRow {
@@ -1590,23 +1592,51 @@ const BUILDERS: Record<ExperimentEditsProposeToolName, Tool> = {
         )
       }
 
+      if (
+        input.header !== undefined &&
+        input.header !== Boolean(target.show_in_header)
+      ) {
+        if (
+          input.header &&
+          fields.filter(
+            (field) => field.show_in_header && field.lifecycle !== 'retired',
+          ).length >= HEADER_FIELD_LIMIT
+        ) {
+          return failure(
+            `The header already shows ${HEADER_FIELD_LIMIT} fields of ${found.value.name}. Take one out first.`,
+          )
+        }
+
+        changes.push(
+          change(
+            'In header',
+            target.show_in_header ? 'Yes' : 'No',
+            input.header ? 'Yes' : 'No',
+          ),
+        )
+      }
+
       if (changes.length === 0)
         return failure('Say what to change on the field.')
 
-      const edited = fields.map((field) =>
-        field === target
-          ? {
-              ...field,
-              label: input.label ?? field.label,
-              description:
-                input.description === undefined
-                  ? (field.description ?? null)
-                  : input.description,
-              nullable:
-                input.required === undefined ? field.nullable : !input.required,
-            }
-          : field,
-      )
+      const edited = fields.map((field) => {
+        if (field !== target) return field
+
+        const next: FieldRow = {
+          ...field,
+          label: input.label ?? field.label,
+          description:
+            input.description === undefined
+              ? (field.description ?? null)
+              : input.description,
+          nullable:
+            input.required === undefined ? field.nullable : !input.required,
+        }
+
+        if (input.header !== undefined) next.show_in_header = input.header
+
+        return next
+      })
 
       return {
         ok: true,

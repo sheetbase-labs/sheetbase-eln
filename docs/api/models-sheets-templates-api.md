@@ -83,7 +83,7 @@ Scope: `schema:read`. Columns: `id`, `workspace_id`, `source_model_key`, `link_t
 
 ### `record_model_versions`
 
-Each version of a record type: a `draft` being worked on or `published`, with what it holds (`definition`).
+Each version of a record type: a `draft` being worked on or `published`, with what it holds (`definition`). Each field in `definition.fields` carries its placement: `section`, and `show_in_header` for the fields the record page's header says (at most four).
 
 Scope: `schema:read`. Columns: `id`, `workspace_id`, `model_id`, `version`, `revision`, `lifecycle`, `definition`, `reason`, `published_at`, `created_at`, `updated_at`, `created_by_user_id`, `updated_by_user_id`.
 
@@ -729,12 +729,12 @@ Replaces what a draft version holds (its fields, sections and layout) with `p_de
 
 Scope: `schema:write`. Returns `row:record_model_versions`.
 
-| Parameter             | Type   | Required | Notes                                                                          |
-| --------------------- | ------ | -------- | ------------------------------------------------------------------------------ |
-| `p_version_id`        | uuid   | yes      | The record type version (`record_model_versions.id`).                          |
-| `p_expected_revision` | bigint | yes      | The `revision` you last read. A stale one is refused with `SB001`.             |
-| `p_definition`        | json   | yes      | The whole definition, the same shape `record_model_versions.definition` holds. |
-| `p_reason`            | text   | yes      |                                                                                |
+| Parameter             | Type   | Required | Notes                                                                                                                                                                              |
+| --------------------- | ------ | -------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `p_version_id`        | uuid   | yes      | The record type version (`record_model_versions.id`).                                                                                                                              |
+| `p_expected_revision` | bigint | yes      | The `revision` you last read. A stale one is refused with `SB001`.                                                                                                                 |
+| `p_definition`        | json   | yes      | The whole definition, the same shape `record_model_versions.definition` holds. A field with `show_in_header: true` is said in the header of each record of the type, at most four. |
+| `p_reason`            | text   | yes      |                                                                                                                                                                                    |
 
 ### `discard_record_model_version`
 

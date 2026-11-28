@@ -670,11 +670,11 @@ test('an imported plate analysis remains reconstructable after independent revie
     await open(page, `/experiments/${experimentId}/notebook`)
     await expect(
       page.getByRole('status').filter({
-        hasText: 'Scientific evidence is frozen',
+        hasText: /^Locked since .+, when it was approved\./,
       }),
     ).toBeVisible()
     await expect(
-      page.getByRole('button', { name: 'Amend', exact: true }),
+      page.getByRole('button', { name: 'Amend…', exact: true }),
     ).toBeVisible()
     await expect(
       page.getByRole('button', { name: /Insert block/ }),

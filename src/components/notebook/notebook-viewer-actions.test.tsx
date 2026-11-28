@@ -294,7 +294,9 @@ describe('NotebookDocument — view-only mode (EXP-04.5)', () => {
     fireEvent.click(copy)
 
     await waitFor(() => expect(writeText).toHaveBeenCalledWith('4.1 NTU'))
-    expect(screen.getByRole('button', { name: 'Copied' })).toBeTruthy()
+    // The label changes once the clipboard's promise settles, a tick after the
+    // call: on a busy runner the check above can see the call first.
+    expect(await screen.findByRole('button', { name: 'Copied' })).toBeTruthy()
   })
 
   it('opens the selected block’s comments from the view-only bar', async () => {

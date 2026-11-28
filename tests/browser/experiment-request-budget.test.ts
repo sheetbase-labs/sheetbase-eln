@@ -20,6 +20,7 @@ import { z } from 'zod'
 
 import { FIXTURE_USER_ID, FIXTURE_WORKSPACE_ID } from '#/db/seed/identities'
 import { signInAsDesignUser } from '../visual/sign-in'
+import { ensureOwnUser } from './own-user'
 
 config({ path: ['.env.local', '.env'] })
 
@@ -45,7 +46,8 @@ const FRESH_LOAD_BUDGET = 40
 const SINGLE_READS_BUDGET = 8
 
 let admin: Client
-let previousActiveWorkspace: string | null = null
+/** This spec's own owner of the fixture workspace (see own-user.ts). */
+const OWNER = '7e570000-0000-4000-8000-000000000002'
 
 async function clean() {
   await admin.query('DELETE FROM api.plate_runs WHERE record_id = $1', [
@@ -64,21 +66,14 @@ test.beforeAll(async () => {
   admin = new Client({ connectionString: process.env.DATABASE_URL })
   await admin.connect()
   await clean()
-
-  const prior = await admin.query<{ active_workspace_id: string | null }>(
-    'SELECT active_workspace_id FROM api.user_preferences WHERE user_id=$1',
-    [FIXTURE_USER_ID],
-  )
-
-  previousActiveWorkspace = prior.rows[0]?.active_workspace_id ?? null
-  await admin.query(
-    `INSERT INTO api.user_preferences(user_id, active_workspace_id) VALUES($1,$2)
-     ON CONFLICT (user_id) DO UPDATE SET active_workspace_id = excluded.active_workspace_id`,
-    [FIXTURE_USER_ID, FIXTURE_WORKSPACE_ID],
-  )
+  await ensureOwnUser(admin, {
+    id: OWNER,
+    name: 'Request budget owner',
+    workspaceId: FIXTURE_WORKSPACE_ID,
+  })
   await admin.query(
     `INSERT INTO api.projects(id,workspace_id,key,title,lead_user_id) VALUES ($1,$2,'BUDGET','Request budget',$3)`,
-    [PROJECT, FIXTURE_WORKSPACE_ID, FIXTURE_USER_ID],
+    [PROJECT, FIXTURE_WORKSPACE_ID, OWNER],
   )
   await admin.query(
     `INSERT INTO api.records(id,workspace_id,project_id,kind,identifier,title,status,created_by_user_id)
@@ -118,18 +113,6 @@ test.beforeAll(async () => {
 
 test.afterAll(async () => {
   await clean()
-
-  if (previousActiveWorkspace) {
-    await admin.query(
-      'UPDATE api.user_preferences SET active_workspace_id=$2 WHERE user_id=$1',
-      [FIXTURE_USER_ID, previousActiveWorkspace],
-    )
-  } else {
-    await admin.query('DELETE FROM api.user_preferences WHERE user_id=$1', [
-      FIXTURE_USER_ID,
-    ])
-  }
-
   await admin.end()
 })
 
@@ -196,7 +179,7 @@ function summary(counted: Counted): string {
 }
 
 test.beforeEach(async ({ page }) => {
-  await signInAsDesignUser(page, FIXTURE_USER_ID, { batchReads: true })
+  await signInAsDesignUser(page, OWNER, { batchReads: true })
 })
 
 test('opening an experiment from the list costs a few batched requests', async ({

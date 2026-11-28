@@ -102,24 +102,6 @@ async function renderOverview(ui: ReactNode) {
   return { router, client }
 }
 
-function overviewMarkup(props: ExperimentOverviewProps) {
-  const client = new QueryClient()
-  clients.push(client)
-
-  const router = createRouter({
-    routeTree: createRootRoute(),
-    history: createMemoryHistory(),
-  })
-
-  return renderToString(
-    <QueryClientProvider client={client}>
-      <RouterContextProvider router={router}>
-        <ExperimentOverview {...props} />
-      </RouterContextProvider>
-    </QueryClientProvider>,
-  )
-}
-
 const SHEET_BLOCK = 'blk-sheet'
 const OBJECTIVE_BLOCK = 'blk-objective'
 
@@ -428,9 +410,10 @@ describe('EXP-02.4 ExperimentOverview', () => {
       />,
     )
 
-    // No reviewer recorded: said, not invented. Optional facts nobody
-    // recorded (planned end, client, collaborators) get no row at all.
-    expect(screen.getAllByText('Not recorded').length).toBeGreaterThanOrEqual(1)
+    // Owner, reviewer and dates are header facts, so the side panel does
+    // not repeat them. Optional facts nobody recorded (client,
+    // collaborators) get no row at all.
+    expect(screen.queryByText('Reviewer')).toBeNull()
     expect(screen.queryByText('Planned end')).toBeNull()
     expect(screen.queryByText('Client')).toBeNull()
     // Protocol step progress is not modelled, and the page says so.
@@ -675,75 +658,6 @@ describe('audit verification over the production data client', () => {
 })
 
 describe('native overview prose and properties', () => {
-  it('reads readiness status before resolving the owner label', () => {
-    let statusReads = 0
-    let label = 'native-before'
-    const props = baseProps()
-    props.blocks = []
-    props.links = []
-    props.readiness = null
-    props.signatures = []
-    props.record = {
-      ...props.record,
-      get status() {
-        statusReads += 1
-
-        if (statusReads === 3) label = 'native-after'
-
-        return 'in_progress'
-      },
-    }
-    props.userLabel = () => label
-
-    expect(overviewMarkup(props)).toContain('native-after')
-    expect(statusReads).toBe(3)
-  })
-
-  it('constructs the submit action before a stateful owner callback changes status', () => {
-    const props = baseProps()
-    props.blocks = []
-    props.links = []
-    props.readiness = null
-    props.signatures = []
-    props.userLabel = () => {
-      props.record.status = 'approved'
-
-      return 'Native owner'
-    }
-
-    expect(overviewMarkup(props)).toContain('Submit for review')
-    expect(props.record.status).toBe('approved')
-  })
-
-  it('propagates the readiness getter throw before calling the owner callback', () => {
-    const failure = new Error('third status read')
-    let statusReads = 0
-    const labels: string[] = []
-    const props = baseProps()
-    props.blocks = []
-    props.links = []
-    props.readiness = null
-    props.signatures = []
-    props.record = {
-      ...props.record,
-      get status() {
-        statusReads += 1
-
-        if (statusReads === 3) throw failure
-
-        return 'in_progress'
-      },
-    }
-    props.userLabel = (id) => {
-      labels.push(id)
-
-      return id
-    }
-
-    expect(() => overviewMarkup(props)).toThrow(failure)
-    expect(labels).toEqual([])
-  })
-
   it('reads inherited array prose, preferring text without reading unrelated getters', async () => {
     class Prose extends Array<never> {
       get text() {
@@ -809,15 +723,9 @@ describe('native overview prose and properties', () => {
   )
 
   it('captures each primitive property value once and ignores unrelated metadata', async () => {
-    let reviewerReads = 0
     let collaboratorReads = 0
 
     const properties: ExperimentOverviewProps['record']['properties'] = {
-      get reviewerId() {
-        reviewerReads += 1
-
-        return reviewerReads === 1 ? 'user-ps' : null
-      },
       get collaboratorIds() {
         collaboratorReads += 1
 
@@ -834,9 +742,7 @@ describe('native overview prose and properties', () => {
         record={{ ...baseProps().record, properties }}
       />,
     )
-    expect(screen.getByText('Priya S.')).toBeDefined()
-    expect(screen.getAllByText('Gareth P.')).toHaveLength(2)
-    expect(reviewerReads).toBe(1)
+    expect(screen.getByText('Gareth P.')).toBeDefined()
     expect(collaboratorReads).toBe(1)
   })
 
@@ -865,7 +771,7 @@ describe('native overview prose and properties', () => {
         ]
       } else {
         props.record.properties = {
-          get reviewerId(): never {
+          get collaboratorIds(): never {
             throw failure
           },
         }

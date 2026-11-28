@@ -229,5 +229,5 @@ export const Bare: Story = {
 
 /** Submitted: the review is what the page is about, so the to-do list is gone. */
 export const InReview: Story = {
-  args: { record: { ...RECORD, status: 'in_review' }, reviewerIds: ['user-2'] },
+  args: { record: { ...RECORD, status: 'in_review' } },
 }

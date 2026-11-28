@@ -23,7 +23,6 @@ import {
 import { Button } from '#/components/ui/button'
 import { Status } from '#/components/ui/status'
 import { ProgressRail } from '#/components/ui/progress-rail'
-import { Person } from '#/components/ui/person'
 import { TableBox } from '#/components/ui/table'
 import { RegistryGrid, bandRow } from '#/components/inventory/registry-grid'
 import type {
@@ -35,7 +34,6 @@ import { experimentStatus } from '#/components/experiments/experiments-data'
 import { formatPartDate, partDate } from '#/lib/experiment-parts'
 import type { PartSummary } from '#/lib/experiment-parts'
 import type { SignatureWire } from '#/lib/signatures'
-import { formatDate } from '#/lib/format-date'
 import { formatNotebookDateTime } from '#/lib/notebook-data'
 import type { NotebookBlock, RecordWire } from '#/lib/notebook-data'
 import { withReopen } from '#/lib/return-to'
@@ -91,8 +89,6 @@ export interface ExperimentOverviewProps {
   signaturesIsError?: boolean
   followedBy: readonly OverviewLinkedExperiment[]
   userLabel: (userId: string) => string
-  /** Reviewers assigned on the latest submission, when there is one. */
-  reviewerIds?: readonly string[]
   projectName?: string | null
   /** Panels for the fields the workspace added to Experiment. */
   addedFields?: React.ReactNode
@@ -452,7 +448,6 @@ export function ExperimentOverview({
   signaturesIsError = false,
   followedBy,
   userLabel,
-  reviewerIds,
   projectName = null,
   addedFields = null,
   schedule = null,
@@ -492,7 +487,6 @@ export function ExperimentOverview({
   )
 
   const objective = objectiveText(blocks)
-  const status = experimentStatus(record.status)
 
   // Once a record has been submitted the list of what to close before
   // submitting no longer applies; the review is what the page is about.
@@ -519,14 +513,6 @@ export function ExperimentOverview({
   const properties = record.properties
   const collaboratorIds = propertyIds(properties, 'collaboratorIds')
 
-  const recordedReviewerIds = [
-    ...new Set([
-      propertyText(properties, 'reviewerId'),
-      ...(reviewerIds ?? []),
-    ]),
-  ].filter((id): id is string => Boolean(id))
-
-  const plannedEnd = propertyText(properties, 'plannedEnd')
   const decision = propertyText(properties, 'decision')
   const decisionNotes = propertyText(properties, 'decisionNotes')
   const clientId = propertyText(properties, 'clientId')
@@ -593,14 +579,10 @@ export function ExperimentOverview({
       <Inspector className="w-[300px]">
         {renderPropertiesSection({
           record,
-          status,
           userLabel,
           collaboratorIds,
-          reviewerIds: recordedReviewerIds,
           projectName,
           clientId,
-          protocolLinks,
-          plannedEnd,
           decision,
           decisionNotes,
         })}
@@ -1108,25 +1090,21 @@ function renderConclusionSection({
   )
 }
 
+/**
+ * The experiment's other properties. Status, owner, reviewer, protocol, start
+ * and due date are the record page's header facts, so they are not repeated.
+ */
 function renderPropertiesSection({
   record,
-  status,
   userLabel,
   collaboratorIds,
-  reviewerIds,
   projectName,
   clientId,
-  protocolLinks,
-  plannedEnd,
   decision,
   decisionNotes,
 }: Pick<ExperimentOverviewProps, 'record' | 'userLabel' | 'projectName'> & {
-  status: ReturnType<typeof experimentStatus>
   collaboratorIds: string[]
-  reviewerIds: string[]
   clientId: string | null
-  protocolLinks: OverviewLink[]
-  plannedEnd: string | null
   decision: string | null
   decisionNotes: string | null
 }) {
@@ -1135,17 +1113,6 @@ function renderPropertiesSection({
       <DescriptionList
         labelWidth={110}
         items={[
-          [
-            t('projects.overview.properties.status'),
-            <Status tone={status.tone}>{status.label}</Status>,
-          ],
-          [
-            t('projects.overview.properties.owner'),
-            <Person
-              name={userLabel(record.createdByUserId)}
-              userId={record.createdByUserId}
-            />,
-          ],
           ...(collaboratorIds.length
             ? ([
                 [
@@ -1154,18 +1121,6 @@ function renderPropertiesSection({
                 ],
               ] satisfies [React.ReactNode, React.ReactNode][])
             : []),
-          [
-            t('projects.overview.properties.reviewer'),
-            reviewerIds.length ? (
-              <span className="flex flex-wrap gap-x-3 gap-y-1">
-                {reviewerIds.map((id) => (
-                  <Person key={id} name={userLabel(id)} userId={id} />
-                ))}
-              </span>
-            ) : (
-              t('projects.overview.notRecorded')
-            ),
-          ],
           [
             t('projects.overview.properties.project'),
             record.projectId ? (
@@ -1180,34 +1135,6 @@ function renderPropertiesSection({
           ...(clientId
             ? ([
                 [t('projects.overview.properties.client'), clientId],
-              ] satisfies [React.ReactNode, React.ReactNode][])
-            : []),
-          [
-            t('projects.overview.properties.protocol'),
-            protocolLinks.length ? (
-              <Link
-                to="/protocols/$protocolId"
-                params={{
-                  protocolId: protocolLinks[0].targetRecordId ?? '',
-                }}
-                className="text-link"
-              >
-                {protocolLinks[0].targetIdentifier}
-              </Link>
-            ) : (
-              t('projects.overview.notRecorded')
-            ),
-          ],
-          [
-            t('projects.overview.properties.started'),
-            formatNotebookDateTime(record.createdAt),
-          ],
-          ...(plannedEnd
-            ? ([
-                [
-                  t('projects.overview.properties.plannedEnd'),
-                  formatDate(plannedEnd),
-                ],
               ] satisfies [React.ReactNode, React.ReactNode][])
             : []),
           ...(decision

@@ -120,37 +120,101 @@ function stateText(state: PartProgress['state']): string {
  * next. On a phone it is a progress bar with a picker, so the page gains one
  * row, not a header.
  */
-export function PartsStrip({
-  expId,
-  parts,
-  shown,
-  startedAt,
-  actions,
-}: {
+export function PartsStrip(props: PartsStripProps) {
+  return (
+    <div data-testid="parts-strip" className="my-3">
+      <DesktopStrip {...props} />
+      <PhonePicker {...props} />
+    </div>
+  )
+}
+
+interface PartsStripProps {
   expId: string
   parts: readonly PartProgress[]
   shown: PartProgress
   startedAt: string
   /** The menu for adding and changing parts, when the person may. */
   actions?: React.ReactNode
+  /**
+   * Show a part in place rather than follow its link, for a page whose parts
+   * have no address of their own (a template's days).
+   */
+  onPick?: (part: PartProgress) => void
+  /**
+   * A plan rather than a run: the days a template lays out, with no dates,
+   * no progress and nothing late.
+   */
+  planned?: boolean
+  /** What the strip is called to a screen reader; defaults to the experiment's parts. */
+  label?: string
+}
+
+/** "Day 3", for a plan with no start date yet. */
+function plannedDayLine(part: Pick<PartProgress, 'dayOffset'>): string {
+  return t('notebook.parts.day', { day: String(part.dayOffset) })
+}
+
+/** The day line under a part's title, dated when the work has started. */
+function dayLineOf(
+  part: PartProgress,
+  startedAt: string,
+  planned: boolean,
+): string {
+  return planned ? plannedDayLine(part) : partDayLine(part, startedAt)
+}
+
+/** A part's place in the strip: its link, or a button when picked in place. */
+function PartTarget({
+  expId,
+  part,
+  onPick,
+  className,
+  children,
+  current,
+  title,
+  onClick,
+  linkRef,
+}: {
+  expId: string
+  part: PartProgress
+  onPick?: (part: PartProgress) => void
+  className?: string
+  children: React.ReactNode
+  current: boolean
+  title?: string
+  onClick?: (event: React.MouseEvent<HTMLAnchorElement>) => void
+  linkRef?: React.Ref<HTMLAnchorElement>
 }) {
+  if (onPick) {
+    return (
+      <button
+        type="button"
+        aria-current={current ? 'page' : undefined}
+        title={title}
+        onClick={() => onPick(part)}
+        className={cn(
+          'cursor-pointer border-x-0 border-b-0 text-left',
+          className,
+        )}
+      >
+        {children}
+      </button>
+    )
+  }
+
   return (
-    <div data-testid="parts-strip" className="my-3">
-      <DesktopStrip
-        expId={expId}
-        parts={parts}
-        shown={shown}
-        startedAt={startedAt}
-        actions={actions}
-      />
-      <PhonePicker
-        expId={expId}
-        parts={parts}
-        shown={shown}
-        startedAt={startedAt}
-        actions={actions}
-      />
-    </div>
+    <Link
+      ref={linkRef}
+      to="/experiments/$expId/notebook/$part"
+      params={{ expId, part: String(part.number) }}
+      aria-current={current ? 'page' : undefined}
+      title={title}
+      onClick={onClick}
+      className={cn('no-underline', className)}
+    >
+      {children}
+    </Link>
   )
 }
 
@@ -160,13 +224,10 @@ function DesktopStrip({
   shown,
   startedAt,
   actions,
-}: {
-  expId: string
-  parts: readonly PartProgress[]
-  shown: PartProgress
-  startedAt: string
-  actions?: React.ReactNode
-}) {
+  onPick,
+  planned = false,
+  label,
+}: PartsStripProps) {
   const workspace = useWorkspaceNavigation()
   const selected = React.useRef<HTMLAnchorElement | null>(null)
   React.useEffect(() => {
@@ -179,7 +240,7 @@ function DesktopStrip({
   return (
     <div className="flex items-stretch gap-2 max-md:hidden">
       <nav
-        aria-label={t('notebook.parts.label')}
+        aria-label={label ?? t('notebook.parts.label')}
         className="grid min-w-0 flex-1 auto-cols-[minmax(10rem,1fr)] grid-flow-col gap-1.5 overflow-x-auto"
       >
         {parts.map((part) => {
@@ -191,46 +252,58 @@ function DesktopStrip({
           })
 
           return (
-            <Link
+            <PartTarget
               key={part.id}
-              ref={part.id === shown.id ? selected : undefined}
-              to="/experiments/$expId/notebook/$part"
-              params={{ expId, part: String(part.number) }}
-              aria-current={part.id === shown.id ? 'page' : undefined}
-              title={`${title}. ${t('notebook.parts.openBeside')}`}
+              expId={expId}
+              part={part}
+              onPick={onPick}
+              linkRef={part.id === shown.id ? selected : undefined}
+              current={part.id === shown.id}
+              title={
+                onPick ? title : `${title}. ${t('notebook.parts.openBeside')}`
+              }
               onClick={(event) =>
                 openBesideOnAlt(workspace, href, event, title)
               }
               className={cn(
-                'group flex min-w-0 flex-col gap-0.5 rounded-sm border-t-[3px] px-2.5 pb-1.5 pt-1.5 no-underline hover:bg-surface-hover',
-                part.state === 'done' && 'border-success',
-                part.state === 'now' && 'border-primary',
-                part.state === 'later' && 'border-border-strong',
+                'group flex min-w-0 flex-col gap-0.5 rounded-sm border-t-[3px] bg-transparent px-2.5 pb-1.5 pt-1.5 hover:bg-surface-hover',
+                planned && 'border-border-strong',
+                !planned && part.state === 'done' && 'border-success',
+                !planned && part.state === 'now' && 'border-primary',
+                !planned && part.state === 'later' && 'border-border-strong',
                 part.id === shown.id && 'bg-accent',
+                planned && part.id === shown.id && 'border-primary',
               )}
             >
               <span className="flex min-w-0 items-center gap-1.5 text-body text-fg">
-                <PartMark
-                  state={part.state}
-                  signed={part.signed}
-                  awaiting={part.awaitingSignOff}
-                />
+                {planned ? null : (
+                  <PartMark
+                    state={part.state}
+                    signed={part.signed}
+                    awaiting={part.awaitingSignOff}
+                  />
+                )}
                 <span
                   className={cn(
                     'truncate',
-                    part.state === 'now' && 'font-semibold',
-                    part.state === 'later' && 'text-fg-muted',
+                    (planned ? part.id === shown.id : part.state === 'now') &&
+                      'font-semibold',
+                    !planned && part.state === 'later' && 'text-fg-muted',
                   )}
                 >
                   {title}
                 </span>
-                <span className="sr-only">{partStateText(part)}</span>
+                {planned ? null : (
+                  <span className="sr-only">{partStateText(part)}</span>
+                )}
               </span>
               <span className="truncate text-label text-fg-muted">
-                {partDayLine(part, startedAt)}
-                <LateMark part={part} startedAt={startedAt} />
+                {dayLineOf(part, startedAt, planned)}
+                {planned ? null : (
+                  <LateMark part={part} startedAt={startedAt} />
+                )}
               </span>
-            </Link>
+            </PartTarget>
           )
         })}
       </nav>
@@ -245,13 +318,9 @@ function PhonePicker({
   shown,
   startedAt,
   actions,
-}: {
-  expId: string
-  parts: readonly PartProgress[]
-  shown: PartProgress
-  startedAt: string
-  actions?: React.ReactNode
-}) {
+  onPick,
+  planned = false,
+}: PartsStripProps) {
   const [open, setOpen] = React.useState(false)
   const previous = parts.find((part) => part.number === shown.number - 1)
   const next = parts.find((part) => part.number === shown.number + 1)
@@ -264,9 +333,15 @@ function PhonePicker({
             key={part.id}
             className={cn(
               'h-1 rounded-full',
-              part.state === 'done' && 'bg-success',
-              part.state === 'now' && 'bg-primary',
-              part.state === 'later' && 'bg-border-strong',
+              planned
+                ? part.id === shown.id
+                  ? 'bg-primary'
+                  : 'bg-border-strong'
+                : [
+                    part.state === 'done' && 'bg-success',
+                    part.state === 'now' && 'bg-primary',
+                    part.state === 'later' && 'bg-border-strong',
+                  ],
             )}
           />
         ))}
@@ -275,6 +350,7 @@ function PhonePicker({
         <PartStepLink
           expId={expId}
           part={previous}
+          onPick={onPick}
           label={t('notebook.parts.previousAria')}
           icon="chevronLeft"
         />
@@ -296,6 +372,7 @@ function PhonePicker({
         <PartStepLink
           expId={expId}
           part={next}
+          onPick={onPick}
           label={t('notebook.parts.nextAria')}
           icon="chevronRight"
         />
@@ -306,28 +383,38 @@ function PhonePicker({
           <ol className="m-0 list-none overflow-y-auto p-0">
             {parts.map((part) => (
               <li key={part.id} className="border-b border-border-subtle">
-                <Link
-                  to="/experiments/$expId/notebook/$part"
-                  params={{ expId, part: String(part.number) }}
+                <PartTarget
+                  expId={expId}
+                  part={part}
+                  onPick={
+                    onPick
+                      ? (picked) => {
+                          setOpen(false)
+                          onPick(picked)
+                        }
+                      : undefined
+                  }
                   onClick={() => setOpen(false)}
-                  aria-current={part.id === shown.id ? 'page' : undefined}
+                  current={part.id === shown.id}
                   className={cn(
-                    'flex items-start gap-3 px-4 py-3 no-underline',
+                    'flex w-full items-start gap-3 border-t-0 bg-transparent px-4 py-3',
                     part.id === shown.id && 'bg-accent',
                   )}
                 >
-                  <span className="mt-1 flex w-4 justify-center">
-                    <PartMark
-                      state={part.state}
-                      signed={part.signed}
-                      awaiting={part.awaitingSignOff}
-                    />
-                  </span>
+                  {planned ? null : (
+                    <span className="mt-1 flex w-4 justify-center">
+                      <PartMark
+                        state={part.state}
+                        signed={part.signed}
+                        awaiting={part.awaitingSignOff}
+                      />
+                    </span>
+                  )}
                   <span className="flex min-w-0 flex-col">
                     <span
                       className={cn(
                         'text-doc text-fg',
-                        part.state === 'later' && 'text-fg-muted',
+                        !planned && part.state === 'later' && 'text-fg-muted',
                       )}
                     >
                       {t('notebook.parts.partTitle', {
@@ -336,8 +423,10 @@ function PhonePicker({
                       })}
                     </span>
                     <span className="text-label text-fg-muted">
-                      {partDayLine(part, startedAt)}
-                      <LateMark part={part} startedAt={startedAt} />
+                      {dayLineOf(part, startedAt, planned)}
+                      {planned ? null : (
+                        <LateMark part={part} startedAt={startedAt} />
+                      )}
                       {part.stepCount > 0
                         ? ` · ${t('notebook.parts.stepsOf', {
                             done: String(part.stepsDone),
@@ -346,7 +435,7 @@ function PhonePicker({
                         : ''}
                     </span>
                   </span>
-                </Link>
+                </PartTarget>
               </li>
             ))}
           </ol>
@@ -359,11 +448,13 @@ function PhonePicker({
 function PartStepLink({
   expId,
   part,
+  onPick,
   label,
   icon,
 }: {
   expId: string
   part: PartProgress | undefined
+  onPick?: (part: PartProgress) => void
   label: string
   icon: 'chevronLeft' | 'chevronRight'
 }) {
@@ -374,6 +465,19 @@ function PartStepLink({
         disabled
         aria-label={label}
         className="size-10 shrink-0 p-0"
+      >
+        <Icon name={icon} size={16} aria-hidden="true" />
+      </Button>
+    )
+  }
+
+  if (onPick) {
+    return (
+      <Button
+        type="button"
+        className="size-10 shrink-0 p-0"
+        aria-label={label}
+        onClick={() => onPick(part)}
       >
         <Icon name={icon} size={16} aria-hidden="true" />
       </Button>

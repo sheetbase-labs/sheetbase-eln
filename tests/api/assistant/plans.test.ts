@@ -511,6 +511,15 @@ describe('a plan of dependent changes', () => {
                         projectName: 'Units',
                       },
                     },
+                    {
+                      title: 'Create Units two',
+                      tool: 'sheetbase.project.create',
+                      arguments: {
+                        title: 'Create Units two',
+                        summary: 'A new project',
+                        projectName: 'Units two',
+                      },
+                    },
                   ],
                 },
               },

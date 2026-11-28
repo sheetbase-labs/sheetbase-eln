@@ -352,8 +352,12 @@ export function plainWords(text: string): string {
     .replaceAll(/\b(?:p_)?[a-z]+(?:_[a-z0-9]+)+\b/g, (word) =>
       word.replace(/^p_/, '').replaceAll('_', ' '),
     )
-    .replaceAll(/\b[a-z]{2,}(?:[A-Z][a-z0-9]{2,})+\b/g, (word) =>
-      word.replaceAll(/[A-Z]/g, (letter) => ` ${letter.toLowerCase()}`),
+    .replaceAll(/\b[a-z]{2,}(?:[A-Z][a-z0-9]+)+\b/g, (word) =>
+      // A field name has a word of three letters or more in it; mmHg and the
+      // like do not.
+      /[A-Z][a-z0-9]{2,}/.test(word)
+        ? word.replaceAll(/[A-Z]/g, (letter) => ` ${letter.toLowerCase()}`)
+        : word,
     )
 }
 

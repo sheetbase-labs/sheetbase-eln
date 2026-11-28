@@ -170,9 +170,11 @@ describe('useAutosave — slow response cannot mark a newer draft saved', () => 
     )
 
     act(() => mount.current.setDraft({ text: 'first' }))
-    await sleep(40)
-    expect(save).toHaveBeenCalledTimes(1)
-    expect(mount.current.status).toBe('saving')
+    // Wait for the state, not a fixed time: a busy runner can render late.
+    await waitFor(() => {
+      expect(save).toHaveBeenCalledTimes(1)
+      expect(mount.current.status).toBe('saving')
+    })
     // While the first save is still pending, keep typing.
     act(() => mount.current.setDraft({ text: 'second' }))
     // Resolve the slow first save with the OLD payload's success.
@@ -180,8 +182,9 @@ describe('useAutosave — slow response cannot mark a newer draft saved', () => 
     // The hook must NOT mark clean: a newer draft exists.
     expect(mount.current.status).not.toBe('clean')
     // A follow-up save for the latest draft should fire after the debounce.
-    await sleep(40)
-    expect(save).toHaveBeenNthCalledWith(2, { text: 'second' })
+    await waitFor(() =>
+      expect(save).toHaveBeenNthCalledWith(2, { text: 'second' }),
+    )
   })
 })
 

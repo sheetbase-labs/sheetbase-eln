@@ -111,6 +111,7 @@ test.beforeEach(async ({ page }) => {
           publication_approval_required: false,
           allow_offline_editing: true,
           id_prefixes: null,
+          setup_completed_at: '2026-08-03T00:00:00.000Z',
           workspaces: { name: 'Process Development' },
         },
       ])
@@ -167,6 +168,8 @@ test.beforeEach(async ({ page }) => {
       return json([])
     }
     if (path.startsWith('calendar_bookings')) {
+      // Home's day count asks for the total; one booking is on today's list.
+      if (isCount) return json([{}], 1)
       return json([
         {
           id: '00000000-0000-4000-8000-00000000e001',
@@ -265,6 +268,7 @@ test('the calm Home at phone width does not overflow and stays in the tab order'
   const comingUp = page
     .locator('section')
     .filter({ has: page.getByRole('heading', { name: 'Coming up' }) })
+    .first()
   await expect(comingUp).toBeVisible()
   await expect(
     comingUp.getByRole('link', { name: /Ambr 250 bay 2/ }),
@@ -281,7 +285,7 @@ test('the calm Home at phone width does not overflow and stays in the tab order'
         document.documentElement.clientWidth + 1,
     ),
   ).toBe(false)
-  expect(await overflows(page, 'section:has(h2:text("Coming up"))')).toBe(false)
+  expect(await overflows(page, 'section:has(h2:text("Coming up")) >> nth=0')).toBe(false)
   expect(
     await page
       .locator('div')

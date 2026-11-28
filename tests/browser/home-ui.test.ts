@@ -180,7 +180,7 @@ for (const theme of ['light', 'dark'] as const) {
       'to review',
       'datasets? with errors',
       'experiments in progress',
-      'instrument runs today',
+      'instrument bookings today',
       'items',
     ]
     for (let index = 0; index < totals.length; index++) {
@@ -216,9 +216,8 @@ for (const theme of ['light', 'dark'] as const) {
         `/review/${submissions[index].revision_id}`,
       )
     }
-    await expect(page.getByText('DS-0298', { exact: true })).toBeVisible()
     await expect(
-      page.getByText('2 columns missing units', { exact: false }),
+      page.getByRole('link', { name: /^DS-0298 · 2 columns missing units/ }),
     ).toBeVisible()
     await page.waitForFunction(() => document.fonts.status === 'loaded')
     if (theme === 'dark')
@@ -284,19 +283,17 @@ test('Home material attention opens the actual lot instead of the first registry
       return rows[0]
     }),
   )
-  const attention = page.getByRole('link', { name: 'MAT-0420', exact: true })
+  const attention = page.getByRole('link', { name: /^MAT-0420 · lot expires/ })
   await expect(attention).toHaveAttribute(
     'href',
-    `/materials?selected=${material.record_id}`,
+    `/materials/${material.record_id}`,
   )
-  await expect(attention.locator('..')).toContainText('lot expires in 6 days')
   await attention.click()
   await expect(page).toHaveURL(
-    new RegExp(`/materials\\?selected=${material.record_id}`),
+    new RegExp(`/materials/${material.record_id}`),
   )
-  const lot = page.locator('[aria-label="Material lot"]')
-  await expect(lot).toContainText('MAT-0420')
-  await expect(lot).toContainText(material.title)
+  await expect(page.getByText('MAT-0420').first()).toBeVisible()
+  await expect(page.getByText(material.title).first()).toBeVisible()
 })
 
 test('Home Review action reaches the submitted revision workspace', async ({

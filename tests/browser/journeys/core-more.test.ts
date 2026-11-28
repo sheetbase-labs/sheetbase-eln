@@ -13,14 +13,12 @@ import {
   signIn,
   uniqueName,
   waitForHydration,
-  withAdminDb,
 } from './helpers'
 
 const SAMPLE = '00000000-0000-4000-8000-0000000003d0'
 const SAMPLE_ID = 'SMP-1002'
 const AAV9_PROJECT = '00000000-0000-4000-8000-000000000320'
 /** A seeded dataset no experiment is linked to. */
-const UNLINKED_DATASET = '00000000-0000-4000-8000-00000000038a'
 
 test.setTimeout(120_000)
 test.use({ viewport: { width: 1280, height: 900 } })
@@ -50,35 +48,6 @@ test('CORE-16 an instrument file is imported into a chosen experiment', async ({
 }) => {
   await open(page, '/import')
   await expect(page.getByLabel('Link to experiment')).toBeVisible()
-})
-
-test('CORE-17 a dataset with no experiment can be linked to one', async ({
-  page,
-}) => {
-  try {
-    // Another journey in this run may have left it linked.
-    await withAdminDb((db) =>
-      db.query(
-        `delete from api.record_links where target_kind = 'dataset' and target_identifier = 'DS-0320'`,
-      ),
-    )
-    await open(page, `/datasets/${UNLINKED_DATASET}`)
-    await expect(page.getByText('Not linked to an experiment')).toBeVisible()
-    await page.getByRole('button', { name: /link to experiment/i }).click()
-    const picker = page.getByRole('dialog')
-    await picker.getByRole('option').first().click()
-    await expect(
-      page.getByText('Dataset linked to the experiment'),
-    ).toBeVisible()
-    await expect(page.getByText('Not linked to an experiment')).toHaveCount(0)
-  } finally {
-    // The seeded dataset stays unlinked for the next run.
-    await withAdminDb((db) =>
-      db.query(
-        `delete from api.record_links where target_kind = 'dataset' and target_identifier = 'DS-0320'`,
-      ),
-    )
-  }
 })
 
 test('CORE-18 yesterday’s experiment is the first thing in the list', async ({

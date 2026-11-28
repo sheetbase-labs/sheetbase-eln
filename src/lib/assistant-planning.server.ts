@@ -180,7 +180,7 @@ export function planningProposalDefs(): ProviderToolDef[] {
   return [
     toolDef(
       EXPERIMENT_FROM_TEMPLATE_TOOL,
-      `Propose making and starting a NEW experiment from a template (by title or PRT number) in a project (by name or key). Inside a plan the project can be one an earlier step creates. To start an experiment that already exists as a draft, use the experiment start tool instead. ${note}`,
+      `Propose making and starting a NEW experiment from a protocol template (by title or PRT number) in a project (by name or key). A notebook template (TPL number) works here too once it is published. Inside a plan the project can be one an earlier step creates. To start an experiment that already exists as a draft, use the experiment start tool instead. ${note}`,
       proposeExperimentStartSchema,
     ),
     toolDef(
@@ -1211,7 +1211,34 @@ export async function buildPlanningProposal(
         'protocol_template',
       ])
 
-      if (!template.ok) return template
+      if (!template.ok) {
+        // A notebook template (TPL-0006) is not a protocol record. A model
+        // that names one here means "start a notebook from it".
+        const notebook = await client.list<{ id: string }>(
+          'notebook_templates',
+          `?or=(display_id.ilike.${likeValue(input.template)},name.ilike.${likeValue(input.template)},key.ilike.${likeValue(input.template)})&select=id&limit=1`,
+        )
+
+        if (notebook.length === 0) return template
+
+        const { buildTemplateVersionsProposal } =
+          await import('#/features/template-versions/cards.server')
+
+        const { TEMPLATE_USE_TOOL } =
+          await import('#/features/template-versions/cards')
+
+        return buildTemplateVersionsProposal(
+          TEMPLATE_USE_TOOL,
+          {
+            title: input.title,
+            summary: input.summary,
+            template: input.template,
+            project: input.project,
+            ...(input.experimentTitle ? { name: input.experimentTitle } : {}),
+          },
+          context,
+        )
+      }
 
       if (template.value.archived_at || template.value.status !== 'active') {
         return {

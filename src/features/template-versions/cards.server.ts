@@ -29,7 +29,7 @@ export function templateVersionsProposalDefs(): ProviderToolDef[] {
   return [
     toolDef(
       TEMPLATE_USE_TOOL,
-      `Propose starting a notebook from the newest published version of a notebook template, in a project. A template that asks for inputs is refused here; the person fills those in on the Templates page. ${NOTE}`,
+      `Propose starting a notebook from the newest published version of a notebook template (a TPL number), in a project. A template made a moment ago is a draft: publish it first, with the template publish tool, as an earlier step of the plan. A template that asks for inputs is refused here; the person fills those in on the Templates page. ${NOTE}`,
       proposeTemplateUseSchema,
     ),
     toolDef(
@@ -109,7 +109,9 @@ export async function buildTemplateVersionsProposal(
       const version = await latestPublished(client, template.value.id)
 
       if (!version) {
-        return fail(`${template.value.name} has no published version yet.`)
+        return fail(
+          `${template.value.name} has no published version yet, so nothing can be started from it. Put a template publish step for it before this one in the plan, or publish it first.`,
+        )
       }
 
       const needsInput = (version.configuration.parameters ?? []).some(

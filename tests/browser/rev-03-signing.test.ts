@@ -1317,8 +1317,10 @@ test('REV-09 and REV-10 a signed notebook shows its signatures and audit trail, 
   )
   await signInAsDesignUser(page, author)
   await page.goto(`/experiments/${record}/notebook`)
-  await expect(page.getByText(/Scientific evidence is frozen/)).toBeVisible()
-  await page.getByRole('button', { name: 'Amend', exact: true }).click()
+  await expect(
+    page.getByText(/^Locked since .+, when it was approved\.$/),
+  ).toBeVisible()
+  await page.getByRole('button', { name: 'Amend…', exact: true }).click()
   const dialog = page.getByRole('dialog', { name: 'Amend notebook' })
   await expect(
     dialog.getByRole('button', { name: 'Confirm amendment' }),
@@ -1328,7 +1330,9 @@ test('REV-09 and REV-10 a signed notebook shows its signatures and audit trail, 
     .fill('Correct the plate layout noted in review.')
   await dialog.getByRole('button', { name: 'Confirm amendment' }).click()
   await expect(dialog).toBeHidden()
-  await expect(page.getByText(/Scientific evidence is frozen/)).toHaveCount(0)
+  await expect(
+    page.getByText(/^Locked since .+, when it was approved\.$/),
+  ).toHaveCount(0)
   expect(
     (
       await admin.query('select locked_at from api.records where id=$1', [

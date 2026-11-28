@@ -174,7 +174,7 @@ function SettingsLayout() {
       <div className="flex min-h-0 min-w-0 flex-1 flex-col lg:flex-row">
         <nav
           aria-label={t('settings.page.settingsSections')}
-          className="hidden w-[232px] shrink-0 flex-col gap-px overflow-y-auto border-r border-border-subtle bg-canvas-sunken px-3 py-4 lg:flex"
+          className="hidden w-[232px] shrink-0 flex-col gap-px overflow-y-auto border-r border-border-subtle px-3 py-4 lg:flex"
         >
           {sections.map((i, n) => (
             <div key={i.label} className="contents">

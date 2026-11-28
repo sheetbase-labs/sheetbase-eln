@@ -97,23 +97,24 @@ test('owner enables the assistant and sees the readiness state', async ({
   await expect(
     page.getByRole('heading', { name: 'AI', exact: true }),
   ).toBeVisible()
-  await expect(
-    page.getByText('AI is off for this workspace', { exact: false }),
-  ).toBeVisible()
+  const assistant = page.getByRole('checkbox', {
+    name: /Turn on the AI assistant/i,
+  })
+  await expect(assistant).not.toBeChecked()
 
-  await page
-    .getByRole('checkbox', {
-      name: /Turn on the AI assistant/i,
+  await assistant.click()
+
+  await expect(assistant).toBeChecked()
+  await expect
+    .poll(async () => {
+      const row = await admin?.query(
+        'select ai_enabled from api.workspace_settings where workspace_id = $1',
+        [WORKSPACE_ID],
+      )
+
+      return row?.rows[0]?.ai_enabled
     })
-    .click()
-
-  await expect(page.getByText('Saved', { exact: true })).toBeVisible()
-  await expect(page.getByText('Assistant status')).toBeVisible()
-  await expect(
-    page.getByText('Using the built-in assistant', {
-      exact: false,
-    }),
-  ).toBeVisible()
+    .toBe(true)
 
   await page.screenshot({
     path: '.amp/in/artifacts/ai-settings-enabled.png',

@@ -428,6 +428,11 @@ function PaneMoreMenu({
 
 export function ModeBadge({ mode }: { mode: PaneMode }) {
   if (mode.kind === 'plain') return null
+
+  // A record in review or locked by its approval says so in its own header and
+  // state line; the pane says nothing more. A pinned signed revision still does.
+  if (mode.kind === 'signed' && mode.why) return null
+
   const label = modeLabel(mode)
   const [lead, revision] = label.split(' · ')
 

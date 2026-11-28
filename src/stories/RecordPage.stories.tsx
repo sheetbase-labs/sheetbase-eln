@@ -7,6 +7,7 @@ import {
   RecordActivity,
   RecordProperties,
 } from '#/components/record-page/record-side-panel'
+import { RecordLockedLine } from '#/components/record-page/record-locked-line'
 import { RecordStateLine } from '#/components/record-page/record-state-line'
 import { PaneHeaderSlot } from '#/components/record-page/pane-header-slot'
 import { Button } from '#/components/ui/button'
@@ -69,7 +70,14 @@ function client() {
   })
 }
 
-function Lot({ state = true }: { state?: boolean }) {
+function Lot({
+  state = true,
+  locked = false,
+}: {
+  state?: boolean
+  /** An approved record: one line says it is locked, with Amend. */
+  locked?: boolean
+}) {
   return (
     <QueryClientProvider client={client()}>
       <div className="flex h-[720px] w-[1280px] border border-border bg-surface">
@@ -96,7 +104,13 @@ function Lot({ state = true }: { state?: boolean }) {
             </>
           }
           stateLine={
-            state ? (
+            locked ? (
+              <RecordLockedLine
+                recordId={RECORD}
+                lockedAt="2026-08-18T09:40:00Z"
+                canAmend
+              />
+            ) : state ? (
               <RecordStateLine
                 tone="warn"
                 action={<Button size="sm">Register replacement</Button>}
@@ -162,6 +176,8 @@ type Story = StoryObj<typeof meta>
 export const WithStateLine: Story = {}
 
 export const InGoodStanding: Story = { args: { state: false } }
+
+export const Locked: Story = { args: { locked: true } }
 
 /** The slot lends its children to the pane header, or shows the fallback. */
 export const SlotOutsideAPane: Story = {

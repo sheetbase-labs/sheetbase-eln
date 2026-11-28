@@ -249,6 +249,25 @@ async function clean() {
   )
   await admin.query(`DELETE FROM api.records WHERE workspace_id=$1`, [WS])
   await admin.query(`DELETE FROM api.projects WHERE workspace_id=$1`, [WS])
+  // Resetting the sequence makes the next change event take number one again,
+  // so the events already recorded for this workspace go first (the table
+  // refuses mutation, so its guard is lifted for that delete alone).
+  await admin.query('BEGIN')
+  try {
+    await admin.query(
+      'ALTER TABLE api.change_events DISABLE TRIGGER refuse_change_event_mutation',
+    )
+    await admin.query(`DELETE FROM api.change_events WHERE workspace_id=$1`, [
+      WS,
+    ])
+    await admin.query(
+      'ALTER TABLE api.change_events ENABLE TRIGGER refuse_change_event_mutation',
+    )
+    await admin.query('COMMIT')
+  } catch (error) {
+    await admin.query('ROLLBACK')
+    throw error
+  }
   await admin.query(
     `DELETE FROM api.workspace_change_seq WHERE workspace_id=$1`,
     [WS],
@@ -264,6 +283,17 @@ async function clean() {
   try {
     await admin.query(
       'ALTER TABLE api.change_events DISABLE TRIGGER refuse_change_event_mutation',
+    )
+    // Rows that a workspace delete would cascade write change events of their
+    // own, which cannot be recorded against a workspace that is going away.
+    for (const table of ['extensions', 'recently_viewed', 'search_documents'])
+      await admin.query(`DELETE FROM api.${table} WHERE workspace_id=$1`, [WS])
+    await admin.query(`DELETE FROM api.change_events WHERE workspace_id=$1`, [
+      WS,
+    ])
+    await admin.query(
+      `DELETE FROM api.workspace_change_seq WHERE workspace_id=$1`,
+      [WS],
     )
     await admin.query(`DELETE FROM api.workspaces WHERE id=$1`, [WS])
     await admin.query(

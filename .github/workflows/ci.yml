@@ -262,6 +262,7 @@ jobs:
             files: >-
               tests/browser/workspace-panes.test.ts
               tests/browser/experiment-pane-render.test.ts
+              tests/browser/experiment-request-budget.test.ts
               tests/browser/workspace/
           # The Agent page against a scripted model: cards applied in a row,
           # a plan, links in answers (tests/api/assistant has the API layer).

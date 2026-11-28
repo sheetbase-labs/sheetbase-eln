@@ -5,7 +5,8 @@ import { useQuery } from '@tanstack/react-query'
 
 import { PageHeader } from '#/components/ui/layout'
 import { experimentNextStep } from '#/components/experiments/next-step'
-import { ReviewStatusBand } from '#/components/experiments/reviewer-band'
+import { SeriesBar } from '#/components/experiments/series-bar'
+import { RecordPage } from '#/components/record-page/record-page'
 import { useIsSeriesHead } from '#/lib/experiment-series'
 import { useRegulatedLab } from '#/lib/regulated-lab'
 import { useRecordParts } from '#/components/notebook/use-record-parts'
@@ -34,7 +35,17 @@ import {
   useExperimentPlateRunCount,
   useExperimentRecord,
 } from './-experiment-data'
-import { ExperimentHeader } from './-experiment-header'
+import {
+  ExperimentActions,
+  ExperimentStateLine,
+  ExperimentTitle,
+} from './-experiment-header'
+import {
+  experimentFacts,
+  experimentReviewerName,
+  experimentTabs,
+  experimentTrail,
+} from './-experiment-facts'
 
 /** The experiment page: one frame, one URL. Notebook is the default tab and the
  * working surface; Summary, Samples, Data and Review sit beside it. `/records/$recordId/notebook` redirects here for experiments. */
@@ -178,11 +189,11 @@ function ExperimentLayout() {
     (l) => l.link_type === 'protocol' && l.target_record_id,
   )
 
-  const reviewerName = e.reviewer_user_id
-    ? e.reviewer_user_id === userId
-      ? t('projects.experimentPage.you')
-      : userLabel(e.reviewer_user_id)
-    : null
+  const reviewerName = experimentReviewerName(
+    e.reviewer_user_id,
+    userId,
+    userLabel,
+  )
 
   const waitingNames = (
     review.data?.submission?.assigned_reviewer_user_ids ?? []
@@ -190,48 +201,63 @@ function ExperimentLayout() {
     .filter((id) => id !== userId)
     .map((id) => userLabel(id))
 
+  const runningDay = experimentRunningDay({
+    status: e.status,
+    startedAt: e.created_at,
+    parts: partsQuery.data ?? [],
+  })
+
   return (
     <RecordActionsProvider
       reviewing={nextStep.reviewing}
       submitVariant={nextStep.primary === 'submit' ? 'primary' : 'secondary'}
     >
-      <div className="flex min-w-0 flex-1 flex-col">
-        <ExperimentHeader
-          experiment={e}
-          status={experimentStatusFor(e.status)}
-          ownerName={userLabel(e.created_by_user_id)}
-          reviewerName={reviewerName}
-          projectTitle={project.data?.title}
-          protocolLink={protocolLink}
-          runningDay={experimentRunningDay({
-            status: e.status,
-            startedAt: e.created_at,
-            parts: partsQuery.data ?? [],
-          })}
-          canWrite={canWrite}
-          nextStep={nextStep}
-          reviewRevisionId={reviewRevisionId}
-          seriesHead={Boolean(seriesHead.data)}
-          sampleCount={rows.filter((l) => l.target_kind === 'sample').length}
-          dataCount={
-            rows.filter(
-              (l) => l.target_kind === 'dataset' || l.target_kind === 'file',
-            ).length + plateRunCount
-          }
-          workspaceId={context.workspace?.id ?? ''}
-        />
-        <ReviewStatusBand
-          reviewing={nextStep.reviewing}
-          inReview={e.status === 'in_review'}
-          ownerName={userLabel(e.created_by_user_id)}
-          submittedAt={review.data?.submission?.submitted_at}
-          revisionId={reviewRevisionId}
-          waitingNames={waitingNames}
-        />
-        <div className="flex min-h-0 flex-1">
-          <Outlet />
-        </div>
-      </div>
+      <RecordPage
+        recordId={e.id}
+        compact
+        fill
+        trail={experimentTrail(e, project.data?.title)}
+        title={<ExperimentTitle experiment={e} />}
+        paneTitle={e.title}
+        identifier={e.identifier}
+        status={experimentStatusFor(e.status)}
+        facts={experimentFacts({
+          experiment: e,
+          ownerName: userLabel(e.created_by_user_id),
+          reviewerName,
+          protocolLink,
+        })}
+        marks={runningDay ? <span>{runningDay}</span> : null}
+        actionsOwnMenu
+        actions={
+          <ExperimentActions
+            experiment={e}
+            canWrite={canWrite}
+            nextStep={nextStep}
+            reviewRevisionId={reviewRevisionId}
+            workspaceId={context.workspace?.id ?? ''}
+          />
+        }
+        stateLine={
+          <ExperimentStateLine
+            reviewing={nextStep.reviewing}
+            inReview={e.status === 'in_review'}
+            ownerName={userLabel(e.created_by_user_id)}
+            submittedAt={review.data?.submission?.submitted_at}
+            revisionId={reviewRevisionId}
+            waitingNames={waitingNames}
+          />
+        }
+        aboveTabs={<SeriesBar recordId={e.id} placement="header" />}
+        tabs={experimentTabs({
+          expId: e.id,
+          seriesHead: Boolean(seriesHead.data),
+          links: rows,
+          plateRunCount,
+        })}
+      >
+        <Outlet />
+      </RecordPage>
     </RecordActionsProvider>
   )
 }

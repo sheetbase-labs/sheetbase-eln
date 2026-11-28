@@ -331,7 +331,6 @@ function Overview() {
       signaturesIsLoading={signatures.isLoading}
       signaturesIsError={signatures.isError}
       followedBy={followedBy.data ?? []}
-      reviewerIds={submission.data?.assigned_reviewer_user_ids}
       userLabel={interaction.userLabel}
       projectName={interaction.projectName}
       addedFields={panels.addedFields}

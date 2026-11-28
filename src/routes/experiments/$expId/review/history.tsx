@@ -1,19 +1,8 @@
-import { createFileRoute } from '@tanstack/react-router'
-import { ExperimentHistory } from '#/components/audit/experiment-history'
-import { useExperimentRecord } from '../../$expId'
+import { createFileRoute, redirect } from '@tanstack/react-router'
 
+/** History moved out of Review to a tab of its own; old links land there. */
 export const Route = createFileRoute('/experiments/$expId/review/history')({
-  component: History,
+  beforeLoad: ({ params }) => {
+    throw redirect({ to: '/experiments/$expId/history', params })
+  },
 })
-
-function History() {
-  const { expId } = Route.useParams()
-  const record = useExperimentRecord(expId)
-
-  return (
-    <ExperimentHistory
-      recordId={expId}
-      identifier={record.data?.identifier ?? expId}
-    />
-  )
-}

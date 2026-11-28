@@ -2065,6 +2065,13 @@ export const projects = {
     },
     notStarted: 'Not started',
     started: 'Started {date}',
+    facts: {
+      owner: 'Owner',
+      reviewer: 'Reviewer',
+      started: 'Started',
+      protocol: 'Protocol',
+      due: 'Due',
+    },
     protocol: 'Protocol {link}',
     sections: 'Experiment sections',
     tabs: {

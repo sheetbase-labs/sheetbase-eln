@@ -2,231 +2,157 @@ import { Link } from '@tanstack/react-router'
 
 import { PublishControl } from '#/components/open-data/publish-control'
 import { AskAiButton } from '#/components/assist/ask-ai-button'
-import { PageHeader } from '#/components/ui/layout'
-import { Tabs } from '#/components/ui/tabs'
 import { Person } from '#/components/ui/person'
-import { Status } from '#/components/ui/status'
-import type { Tone } from '#/components/ui/status'
 import type { NextStep } from '#/components/experiments/next-step'
-import { SeriesBar } from '#/components/experiments/series-bar'
+import { RecordStateLine } from '#/components/record-page/record-state-line'
 import { formatDate } from '#/lib/notebook-data'
 import { RecordTitleInput } from '../records/$recordId/-notebook-page'
 import { ExperimentLifecycleActions } from './$expId/-lifecycle-actions'
-import type { ExperimentRecordRow, RecordLinkWire } from './-experiment-data'
-import { rich, t } from '#/copy'
+import type { ExperimentRecordRow } from './-experiment-data'
+import { t } from '#/copy'
 
 /**
- * The experiment page's header: the project and identifier trail, the inline
- * title, the experiment's status and dates, the lifecycle and publish actions,
- * and the Notebook, Series, Summary, Samples, Data and Review tabs.
+ * The experiment page's header parts for the shared record page: the inline
+ * title, the lifecycle and publish actions, and the one line about a review.
+ * The facts and tabs are data, in `-experiment-facts.tsx`.
  */
-export function ExperimentHeader({
+export function ExperimentTitle({
+  experiment: e,
+}: {
+  experiment: ExperimentRecordRow
+}) {
+  if (e.locked_at || e.archived_at) return e.title
+
+  return (
+    <RecordTitleInput
+      recordId={e.id}
+      title={e.title}
+      tags={e.tags ?? []}
+      className="h-auto w-full min-w-0 border-transparent bg-transparent px-0 text-title shadow-none max-md:!h-6 max-md:overflow-hidden max-md:whitespace-nowrap max-md:text-[18px] max-md:leading-6 max-md:[mask-image:linear-gradient(to_right,#000_calc(100%-20px),transparent)]"
+    />
+  )
+}
+
+/** The person a fact names, with their face. */
+export function ExperimentPerson({
+  name,
+  userId,
+}: {
+  name: string
+  userId: string | null | undefined
+}) {
+  return <Person name={name} userId={userId} className="text-fg" />
+}
+
+/** The protocol the experiment runs on, by its identifier. */
+export function ExperimentProtocolLink({
+  recordId,
+  identifier,
+}: {
+  recordId: string
+  identifier: string
+}) {
+  return (
+    <Link
+      to="/protocols/$protocolId"
+      params={{ protocolId: recordId }}
+      className="mono text-link"
+    >
+      {identifier}
+    </Link>
+  )
+}
+
+/**
+ * The next step (or the decision pair for a reviewer) with the lifecycle's
+ * own ⋯ menu, then publishing and the assistant.
+ */
+export function ExperimentActions({
   experiment,
-  status,
-  ownerName,
-  reviewerName,
-  projectTitle,
-  protocolLink,
-  runningDay,
   canWrite,
   nextStep,
   reviewRevisionId,
-  seriesHead,
-  sampleCount,
-  dataCount,
   workspaceId,
 }: {
   experiment: ExperimentRecordRow
-  status: { tone: Tone; label: string }
-  ownerName: string
-  /** The reviewer's name, or "you" when the reader is the reviewer. */
-  reviewerName: string | null
-  projectTitle: string | undefined
-  protocolLink: RecordLinkWire | undefined
-  runningDay: string | null
   canWrite: boolean
   nextStep: NextStep
   reviewRevisionId: string | undefined
-  seriesHead: boolean
-  sampleCount: number
-  dataCount: number
   workspaceId: string
 }) {
-  const e = experiment
-  const params = { expId: e.id }
+  return (
+    <>
+      <ExperimentLifecycleActions
+        experiment={experiment}
+        canWrite={canWrite}
+        nextStep={nextStep}
+        reviewRevisionId={reviewRevisionId}
+      />
+      <PublishControl
+        workspaceId={workspaceId}
+        kind="experiment"
+        objectId={experiment.id}
+        defaultTitle={experiment.title}
+        canPublish={canWrite}
+      />
+      <AskAiButton />
+    </>
+  )
+}
+
+/**
+ * While the experiment is in review, one line says so: to the reviewer, that
+ * it waits for them; to the author, who it waits for.
+ */
+export function ExperimentStateLine({
+  reviewing,
+  inReview,
+  ownerName,
+  submittedAt,
+  revisionId,
+  waitingNames,
+}: {
+  reviewing: boolean
+  inReview: boolean
+  ownerName: string
+  submittedAt?: string
+  revisionId?: string
+  waitingNames: readonly string[]
+}) {
+  if (!reviewing && (!inReview || waitingNames.length === 0)) return null
+
+  const date = submittedAt ? formatDate(submittedAt) : ''
 
   return (
-    <PageHeader
-      compact
-      trail={[
-        ...(e.project_id
-          ? [
-              {
-                label: projectTitle ?? t('projects.experimentPage.project'),
-                link: {
-                  to: '/projects/$projectId' as const,
-                  params: { projectId: e.project_id },
-                },
-              },
-            ]
-          : []),
-        {
-          label: t('projects.experimentPage.experiments'),
-          link: { to: '/experiments' },
-        },
-        { label: e.identifier, mono: true },
-      ]}
-      title={
-        e.locked_at || e.archived_at ? (
-          e.title
-        ) : (
-          <RecordTitleInput
-            recordId={e.id}
-            title={e.title}
-            tags={e.tags ?? []}
-            className="h-auto w-full min-w-0 border-transparent bg-transparent px-0 text-title shadow-none max-md:!h-6 max-md:overflow-hidden max-md:whitespace-nowrap max-md:text-[18px] max-md:leading-6 max-md:[mask-image:linear-gradient(to_right,#000_calc(100%-20px),transparent)]"
-          />
-        )
+    <RecordStateLine
+      tone="review"
+      action={
+        revisionId ? (
+          <Link
+            to="/review/$revisionId"
+            params={{ revisionId }}
+            className="text-link"
+          >
+            {t('projects.experimentPage.reviewBand.open')}
+          </Link>
+        ) : null
       }
-      meta={
-        <>
-          <span className="text-fg">
-            <Status tone={status.tone}>{status.label}</Status>
-          </span>
-          {/* Each fact reads label then value: the label stays muted and
-              the value is set in text colour, with a face for people, so
-              the eye finds who and when without parsing the line. */}
-          <span className="max-md:hidden">
-            {rich('projects.experimentPage.owner', {
-              name: (
-                <Person
-                  name={ownerName}
-                  userId={e.created_by_user_id}
-                  className="text-fg"
-                />
-              ),
+    >
+      <strong className="font-medium">
+        {reviewing
+          ? t('projects.experimentPage.reviewBand.title')
+          : t('projects.experimentPage.reviewBand.authorTitle', {
+              reviewers: waitingNames.join(', '),
             })}
-          </span>
-          {reviewerName ? (
-            <span className="max-md:hidden">
-              {rich('projects.experimentPage.reviewer', {
-                name: (
-                  <Person
-                    name={reviewerName}
-                    userId={e.reviewer_user_id}
-                    className="text-fg"
-                  />
-                ),
-              })}
-            </span>
-          ) : null}
-          <span className="max-lg:hidden">
-            {e.status === 'draft' || e.status === 'planned'
-              ? t('projects.experimentPage.notStarted')
-              : rich('projects.experimentPage.started', {
-                  date: (
-                    <span className="text-fg">{formatDate(e.created_at)}</span>
-                  ),
-                })}
-          </span>
-          {protocolLink ? (
-            <span className="max-lg:hidden">
-              {rich('projects.experimentPage.protocol', {
-                link: (
-                  <Link
-                    to="/protocols/$protocolId"
-                    params={{ protocolId: protocolLink.target_record_id ?? '' }}
-                    className="mono text-link"
-                  >
-                    {protocolLink.target_identifier}
-                  </Link>
-                ),
-              })}
-            </span>
-          ) : null}
-          {runningDay ? <span>{runningDay}</span> : null}
-          {e.planned_end ? (
-            <span>
-              {rich('projects.experimentPage.due', {
-                date: (
-                  <span className="text-fg">{formatDate(e.planned_end)}</span>
-                ),
-              })}
-            </span>
-          ) : null}
-        </>
-      }
-      actions={
-        <>
-          <ExperimentLifecycleActions
-            experiment={e}
-            canWrite={canWrite}
-            nextStep={nextStep}
-            reviewRevisionId={reviewRevisionId}
-          />
-          <PublishControl
-            workspaceId={workspaceId}
-            kind="experiment"
-            objectId={e.id}
-            defaultTitle={e.title}
-            canPublish={canWrite}
-          />
-          <AskAiButton />
-        </>
-      }
-      tabs={
-        <div className="flex flex-col gap-1.5">
-          <SeriesBar recordId={e.id} placement="header" />
-          <Tabs
-            mode="url"
-            label={t('projects.experimentPage.sections')}
-            items={[
-              {
-                label: t('projects.experimentPage.tabs.notebook'),
-                link: { to: '/experiments/$expId/notebook', params },
-              },
-              ...(seriesHead
-                ? [
-                    {
-                      label: t('projects.experimentPage.tabs.series'),
-                      link: {
-                        to: '/experiments/$expId/series' as const,
-                        params,
-                      },
-                    },
-                  ]
-                : []),
-              // A series parent shows its Series tab where Summary would
-              // be, so the row keeps five tabs and fits a phone.
-              ...(seriesHead
-                ? []
-                : [
-                    {
-                      label: t('projects.experimentPage.tabs.summary'),
-                      link: {
-                        to: '/experiments/$expId/summary' as const,
-                        params,
-                      },
-                    },
-                  ]),
-              {
-                label: t('projects.experimentPage.tabs.samples'),
-                count: <span className="max-md:hidden">{sampleCount}</span>,
-                link: { to: '/experiments/$expId/samples', params },
-              },
-              {
-                label: t('projects.experimentPage.tabs.data'),
-                count: <span className="max-md:hidden">{dataCount}</span>,
-                link: { to: '/experiments/$expId/data', params },
-              },
-              {
-                label: t('projects.experimentPage.tabs.review'),
-                link: { to: '/experiments/$expId/review', params },
-              },
-            ]}
-          />
-        </div>
-      }
-    />
+      </strong>{' '}
+      <span className="text-fg-muted max-md:hidden">
+        {reviewing
+          ? t('projects.experimentPage.reviewBand.body', {
+              name: ownerName,
+              date,
+            })
+          : t('projects.experimentPage.reviewBand.authorBody', { date })}
+      </span>
+    </RecordStateLine>
   )
 }

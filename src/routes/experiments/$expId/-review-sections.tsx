@@ -54,10 +54,6 @@ export function ReviewSections({
           link: { to: '/experiments/$expId/review/signatures', params },
         },
         {
-          label: t('projects.experimentPage.section.history'),
-          link: { to: '/experiments/$expId/review/history', params },
-        },
-        {
           label: t('projects.experimentPage.section.revisions'),
           link: { to: '/experiments/$expId/review/revisions', params },
         },

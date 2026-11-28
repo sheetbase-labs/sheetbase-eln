@@ -450,7 +450,7 @@ export const DESIGN_STATES: DesignState[] = bothThemes([
   },
   {
     screen: 'ExpHistory',
-    route: '/experiments/EXP-0142/review/history',
+    route: '/experiments/EXP-0142/history',
     state: rec('EXP-0142'),
   },
   { screen: 'ReviewRecord', route: '/review/EXP-0138', state: rec('EXP-0138') },

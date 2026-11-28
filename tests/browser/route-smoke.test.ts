@@ -72,6 +72,7 @@ const DETAIL_ROUTES: { sql: string; paths: string[] }[] = [
       '/experiments/{id}/data/plates',
       '/experiments/{id}/data/results',
       '/experiments/{id}/data/worklists',
+      '/experiments/{id}/history',
       '/experiments/{id}/notebook',
       '/experiments/{id}/review',
       '/experiments/{id}/review/history',

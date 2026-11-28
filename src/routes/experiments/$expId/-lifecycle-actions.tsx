@@ -63,6 +63,7 @@ import {
   useIsSeriesHead,
   useSeriesMembership,
 } from '#/lib/experiment-series'
+import { FollowMenuItem } from '#/components/record-page/record-page'
 import { t } from '#/copy'
 
 type ExperimentRow = NonNullable<ReturnType<typeof useExperimentRecord>['data']>
@@ -669,6 +670,7 @@ function LifecycleMenu({
         </DropdownMenuGroup>
         <DropdownMenuSeparator />
         <LifecycleManageItems
+          recordId={e.id}
           items={items}
           author={author}
           isDraft={isDraft}
@@ -686,6 +688,7 @@ function LifecycleMenu({
 
 /** The menu's Manage group: favourites, the series and the record's own states. */
 function LifecycleManageItems({
+  recordId,
   items,
   author,
   isDraft,
@@ -696,6 +699,7 @@ function LifecycleManageItems({
   favourite,
   onDialog,
 }: {
+  recordId: string
   items: (group: 'do' | 'share' | 'manage') => RecordAction[]
   author: boolean
   isDraft: boolean
@@ -724,6 +728,7 @@ function LifecycleManageItems({
           ? t('projects.favouriteToggle.remove')
           : t('projects.favouriteToggle.add')}
       </DropdownMenuItem>
+      <FollowMenuItem kind="record" objectId={recordId} />
       <RecordActionItems actions={items('manage')} />
       {author && !locked && !membership.inSeries && !seriesHead.isHead ? (
         <DropdownMenuItem

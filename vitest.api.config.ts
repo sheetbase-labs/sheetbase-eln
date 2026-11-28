@@ -12,7 +12,10 @@ export default defineConfig({
     silent: 'passed-only',
     environment: 'node',
     include: ['tests/api/**/*.test.ts'],
-    fileParallelism: false,
+    // Each file has its own database (copied from one migrated template) and
+    // its own PostgREST on free ports, so files run side by side.
+    fileParallelism: true,
+    maxWorkers: 4,
     sequence: { hooks: 'stack' },
     testTimeout: 30_000,
     hookTimeout: 60_000,

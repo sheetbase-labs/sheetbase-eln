@@ -49,7 +49,7 @@ export function signatureTests(...states: (typeof signatureStates)[number][]) {
       const seed = async () => {
         const result = await execute('pnpm', ['db:seed:design'], { env })
         expect(result.stdout).toContain(
-          'Seed complete: 93 step(s) applied idempotently.',
+          'Seed complete: 94 step(s) applied idempotently.',
         )
       }
       try {

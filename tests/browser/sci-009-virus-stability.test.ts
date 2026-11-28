@@ -495,18 +495,6 @@ test.beforeAll(async () => {
     2,
   )
   await insertBlock(
-    '65000000-0000-4000-8000-000000000922',
-    'table',
-    {
-      columns: ['Timepoint', 'Replicate', 'Volume', 'Storage'],
-      rows: [
-        ['Day 0', 1, '100 µL', '4 °C'],
-        ['Day 28', 1, '100 µL', '4 °C'],
-      ],
-    },
-    3,
-  )
-  await insertBlock(
     '65000000-0000-4000-8000-000000000923',
     'checklist',
     {

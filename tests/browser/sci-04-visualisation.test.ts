@@ -8,6 +8,7 @@ import { Client } from 'pg'
 import { expect, test } from 'playwright/test'
 
 import { signInAsDesignUser } from '../visual/sign-in'
+import { ensureOwnUser } from './own-user'
 
 config({ path: ['.env.local', '.env'] })
 
@@ -74,36 +75,8 @@ async function ensureActiveVersion(schemaId: string): Promise<string> {
   return svId
 }
 
-// The fixture user's *active* workspace is shared state: the design seed and other
-// specs move it, and the app reads this spec's dataset through it. Own it for the run
-// and put it back afterwards.
-let previousActiveWorkspace: string | null = null
-
-async function claimActiveWorkspace() {
-  const prior = await admin.query<{ active_workspace_id: string | null }>(
-    `SELECT active_workspace_id FROM api.user_preferences WHERE user_id=$1`,
-    [FIXTURE_USER_ID],
-  )
-  previousActiveWorkspace = prior.rows[0]?.active_workspace_id ?? null
-  await admin.query(
-    `INSERT INTO api.user_preferences(user_id, active_workspace_id) VALUES($1,$2)
-     ON CONFLICT (user_id) DO UPDATE SET active_workspace_id = excluded.active_workspace_id`,
-    [FIXTURE_USER_ID, FIXTURE_WORKSPACE_ID],
-  )
-}
-
-async function releaseActiveWorkspace() {
-  if (previousActiveWorkspace) {
-    await admin.query(
-      `UPDATE api.user_preferences SET active_workspace_id=$2 WHERE user_id=$1`,
-      [FIXTURE_USER_ID, previousActiveWorkspace],
-    )
-  } else {
-    await admin.query(`DELETE FROM api.user_preferences WHERE user_id=$1`, [
-      FIXTURE_USER_ID,
-    ])
-  }
-}
+/** This spec's own owner of the fixture workspace (see own-user.ts). */
+const OWNER = '7e570000-0000-4000-8000-000000000003'
 
 test.beforeAll(async () => {
   admin = new Client({
@@ -112,7 +85,11 @@ test.beforeAll(async () => {
   })
   await admin.connect()
   await deleteFixtureDatasets()
-  await claimActiveWorkspace()
+  await ensureOwnUser(admin, {
+    id: OWNER,
+    name: 'Visualisation owner',
+    workspaceId: FIXTURE_WORKSPACE_ID,
+  })
   const schemaId = await ensureSchema()
   const svId = await ensureActiveVersion(schemaId)
   const dsRes = await admin.query(
@@ -148,13 +125,12 @@ test.beforeAll(async () => {
 
 test.afterAll(async () => {
   await deleteFixtureDatasets()
-  await releaseActiveWorkspace()
   await admin.end()
 })
 
 test.describe('SCI-04 visualisation builder', () => {
   test('opens the chart builder and chart-type controls', async ({ page }) => {
-    await signInAsDesignUser(page, FIXTURE_USER_ID)
+    await signInAsDesignUser(page, OWNER)
     await page.goto(`/analysis/new?mode=chart&dataset=${datasetId}`)
     await expect(page.getByRole('tab', { name: 'Chart builder' })).toBeVisible({
       timeout: 15_000,

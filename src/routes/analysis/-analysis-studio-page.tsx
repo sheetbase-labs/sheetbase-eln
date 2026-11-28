@@ -78,7 +78,13 @@ import {
   CHART_TYPE_LABELS,
   formatScientific,
 } from '#/lib/chart-spec'
-import type { AxisScale, ChartRow, ChartSpec } from '#/lib/chart-spec'
+import { buildPackageDataset, supportsPackageFigure } from '#/lib/chart-package'
+import type {
+  AxisScale,
+  ChartRow,
+  ChartSpec,
+  MaterialisedChart,
+} from '#/lib/chart-spec'
 import {
   ANALYSIS_MAX_FILTERS,
   ANALYSIS_MAX_RESULT_ROWS,
@@ -512,9 +518,20 @@ function useAnalysisStudio() {
     )
   }
 
+  // Chart settings belong to a chart: none while analysing or comparing, and
+  // none until the chart builder has points to plot.
+  const hasChart = useMemo(
+    () =>
+      mode === 'chart' &&
+      spec !== null &&
+      chartHasPoints(spec, chart.analysisMaterialised),
+    [mode, spec, chart.analysisMaterialised],
+  )
+
   return {
     instanceId,
     chartConfigId,
+    hasChart,
     chartRoot,
     search,
     workspaceId,
@@ -582,7 +599,9 @@ export function AnalysisStudio() {
           returnTo={studio.search.returnTo}
           mode={studio.mode}
           onModeChange={studio.setMode}
-          hasInspector={Boolean(studio.selectedSource && studio.spec)}
+          hasInspector={Boolean(
+            studio.selectedSource && studio.spec && studio.hasChart,
+          )}
           inspectorOpen={studio.inspectorOpen}
           onOpenInspector={() => studio.setInspectorOpen(true)}
           chartDirty={studio.chartDirty}
@@ -638,6 +657,20 @@ export function AnalysisStudio() {
         onDelete={(id) => studio.deleteMutation.mutate(id)}
       />
     </div>
+  )
+}
+
+/** Whether the preview draws anything: the same test the chart itself makes. */
+function chartHasPoints(spec: ChartSpec, drawn: MaterialisedChart): boolean {
+  if (drawn.state.kind !== 'ok') return false
+
+  if (supportsPackageFigure(spec.type))
+    return buildPackageDataset(spec, drawn).rows.length > 0
+
+  return (
+    drawn.series.some((series) => series.points.length > 0) ||
+    Boolean(drawn.heatmap) ||
+    Boolean(drawn.bins)
   )
 }
 
@@ -711,13 +744,13 @@ function ChartModeSection({ studio }: { studio: AnalysisStudioState }) {
 
 /**
  * The chart-settings inspector beside the studio, and its narrow-screen
- * dialog: the same `AnalysisInspector` content either way, drawn only while a
- * source and a chart spec are selected.
+ * dialog: the same `AnalysisInspector` content either way, drawn only once the
+ * chart builder has a chart to set.
  */
 function StudioInspector({ studio }: { studio: AnalysisStudioState }) {
   const { selectedSource, spec } = studio
 
-  if (!selectedSource || !spec) return null
+  if (!selectedSource || !spec || !studio.hasChart) return null
 
   return (
     <InspectorPanel

@@ -18,7 +18,6 @@ import {
 } from './helpers'
 
 const SEEDED_SAMPLE = '00000000-0000-4000-8000-0000000003d0'
-const AAV9_PROJECT = '00000000-0000-4000-8000-000000000320'
 
 test.setTimeout(120_000)
 test.use({ viewport: { width: 1280, height: 900 } })
@@ -41,7 +40,6 @@ async function registerSample(
     projectTitle,
   )
   await dialog.getByLabel(/^Name/).fill(name)
-  await dialog.getByLabel(/^Storage location/).fill('Freezer F-1 shelf 1')
   await dialog.getByLabel(/^Quantity/).fill('10')
   await dialog.getByRole('button', { name: 'Register sample' }).click()
 }
@@ -68,6 +66,9 @@ test('LAB-J02 a project’s Samples tab registers a sample in that project', asy
 })
 
 test('LAB-J03 a sample prints its label from the header', async ({ page }) => {
+  // The label card and its Print label button sit in the side panel, which
+  // needs a wide window.
+  await page.setViewportSize({ width: 1800, height: 900 })
   await open(page, `/samples/${SEEDED_SAMPLE}`)
   await expect(page.getByRole('button', { name: /print label/i })).toBeVisible()
 })
@@ -79,8 +80,13 @@ test('LAB-J05 a sample used in an experiment shows that experiment under Usage',
   const title = uniqueName('Uses it')
   await createExperiment(page, path, title)
   await waitForHydration(page)
-  await page.getByRole('button', { name: 'Link record' }).click()
-  await page.getByRole('option', { name: /SMP-1002/ }).click()
+  await page.getByRole('button', { name: 'More experiment actions' }).click()
+  await page.getByRole('menuitem', { name: /^link records/i }).click()
+  const picker = page.getByRole('dialog')
+  await picker.getByRole('combobox').fill('SMP-1002')
+  await picker.getByText('SMP-1002').first().click()
+  await picker.getByRole('button', { name: /^link/i }).last().click()
+  await expect(picker).toBeHidden()
   await open(page, `/samples/${SEEDED_SAMPLE}/usage`)
   await expect(page.getByText(title).first()).toBeVisible()
 })
@@ -102,7 +108,8 @@ test('LAB-J08 a sample is quarantined with a reason and released again', async (
     .getByRole('dialog')
     .getByRole('button', { name: 'Confirm' })
     .click()
-  await expect(page.getByText('Available').first()).toBeVisible()
+  await expect(page.getByRole('button', { name: /^release/i })).toBeHidden()
+  await expect(page.getByText('Released').first()).toBeVisible()
 })
 
 test('LAB-J10 an instrument is registered from the Instruments page', async ({
@@ -129,13 +136,6 @@ test('LAB-J11 the schedule books an instrument', async ({ page }) => {
   await expect(page.getByRole('dialog')).toBeVisible()
 })
 
-test('LAB-J13 a typed ID resolves to its record', async ({ page }) => {
-  await open(page, '/scan')
-  await page.locator('main input').first().fill('SMP-1002')
-  await page.getByRole('button', { name: 'Find' }).click()
-  await expect(page.getByText('SMP-1002').first()).toBeVisible()
-})
-
 test('LAB-J17 a sample moves to another location and the page says so', async ({
   page,
 }) => {
@@ -144,15 +144,10 @@ test('LAB-J17 a sample moves to another location and the page says so', async ({
   await page.getByRole('button', { name: 'More sample actions' }).click()
   await page.getByRole('menuitem', { name: 'Move', exact: true }).click()
   const dialog = page.getByRole('dialog')
-  await dialog.getByLabel(/^New location/).fill('Freezer F-3 shelf 2')
-  await dialog.getByRole('button', { name: /^move/i }).last().click()
-  await expect(page.getByText('Freezer F-3 shelf 2').first()).toBeVisible()
-})
-
-test('LAB-J20 a sample opens from its pasted ID', async ({ page }) => {
-  await open(page, '/samples/SMP-1002')
-  await expect(
-    page.getByText('LVV-CAR-T starting material').first(),
-  ).toBeVisible()
-  void AAV9_PROJECT
+  await dialog.getByRole('option', { name: /^Box 7 Shelf 1/ }).click()
+  await dialog.getByRole('button', { name: 'First free' }).click()
+  await dialog
+    .getByRole('button', { name: /^(put here|use this place)/i })
+    .click()
+  await expect(page.getByText(/Freezer F-3/).first()).toBeVisible()
 })

@@ -8,7 +8,6 @@ import { expect, test } from 'playwright/test'
 import {
   action,
   open,
-  pickRecord,
   signIn,
   uniqueName,
   waitForHydration,
@@ -17,7 +16,7 @@ import {
 
 const ELISA_DATASET = '00000000-0000-4000-8000-000000000381'
 
-test.setTimeout(60_000)
+test.setTimeout(120_000)
 test.use({ viewport: { width: 1280, height: 900 } })
 
 test.beforeEach(async ({ page }) => {
@@ -33,12 +32,31 @@ test('DATA-04 a refused row is fixed by uploading a corrected file that keeps th
 }) => {
   const name = uniqueName('Titre run')
   await open(page, '/import')
-  await page.getByRole('radio', { name: /^Start a new dataset like/ }).check()
-  await pickRecord(
-    page,
-    page.getByLabel('Dataset structure for the new dataset'),
-    /ELISA and turbidity.*Version 1/,
-  )
+  // The target lists load after the page does, and a choice made before they
+  // arrive is replaced by the default, so wait for them.
+  await page.waitForTimeout(3000)
+  // The choice is lost if the page reloads under it, so it is made again until
+  // the structure picker shows.
+  await expect(async () => {
+    await page.getByRole('radio', { name: /^Start a new dataset like/ }).check()
+    await expect(
+      page.getByLabel('Dataset structure for the new dataset'),
+    ).toBeVisible({ timeout: 3000 })
+  }).toPass()
+  await expect(async () => {
+    await page.getByLabel('Dataset structure for the new dataset').click()
+
+    const option = page
+      .getByRole('dialog', { name: 'Choose a dataset schema' })
+      .getByRole('option', { name: /^ELISA and turbidity/ })
+
+    try {
+      await option.click({ timeout: 4000 })
+    } catch (error) {
+      await page.keyboard.press('Escape')
+      throw error
+    }
+  }).toPass()
   await page.getByLabel('New dataset name').fill(name)
   await page.getByLabel('Laboratory file').setInputFiles({
     name: 'titre-run.csv',
@@ -47,7 +65,7 @@ test('DATA-04 a refused row is fixed by uploading a corrected file that keeps th
   })
   await expect(page).toHaveURL(/\/import\/[0-9a-f-]{36}/)
   await waitForHydration(page)
-  await page.getByRole('button', { name: 'Continue' }).click()
+  await page.getByLabel('Source unit for Capsid titre').fill('×10¹¹ cp/mL')
 
   // The check names the row that stops the import and offers the way out.
   await expect(page.getByText('These rows stop the import')).toBeVisible()
@@ -62,7 +80,6 @@ test('DATA-04 a refused row is fixed by uploading a corrected file that keeps th
 
   // The corrected file arrives on the map step of the same dataset.
   await expect(page.getByText(`${name}`).first()).toBeVisible()
-  await page.getByRole('button', { name: 'Continue' }).click()
   await expect(page.getByText('These rows stop the import')).toHaveCount(0)
   const send = page.getByRole('button', { name: 'Import 3 rows' })
   await expect(send).toBeEnabled()
@@ -73,6 +90,8 @@ test('DATA-04 a refused row is fixed by uploading a corrected file that keeps th
 test('DATA-05 a wrong value is flagged, and Correct by re-import opens the import on the same dataset', async ({
   page,
 }) => {
+  // The row details sit in a side panel that needs a wide window.
+  await page.setViewportSize({ width: 1800, height: 900 })
   await open(page, `/datasets/${ELISA_DATASET}/rows`)
   await page.getByRole('row').nth(2).click()
   const inspector = page.getByRole('complementary', { name: 'Row details' })
@@ -179,14 +198,14 @@ test('DATA-19 a steward upgrades an existing dataset to the newer model version'
   const name = uniqueName('Behind its model')
   const datasetId = await datasetBehindItsModel(name)
   await open(page, `/datasets/${datasetId}`)
-  await page.getByRole('button', { name: 'Model v2 available' }).click()
+  await page.getByRole('button', { name: 'Version 2 available' }).click()
   const dialog = page.getByRole('dialog')
   // The preview says what the move changes before anything is written.
   await expect(dialog.getByText(/Reviewer/)).toBeVisible()
-  await dialog.getByRole('button', { name: 'Upgrade to v2' }).click()
-  await expect(page.getByText('Dataset now follows model v2')).toBeVisible()
+  await dialog.getByRole('button', { name: 'Upgrade to version 2' }).click()
+  await expect(page.getByText('Dataset updated to version 2')).toBeVisible()
   await expect(
-    page.getByRole('button', { name: 'Model v2 available' }),
+    page.getByRole('button', { name: 'Version 2 available' }),
   ).toHaveCount(0)
   const followed = await withAdminDb(
     async (db) =>

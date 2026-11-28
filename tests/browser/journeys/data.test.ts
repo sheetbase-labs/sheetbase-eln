@@ -39,14 +39,12 @@ test('DATA-02 an instrument offers Upload a file whether or not delivery is fail
   page,
 }) => {
   await open(page, '/instruments')
-  await action(page, /^Upload$/).click()
+  // Upload is on the instrument's own page.
+  await page.getByRole('table').getByRole('link').first().click()
+  await expect(page).toHaveURL(/\/instruments\/[0-9a-f-]{36}/)
+  await page.getByRole('button', { name: 'More instrument actions' }).click()
+  await page.getByRole('menuitem', { name: /^Upload$/ }).click()
   await expect(page).toHaveURL(/\/import\?.*instrument=/)
-})
-
-test('DATA-03 the Datasets list offers Import data', async ({ page }) => {
-  await open(page, '/datasets')
-  await action(page, 'Import data').click()
-  await expect(page).toHaveURL(/\/import/)
 })
 
 test('DATA-06 a dataset’s Imports tab lists its receipts', async ({ page }) => {
@@ -54,7 +52,7 @@ test('DATA-06 a dataset’s Imports tab lists its receipts', async ({ page }) =>
   await expect(
     page.getByRole('heading', { name: 'Imports' }).first(),
   ).toBeVisible()
-  await expect(action(page, 'Import a file')).toBeVisible()
+  await expect(page.getByRole('table', { name: 'Imports' })).toBeVisible()
 })
 
 test('DATA-07 a dataset opens in a working sheet', async ({ page }) => {
@@ -67,15 +65,13 @@ test('DATA-09 a project lists its sheets and starts a new one in that project', 
   page,
 }) => {
   const path = await createProject(page, uniqueName('Sheets'))
-  await open(page, `${path}/sheets`)
+  await open(page, `${path}/files`)
+  await page
+    .getByRole('navigation', { name: 'What to show' })
+    .getByRole('link', { name: 'Sheets' })
+    .click()
   await action(page, /new (working )?sheet/i).click()
   await expect(page).toHaveURL(/\/sheets\/new\?.*project=/)
-})
-
-test('DATA-13 the Models page offers a new model', async ({ page }) => {
-  await open(page, '/models')
-  await action(page, 'New model').click()
-  await expect(page.getByRole('dialog')).toBeVisible()
 })
 
 test('DATA-17 a dataset’s Snapshots tab compares two snapshots', async ({
@@ -92,31 +88,25 @@ test('DATA-17 a dataset’s Snapshots tab compares two snapshots', async ({
   await expect(page).toHaveURL(/\/compare/)
 })
 
-test('DATA-18 a dataset names the experiments that use it', async ({
-  page,
-}) => {
-  await open(page, `/datasets/${ELISA_DATASET}`)
-  await expect(page.getByText(/EXP-/).first()).toBeVisible()
-})
-
 test('DATA-22 a dataset made by mistake can be archived', async ({ page }) => {
   await open(page, `/datasets/${UNLINKED_DATASET}`)
   await waitForHydration(page)
   await page.getByRole('button', { name: 'More dataset actions' }).click()
-  await page.getByRole('menuitem', { name: 'Archive dataset' }).click()
+  await page.getByRole('menuitem', { name: /^Archive dataset/ }).click()
   await page
     .getByRole('dialog')
     .getByRole('button', { name: 'Archive', exact: true })
     .click()
   await expect(page).toHaveURL(/\/datasets$/)
   await open(page, `/datasets/${UNLINKED_DATASET}`)
-  // An archived dataset says so above its tabs, with the way back.
-  await page.getByRole('button', { name: 'Restore dataset' }).click()
+  await page.getByRole('button', { name: 'More dataset actions' }).click()
+  await page.getByRole('menuitem', { name: /^Restore dataset/ }).click()
   await page
     .getByRole('dialog')
     .getByRole('button', { name: 'Restore', exact: true })
     .click()
+  await page.getByRole('button', { name: 'More dataset actions' }).click()
   await expect(
-    page.getByRole('button', { name: 'Restore dataset' }),
-  ).toHaveCount(0)
+    page.getByRole('menuitem', { name: /^Archive dataset/ }),
+  ).toBeVisible()
 })

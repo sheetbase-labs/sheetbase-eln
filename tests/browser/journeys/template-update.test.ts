@@ -72,11 +72,13 @@ test('EXP-05 notebooks made from a template are moved to its new version togethe
   // A new version: edit, add a section, save, publish.
   await open(page, `/templates/${templateId}`)
   await waitForHydration(page)
-  await page.getByRole('button', { name: 'Edit' }).click()
-  await page.getByLabel('Section key').fill('deviations')
-  await page.getByPlaceholder('e.g. Pressure and ΔP').fill('Deviations')
-  await page.getByRole('button', { name: 'Add section' }).click()
-  await page.getByRole('button', { name: 'Save new version' }).click()
+  // The template is edited in place as a notebook; a change makes a draft.
+  await page.getByRole('textbox', { name: 'Text content' }).first().click()
+  await page.keyboard.type('Record any deviations from the plan.')
+  await page.getByRole('button', { name: /^Save as draft v2/ }).click()
+  await expect(
+    page.getByRole('button', { name: /^Save as draft v2/ }),
+  ).toHaveCount(0)
   await open(page, `/templates/${templateId}/versions`)
   await page.getByRole('button', { name: /^Publish v2/ }).click()
   const second = page.getByRole('dialog')

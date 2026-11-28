@@ -42,6 +42,8 @@ test('new project is created from the list and the list stays usable', async ({
       body: JSON.stringify(body),
     })
   })
+  // Columns drop out of a narrow window, so give the list room.
+  await page.setViewportSize({ width: 1800, height: 900 })
   await page.goto('/projects')
   await page
     .getByRole('button', { name: 'New project', exact: true })
@@ -78,15 +80,21 @@ test('new project is created from the list and the list stays usable', async ({
   ).toBeVisible()
   // The column menu is "Fields" with plain menu items (the design's Fields
   // dropdown); the old "Columns" menu and its "Created" column are gone.
-  await page.getByRole('button', { name: 'Fields', exact: true }).click()
-  await page.getByRole('menuitem', { name: 'Stage', exact: true }).click()
-  await expect(
-    page.getByRole('columnheader', { name: 'Stage', exact: true }),
-  ).toHaveCount(0)
-  await page.getByRole('menuitem', { name: 'Stage', exact: true }).click()
-  await expect(
-    page.getByRole('columnheader', { name: 'Stage', exact: true }),
-  ).toBeVisible()
+  // Choosing a field in the menu flips its column, and choosing it again
+  // puts it back. The menu closes after each choice.
+  const stage = page.getByRole('columnheader', { name: 'Stage', exact: true })
+  const shownBefore = (await stage.count()) > 0
+  const flipStage = async () => {
+    const item = page.getByRole('menuitem', { name: 'Stage', exact: true })
+    if (!(await item.isVisible())) {
+      await page.getByRole('button', { name: 'Fields', exact: true }).click()
+    }
+    await item.click()
+  }
+  await flipStage()
+  await expect(stage).toHaveCount(shownBefore ? 0 : 1)
+  await flipStage()
+  await expect(stage).toHaveCount(shownBefore ? 1 : 0)
   await page.keyboard.press('Escape')
   await page
     // The shell's nav landmark is labelled "Main" (src/components/shell/app-shell.tsx:294
@@ -116,7 +124,7 @@ test('new project is created from the list and the list stays usable', async ({
   // widest control there, and every control stays inside the viewport.
   const searchBox = await search.boundingBox()
   const sortBox = await page
-    .getByRole('button', { name: 'Sort', exact: true })
+    .getByRole('button', { name: /^Sort/ })
     .boundingBox()
   if (!searchBox || !sortBox) throw new Error('Phone toolbar did not render')
   expect(searchBox.width).toBeGreaterThan(sortBox.width)

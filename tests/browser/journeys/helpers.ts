@@ -135,6 +135,7 @@ export async function createProject(
   title: string,
 ): Promise<string> {
   await open(page, '/projects?new=true')
+  await waitForHydration(page)
   await page
     .getByLabel(/^title|^name/i)
     .first()

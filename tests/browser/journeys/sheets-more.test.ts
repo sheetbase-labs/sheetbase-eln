@@ -20,6 +20,7 @@ import {
 } from './helpers'
 
 const DESIGN_WORKSPACE = '00000000-0000-4000-8000-000000000300'
+const DESIGN_USER = '00000000-0000-4000-8000-000000000310'
 
 test.setTimeout(60_000)
 test.use({ viewport: { width: 1280, height: 900 } })
@@ -35,9 +36,13 @@ function table(column = 'Titre'): string {
 }
 
 /** Start a sheet in a new project from a pasted table; returns its address. */
-async function sheetFromPaste(page: Page, column = 'Titre'): Promise<string> {
+async function sheetFromPaste(
+  page: Page,
+  column = 'Titre',
+): Promise<{ sheet: string; projectId: string }> {
   const project = await createProject(page, uniqueName('Scratch'))
-  await open(page, `/sheets/new?project=${project.split('/').pop()}`)
+  const projectId = project.split('/').pop() ?? ''
+  await open(page, `/sheets/new?project=${projectId}`)
   await page.getByLabel('Paste a table into it').click()
   await page.getByRole('button', { name: 'Create sheet and paste' }).click()
   await expect(page).toHaveURL(/\/sheets\/[0-9a-f-]{36}/)
@@ -52,7 +57,13 @@ async function sheetFromPaste(page: Page, column = 'Titre'): Promise<string> {
   await expect(
     page.getByText('Pasted 3 rows into 3 new local columns.'),
   ).toBeVisible()
-  return new URL(page.url()).pathname
+  return { sheet: new URL(page.url()).pathname, projectId }
+}
+
+/** The sheet's wiring (sources, extract, upgrade) sits behind Details. */
+async function showDetails(page: Page) {
+  await page.getByRole('button', { name: 'More sheet tools' }).click()
+  await page.getByRole('menuitem', { name: 'Details', exact: true }).click()
 }
 
 /** Choose an entry of a sheet column's menu. */
@@ -69,7 +80,7 @@ async function columnMenu(page: Page, column: string, entry: string) {
 test('DATA-08 a pasted table becomes local columns in a new sheet', async ({
   page,
 }) => {
-  const sheet = await sheetFromPaste(page)
+  const { sheet } = await sheetFromPaste(page)
   await waitForHydration(page)
   await page.reload()
   await expect(page).toHaveURL(new RegExp(sheet))
@@ -87,7 +98,7 @@ test('DATA-10 a local column is promoted into a dataset when a steward approves 
   const model = uniqueName('Titre readings')
   await createPublishedModel(model)
   const column = `Titre${Date.now().toString(36)}`
-  const sheet = await sheetFromPaste(page, column)
+  const { sheet, projectId } = await sheetFromPaste(page, column)
   await columnMenu(page, column, 'Add to dataset…')
   const dialog = page.getByRole('dialog')
   await pickRecord(
@@ -107,6 +118,13 @@ test('DATA-10 a local column is promoted into a dataset when a steward approves 
     db.query(
       `insert into api.workspace_memberships(workspace_id, user_id, role) values ($1, $2, 'steward')`,
       [DESIGN_WORKSPACE, steward.id],
+    ),
+  )
+  // The steward reads the sheet through the project, so joins it as an editor.
+  await withAdminDb((db) =>
+    db.query(
+      `insert into api.project_access(workspace_id, project_id, user_id, access_level, can_view, can_edit, can_review, can_manage, granted_by_user_id) values ($1, $2, $3, 'editor', true, true, true, false, $4)`,
+      [DESIGN_WORKSPACE, projectId, steward.id, DESIGN_USER],
     ),
   )
   await signInAs(page, steward)
@@ -133,11 +151,12 @@ test('DATA-11 a sheet with local columns only is told how to keep its data', asy
   page,
 }) => {
   await sheetFromPaste(page)
+  await showDetails(page)
   await page
     .getByRole('button', { name: 'Link data and reuse this sheet' })
     .click()
   await page.getByLabel('Dataset name').fill(uniqueName('Kept readings'))
-  await page.getByRole('button', { name: 'Preview' }).click()
+  await page.getByRole('button', { name: 'Preview' }).last().click()
   // The refusal names the way that works, not a server code.
   await expect(page.getByRole('alert')).toContainText(
     'add a column to a dataset',
@@ -148,6 +167,7 @@ test('DATA-12 a sheet with no reference column is told why it cannot become a de
   page,
 }) => {
   await sheetFromPaste(page)
+  await showDetails(page)
   await page
     .getByRole('button', { name: 'Link data and reuse this sheet' })
     .click()

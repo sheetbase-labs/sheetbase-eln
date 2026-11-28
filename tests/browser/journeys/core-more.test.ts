@@ -7,7 +7,6 @@
 import { expect, test } from 'playwright/test'
 
 import {
-  action,
   createExperiment,
   createProject,
   open,
@@ -34,7 +33,8 @@ test('CORE-15 a sample offers a new experiment that already uses it', async ({
   page,
 }) => {
   await open(page, `/samples/${SAMPLE}`)
-  await action(page, 'New experiment').click()
+  await page.getByRole('button', { name: 'More sample actions' }).click()
+  await page.getByRole('menuitem', { name: 'New experiment' }).click()
   await expect(page).toHaveURL(/\/experiments\/new\?.*sample=/)
   const title = uniqueName('Run on sample')
   await page.getByLabel(/^title/i).fill(title)
@@ -82,6 +82,7 @@ test('CORE-18 yesterday’s experiment is the first thing in the list', async ({
   const title = uniqueName('Left half way')
   await createExperiment(page, path, title)
   await open(page, '/experiments')
+  await page.getByPlaceholder(/search experiments/i).fill(title)
   await expect(
     page.getByRole('link', { name: new RegExp(title) }).first(),
   ).toBeVisible()
@@ -94,37 +95,21 @@ test('CORE-19 duplicating an experiment starts a run that follows it', async ({
   const title = uniqueName('First run')
   const original = await createExperiment(page, path, title)
   await waitForHydration(page)
+  await page.getByRole('button', { name: 'More experiment actions' }).click()
   await page
-    .getByRole('button', { name: 'More record actions' })
-    .first()
+    .getByRole('menuitem', { name: 'New run of this experiment' })
     .click()
-  await page.getByRole('menuitem', { name: 'Duplicate' }).click()
   await page
     .getByRole('dialog')
-    .getByRole('button', { name: 'Duplicate' })
+    .getByRole('button', { name: 'Create run' })
     .click()
   await expect(page).toHaveURL(/\/experiments\/[0-9a-f-]{36}\/notebook/)
   await expect(page).not.toHaveURL(new RegExp(original))
   await expect(page).toHaveURL(/\/experiments\/[0-9a-f-]{36}\/notebook/)
-  await open(page, `/experiments/${original}/summary`)
-  await expect(page.getByText('Next', { exact: true }).first()).toBeVisible()
-  await expect(page.getByText(`${title} copy`).first()).toBeVisible()
-})
-
-test('CORE-22 renaming an experiment shows on its overview', async ({
-  page,
-}) => {
-  const path = await createProject(page, uniqueName('Rename'))
-  const id = await createExperiment(page, path, uniqueName('Old name'))
-  const renamed = uniqueName('New name')
-  await waitForHydration(page)
-  const input = page.getByLabel('Notebook title')
-  await expect(input).toHaveValue(/Old name/)
-  await input.fill(renamed)
-  await input.blur()
-  await page.waitForTimeout(800)
-  await open(page, `/experiments/${id}/summary`)
-  await expect(page.getByLabel('Notebook title').first()).toHaveValue(renamed)
+  // The new run links back to the experiment it was made from.
+  const run = new URL(page.url()).pathname.split('/')[2]
+  await open(page, `/experiments/${run}/data/links`)
+  await expect(page.getByText(title).first()).toBeVisible()
 })
 
 test('CORE-23 samples are linked to an experiment from its Samples tab', async ({

@@ -272,14 +272,29 @@ describe('steps that read alike are one line', () => {
     const items = groupSteps([
       ...searches.slice(0, 2),
       call(
-        'sheetbase.search',
-        { query: 'x' },
+        'sheetbase.booking.create',
+        { instrument: 'x' },
         { state: 'failed', error: 'No.' },
       ),
       call('sheetbase.search', { query: 'y' }, { state: 'running' }),
     ])
 
     expect(items.map((item) => item.calls.length)).toEqual([2, 1, 1])
+  })
+
+  it('leaves a failed lookup out: the assistant retries or says so itself', () => {
+    const items = groupSteps([
+      call(
+        'sheetbase.canonical.read',
+        { resource: 'review_submissions' },
+        { state: 'failed', error: "Filter 'x' is not a readable column." },
+      ),
+      call('sheetbase.blockers.read', { record: 'EXP-0142' }),
+    ])
+
+    expect(items.map((item) => itemLine(item))).toEqual([
+      'Checked what holds up EXP-0142',
+    ])
   })
 
   it('does not merge different kinds of step', () => {

@@ -2,7 +2,6 @@
 
 import { Link } from '@tanstack/react-router'
 import type { LinkProps } from '@tanstack/react-router'
-import { useMemo } from 'react'
 
 import { RecordHistoryTimeline } from '#/components/audit/record-history-timeline'
 import { useRecordModelTimeline } from '#/components/models/models-data'
@@ -12,9 +11,10 @@ import { Badge } from '#/components/ui/badge'
 import { Button } from '#/components/ui/button'
 import { InspectorSection } from '#/components/ui/layout'
 import type { RelatedWorkKind } from '#/lib/related-work'
-import { recentActivityGroups } from '#/lib/record-activity'
-import { useUserNames } from '#/lib/user-names'
+import type { ActivityDay } from '#/lib/record-activity'
 import { t } from '#/copy'
+
+import { useRecordActivity } from './use-record-activity'
 
 /** One of the record's other fields, as the side panel lists it. */
 export interface RecordProperty {
@@ -133,6 +133,53 @@ export function RecordLinks({
 }
 
 /**
+ * Activity grouped by day: what happened, to what, by whom and when. Every
+ * activity list on a record or project page reads through this one.
+ */
+export function ActivityList({
+  groups,
+  loading,
+}: {
+  groups: readonly ActivityDay[]
+  loading: boolean
+}) {
+  if (loading)
+    return (
+      <p className="text-label text-fg-muted">{t('common.states.loading')}</p>
+    )
+
+  if (groups.length === 0)
+    return (
+      <p className="text-label text-fg-muted">
+        {t('notebook.recordPage.noActivity')}
+      </p>
+    )
+
+  return (
+    <div data-record-activity className="flex flex-col gap-3">
+      {groups.map((group) => (
+        <section key={group.day} className="flex flex-col gap-1.5">
+          <h3 className="text-label text-fg-muted">{group.label}</h3>
+          <ul className="flex flex-col gap-1.5">
+            {group.items.map((entry) => (
+              <li key={entry.id} className="text-label leading-5 text-fg">
+                {entry.title}
+                {entry.target ? (
+                  <span className="text-fg-muted"> · {entry.target}</span>
+                ) : null}
+                <span className="block text-fg-muted">
+                  {entry.actor ? `${entry.actor} · ${entry.when}` : entry.when}
+                </span>
+              </li>
+            ))}
+          </ul>
+        </section>
+      ))}
+    </div>
+  )
+}
+
+/**
  * The record's last few events, grouped by day, with a way to the whole
  * history in the History tab.
  */
@@ -147,19 +194,7 @@ export function RecordActivity({
   /** Opens the History tab, for a page whose tabs are in-page. */
   onShowHistory?: () => void
 }) {
-  const timeline = useRecordModelTimeline(recordId)
-  const events = timeline.data ?? []
-
-  const actorIds = useMemo(
-    () =>
-      (timeline.data ?? []).flatMap((event) =>
-        event.actorUserId ? [event.actorUserId] : [],
-      ),
-    [timeline.data],
-  )
-
-  const { names } = useUserNames(actorIds)
-  const { groups, total } = recentActivityGroups(events, (id) => names[id])
+  const { groups, total, loading } = useRecordActivity(recordId)
 
   const allHistory =
     total > 0 && historyLink ? (
@@ -177,36 +212,7 @@ export function RecordActivity({
       title={t('notebook.recordPage.activity')}
       action={allHistory}
     >
-      {timeline.isLoading ? (
-        <p className="text-label text-fg-muted">{t('common.states.loading')}</p>
-      ) : groups.length === 0 ? (
-        <p className="text-label text-fg-muted">
-          {t('notebook.recordPage.noActivity')}
-        </p>
-      ) : (
-        <div data-record-activity className="flex flex-col gap-3">
-          {groups.map((group) => (
-            <section key={group.day} className="flex flex-col gap-1.5">
-              <h3 className="text-label text-fg-muted">{group.label}</h3>
-              <ul className="flex flex-col gap-1.5">
-                {group.items.map((event) => (
-                  <li key={event.id} className="text-label leading-5 text-fg">
-                    {event.title}
-                    {event.target ? (
-                      <span className="text-fg-muted"> · {event.target}</span>
-                    ) : null}
-                    {event.actor ? (
-                      <span className="block text-fg-muted">
-                        {event.actor.name} · {event.timestamp}
-                      </span>
-                    ) : null}
-                  </li>
-                ))}
-              </ul>
-            </section>
-          ))}
-        </div>
-      )}
+      <ActivityList groups={groups} loading={loading} />
     </InspectorSection>
   )
 }

@@ -839,7 +839,7 @@ export const SCHEMA_OPERATIONS = defineOperations([
       EXPECTED_REVISION,
       note(
         input('p_definition', 'json'),
-        'The whole definition, the same shape `record_model_versions.definition` holds.',
+        'The whole definition, the same shape `record_model_versions.definition` holds. A field with `show_in_header: true` is said in the header of each record of the type, at most four.',
       ),
       input('p_reason', 'text'),
     ],

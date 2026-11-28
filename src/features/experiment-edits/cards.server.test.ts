@@ -553,6 +553,53 @@ describe('editing a field of a draft version', () => {
     })
   })
 
+  it('puts a field in each record’s header, and refuses a fifth', async () => {
+    const proposal = await card(
+      MODEL_FIELD_EDIT_TOOL,
+      { model: 'Experiment', field: 'passage', header: true, reason: 'x' },
+      tables,
+    )
+
+    expect(proposal.action).toMatchObject({
+      params: {
+        p_definition: {
+          fields: [
+            { label: 'Cell line' },
+            { label: 'Passage', show_in_header: true },
+          ],
+        },
+      },
+    })
+
+    const full = {
+      ...tables,
+      record_model_versions: [
+        {
+          ...tables.record_model_versions[0],
+          definition: {
+            fields: [
+              ...['a', 'b', 'c', 'd'].map((name) => ({
+                label: name,
+                field_name: name,
+                nullable: true,
+                show_in_header: true,
+              })),
+              { label: 'Passage', field_name: 'passage', nullable: true },
+            ],
+          },
+        },
+      ],
+    }
+
+    expect(
+      await refusal(
+        MODEL_FIELD_EDIT_TOOL,
+        { model: 'Experiment', field: 'passage', header: true, reason: 'x' },
+        full,
+      ),
+    ).toMatch(/already shows 4 fields/)
+  })
+
   it('asks for a draft version first', async () => {
     expect(
       await refusal(

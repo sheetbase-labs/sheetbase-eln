@@ -46,6 +46,11 @@ export interface RecordLinkProps {
   density?: RowDensity
   /** Hover detail for the row — e.g. when and by whom the link was made. */
   detail?: string
+  /**
+   * Say the kind in the line under the title instead of above it, for a list
+   * of mixed kinds in a side panel where a label over every row reads as noise.
+   */
+  typeInMeta?: boolean
   className?: string
 }
 
@@ -97,6 +102,7 @@ export function RecordLink({
   actions,
   density = 'card',
   detail,
+  typeInMeta = false,
   className,
 }: RecordLinkProps) {
   const unavailable = state !== 'available'
@@ -127,9 +133,15 @@ export function RecordLink({
           )}
         </span>
       }
-      eyebrow={type}
+      eyebrow={typeInMeta ? undefined : type}
       title={<span className={stateInfo?.className}>{title}</span>}
-      meta={stateInfo ? stateInfo.label : meta}
+      meta={
+        stateInfo
+          ? stateInfo.label
+          : typeInMeta
+            ? [type, meta].filter(Boolean).join(' · ')
+            : meta
+      }
       trailing={
         <>
           {actions ? (

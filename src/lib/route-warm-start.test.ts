@@ -208,15 +208,36 @@ describe('warm start', () => {
     ])
   })
 
-  it('does not warm a list page, which has no record of its own', () => {
-    const { install, go, ask, warm } = setup()
+  it('warms a page with no record of its own with exactly what it asked for last time', () => {
+    const { primed, install, go, ask, warm } = setup()
 
     install()
-    go('/experiments')
+    go('/')
     ask(get('/records?kind=eq.experiment'))
+    // A page of its own keeps reads that name ids: they are asked again as
+    // they are, never filled in for another record.
+    ask(get(`/projects?id=eq.${PROJECT}`))
     vi.advanceTimersByTime(7000)
 
+    expect(warm.warmStart('/')).toBe(2)
+    expect(primed.map((read) => read.path)).toEqual([
+      '/records?kind=eq.experiment',
+      `/projects?id=eq.${PROJECT}`,
+    ])
     expect(warm.warmStart('/experiments')).toBe(0)
+  })
+
+  it('learns the page the app opens on, which no navigation reports', () => {
+    const first = setup()
+
+    first.install('/')
+    first.ask(get('/my_profile'))
+    vi.advanceTimersByTime(7000)
+
+    const next = setup(first.storage)
+
+    next.install('/')
+    expect(next.primed.map((read) => read.path)).toEqual(['/my_profile'])
   })
 
   it('ignores a navigation that only changes the search', () => {

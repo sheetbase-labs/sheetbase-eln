@@ -1,5 +1,5 @@
 /**
- * Warm start for record pages. A record page asks for the same few dozen reads
+ * Warm start for pages. A record page asks for the same few dozen reads
  * every time it opens (the record, its links, its signatures, its review state
  * …), but only asks once its code has loaded and the record it needs has
  * arrived, so the reads queue up in waves. This module remembers which reads
@@ -22,7 +22,7 @@ import { z } from 'zod'
 import { observeReads, primeRead } from './data-client'
 import type { ReadSpec } from './data-client'
 
-const STORAGE_KEY = 'sheetbase.warm-start.v1'
+export const STORAGE_KEY = 'sheetbase.warm-start.v1'
 
 /** How long after a page opens its reads are noted. */
 const LEARN_WINDOW_MS = 6000
@@ -30,8 +30,10 @@ const LEARN_WINDOW_MS = 6000
 const MAX_READS_PER_PAGE = 120
 const MAX_PAGES = 40
 
-const UUID = /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i
-const IDENTIFIER = /^[A-Z]{2,6}-\d{1,8}$/
+export const UUID =
+  /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i
+
+export const IDENTIFIER = /^[A-Z]{2,6}-\d{1,8}$/
 
 const readSpec = z.object({
   method: z.enum(['GET', 'POST']),
@@ -55,7 +57,7 @@ export interface PagePattern {
 
 /**
  * Each id in the path becomes `:id`, so every experiment is one kind of page. A
- * path with no id is not a record page.
+ * path with no id (Home, a list) is a page of its own.
  */
 export function pagePattern(pathname: string): PagePattern {
   const subjects: string[] = []
@@ -83,8 +85,15 @@ export function pagePattern(pathname: string): PagePattern {
 
 const mark = (index: number) => `\u0001${index}\u0001`
 
-/** A read with the page's own ids taken out, or null when it names anything else. */
+/**
+ * A read with the page's own ids taken out, or null when it names anything
+ * else. A page with no id of its own (Home, a list) is the same page every
+ * time, so its reads are kept as they were, ids and all: they are only ever
+ * used by that page asking for exactly the same thing again.
+ */
 function templateOf(read: ReadSpec, subjects: string[]): ReadSpec | null {
+  if (subjects.length === 0) return read
+
   const blank = (text: string) =>
     subjects.reduce(
       (out, subject, index) => out.split(subject).join(mark(index)),
@@ -207,8 +216,6 @@ export function createWarmStart(deps: WarmStartDeps) {
    */
   function warmPage(pathname: string): number {
     const { pattern, subjects } = pagePattern(pathname)
-
-    if (subjects.length === 0) return 0
     const store = load()
     const templates = store.templates[store.aliases[pattern] ?? pattern] ?? []
     let started = 0
@@ -229,7 +236,6 @@ export function createWarmStart(deps: WarmStartDeps) {
     finishLearning()
     const page = pagePattern(pathname)
 
-    if (page.subjects.length === 0) return
     learning = {
       ...page,
       reads: new Map(),
@@ -241,6 +247,10 @@ export function createWarmStart(deps: WarmStartDeps) {
   function install(router: WarmStartRouter, firstPathname: string): void {
     deps.observe(noteRead)
     warmPage(firstPathname)
+    // The page the app opens on is learned too: it is the one a person opens
+    // most (Home, or the page they were on), and only a navigation inside the
+    // app reports itself below.
+    startLearning(firstPathname)
 
     router.subscribe('onBeforeNavigate', (event) => {
       if (!event.pathChanged) return
@@ -301,4 +311,63 @@ export function installWarmStart(
 
   warm.install(router, firstPathname)
   window.addEventListener('pagehide', warm.finishLearning)
+  warmOnRest(document, (pathname) => warm.warmStart(pathname))
+}
+
+/** How long the pointer rests on a link to a record before its reads start. */
+export const REST_MS = 150
+
+/** A record page warmed by a rest is not warmed again for this long. */
+const REWARM_MS = 10_000
+
+/**
+ * Starts a record page's known reads when the pointer rests on a link to it,
+ * so a row that is about to be opened has its answers on the way. Only links
+ * to record pages, only after a short rest (a pointer sweeping down a list
+ * starts nothing), and each page at most once in a while.
+ */
+export function warmOnRest(
+  root: Pick<EventTarget, 'addEventListener'>,
+  warm: (pathname: string) => void,
+  now: () => number = Date.now,
+): void {
+  let timer: ReturnType<typeof setTimeout> | null = null
+  const warmed = new Map<string, number>()
+
+  const cancel = () => {
+    if (timer) clearTimeout(timer)
+    timer = null
+  }
+
+  root.addEventListener(
+    'pointerover',
+    (event) => {
+      cancel()
+
+      const link =
+        event.target instanceof Element
+          ? event.target.closest<HTMLAnchorElement>('a[href]')
+          : null
+
+      if (!link || link.origin !== window.location.origin) return
+      const { pathname } = link
+
+      if (
+        pathname === window.location.pathname ||
+        pagePattern(pathname).subjects.length === 0
+      )
+        return
+
+      timer = setTimeout(() => {
+        timer = null
+        const last = warmed.get(pathname)
+
+        if (last !== undefined && now() - last < REWARM_MS) return
+        warmed.set(pathname, now())
+        warm(pathname)
+      }, REST_MS)
+    },
+    { passive: true },
+  )
+  root.addEventListener('pointerout', cancel, { passive: true })
 }

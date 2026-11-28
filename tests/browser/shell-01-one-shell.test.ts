@@ -58,8 +58,12 @@ test('the project files tab opens the sidebar as a drawer at 390', async ({
   // A phone has no room for a rail, so the same sidebar opens from the header.
   await expect(page.locator(iconRail)).toBeHidden()
   await expect(page.locator(sideNav)).toBeHidden()
-  await page.getByRole('button', { name: 'Open navigation' }).click()
   const drawer = page.getByRole('dialog')
+  // A press before the page has hydrated does nothing, so press until it opens.
+  await expect(async () => {
+    await page.getByRole('button', { name: 'Open navigation' }).click()
+    await expect(drawer).toBeVisible({ timeout: 2_000 })
+  }).toPass()
   // The same destinations the wide sidebar lists.
   for (const label of ['Home', 'Inbox', 'Projects', 'Settings']) {
     await expect(drawer.getByRole('link', { name: label })).toBeVisible()

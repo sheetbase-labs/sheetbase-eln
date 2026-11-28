@@ -164,10 +164,16 @@ const validateSearch = DetailRoute.options.validateSearch as (
   search: DetailSearchInput,
 ) => { view?: string }
 
+// Every client a test makes, so `afterEach` can clear it: a client left alone
+// keeps a batched notification timer that can fire after this file's DOM is gone.
+const clients: QueryClient[] = []
+
 function renderRoute(component: React.ComponentType) {
   const client = new QueryClient({
     defaultOptions: { queries: { retry: false } },
   })
+
+  clients.push(client)
 
   return render(
     <QueryClientProvider client={client}>
@@ -182,8 +188,14 @@ beforeEach(() => {
   fixtures.routerState.pathname = '/datasets/ds-1'
 })
 
-afterEach(() => {
+afterEach(async () => {
   cleanup()
+
+  for (const client of clients.splice(0)) client.clear()
+
+  // Let React Query's batched notifications run while the DOM still exists.
+  await new Promise((resolve) => setTimeout(resolve, 0))
+
   vi.clearAllMocks()
 })
 

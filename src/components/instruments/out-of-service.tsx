@@ -444,7 +444,7 @@ export function ServiceLogSection({
       id: 'date',
       header: t('library.instruments.serviceLog.date'),
       cell: ({ row }) => (
-        <span className="mono">
+        <span className="num">
           {formatInstrumentDay(row.original.visitedOn)}
         </span>
       ),

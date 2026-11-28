@@ -35,7 +35,7 @@ export function calibrationColumnsOf(
       id: 'performed',
       header: 'Performed',
       cell: ({ row }) => (
-        <span className="mono">
+        <span className="num">
           {formatInstrumentDay(row.original.performedAt)}
         </span>
       ),
@@ -44,7 +44,7 @@ export function calibrationColumnsOf(
       id: 'due',
       header: 'Due',
       cell: ({ row }) => (
-        <span className="mono">{formatInstrumentDay(row.original.dueAt)}</span>
+        <span className="num">{formatInstrumentDay(row.original.dueAt)}</span>
       ),
     },
     {
@@ -186,7 +186,7 @@ export function qualificationColumnsOf({
       id: 'validUntil',
       header: t('library.instruments.record.validUntil'),
       cell: ({ row }) => (
-        <span className="mono">
+        <span className="num">
           {formatInstrumentDay(row.original.valid_until)}
         </span>
       ),

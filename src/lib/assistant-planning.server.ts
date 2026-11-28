@@ -1227,14 +1227,13 @@ export async function buildPlanningProposal(
         const { TEMPLATE_USE_TOOL } =
           await import('#/features/template-versions/cards')
 
-        const use: Record<string, string> = {
+        const use = {
           title: input.title,
           summary: input.summary,
           template: input.template,
           project: input.project,
+          name: input.experimentTitle,
         }
-
-        if (input.experimentTitle) use['name'] = input.experimentTitle
 
         return buildTemplateVersionsProposal(TEMPLATE_USE_TOOL, use, context)
       }

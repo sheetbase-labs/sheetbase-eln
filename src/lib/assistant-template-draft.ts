@@ -170,6 +170,7 @@ export function buildTemplateConfiguration(
   for (const part of input.parts ?? []) partFor(part.title, part.dayOffset)
 
   const placements: NotebookTemplateConfiguration['placements'] = []
+
   let stepList: { partId: string | undefined; items: ChecklistItem[] } | null =
     null
 

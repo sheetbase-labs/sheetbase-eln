@@ -65,6 +65,20 @@ export interface RecordPageProps {
    * comfortable measure), so the body adds none.
    */
   flush?: boolean
+  /**
+   * The tab content owns its scrolling and panes (a notebook with its own
+   * outline and inspector), so the body only fills the space.
+   */
+  fill?: boolean
+  /** A phone header that folds to the title and actions as you scroll. */
+  compact?: boolean
+  /** A row that belongs with the tabs, such as a series' runs. */
+  aboveTabs?: React.ReactNode
+  /**
+   * The actions bring their own ⋯ menu (an experiment's lifecycle), which
+   * then holds `FollowMenuItem` for a phone; the page adds no second one.
+   */
+  actionsOwnMenu?: boolean
   children: React.ReactNode
 }
 
@@ -104,6 +118,10 @@ export function RecordPage({
   sideLabel,
   overlays,
   flush = false,
+  fill = false,
+  compact = false,
+  aboveTabs,
+  actionsOwnMenu = false,
   children,
 }: RecordPageProps) {
   return (
@@ -116,6 +134,7 @@ export function RecordPage({
         title={title}
         paneTitle={paneTitle}
         wrapTitle
+        compact={compact}
         meta={
           <RecordMeta
             identifier={identifier}
@@ -125,23 +144,37 @@ export function RecordPage({
           />
         }
         actions={
-          <RecordActions
-            actions={actions}
-            more={more}
-            moreLabel={moreLabel}
-            followKind={followKind}
-            recordId={recordId}
-          />
+          actionsOwnMenu ? (
+            actions
+          ) : (
+            <RecordActions
+              actions={actions}
+              more={more}
+              moreLabel={moreLabel}
+              followKind={followKind}
+              recordId={recordId}
+            />
+          )
         }
         notice={stateLine}
-        tabs={<Tabs {...withoutZeroCounts(tabs)} />}
+        tabs={
+          aboveTabs ? (
+            <div className="flex flex-col gap-1.5">
+              {aboveTabs}
+              <Tabs {...withoutZeroCounts(tabs)} />
+            </div>
+          ) : (
+            <Tabs {...withoutZeroCounts(tabs)} />
+          )
+        }
       />
       <div className="flex min-h-0 flex-1">
         <div
           data-record-page-body
           className={cn(
-            'flex min-w-0 flex-1 flex-col overflow-auto',
-            !flush && 'gap-6 px-4 py-5 md:px-6',
+            'flex min-w-0 flex-1',
+            fill ? 'min-h-0' : 'flex-col overflow-auto',
+            !flush && !fill && 'gap-6 px-4 py-5 md:px-6',
           )}
         >
           {children}
@@ -239,7 +272,7 @@ function RecordActions({
  * A phone shows one page with no pane header, so the bell the header carries
  * on a computer is the last item of the ⋯ menu there.
  */
-function FollowMenuItem({
+export function FollowMenuItem({
   kind,
   objectId,
 }: {

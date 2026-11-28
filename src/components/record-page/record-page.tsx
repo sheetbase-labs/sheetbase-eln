@@ -60,6 +60,11 @@ export interface RecordPageProps {
   sideLabel?: string
   /** Dialogs and print views the page owns; rendered outside the scroll. */
   overlays?: React.ReactNode
+  /**
+   * The tab content sets its own padding and width (a document read at a
+   * comfortable measure), so the body adds none.
+   */
+  flush?: boolean
   children: React.ReactNode
 }
 
@@ -98,6 +103,7 @@ export function RecordPage({
   side,
   sideLabel,
   overlays,
+  flush = false,
   children,
 }: RecordPageProps) {
   return (
@@ -133,7 +139,10 @@ export function RecordPage({
       <div className="flex min-h-0 flex-1">
         <div
           data-record-page-body
-          className="flex min-w-0 flex-1 flex-col gap-6 overflow-auto px-4 py-5 md:px-6"
+          className={cn(
+            'flex min-w-0 flex-1 flex-col overflow-auto',
+            !flush && 'gap-6 px-4 py-5 md:px-6',
+          )}
         >
           {children}
         </div>

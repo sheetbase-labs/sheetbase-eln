@@ -907,6 +907,12 @@ interface PlainArea {
   order: string
   search: string[]
   page: string
+  /**
+   * The column naming the dataset a row belongs to. A query that names a
+   * dataset (DS-0311, or its name) then narrows to that dataset, and each row
+   * says which dataset it is on.
+   */
+  datasetColumn?: string
 }
 
 const PLAIN_AREAS: Partial<Record<LabArea, PlainArea>> = {
@@ -1052,6 +1058,7 @@ const PLAIN_AREAS: Partial<Record<LabArea, PlainArea>> = {
     order: 'set_at.desc',
     search: ['reason', 'comment'],
     page: '/datasets',
+    datasetColumn: 'dataset_id',
   },
   import_files: {
     table: 'dataset_import_files',
@@ -1060,6 +1067,7 @@ const PLAIN_AREAS: Partial<Record<LabArea, PlainArea>> = {
     order: 'created_at.desc',
     search: ['filename'],
     page: '/import',
+    datasetColumn: 'dataset_id',
   },
   intake_problems: {
     table: 'intake_failures',
@@ -1514,7 +1522,16 @@ async function listLabArea(
     `limit=${input.query && spec.search.length === 0 ? 200 : limit}`,
   ]
 
-  if (input.query && spec.search.length > 0) {
+  const named =
+    input.query && spec.datasetColumn
+      ? await datasetsNamed(client, input.query)
+      : []
+
+  if (named.length > 0 && spec.datasetColumn) {
+    params.push(
+      `${spec.datasetColumn}=in.(${named.map((row) => encodeURIComponent(row.id)).join(',')})`,
+    )
+  } else if (input.query && spec.search.length > 0) {
     const like = likeValue(input.query)
     params.push(
       `or=(${spec.search.map((column) => `${column}.ilike.${like}`).join(',')})`,
@@ -1553,9 +1570,79 @@ async function listLabArea(
 
   return JSON.stringify({
     area: input.area,
-    items: rows,
+    items: spec.datasetColumn
+      ? await withDatasetNames(client, rows, spec.datasetColumn, named)
+      : rows,
     returned: rows.length,
     page: spec.page,
+  })
+}
+
+interface DatasetName {
+  id: string
+  display_id: string | null
+  name: string
+}
+
+/** Datasets a query names by identifier or name, for narrowing to them. */
+async function datasetsNamed(
+  client: DataClient,
+  query: string,
+): Promise<DatasetName[]> {
+  const like = likeValue(query)
+
+  try {
+    return await client.list<DatasetName>(
+      'datasets',
+      `?or=(display_id.ilike.${like},name.ilike.${like})&select=id,display_id,name&limit=10`,
+    )
+  } catch {
+    return []
+  }
+}
+
+/** Each row with the dataset it is on, by identifier and name. */
+async function withDatasetNames(
+  client: DataClient,
+  rows: JsonObject[],
+  column: string,
+  known: DatasetName[],
+): Promise<JsonObject[]> {
+  const ids = [
+    ...new Set(
+      rows.flatMap((row) => {
+        const id = row[column]
+
+        // oxlint-disable-next-line anti-slop/no-runtime-typeof -- Untyped JSON row from PostgREST.
+        return typeof id === 'string' ? [id] : []
+      }),
+    ),
+  ]
+
+  const missing = ids.filter((id) => !known.some((row) => row.id === id))
+
+  const fetched =
+    missing.length > 0
+      ? await client
+          .list<DatasetName>(
+            'datasets',
+            `?id=in.(${missing.map(encodeURIComponent).join(',')})&select=id,display_id,name`,
+          )
+          .catch(() => [])
+      : []
+
+  const byId = new Map([...known, ...fetched].map((row) => [row.id, row]))
+
+  return rows.map((row) => {
+    const id = z.string().safeParse(row[column]).data
+    const dataset = id === undefined ? undefined : byId.get(id)
+
+    return dataset
+      ? {
+          ...row,
+          dataset: `${dataset.display_id ?? ''} ${dataset.name}`.trim(),
+        }
+      : row
   })
 }
 

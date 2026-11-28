@@ -39,8 +39,7 @@ const NOTE =
   'The person sees a card and presses a button to do it; nothing changes until they do.'
 
 export type ExperimentOutcome =
-  | { ok: true; proposal: AssistantProposal }
-  | { ok: false; message: string }
+  { ok: true; proposal: AssistantProposal } | { ok: false; message: string }
 
 type Lookup<T> = { ok: true; value: T } | { ok: false; message: string }
 

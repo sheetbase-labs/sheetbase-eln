@@ -79,8 +79,7 @@ import { describeRepeatRule } from './recurring'
  */
 
 export type PlanningOutcome =
-  | { ok: true; proposal: AssistantProposal }
-  | { ok: false; message: string }
+  { ok: true; proposal: AssistantProposal } | { ok: false; message: string }
 
 export function isInboxReadTool(name: string): boolean {
   return name === INBOX_READ_TOOL

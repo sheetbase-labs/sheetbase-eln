@@ -11,6 +11,7 @@ import type { RecordWire } from '#/lib/notebook-data'
 import { containsPattern } from '#/lib/postgrest-contains'
 import type { PostgrestColumns } from '#/lib/list-filter'
 import { fetchMyProjectAssignments } from '#/lib/workspace-access'
+import { statusWord } from '#/lib/status-words'
 
 /** UI port (roadmap-4/ui-app3): the sample registry, mapped from real sample
  * records onto the app-3 list shape. */
@@ -72,7 +73,7 @@ export function sampleStatus(
   return (
     STATUS[status] ?? {
       tone: 'none',
-      label: status.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase()),
+      label: statusWord(status),
     }
   )
 }

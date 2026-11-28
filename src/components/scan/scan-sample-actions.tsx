@@ -28,6 +28,7 @@ import {
   withdrawSample,
 } from '#/lib/samples'
 import { t } from '#/copy'
+import { statusWord } from '#/lib/status-words'
 
 /**
  * What a person standing at the bench does after scanning a sample: withdraw
@@ -167,7 +168,7 @@ export function ScanSampleActions({
       {!withdrawable && !archived ? (
         <p className="m-0 text-label text-fg-muted">
           {t('library.scan.sampleActions.withdrawIsUnavailableWhileThis', {
-            status: record.status.replace(/_/g, ' '),
+            status: statusWord(record.status).toLowerCase(),
           })}
         </p>
       ) : null}

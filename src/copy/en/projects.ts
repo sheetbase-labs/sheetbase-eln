@@ -460,7 +460,6 @@ export const projects = {
     },
     experiments: {
       title: 'Recent experiments',
-      inProject: '{count} in this project',
       export: 'Export as .eln',
       empty: {
         title: 'No experiments yet',
@@ -468,7 +467,6 @@ export const projects = {
       },
       create: 'Create an experiment',
     },
-    note: 'Add milestones on the Milestones tab.',
     inspector: 'Project details',
     detailsTitle: 'Details',
     review: {
@@ -2053,7 +2051,6 @@ export const projects = {
     project: 'Project',
     owner: 'Owner {name}',
     reviewer: 'Reviewer {name}',
-    you: 'you',
     due: 'Due {date}',
     reviewBand: {
       title: 'Waiting for your review.',

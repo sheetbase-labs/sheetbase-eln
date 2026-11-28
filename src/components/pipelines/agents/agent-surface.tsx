@@ -43,6 +43,7 @@ import type {
   AgentWorkflowStep,
 } from '#/lib/agent-workflows'
 import type { AgentPolicyCredentialOption } from './agents-data'
+import { statusWord } from '#/lib/status-words'
 
 /**
  * UI port (roadmap-4/ui-app3): the agent surface folded into /pipelines/agents
@@ -86,7 +87,7 @@ function stepTone(status: string): Tone {
 }
 
 function statusLabel(status: string): string {
-  return status.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase())
+  return statusWord(status)
 }
 
 // ---------------------------------------------------------------------------

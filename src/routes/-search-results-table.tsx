@@ -2,7 +2,6 @@ import { useMemo } from 'react'
 import { Link, useNavigate } from '@tanstack/react-router'
 
 import { Status } from '#/components/ui/status'
-import type { Tone } from '#/components/ui/status'
 import { SearchResultIcon } from '#/components/search/result-icon'
 import { RegistryGrid } from '#/components/inventory/registry-grid'
 import type { RegistryColumn } from '#/components/inventory/registry-grid'
@@ -18,26 +17,12 @@ import { formatListDate } from '#/lib/list-date'
 import { now } from '#/lib/clock'
 import type { SearchResult } from '#/lib/search'
 import { t } from '#/copy'
-
-function statusTone(status: string): Tone {
-  switch (status) {
-    case 'approved':
-      return 'ok'
-    case 'in_review':
-      return 'review'
-    case 'in_progress':
-      return 'progress'
-    case 'archived':
-      return 'stored'
-    default:
-      return 'none'
-  }
-}
+import { statusTone, statusWord } from '#/lib/status-words'
 
 function statusLabel(status: string, kind?: string): string {
   if (kind === 'sample') return sampleStatus(status).label
 
-  return status.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase())
+  return statusWord(status)
 }
 
 /** One line of matched text, with the match marked. */

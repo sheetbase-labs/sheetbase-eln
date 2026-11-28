@@ -64,6 +64,7 @@ import type { ProtocolVersion } from '#/lib/controlled-protocols'
 import { signInRedirect } from '#/lib/sign-in-redirect'
 import { t } from '#/copy'
 import { formatDate } from '#/lib/format-date'
+import { statusWord } from '#/lib/status-words'
 
 const tabs = [
   'document',
@@ -362,7 +363,7 @@ function ProtocolDocumentTab({
                 <option key={v.id} value={v.id}>
                   {t('library.protocols.detail.version2', {
                     version: v.version,
-                    status: v.status.replace(/_/g, ' '),
+                    status: statusWord(v.status).toLowerCase(),
                   })}
                 </option>
               ))}
@@ -987,7 +988,7 @@ function ProtocolTrainingPanel({
         >
           {versions.map((v) => (
             <option key={v.id} value={v.id}>
-              v{v.version} · {v.status.replace(/_/g, ' ')}
+              v{v.version} · {statusWord(v.status)}
             </option>
           ))}
         </Select>

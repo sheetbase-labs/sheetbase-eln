@@ -32,6 +32,7 @@ import {
   recordDestination,
   sheetPath,
 } from './navigation'
+import { statusWord } from '#/lib/status-words'
 
 /** What recents read of a change event; the payload is by far its largest part. */
 type ChangeEventSignalWire = Omit<ChangeEventRecordWire, 'payload'>
@@ -727,25 +728,6 @@ export function describeRecentChange(
   return `Viewed ${noun}`
 }
 
-// oxlint-disable-next-line anti-slop/no-known-value-widening -- This open lookup accepts server-defined statuses as well as the fixed labels below; the caller retains the existing unknown-status fallback.
-const STATUS_LABELS: Record<string, string> = {
-  draft: 'Draft',
-  planned: 'Planned',
-  in_progress: 'In progress',
-  in_review: 'In review',
-  under_review: 'In review',
-  review: 'In review',
-  approved: 'Approved',
-  locked: 'Locked',
-  paused: 'On hold',
-  failed: 'Failed',
-  complete: 'Complete',
-  completed: 'Complete',
-  active: 'Active',
-  archived: 'Archived',
-  retired: 'Retired',
-}
-
 /**
  * Human label for an item's canonical status. Returns null when the object has
  * no status; unknown values are title-cased rather than hidden.
@@ -759,10 +741,7 @@ export function recentStatusLabel(
   if (item.destination?.startsWith('/samples/'))
     return sampleStatus(item.status).label
 
-  return (
-    STATUS_LABELS[item.status] ??
-    item.status.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase())
-  )
+  return statusWord(item.status)
 }
 
 // ---------------------------------------------------------------------------

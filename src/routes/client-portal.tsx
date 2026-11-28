@@ -53,6 +53,7 @@ import { WORKSPACE_ROLE_LABELS } from '#/lib/workspace-admin'
 import { signInRedirect } from '#/lib/sign-in-redirect'
 import { authClient } from '#/lib/auth-client'
 import { t } from '#/copy'
+import { statusWord } from '#/lib/status-words'
 
 const tabs = ['projects', 'reports', 'messages'] as const
 
@@ -187,7 +188,7 @@ function portalMilestoneState(
 }
 
 function withFallback(status: string): PortalStatus {
-  return { tone: 'none', label: status.replace(/_/g, ' ') }
+  return { tone: 'none', label: statusWord(status) }
 }
 
 const portalMilestoneColumns: RegistryColumn<ClientPortalMilestone>[] = [

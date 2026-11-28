@@ -14,15 +14,16 @@ import {
   useTemplateVersions,
   useTemplateUsers,
 } from '#/components/templates/templates-data'
+import { hasCapability } from '#/lib/capability'
 import { signInRedirect } from '#/lib/sign-in-redirect'
 import { useUserNames } from '#/lib/user-names'
 import { t } from '#/copy'
 
 import { TemplatePageHeader } from './-template-header'
 
-/** UI port (roadmap-4/ui-app3): the template detail frame. The Sections view
- * reads the selected version's stored configuration; Update takes a new version
- * into a notebook that was made from an older one. */
+/** The template detail frame. The Notebook view draws the newest version as
+ * the notebook it makes; Update takes a new version into a notebook that was
+ * made from an older one. */
 export const Route = createFileRoute('/templates/$templateId')({
   beforeLoad: async ({ context: rootContext, location }) => {
     const context = rootContext.auth
@@ -38,6 +39,7 @@ export const Route = createFileRoute('/templates/$templateId')({
 
 function TemplateLayout() {
   const { templateId } = Route.useParams()
+  const { context } = Route.useRouteContext()
   const matchRoute = useMatchRoute()
 
   const onVersions = Boolean(
@@ -127,6 +129,7 @@ function TemplateLayout() {
         inUseCount={inUse.data?.length}
         ownerLabel={owner.userLabel}
         onVersions={onVersions}
+        canPublish={hasCapability(context.workspace?.role, 'schema.publish')}
       />
       <div className="flex min-h-0 flex-1">
         <Outlet />

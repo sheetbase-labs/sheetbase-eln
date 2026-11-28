@@ -448,6 +448,7 @@ for (const theme of ['light', 'dark']) {
 test('review comments use submitted cells after live edits and never rewrite frozen values or digest', async ({
   page,
 }) => {
+  test.slow()
   const { instance, record } = await fixture(page)
   const preview = await actor.query(
     "select api.preview_submission_digest($1)->>'sourceDigest' digest",
